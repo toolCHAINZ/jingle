@@ -2,8 +2,15 @@
 name = "jingle_sleigh"
 version = "0.1.0"
 edition = "2021"
-author = "toolCHAINZ"
+description = "An FFI layer for Ghidra's SLEIGH"
+homepage = "https://github.com/toolCHAINZ/jingle"
+repository = "https://github.com/toolCHAINZ/jingle"
+readme = "README.md"
+license = "MIT"
+authors = ["toolCHAINZ"]
 rust-version = "1.77.0"
+categories = ["api-bindings"]
+keywords = ["ghidra", "sleigh", "pcode"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

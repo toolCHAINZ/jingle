@@ -2,8 +2,15 @@
 name = "jingle"
 version = "0.1.0"
 edition = "2021"
-author = "toolCHAINZ"
+description = "SMT Modeling for Ghidra's PCODE"
+homepage = "https://github.com/toolCHAINZ/jingle"
+repository = "https://github.com/toolCHAINZ/jingle"
+readme = "README.md"
+license = "MIT"
+authors = ["toolCHAINZ"]
 rust-version = "1.77.0"
+categories = ["mathematics"]
+keywords = ["ghidra", "sleigh", "pcode", "smt"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
