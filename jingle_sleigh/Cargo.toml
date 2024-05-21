@@ -1,0 +1,26 @@
+[package]
+name = "jingle_sleigh"
+version = "0.1.0"
+edition = "2021"
+author = "toolCHAINZ"
+rust-version = "1.77.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cxx = "1.0.120"
+serde = { version = "1.0.197", features = ["derive"] }
+serde-xml-rs = "0.6.0"
+thiserror = { version = "1.0.58", features = [] }
+elf = { version = "0.7.4", optional = true }
+object = { version = "0.35.0", optional = true }
+tracing = "0.1.40"
+
+[build-dependencies]
+cxx-build = "1.0.120"
+
+[features]
+compile = []
+elf = ["dep:elf"]
+gimli = ["dep:object"]
+default = ["elf", "gimli"]
