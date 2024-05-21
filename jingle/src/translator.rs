@@ -1,9 +1,8 @@
 use crate::error::JingleError;
 use jingle_sleigh::context::SleighContext;
 use jingle_sleigh::{Instruction, RegisterManager, SpaceInfo, VarNode};
-use tracing::instrument;
 
-use crate::modeling::{ModeledBlock, ModeledInstruction};
+use crate::modeling::ModeledInstruction;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::SpaceManager;
 use z3::Context;

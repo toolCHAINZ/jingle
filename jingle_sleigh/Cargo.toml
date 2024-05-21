@@ -13,7 +13,6 @@ categories = ["api-bindings"]
 keywords = ["ghidra", "sleigh", "pcode"]
 include = [
     "Cargo.toml",
-    "LICENSE",
     "SLEIGH_LICENSE",
     "build.rs",
     "src/**/*.*"

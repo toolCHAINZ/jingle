@@ -10,7 +10,6 @@ use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use z3::ast::{Ast, Bool, BV};
 use z3::Context;
 
 /// A `jingle` model of a basic block
