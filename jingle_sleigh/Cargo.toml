@@ -11,7 +11,9 @@ authors = ["toolCHAINZ"]
 rust-version = "1.77.0"
 categories = ["api-bindings"]
 keywords = ["ghidra", "sleigh", "pcode"]
-
+exclude = [
+    "ghidra",
+]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -31,3 +33,5 @@ compile = []
 elf = ["dep:elf"]
 gimli = ["dep:object"]
 default = ["elf", "gimli"]
+
+
