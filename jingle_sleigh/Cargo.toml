@@ -12,7 +12,7 @@ rust-version = "1.77.0"
 categories = ["api-bindings"]
 keywords = ["ghidra", "sleigh", "pcode"]
 exclude = [
-    "ghidra",
+    "ghidra", "CMakeLists.txt"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
