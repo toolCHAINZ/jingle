@@ -11,8 +11,12 @@ authors = ["toolCHAINZ"]
 rust-version = "1.77.0"
 categories = ["api-bindings"]
 keywords = ["ghidra", "sleigh", "pcode"]
-exclude = [
-    "ghidra", "CMakeLists.txt"
+include = [
+    "Cargo.toml",
+    "LICENSE",
+    "SLEIGH_LICENSE",
+    "build.rs",
+    "src/**/*.*"
 ]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
