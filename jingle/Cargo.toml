@@ -15,8 +15,8 @@ keywords = ["ghidra", "sleigh", "pcode", "smt"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-jingle_sleigh = { path = "../jingle_sleigh" }
-z3 = { git = "https://github.com/prove-rs/z3.rs.git", rev = "1971033" }
+jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.0" }
+z3 = { version = "0.12.1" }
 thiserror = "1.0.58"
 serde = { version = "1.0.197", features = ["derive"] }
 tracing = "0.1.40"
