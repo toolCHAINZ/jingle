@@ -31,7 +31,7 @@ But anyway, here's an example of usage yanked from the tests:
     #[test]
     fn get_one() {
         let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
-        let mut ctx_builder =
+        let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let ctx = ctx_builder
             .set_image(Image::from(mov_eax_0.as_slice()))

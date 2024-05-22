@@ -9,7 +9,6 @@ pub(crate) mod opcode;
 #[cfg(test)]
 mod tests {
     use crate::context::{Image, SleighContextBuilder};
-    use std::path::Path;
 
     #[test]
     fn test_callother_decode() {
