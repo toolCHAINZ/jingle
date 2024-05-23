@@ -2,7 +2,7 @@ mod space;
 
 use crate::error::JingleError;
 use crate::error::JingleError::{
-    ConstantWrite, IndirectConstantRead, Mismatched, UnexpectedArraySort, UnmodeledSpace,
+    ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
 
@@ -149,8 +149,7 @@ impl<'ctx> State<'ctx> {
         val: BV<'b>,
     ) -> Result<(), JingleError> {
         if dest.size as u32 * 8 != val.get_size() {
-            dbg!(dest.size, val.get_size());
-            return Err(Mismatched);
+            return Err(MismatchedWordSize);
         }
         match self.space_info[dest.space_index]._type {
             SpaceType::IPTR_CONSTANT => Err(ConstantWrite),
@@ -166,7 +165,7 @@ impl<'ctx> State<'ctx> {
                         dest.offset,
                         self.space_info[dest.space_index].index_size_bytes * 8,
                     ),
-                );
+                )?;
                 Ok(())
             }
         }
@@ -178,7 +177,7 @@ impl<'ctx> State<'ctx> {
         val: BV<'b>,
     ) -> Result<(), JingleError> {
         if dest.size != val.get_size() as usize {
-            return Err(Mismatched);
+            return Err(MismatchedWordSize);
         }
         // We are allowing writes to the constant space for metadata
         // to allow flagging userop values for syscalls
@@ -193,7 +192,7 @@ impl<'ctx> State<'ctx> {
                 dest.offset,
                 self.space_info[dest.space_index].index_size_bytes * 8,
             ),
-        );
+        )?;
         Ok(())
     }
 
@@ -207,7 +206,7 @@ impl<'ctx> State<'ctx> {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index].write_data(&val, &ptr);
+        self.spaces[dest.pointer_space_index].write_data(&val, &ptr)?;
         Ok(())
     }
 
@@ -220,7 +219,7 @@ impl<'ctx> State<'ctx> {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index].write_metadata(&val, &ptr);
+        self.spaces[dest.pointer_space_index].write_metadata(&val, &ptr)?;
         Ok(())
     }
 
