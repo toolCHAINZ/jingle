@@ -659,14 +659,15 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let output_size = output.size as u32;
                 let size = min(input_size, output_size);
                 let input = bv0.extract((input_low_byte + size) * 8 - 1, input_low_byte * 8);
-                if size < output_size {
-                    self.write(&output.into(), input.zero_ext((output_size - size) * 8))?;
-                } else if output_size < size {
-                    self.write(&output.into(), input.extract(output_size * 8 - 1, 0))?;
-                } else {
-                    self.write(&output.into(), input)?;
+                match size.cmp(&output_size) {
+                    Ordering::Less => {
+                        self.write(&output.into(), input.zero_ext((output_size - size) * 8))
+                    }
+                    Ordering::Greater => {
+                        self.write(&output.into(), input.extract(output_size * 8 - 1, 0))
+                    }
+                    Ordering::Equal => self.write(&output.into(), input),
                 }
-                Ok(())
             }
             PcodeOperation::CallOther { inputs, output } => {
                 let mut hasher = DefaultHasher::new();

@@ -180,26 +180,23 @@ impl<'ctx> State<'ctx> {
         if dest.size != val.get_size() as usize {
             return Err(Mismatched);
         }
-        match self.space_info[dest.space_index]._type {
-            // We are allowing writes to the constant space for metadata
-            // to allow flagging userop values for syscalls
-            _ => {
-                let space = self
-                    .spaces
-                    .get_mut(dest.space_index)
-                    .ok_or(UnmodeledSpace)?;
-                space.write_metadata(
-                    &val,
-                    &BV::from_u64(
-                        self.z3,
-                        dest.offset,
-                        self.space_info[dest.space_index].index_size_bytes * 8,
-                    ),
-                );
-                Ok(())
-            }
-        }
+        // We are allowing writes to the constant space for metadata
+        // to allow flagging userop values for syscalls
+        let space = self
+            .spaces
+            .get_mut(dest.space_index)
+            .ok_or(UnmodeledSpace)?;
+        space.write_metadata(
+            &val,
+            &BV::from_u64(
+                self.z3,
+                dest.offset,
+                self.space_info[dest.space_index].index_size_bytes * 8,
+            ),
+        );
+        Ok(())
     }
+
     /// Model a write to an [IndirectVarNode] on top of the current context.
     pub fn write_varnode_indirect<'a>(
         &'a mut self,

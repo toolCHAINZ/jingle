@@ -3,9 +3,9 @@ use bridge::ContextFFI;
 use cxx::{Exception, UniquePtr};
 use std::sync::Mutex;
 
-pub(crate) static CTX_BUILD_MUTEX: Mutex<
-    fn(&str, bridge::Image) -> Result<UniquePtr<ContextFFI>, Exception>,
-> = Mutex::new(makeContext);
+type ContextGeneratorFp = fn(&str, bridge::Image) -> Result<UniquePtr<ContextFFI>, Exception>;
+
+pub(crate) static CTX_BUILD_MUTEX: Mutex<ContextGeneratorFp> = Mutex::new(makeContext);
 
 #[cxx::bridge]
 pub(crate) mod bridge {

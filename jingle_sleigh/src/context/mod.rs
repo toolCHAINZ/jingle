@@ -50,7 +50,7 @@ impl SpaceManager for SleighContext {
 
 impl RegisterManager for SleighContext {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.ctx.getRegister(name).map(|f| VarNode::from(f)).ok()
+        self.ctx.getRegister(name).map(VarNode::from).ok()
     }
 
     fn get_register_name(&self, location: VarNode) -> Option<&str> {

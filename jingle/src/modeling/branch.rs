@@ -33,9 +33,7 @@ impl BlockEndBehavior {
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
-                    GeneralizedVarNode::Direct(d) => {
-                        ctx.get_final_state().read_varnode_metadata(&d)
-                    }
+                    GeneralizedVarNode::Direct(d) => ctx.get_final_state().read_varnode_metadata(d),
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()
@@ -84,7 +82,7 @@ impl BranchConstraint {
 
     pub fn has_branch(&self) -> bool {
         match self.last {
-            Fallthrough(_) => self.conditional_branches.len() != 0,
+            Fallthrough(_) => self.conditional_branches.is_empty(),
             UnconditionalBranch(_) => true,
         }
     }
