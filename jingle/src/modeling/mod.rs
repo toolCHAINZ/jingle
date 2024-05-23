@@ -182,8 +182,8 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
             Ok(Some(Bool::and(
                 self.get_z3(),
                 &[
-                    &self_bv._eq(&other_bv).simplify(),
-                    &self_bv_metadata._eq(&other_bv_metadata).simplify(),
+                    self_bv._eq(&other_bv).simplify(),
+                    self_bv_metadata._eq(&other_bv_metadata).simplify(),
                 ],
             )))
         }
