@@ -18,7 +18,7 @@ pub(crate) struct ModeledSpace<'ctx> {
     data: Array<'ctx>,
     #[allow(unused)]
     metadata: Array<'ctx>,
-    space_info: SpaceInfo
+    space_info: SpaceInfo,
 }
 
 impl<'ctx> ModeledSpace<'ctx> {
@@ -29,7 +29,8 @@ impl<'ctx> ModeledSpace<'ctx> {
         Self {
             endianness: space_info.endianness,
             data: Array::fresh_const(z3, &space_info.name, &domain, &range),
-            metadata: Array::const_array(z3, &domain, &BV::from_u64(z3, 0, 1)), space_info: space_info.clone()
+            metadata: Array::const_array(z3, &domain, &BV::from_u64(z3, 0, 1)),
+            space_info: space_info.clone(),
         }
     }
 
@@ -44,8 +45,8 @@ impl<'ctx> ModeledSpace<'ctx> {
         offset: &BV<'ctx>,
         size_bytes: usize,
     ) -> Result<BV<'ctx>, JingleError> {
-        if offset.get_size() != self.space_info.index_size_bytes * 8{
-            return Err(MismatchedAddressSize)
+        if offset.get_size() != self.space_info.index_size_bytes * 8 {
+            return Err(MismatchedAddressSize);
         }
         read_from_array(&self.data, offset, size_bytes, self.endianness)
     }
@@ -57,25 +58,33 @@ impl<'ctx> ModeledSpace<'ctx> {
         offset: &BV<'ctx>,
         size_bytes: usize,
     ) -> Result<BV<'ctx>, JingleError> {
-        if offset.get_size() != self.space_info.index_size_bytes * 8{
-            return Err(MismatchedAddressSize)
+        if offset.get_size() != self.space_info.index_size_bytes * 8 {
+            return Err(MismatchedAddressSize);
         }
         read_from_array(&self.metadata, offset, size_bytes, self.endianness)
     }
 
     /// Write the given bitvector of data to the given bitvector offset
-    pub(crate) fn write_data(&mut self, val: &BV<'ctx>, offset: &BV<'ctx>) -> Result<(), JingleError> {
-        if offset.get_size() != self.space_info.index_size_bytes * 8{
-            return Err(MismatchedAddressSize)
+    pub(crate) fn write_data(
+        &mut self,
+        val: &BV<'ctx>,
+        offset: &BV<'ctx>,
+    ) -> Result<(), JingleError> {
+        if offset.get_size() != self.space_info.index_size_bytes * 8 {
+            return Err(MismatchedAddressSize);
         }
         self.data = write_to_array::<8>(&self.data, val, offset, self.endianness);
         Ok(())
     }
 
     /// Write the given bitvector of metadata to the given bitvector offset
-    pub(crate) fn write_metadata(&mut self, val: &BV<'ctx>, offset: &BV<'ctx>) -> Result<(), JingleError> {
-        if offset.get_size() != self.space_info.index_size_bytes * 8{
-            return Err(MismatchedAddressSize)
+    pub(crate) fn write_metadata(
+        &mut self,
+        val: &BV<'ctx>,
+        offset: &BV<'ctx>,
+    ) -> Result<(), JingleError> {
+        if offset.get_size() != self.space_info.index_size_bytes * 8 {
+            return Err(MismatchedAddressSize);
         }
         self.metadata = write_to_array::<1>(&self.metadata, val, offset, self.endianness);
         Ok(())
