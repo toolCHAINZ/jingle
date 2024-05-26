@@ -82,7 +82,7 @@ impl BranchConstraint {
 
     pub fn has_branch(&self) -> bool {
         match self.last {
-            Fallthrough(_) => self.conditional_branches.is_empty(),
+            Fallthrough(_) => !self.conditional_branches.is_empty(),
             UnconditionalBranch(_) => true,
         }
     }
