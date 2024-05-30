@@ -5,7 +5,7 @@ use crate::modeling::State;
 
 #[derive(Clone, Debug)]
 pub struct JingleContext<'ctx> {
-    z3: &'ctx Context,
+    pub z3: &'ctx Context,
     spaces: Vec<SpaceInfo>,
     default_code_space_index: usize,
     varnode_name_mapping: HashMap<VarNode, String>,
@@ -62,11 +62,5 @@ impl<'ctx> RegisterManager for JingleContext<'ctx> {
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
         self.varnode_name_mapping.clone().into_iter().collect()
-    }
-}
-
-impl<'ctx> AsRef<Context> for JingleContext<'ctx> {
-    fn as_ref(&self) -> &Context {
-        self.z3
     }
 }
