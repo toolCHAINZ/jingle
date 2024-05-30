@@ -1,7 +1,7 @@
+use crate::modeling::State;
+use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::collections::HashMap;
 use z3::Context;
-use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
-use crate::modeling::State;
 
 #[derive(Clone, Debug)]
 pub struct JingleContext<'ctx> {
@@ -11,7 +11,6 @@ pub struct JingleContext<'ctx> {
     varnode_name_mapping: HashMap<VarNode, String>,
     name_varnode_mapping: HashMap<String, VarNode>,
 }
-
 
 impl<'ctx> JingleContext<'ctx> {
     pub fn new<R: RegisterManager>(z3: &'ctx Context, r: &R) -> Self {

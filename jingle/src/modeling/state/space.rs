@@ -10,8 +10,8 @@ use z3::{Context, Sort};
 ///
 /// `jingle` also maintains a separate Array holding "metadata" for the space. For right now, this
 /// metadata has a single-bit bitvector as its word type, and it is only used for tracking whether
-/// a given value originated from a CALLOTHER operation. This is necessary for distinguishing between
-/// normal indirect jumps and some syscalls
+/// a given value originated from a CALLOTHER operation. This is necessary for distinguishing
+/// between normal indirect jumps and some syscalls
 #[derive(Clone, Debug)]
 pub(crate) struct ModeledSpace<'ctx> {
     endianness: SleighEndianness,
@@ -152,10 +152,12 @@ mod tests {
     fn test_endian_write(e: SleighEndianness) {
         let z3 = Context::new(&Config::new());
         let mut space = make_space(&z3, e);
-        space.write_data(
-            &BV::from_u64(&z3, 0xdead_beef, 32),
-            &BV::from_u64(&z3, 0, 32),
-        ).unwrap();
+        space
+            .write_data(
+                &BV::from_u64(&z3, 0xdead_beef, 32),
+                &BV::from_u64(&z3, 0, 32),
+            )
+            .unwrap();
         let expected = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
@@ -178,10 +180,12 @@ mod tests {
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
         };
         for i in 0..4 {
-            space.write_data(
-                &BV::from_u64(&z3, byte_layout[i as usize], 8),
-                &BV::from_u64(&z3, i, 32),
-            ).unwrap();
+            space
+                .write_data(
+                    &BV::from_u64(&z3, byte_layout[i as usize], 8),
+                    &BV::from_u64(&z3, i, 32),
+                )
+                .unwrap();
         }
         let val = space
             .read_data(&BV::from_u64(&z3, 0, 32), 4)
@@ -194,7 +198,9 @@ mod tests {
     fn test_single_write(e: SleighEndianness) {
         let z3 = Context::new(&Config::new());
         let mut space = make_space(&z3, e);
-        space.write_data(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32)).unwrap();
+        space
+            .write_data(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32))
+            .unwrap();
         let expected = 0x42;
         let data = space
             .read_data(&BV::from_u64(&z3, 0, 32), 1)
