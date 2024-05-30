@@ -155,7 +155,7 @@ mod tests {
         space.write_data(
             &BV::from_u64(&z3, 0xdead_beef, 32),
             &BV::from_u64(&z3, 0, 32),
-        );
+        ).unwrap();
         let expected = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
@@ -181,7 +181,7 @@ mod tests {
             space.write_data(
                 &BV::from_u64(&z3, byte_layout[i as usize], 8),
                 &BV::from_u64(&z3, i, 32),
-            );
+            ).unwrap();
         }
         let val = space
             .read_data(&BV::from_u64(&z3, 0, 32), 4)
@@ -194,7 +194,7 @@ mod tests {
     fn test_single_write(e: SleighEndianness) {
         let z3 = Context::new(&Config::new());
         let mut space = make_space(&z3, e);
-        space.write_data(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32));
+        space.write_data(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32)).unwrap();
         let expected = 0x42;
         let data = space
             .read_data(&BV::from_u64(&z3, 0, 32), 1)
