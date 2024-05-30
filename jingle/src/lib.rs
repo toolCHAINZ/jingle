@@ -2,6 +2,7 @@ mod error;
 pub mod modeling;
 mod translator;
 pub mod varnode;
+mod context;
 
 pub use jingle_sleigh as sleigh;
 
