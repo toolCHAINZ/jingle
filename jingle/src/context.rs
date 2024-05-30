@@ -3,6 +3,7 @@ use z3::Context;
 use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use crate::modeling::State;
 
+#[derive(Clone, Debug)]
 pub struct JingleContext<'ctx> {
     z3: &'ctx Context,
     spaces: Vec<SpaceInfo>,
