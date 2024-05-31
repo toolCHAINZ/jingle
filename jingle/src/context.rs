@@ -1,6 +1,5 @@
 use crate::modeling::State;
-use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
-use std::collections::HashMap;
+use jingle_sleigh::{ SpaceInfo, SpaceManager};
 use z3::Context;
 
 #[derive(Clone, Debug)]
@@ -11,7 +10,7 @@ pub struct JingleContext<'ctx> {
 }
 
 impl<'ctx> JingleContext<'ctx> {
-    pub fn new<R: RegisterManager>(z3: &'ctx Context, r: &R) -> Self {
+    pub fn new<S: SpaceManager>(z3: &'ctx Context, r: &S) -> Self {
         let spaces = r.get_all_space_info().to_vec();
         let default_code_space_index = r.get_code_space_idx();
         Self {
