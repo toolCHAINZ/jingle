@@ -12,7 +12,7 @@ use jingle_sleigh::{
     GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType, VarNode,
 };
 use std::ops::Add;
-use z3::ast::{Array, Ast, BV};
+use z3::ast::{Array, Ast, Bool, BV};
 use z3::Context;
 
 /// Represents the modeled combined memory state of the system. State
@@ -262,5 +262,21 @@ impl<'ctx> State<'ctx> {
             .reduce(|a, b| a.concat(&b))
             .map(|b| b.simplify())
             .unwrap()
+    }
+
+    pub fn _eq(&self, other: &State<'ctx>) -> Result<Bool<'ctx>, JingleError> {
+        let mut terms = vec![];
+        for (i, _) in self
+            .get_all_space_info()
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
+        {
+            let self_space = self.get_space(i)?;
+            let other_space = other.get_space(i)?;
+            terms.push(self_space._eq(other_space))
+        }
+        let eq_terms: Vec<&Bool> = terms.iter().collect();
+        Ok(Bool::and(self.z3, eq_terms.as_slice()))
     }
 }

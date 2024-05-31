@@ -1,5 +1,5 @@
 use crate::modeling::State;
-use jingle_sleigh::{ SpaceInfo, SpaceManager};
+use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;
 
 #[derive(Clone, Debug)]
