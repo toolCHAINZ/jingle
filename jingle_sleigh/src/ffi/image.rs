@@ -9,14 +9,14 @@ pub(crate) mod bridge {
         pub(crate) exec: bool,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Clone)]
     pub struct ImageSection {
         pub(crate) data: Vec<u8>,
         pub(crate) base_address: usize,
         pub(crate) perms: Perms,
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct Image {
         pub sections: Vec<ImageSection>,
     }
