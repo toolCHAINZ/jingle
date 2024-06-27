@@ -1,6 +1,5 @@
 use crate::modeling::State;
-use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
-use std::collections::HashMap;
+use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;
 
 #[derive(Clone, Debug)]
@@ -8,25 +7,14 @@ pub struct JingleContext<'ctx> {
     pub z3: &'ctx Context,
     spaces: Vec<SpaceInfo>,
     default_code_space_index: usize,
-    varnode_name_mapping: HashMap<VarNode, String>,
-    name_varnode_mapping: HashMap<String, VarNode>,
 }
 
 impl<'ctx> JingleContext<'ctx> {
-    pub fn new<R: RegisterManager>(z3: &'ctx Context, r: &R) -> Self {
-        let regs = r.get_registers();
-        let mut varnode_name_mapping = HashMap::new();
-        let mut name_varnode_mapping = HashMap::new();
-        for (vn, s) in regs {
-            varnode_name_mapping.insert(vn.clone(), s.clone());
-            name_varnode_mapping.insert(s, vn);
-        }
+    pub fn new<S: SpaceManager>(z3: &'ctx Context, r: &S) -> Self {
         let spaces = r.get_all_space_info().to_vec();
         let default_code_space_index = r.get_code_space_idx();
         Self {
             z3,
-            varnode_name_mapping,
-            name_varnode_mapping,
             spaces,
             default_code_space_index,
         }
@@ -47,19 +35,5 @@ impl<'ctx> SpaceManager for JingleContext<'ctx> {
 
     fn get_code_space_idx(&self) -> usize {
         self.default_code_space_index
-    }
-}
-
-impl<'ctx> RegisterManager for JingleContext<'ctx> {
-    fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.name_varnode_mapping.get(name).cloned()
-    }
-
-    fn get_register_name(&self, location: VarNode) -> Option<&str> {
-        self.varnode_name_mapping.get(&location).map(|f| f.as_str())
-    }
-
-    fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.varnode_name_mapping.clone().into_iter().collect()
     }
 }

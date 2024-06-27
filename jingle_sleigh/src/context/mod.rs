@@ -17,10 +17,12 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use crate::context::builder::language_def::LanguageDefinition;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
     spaces: Vec<SpaceInfo>,
+    language_id: String,
     pub image: Image,
 }
 
@@ -74,7 +76,8 @@ impl RegisterManager for SleighContext {
 }
 
 impl SleighContext {
-    pub(crate) fn new(path: &Path, image: Image) -> Result<Self, JingleSleighError> {
+    pub(crate) fn new<T: AsRef<Path>>(language_def: &LanguageDefinition, base_path: T, image: Image) -> Result<Self, JingleSleighError> {
+        let path = base_path.as_ref().join(&language_def.sla_file);
         let abs = path.canonicalize().map_err(|_| LanguageSpecRead)?;
         let path_str = abs.to_str().ok_or(LanguageSpecRead)?;
         match CTX_BUILD_MUTEX.lock() {
@@ -84,7 +87,7 @@ impl SleighContext {
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
                 }
-                Ok(Self { image, ctx, spaces })
+                Ok(Self { image, ctx, spaces, language_id: language_def.id.clone() })
             }
             Err(_) => Err(SleighInitError),
         }
@@ -104,6 +107,10 @@ impl SleighContext {
             spaces.push(self.ctx.getSpaceByIndex(i))
         }
         spaces
+    }
+
+    pub fn get_language_id(&self) -> &str {
+        &self.language_id
     }
 }
 

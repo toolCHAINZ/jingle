@@ -52,9 +52,9 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
     /// from the [State] returned by [get_final_state], as it is guaranteed to have a handle to
     /// all intermediate spaces that may be referenced
     fn get_inputs(&self) -> HashSet<ResolvedVarnode<'ctx>>;
-    /// Get a hashset of the addresses written by this trace. The values returned in this hashset are
-    /// fully modeled: a read from a given varnode will evaluate to its value at the stage in the
-    /// computation that the read was performed. Because of this, these should always be read
+    /// Get a hashset of the addresses written by this trace. The values returned in this hashset
+    /// are fully modeled: a read from a given varnode will evaluate to its value at the stage in
+    /// the computation that the read was performed. Because of this, these should always be read
     /// from the [State] returned by [get_final_state], as it is guaranteed to have a handle to
     /// all intermediate spaces that may be referenced
     fn get_outputs(&self) -> HashSet<ResolvedVarnode<'ctx>>;
@@ -144,24 +144,11 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
         &self,
         other: &T,
     ) -> Result<Bool<'ctx>, JingleError> {
-        let mut terms = vec![];
-        for (i, _) in self
-            .get_final_state()
-            .get_all_space_info()
-            .iter()
-            .enumerate()
-            .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
-        {
-            let other = other.get_original_state().get_space(i)?;
-            let space = self.get_final_state().get_space(i)?;
-            terms.push(space._eq(other).simplify())
-        }
-        let eq_terms: Vec<&Bool> = terms.iter().collect();
-        Ok(Bool::and(self.get_z3(), eq_terms.as_slice()))
+        self.get_final_state()._eq(other.get_original_state())
     }
 
-    /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same destination
-    /// as [self], given that [self] has branching behavior
+    /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same
+    /// destination as [self], given that [self] has branching behavior
     /// todo: should swap self and other to make this align better with [upholds_postcondition]
     fn branch_comparison<T: ModelingContext<'ctx>>(
         &self,
@@ -199,8 +186,8 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
 
 /// This trait is used for types that build modeling contexts. This could maybe be a single
 /// struct instead of a trait.
-/// The helper methods in here allow for parsing pcode operations into z3 formulae, and automatically
-/// tracking the inputs/outputs of each operation and traces composed thereof
+/// The helper methods in here allow for parsing pcode operations into z3 formulae, and
+/// automatically tracking the inputs/outputs of each operation and traces composed thereof
 pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
     /// Adds a [GeneralizedVarNode] to the "input care set" for this operation.
     /// This is usually used for asserting equality of all input varnodes when
