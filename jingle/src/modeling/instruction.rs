@@ -125,10 +125,10 @@ impl<'ctx> TranslationContext<'ctx> for ModeledInstruction<'ctx> {
     }
 }
 
-impl<'ctx> From<&[ModeledInstruction<'ctx>]> for ModeledInstruction<'ctx>{
+/*impl<'ctx> From<&[ModeledInstruction<'ctx>]> for ModeledInstruction<'ctx>{
     fn from(value: &[ModeledInstruction<'ctx>]) -> Self {
         for instr in value.iter() {
             instr.
         }
     }
-}
+}*/

@@ -24,7 +24,8 @@ pub(crate) mod bridge {
 
 impl Debug for bridge::ImageSection{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let d = f.debug_struct("ImageSection").field("base_address", &self.base_address).field("perms", &self.perms);
+        let mut d = f.debug_struct("ImageSection");
+        d.field("base_address", &self.base_address).field("perms", &self.perms);
         if self.data.len() > 16{
             d.field("data", &format!("[ < {} bytes > ]", self.data.len()));
         }else{
