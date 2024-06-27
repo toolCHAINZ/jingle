@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 #[cxx::bridge]
 pub(crate) mod bridge {
     #[derive(Debug, Clone)]
@@ -14,8 +16,21 @@ pub(crate) mod bridge {
         pub(crate) perms: Perms,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Clone)]
     pub struct Image {
         pub sections: Vec<ImageSection>,
     }
 }
+
+impl Debug for bridge::ImageSection{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let d = f.debug_struct("ImageSection").field("base_address", &self.base_address).field("perms", &self.perms);
+        if self.data.len() > 16{
+            d.field("data", &format!("[ < {} bytes > ]", self.data.len()));
+        }else{
+            d.field("data", &self.data);
+        }
+        d.finish()
+    }
+}
+
