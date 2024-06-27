@@ -31,8 +31,7 @@ impl SleighContextBuilder {
     pub fn build(mut self, id: &str) -> Result<SleighContext, JingleSleighError> {
         let image = self.image.take().ok_or(NoImageProvided)?;
         let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId)?;
-        let sla_path = path.join(&lang.sla_file);
-        let mut context = SleighContext::new(&sla_path, image)?;
+        let mut context = SleighContext::new(lang, path, image)?;
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);
         let pspec = parse_pspec(&pspec_path)?;
