@@ -98,7 +98,11 @@ impl SleighContext {
     }
 
     pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs)
+        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
+    }
+
+    pub fn read_block(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
+        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
@@ -118,14 +122,18 @@ pub struct SleighContextInstructionIterator<'a> {
     sleigh: &'a SleighContext,
     remaining: usize,
     offset: u64,
+    terminate_branch: bool,
+    already_hit_branch: bool,
 }
 
 impl<'a> SleighContextInstructionIterator<'a> {
-    pub(crate) fn new(sleigh: &'a SleighContext, offset: u64, remaining: usize) -> Self {
+    pub(crate) fn new(sleigh: &'a SleighContext, offset: u64, remaining: usize, terminate_branch: bool) -> Self {
         SleighContextInstructionIterator {
             sleigh,
             remaining,
             offset,
+            terminate_branch,
+            already_hit_branch: false,
         }
     }
 }
@@ -140,12 +148,16 @@ impl<'a> Iterator for SleighContextInstructionIterator<'a> {
         if !self.sleigh.image.contains_address(self.offset as usize) {
             return None;
         }
+        if self.terminate_branch && self.already_hit_branch{
+            return None;
+        }
         let instr = self
             .sleigh
             .ctx
             .get_one_instruction(self.offset)
             .map(Instruction::from)
             .ok()?;
+        self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;
         Some(instr)
