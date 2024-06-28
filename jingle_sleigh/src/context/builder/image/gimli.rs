@@ -4,7 +4,10 @@ use crate::JingleSleighError;
 use crate::JingleSleighError::ImageLoadError;
 use object::elf::{PF_R, PF_W, PF_X, SHF_EXECINSTR, SHF_WRITE};
 use object::macho::{VM_PROT_EXECUTE, VM_PROT_READ, VM_PROT_WRITE};
-use object::{Architecture, Endianness, File, Object, ObjectSection, ObjectSegment, SectionFlags, SegmentFlags};
+use object::{
+    Architecture, Endianness, File, Object, ObjectSection, ObjectSegment, SectionFlags,
+    SegmentFlags,
+};
 
 impl<'d> TryFrom<File<'d>> for Image {
     type Error = JingleSleighError;
@@ -14,11 +17,13 @@ impl<'d> TryFrom<File<'d>> for Image {
             let base_address = x.address();
             let data = x.data().map_err(|_| ImageLoadError)?.to_vec();
             let perms = map_flags(&x.flags());
-            img.sections.push(ImageSection {
-                perms,
-                data,
-                base_address: base_address as usize,
-            })
+            if perms.exec {
+                img.sections.push(ImageSection {
+                    perms,
+                    data,
+                    base_address: base_address as usize,
+                })
+            }
         }
         Ok(img)
     }
@@ -43,6 +48,7 @@ fn map_flags(flags: &SectionFlags) -> Perms {
         },
     }
 }
+
 pub fn map_gimli_architecture(file: &File) -> Option<&'static str> {
     match &file.architecture() {
         Architecture::Unknown => None,
