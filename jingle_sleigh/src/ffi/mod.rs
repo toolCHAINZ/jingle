@@ -17,7 +17,7 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
         let bin_sleigh = builder
-            .set_image(Image::try_from(bytes.as_slice()).unwrap())
+            .set_image(Image::from(bytes.as_slice()))
             .build("x86:LE:64:default")
             .unwrap();
         let _lib = bin_sleigh.read(0, 1).next().unwrap();
@@ -29,7 +29,7 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
         let bin_sleigh = builder
-            .set_image(Image::try_from(bytes.as_slice()).unwrap())
+            .set_image(Image::from(bytes.as_slice()))
             .build("x86:LE:64:default")
             .unwrap();
         let _lib = bin_sleigh.read(0, 1).next().unwrap();

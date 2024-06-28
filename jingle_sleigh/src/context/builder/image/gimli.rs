@@ -2,11 +2,10 @@ use crate::context::builder::image::Perms;
 use crate::context::{Image, ImageSection};
 use crate::JingleSleighError;
 use crate::JingleSleighError::ImageLoadError;
-use object::elf::{PF_R, PF_W, PF_X, SHF_EXECINSTR, SHF_WRITE};
+use object::elf::{SHF_EXECINSTR, SHF_WRITE};
 use object::macho::{VM_PROT_EXECUTE, VM_PROT_READ, VM_PROT_WRITE};
 use object::{
-    Architecture, Endianness, File, Object, ObjectSection, ObjectSegment, SectionFlags,
-    SegmentFlags,
+    Architecture, Endianness, File, Object, ObjectSection, SectionFlags,
 };
 
 impl<'d> TryFrom<File<'d>> for Image {

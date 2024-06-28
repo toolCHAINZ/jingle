@@ -182,8 +182,7 @@ mod tests {
             space_index: 0,
             size: 4,
         };
-        let tests = vec![
-            VarNode {
+        let tests = [VarNode {
                 offset: 0,
                 space_index: 0,
                 size: 4,
@@ -212,8 +211,7 @@ mod tests {
                 offset: 2,
                 space_index: 0,
                 size: 1,
-            },
-        ];
-        assert!(tests.iter().all(|v| vn1.covers(&v)))
+            }];
+        assert!(tests.iter().all(|v| vn1.covers(v)))
     }
 }

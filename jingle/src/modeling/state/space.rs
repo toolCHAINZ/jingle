@@ -147,7 +147,7 @@ mod tests {
             index: 0,
             _type: SpaceType::IPTR_PROCESSOR,
         };
-        ModeledSpace::new(&z3, &space_info)
+        ModeledSpace::new(z3, &space_info)
     }
     fn test_endian_write(e: SleighEndianness) {
         let z3 = Context::new(&Config::new());
