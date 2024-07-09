@@ -27,6 +27,7 @@ fn main() {
 
     let mut cpp_sources = vec![
         "src/ffi/cpp/sleigh/address.cc",
+        "src/ffi/cpp/sleigh/compression.cc",
         "src/ffi/cpp/sleigh/context.cc",
         "src/ffi/cpp/sleigh/globalcontext.cc",
         "src/ffi/cpp/sleigh/float.cc",
@@ -34,6 +35,7 @@ fn main() {
         "src/ffi/cpp/sleigh/opcodes.cc",
         "src/ffi/cpp/sleigh/pcoderaw.cc",
         "src/ffi/cpp/sleigh/semantics.cc",
+        "src/ffi/cpp/sleigh/slaformat.cc",
         "src/ffi/cpp/sleigh/sleigh.cc",
         "src/ffi/cpp/sleigh/sleighbase.cc",
         "src/ffi/cpp/sleigh/slghpatexpress.cc",

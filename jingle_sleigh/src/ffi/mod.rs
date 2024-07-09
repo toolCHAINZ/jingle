@@ -6,6 +6,10 @@ pub(crate) mod image;
 pub(crate) mod instruction;
 pub(crate) mod opcode;
 
+// Need to pull this in somewhere so that libz symbols are available
+// for the `sleigh` CPP code at link-time.
+use libz_sys;
+
 #[cfg(test)]
 mod tests {
     use crate::context::{Image, SleighContextBuilder};
