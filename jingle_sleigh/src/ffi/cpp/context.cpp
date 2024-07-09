@@ -90,7 +90,13 @@ ContextFFI::ContextFFI(rust::Str slaPath, Image image) {
 
     this->img = DummyLoadImage(std::move(image));
     documentStorage = ghidra::DocumentStorage();
-    ghidra::Document *doc = documentStorage.openDocument(slaPath.operator std::string());
+
+    std::stringstream sleighfilename;
+    sleighfilename << "<sleigh>";
+    sleighfilename << slaPath;
+    sleighfilename << "</sleigh>";
+
+    ghidra::Document *doc = documentStorage.parseDocument(sleighfilename);
     ghidra::Element *root = doc->getRoot();
     documentStorage.registerTag(root);
     sleigh = std::make_unique<ghidra::Sleigh>(&img, &contextDatabase);
