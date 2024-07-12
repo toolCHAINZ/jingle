@@ -38,4 +38,5 @@ pub(crate) mod bridge {
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
     }
+    impl Vec<RegisterInfoFFI> {}
 }

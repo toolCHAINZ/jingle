@@ -183,7 +183,7 @@ mod test {
     use crate::context::builder::image::Image;
     use crate::context::builder::SleighContextBuilder;
     use crate::pcode::PcodeOperation;
-    use crate::{Instruction, SpaceManager};
+    use crate::{Instruction, RegisterManager, SpaceManager};
 
     use crate::tests::SLEIGH_ARCH;
     use crate::varnode;
@@ -220,5 +220,17 @@ mod test {
             .unwrap();
         let instr: Vec<Instruction> = ctx.read_block(0, 2).collect();
         assert_eq!(instr.len(), 1);
+    }
+
+    #[test]
+    fn get_regs(){
+        let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let ctx = ctx_builder
+            .set_image(Image::from(mov_eax_0.as_slice()))
+            .build(SLEIGH_ARCH)
+            .unwrap();
+        assert_eq!(ctx.get_registers(), vec![]);
     }
 }

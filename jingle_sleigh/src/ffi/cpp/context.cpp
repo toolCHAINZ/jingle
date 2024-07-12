@@ -171,6 +171,9 @@ rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
     std::map<ghidra::VarnodeData, std::string> reglist;
     rust::Vec<RegisterInfoFFI> v;
     sleigh->getAllRegisters(reglist);
-    std::transform(reglist.begin(), reglist.end(), std::back_inserter(v), collectRegInfo);
+    v.reserve(reglist.size());
+    for (auto const& vn : reglist){
+        v.emplace_back(collectRegInfo(vn));
+    }
     return v;
 }
