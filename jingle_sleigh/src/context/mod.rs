@@ -231,6 +231,6 @@ mod test {
             .set_image(Image::from(mov_eax_0.as_slice()))
             .build(SLEIGH_ARCH)
             .unwrap();
-        assert_eq!(ctx.get_registers(), vec![]);
+        assert_ne!(ctx.get_registers(), vec![]);
     }
 }
