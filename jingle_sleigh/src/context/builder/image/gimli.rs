@@ -20,7 +20,9 @@ impl<'d> TryFrom<File<'d>> for Image {
             let perms = map_flags(&x.flags());
             if perms.exec {
                 let name = x.name().unwrap_or("<unknown>");
-                event!(Level::TRACE,"Selecting section {} at {:x}", name, base_address);
+                let start = base_address;
+                let end = base_address + data.len() as u64;
+                event!(Level::TRACE,"Selecting section {} ({:x}-{:x})", name, start, end);
                 img.sections.push(ImageSection {
                     perms,
                     data,
