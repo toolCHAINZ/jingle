@@ -51,6 +51,10 @@ public:
     rust::Vec<RegisterInfoFFI> getRegisters() const;
 };
 
+RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData*, std::string> el);
+
+VarnodeInfoFFI varnodeToFFI(ghidra::VarnodeData vn);
+
 std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath, Image img);
 
 #endif //JINGLE_SLEIGH_CONTEXT_H
