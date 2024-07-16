@@ -7,9 +7,11 @@ use object::macho::{VM_PROT_EXECUTE, VM_PROT_READ, VM_PROT_WRITE};
 use object::{
     Architecture, Endianness, File, Object, ObjectSection, SectionFlags,
 };
+use tracing::{event, instrument, Level};
 
 impl<'d> TryFrom<File<'d>> for Image {
     type Error = JingleSleighError;
+    #[instrument(skip_all)]
     fn try_from(value: File) -> Result<Self, Self::Error> {
         let mut img: Image = Image { sections: vec![] };
         for x in value.sections() {
@@ -17,6 +19,8 @@ impl<'d> TryFrom<File<'d>> for Image {
             let data = x.data().map_err(|_| ImageLoadError)?.to_vec();
             let perms = map_flags(&x.flags());
             if perms.exec {
+                let name = x.name().unwrap_or("<unknown>");
+            event!(Level::TRACE,"Selecting section {} at {:x}", name, base_address);
                 img.sections.push(ImageSection {
                     perms,
                     data,
