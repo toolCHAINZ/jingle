@@ -11,6 +11,7 @@ pub struct ContextSet {
     #[serde(rename = "val")]
     pub value: u64,
 }
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename = "context_set")]
 pub struct ContextSetSpace {

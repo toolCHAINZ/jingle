@@ -4,6 +4,7 @@ use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::display::PcodeOperationDisplay;
 use crate::pcode::PcodeOperation;
 use crate::space::SpaceManager;
+use crate::JingleSleighError::EmptyInstruction;
 use crate::OpCode;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -80,5 +81,29 @@ impl From<InstructionFFI> for Instruction {
             length: value.length,
             address: value.address,
         }
+    }
+}
+
+/// todo: this is a gross placeholder until I refactor stuff into a proper
+/// trace
+impl TryFrom<&[Instruction]> for Instruction {
+    type Error = JingleSleighError;
+    fn try_from(value: &[Instruction]) -> Result<Self, JingleSleighError> {
+        if value.is_empty() {
+            return Err(EmptyInstruction);
+        }
+        let ops: Vec<PcodeOperation> = value.iter().flat_map(|i| i.ops.iter().cloned()).collect();
+        let length = value.iter().map(|i| i.length).reduce(|a, b| a + b).unwrap();
+        let address = value[0].address;
+        let disassembly = Disassembly {
+            mnemonic: "<multiple instructions>".to_string(),
+            args: "".to_string(),
+        };
+        Ok(Self {
+            ops,
+            length,
+            address,
+            disassembly,
+        })
     }
 }

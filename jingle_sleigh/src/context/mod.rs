@@ -223,7 +223,7 @@ mod test {
     }
 
     #[test]
-    fn get_regs(){
+    fn get_regs() {
         let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();

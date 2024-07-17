@@ -33,6 +33,9 @@ pub enum JingleSleighError {
     /// A [`VarNode`](crate::VarNode) was constructed referencing a non-existent space
     #[error("A varnode was constructed referencing a non-existent space")]
     InvalidSpaceName,
+    /// Attempted to construct an [Instruction](crate::Instruction) from an empty slice of instructions
+    #[error("Attempted to construct an instruction from an empty slice of instructions")]
+    EmptyInstruction,
 }
 
 impl From<JingleSleighError> for std::fmt::Error {
