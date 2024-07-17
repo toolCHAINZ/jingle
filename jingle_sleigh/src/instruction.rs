@@ -92,6 +92,9 @@ impl TryFrom<&[Instruction]> for Instruction {
         if value.is_empty() {
             return Err(EmptyInstruction);
         }
+        if value.len() == 1{
+            return Ok(value[0].clone())
+        }
         let ops: Vec<PcodeOperation> = value.iter().flat_map(|i| i.ops.iter().cloned()).collect();
         let length = value.iter().map(|i| i.length).reduce(|a, b| a + b).unwrap();
         let address = value[0].address;
