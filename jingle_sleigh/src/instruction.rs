@@ -22,6 +22,14 @@ pub struct Instruction {
     pub address: u64,
 }
 
+impl PartialEq for Instruction {
+    fn eq(&self, other: &Self) -> bool {
+        self.length == other.length && self.address == other.address && self.ops == other.ops
+    }
+}
+
+impl Eq for Instruction {}
+
 /// A helper structure allowing displaying an instruction and its semantics
 /// without requiring lots of pcode metadata to be stored in the instruction itself
 pub struct InstructionDisplay<'a, T: SpaceManager> {
@@ -92,8 +100,8 @@ impl TryFrom<&[Instruction]> for Instruction {
         if value.is_empty() {
             return Err(EmptyInstruction);
         }
-        if value.len() == 1{
-            return Ok(value[0].clone())
+        if value.len() == 1 {
+            return Ok(value[0].clone());
         }
         let ops: Vec<PcodeOperation> = value.iter().flat_map(|i| i.ops.iter().cloned()).collect();
         let length = value.iter().map(|i| i.length).reduce(|a, b| a + b).unwrap();
