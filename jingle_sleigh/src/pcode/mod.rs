@@ -22,7 +22,7 @@ use crate::GeneralizedVarNode;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PcodeOperation {
     Copy {
         input: VarNode,

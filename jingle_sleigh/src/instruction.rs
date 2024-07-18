@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 /// A rust representation of a SLEIGH assembly instruction
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Instruction {
     pub disassembly: Disassembly,
     /// The PCODE semantics of this instruction
@@ -21,14 +21,6 @@ pub struct Instruction {
     /// The address this instruction was read from
     pub address: u64,
 }
-
-impl PartialEq for Instruction {
-    fn eq(&self, other: &Self) -> bool {
-        self.length == other.length && self.address == other.address && self.ops == other.ops
-    }
-}
-
-impl Eq for Instruction {}
 
 /// A helper structure allowing displaying an instruction and its semantics
 /// without requiring lots of pcode metadata to be stored in the instruction itself
