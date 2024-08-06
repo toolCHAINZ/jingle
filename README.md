@@ -1,19 +1,30 @@
-# `jingle`: SMT Modeling for SLEIGH
+<div align="center">
 
-`jingle` is a library for program analysis over traces of PCODE operations. I
-am writing in the course of my PhD work and it is still very much "in flux".
+<img src="./jingle.svg" width="350"/>
+
+🎶 <span style="font-style: italic; font-family: serif">Jingle bells, Jingle bells, Jingle all the `SLEIGH`</span> 🎶
+
+</div>
+
+# `jingle`: SMT Modeling for `p-code`
+`jingle` is a library that translates (a fragment of) Ghidra's `p-code` into SMT. It allows expressing symbolic state
+of the pcode vm and the relational semantics between those states defined by `p-code` operations.
+
+**I am writing in the course of my PhD work and it is still very much "in flux". Breaking changes may happen at any time
+and the overall design may change too.**
 
 This repository contains a [Cargo Workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for two
 related crates:
 
 * [`jingle_sleigh`](./jingle_sleigh): a Rust FFI in front of [Ghidra](https://github.com/NationalSecurityAgency/ghidra)'
   s
-  code translator: SLEIGH. Sleigh is written in C++ and can be
+  code translator: `SLEIGH`. `SLEIGH` is written in C++ and can be
   found [here](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/Decompiler/src/decompile/cpp).
-  This crate contains a private internal low-level API to SLEIGH and exposes an idiomatic high-level API to consumers.
-* [`jingle`](./jingle): a set of functions built on top of `jingle_sleigh` that defines an encoding of PCODE operations
-  into quantifier-free SMT statements operating on objects of the `Array(BitVec, BitVec)` sort. `jingle` is currently
-  designed for providing formulas for use in decision procedures over program traces. A more robust analysis
+  This crate contains a private internal low-level API to `SLEIGH` and exposes an idiomatic high-level API to consumers.
+* [`jingle`](./jingle): a set of functions built on top of `jingle_sleigh` that defines an encoding of `p-code` operations
+  into SMT. `jingle` is currently
+  designed for providing formulas for use in decision procedures over individual program traces. As such, it does not yet
+  expose APIs for constructing or reasoning about control-flow graphs. A more robust analysis
   is forthcoming, depending on my research needs.
 
 ## Usage
