@@ -4,9 +4,7 @@ use crate::JingleSleighError;
 use crate::JingleSleighError::ImageLoadError;
 use object::elf::{SHF_EXECINSTR, SHF_WRITE};
 use object::macho::{VM_PROT_EXECUTE, VM_PROT_READ, VM_PROT_WRITE};
-use object::{
-    Architecture, Endianness, File, Object, ObjectSection, SectionFlags,
-};
+use object::{Architecture, Endianness, File, Object, ObjectSection, SectionFlags};
 use tracing::{event, instrument, Level};
 
 impl<'d> TryFrom<File<'d>> for Image {
@@ -22,7 +20,13 @@ impl<'d> TryFrom<File<'d>> for Image {
                 let name = x.name().unwrap_or("<unknown>");
                 let start = base_address;
                 let end = base_address + data.len() as u64;
-                event!(Level::TRACE,"Selecting section {} ({:x}-{:x})", name, start, end);
+                event!(
+                    Level::TRACE,
+                    "Selecting section {} ({:x}-{:x})",
+                    name,
+                    start,
+                    end
+                );
                 img.sections.push(ImageSection {
                     perms,
                     data,
