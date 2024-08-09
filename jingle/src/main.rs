@@ -7,6 +7,7 @@ use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation,
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use z3::{Config, Context, Solver};
+use z3::ast::Ast;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {
@@ -176,6 +177,6 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
     let jingle_ctx = JingleContext::new(&z3, &sleigh);
     let block = ModeledBlock::read(&z3, &sleigh, instrs.into_iter()).unwrap();
     let final_state = jingle_ctx.fresh_state();
-    solver.assert(&final_state._eq(block.get_final_state()).unwrap());
+    solver.assert(&final_state._eq(block.get_final_state()).unwrap().simplify());
     println!("{}", solver.to_smt2())
 }
