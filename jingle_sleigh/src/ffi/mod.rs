@@ -1,6 +1,4 @@
 pub(crate) mod addrspace;
-#[cfg(compile)]
-pub(crate) mod compile;
 pub(crate) mod context_ffi;
 pub(crate) mod image;
 pub(crate) mod instruction;

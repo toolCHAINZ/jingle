@@ -17,7 +17,7 @@ fn main() {
         copy_sources();
     }
 
-    let mut rust_sources = vec![
+    let rust_sources = vec![
         "src/ffi/addrspace.rs",
         "src/ffi/context_ffi.rs",
         "src/ffi/instruction.rs",
@@ -25,7 +25,7 @@ fn main() {
         "src/ffi/image.rs",
     ];
 
-    let mut cpp_sources = vec![
+    let cpp_sources = vec![
         "src/ffi/cpp/sleigh/address.cc",
         "src/ffi/cpp/sleigh/compression.cc",
         "src/ffi/cpp/sleigh/context.cc",
@@ -52,11 +52,6 @@ fn main() {
         "src/ffi/cpp/addrspace_handle.cpp",
         "src/ffi/cpp/addrspace_manager_handle.cpp",
     ];
-    if cfg!(compile) {
-        rust_sources.push("src/ffi/compile.rs");
-        cpp_sources.push("src/ffi/cpp/compile.cpp");
-        cpp_sources.push("src/ffi/cpp/sleigh/slgh_compile.cc");
-    }
     // This assumes all your C++ bindings are in lib
     cxx_build::bridges(rust_sources)
         .files(cpp_sources)
@@ -73,7 +68,6 @@ fn main() {
 
     println!("cargo::rerun-if-changed=src/ffi/cpp/");
     println!("cargo::rerun-if-changed=src/ffi/addrspace.rs");
-    println!("cargo::rerun-if-changed=src/ffi/compile.rs");
     println!("cargo::rerun-if-changed=src/ffi/context_ffi.rs");
     println!("cargo::rerun-if-changed=src/ffi/instruction.rs");
     println!(

@@ -20,7 +20,9 @@ z3 = { git = "https://github.com/prove-rs/z3.rs.git", rev = "c126e07" }
 thiserror = "1.0.58"
 serde = { version = "1.0.197", features = ["derive"] }
 tracing = "0.1.40"
+clap = { version = "4.5.14" , optional = true}
 
 [features]
+default = []
 elf = ["jingle_sleigh/elf"]
 gimli = ["jingle_sleigh/gimli"]

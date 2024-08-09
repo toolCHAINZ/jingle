@@ -33,7 +33,6 @@ tracing = "0.1.40"
 cxx-build = "1.0.122"
 
 [features]
-compile = []
 elf = ["dep:elf"]
 gimli = ["dep:object"]
 default = ["elf", "gimli"]
