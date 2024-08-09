@@ -508,6 +508,20 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 );
                 self.write(&output.into(), out_bv)
             }
+            PcodeOperation::IntSignedLessEqual {
+                input0,
+                input1,
+                output,
+            } => {
+                let in0 = self.read_and_track(input0.into())?;
+                let in1 = self.read_and_track(input1.into())?;
+                let out_bool = in0.bvsle(&in1);
+                let out_bv = out_bool.ite(
+                    &BV::from_i64(self.get_z3(), 1, 8),
+                    &BV::from_i64(self.get_z3(), 0, 8),
+                );
+                self.write(&output.into(), out_bv)
+            }
             PcodeOperation::IntLess {
                 input0,
                 input1,
@@ -516,6 +530,20 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let in0 = self.read_and_track(input0.into())?;
                 let in1 = self.read_and_track(input1.into())?;
                 let out_bool = in0.bvult(&in1);
+                let out_bv = out_bool.ite(
+                    &BV::from_i64(self.get_z3(), 1, 8),
+                    &BV::from_i64(self.get_z3(), 0, 8),
+                );
+                self.write(&output.into(), out_bv)
+            }
+            PcodeOperation::IntLessEqual {
+                input0,
+                input1,
+                output,
+            } => {
+                let in0 = self.read_and_track(input0.into())?;
+                let in1 = self.read_and_track(input1.into())?;
+                let out_bool = in0.bvule(&in1);
                 let out_bv = out_bool.ite(
                     &BV::from_i64(self.get_z3(), 1, 8),
                     &BV::from_i64(self.get_z3(), 0, 8),

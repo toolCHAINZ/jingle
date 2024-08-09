@@ -13,6 +13,9 @@ of the pcode vm and the relational semantics between those states defined by `p-
 **I am writing in the course of my PhD work and it is still very much "in flux". Breaking changes may happen at any time
 and the overall design may change too.**
 
+The API is currently a bit of a mess because I've been trying out different approaches to figure out what I like (e.g. 
+traits vs context objects). I hope to clean it up at some point and expose one right way to do things.
+
 This repository contains a [Cargo Workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for two
 related crates:
 
