@@ -16,8 +16,7 @@ keywords = ["ghidra", "sleigh", "pcode", "smt"]
 
 [[bin]]
 name = "jingle"
-
-required-features = ["clap", "confy"]
+required-features = ["bin_features"]
 
 [dependencies]
 jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.1" }
@@ -27,10 +26,9 @@ serde = { version = "1.0.197", features = ["derive"] }
 tracing = "0.1.40"
 clap = { version = "4.5.14", optional = true, features = ["derive"] }
 confy = { version = "0.6.1" , optional = true}
-
+hex = { version = "0.4.3" , optional = true}
 [features]
 default = []
-clap = ["dep:clap"]
-confy = ["dep:confy"]
+bin_features = ["dep:clap", "dep:confy", "dep:hex"]
 elf = ["jingle_sleigh/elf"]
 gimli = ["jingle_sleigh/gimli"]
