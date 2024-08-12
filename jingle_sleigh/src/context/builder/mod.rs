@@ -35,10 +35,16 @@ impl SleighContextBuilder {
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);
         let pspec = parse_pspec(&pspec_path)?;
-        for set in pspec.context_data.context_set.sets {
-            context.set_initial_context(&set.name, set.value as u32)
+        if let Some(ctx_sets) = pspec.context_data.map(|d| d.context_set).flatten() {
+            for set in ctx_sets.sets {
+                // todo: gross hack
+                if set.value.starts_with("0x") {
+                    context.set_initial_context(&set.name, u32::from_str_radix(&set.value[2..], 16).unwrap())
+                } else {
+                    context.set_initial_context(&set.name, u32::from_str_radix(&set.value, 10).unwrap())
+                }
+            }
         }
-
         Ok(context)
     }
     pub fn load_folder<T: AsRef<Path>>(path: T) -> Result<Self, JingleSleighError> {
@@ -110,7 +116,7 @@ mod tests {
         parse_ldef(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/x86.ldefs",
         ))
-        .unwrap();
+            .unwrap();
     }
 
     #[test]
@@ -118,7 +124,7 @@ mod tests {
         parse_pspec(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/x86.pspec",
         ))
-        .unwrap();
+            .unwrap();
     }
 
     #[test]
@@ -126,7 +132,7 @@ mod tests {
         SleighContextBuilder::load_folder(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/",
         ))
-        .unwrap();
+            .unwrap();
         SleighContextBuilder::load_folder(Path::new("ghidra/Ghidra/Processors/x86/data/languages"))
             .unwrap();
     }
@@ -141,7 +147,7 @@ mod tests {
         let langs = SleighContextBuilder::load_folder(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/",
         ))
-        .unwrap();
+            .unwrap();
         assert!(langs.get_language("sdf").is_none());
         assert!(langs.get_language(SLEIGH_ARCH).is_some());
     }

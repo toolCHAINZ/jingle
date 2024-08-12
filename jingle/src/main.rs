@@ -6,8 +6,8 @@ use jingle_sleigh::context::{Image, SleighContext, SleighContextBuilder};
 use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use z3::{Config, Context, Solver};
 use z3::ast::Ast;
+use z3::{Config, Context, Solver};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {

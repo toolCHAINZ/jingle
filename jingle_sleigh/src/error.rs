@@ -15,7 +15,7 @@ pub enum JingleSleighError {
     InvalidLanguageId,
     /// Attempted to initialize sleigh but something went wrong
     #[error("Something went wrong putting bytes into sleigh")]
-    SleighInitError,
+    SleighInitError(String),
     /// Unable to load the provided binary image for sleigh
     #[error("Something went wrong putting bytes into sleigh")]
     ImageLoadError,
@@ -36,6 +36,8 @@ pub enum JingleSleighError {
     /// Attempted to construct an [Instruction](crate::Instruction) from an empty slice of instructions
     #[error("Attempted to construct an instruction from an empty slice of instructions")]
     EmptyInstruction,
+    #[error("Failure to acquire mutex to sleigh FFI function")]
+    SleighCompilerMutexError
 }
 
 impl From<JingleSleighError> for std::fmt::Error {

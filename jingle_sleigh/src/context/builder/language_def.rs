@@ -35,7 +35,7 @@ pub struct LanguageDefinition {
     pub variant: String,
     pub version: String,
     #[serde(rename = "slafile")]
-    pub sla_file: String,
+    pub sla_file: PathBuf,
     #[serde(rename = "processorspec")]
     pub processor_spec: PathBuf,
     #[serde(rename = "manualindexfile")]

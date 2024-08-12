@@ -18,6 +18,7 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use crate::JingleSleighError::SleighCompilerMutexError;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -86,7 +87,7 @@ impl SleighContext {
         let path_str = abs.to_str().ok_or(LanguageSpecRead)?;
         match CTX_BUILD_MUTEX.lock() {
             Ok(make_context) => {
-                let ctx = make_context(path_str, image.clone()).map_err(|_| SleighInitError)?;
+                let ctx = make_context(path_str, image.clone()).map_err(|e| SleighInitError(e.to_string()))?;
                 let mut spaces: Vec<SpaceInfo> = Vec::with_capacity(ctx.getNumSpaces() as usize);
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
@@ -98,7 +99,7 @@ impl SleighContext {
                     language_id: language_def.id.clone(),
                 })
             }
-            Err(_) => Err(SleighInitError),
+            Err(_) => Err(SleighCompilerMutexError),
         }
     }
 
