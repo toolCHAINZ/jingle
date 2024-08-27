@@ -113,8 +113,13 @@ impl<'ctx> ModeledBlock<'ctx> {
         ModeledBlock::read(self.z3, self, self.instructions.clone().into_iter())
     }
 
-    pub fn get_address(&self) -> u64 {
+    pub fn get_first_address(&self) -> u64 {
         self.instructions[0].address
+    }
+
+    pub fn get_last_address(&self) -> u64 {
+        let i =self.instructions.last().unwrap();
+        i.address + i.length as u64
     }
 }
 
