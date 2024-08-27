@@ -23,6 +23,7 @@ pub struct ContextSetSpace {
 #[derive(Debug, Deserialize)]
 pub struct ContextData {
     pub context_set: Option<ContextSetSpace>,
+    #[allow(unused)]
     pub tracked_set: Option<ContextSetSpace>
 }
 
