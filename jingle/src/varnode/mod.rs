@@ -12,6 +12,7 @@ use z3::ast::BV;
 pub struct ResolvedIndirectVarNode<'ctx> {
     pub pointer_space_idx: usize,
     pub pointer: BV<'ctx>,
+    pub pointer_location: VarNode,
     pub access_size_bytes: usize,
 }
 

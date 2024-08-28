@@ -130,8 +130,14 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
             .filter(|v| self.should_varnode_constrain(v))
         {
             let ours = self.get_final_state().read_resolved(vn)?;
-            let other = other.get_final_state().read_resolved(vn)?;
-            output_terms.push(ours._eq(&other).simplify());
+            let other_bv = other.get_final_state().read_resolved(vn)?;
+            output_terms.push(ours._eq(&other_bv).simplify());
+            if let Indirect(a) = vn{
+                let ours = self.get_final_state().read_varnode(&a.pointer_location)?;
+                let other = other.get_final_state().read_varnode(&a.pointer_location)?;
+                output_terms.push(ours._eq(&other).simplify());
+
+            }
         }
         let imp_terms: Vec<&Bool> = output_terms.iter().collect();
         let outputs_pairwise_equal = Bool::and(self.get_z3(), imp_terms.as_slice());
@@ -220,6 +226,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                     .clone();
                 self.track_input(&Indirect(ResolvedIndirectVarNode {
                     pointer,
+                    pointer_location: indirect.pointer_location.clone(),
                     access_size_bytes: indirect.access_size_bytes,
                     pointer_space_idx: indirect.pointer_space_index,
                 }));
@@ -242,6 +249,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let pointer = self.read_and_track(indirect.pointer_location.clone().into())?;
                 self.track_output(&Indirect(ResolvedIndirectVarNode {
                     pointer,
+                    pointer_location: indirect.pointer_location.clone(),
                     access_size_bytes: indirect.access_size_bytes,
                     pointer_space_idx: indirect.pointer_space_index,
                 }));
