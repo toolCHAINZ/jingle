@@ -400,8 +400,8 @@ impl PcodeOperation {
     pub fn inputs(&self) -> Vec<GeneralizedVarNode> {
         match self {
             Copy { input, .. } => {vec![input.into()]}
-            Load { input, .. } => {vec![input.into()]}
-            Store { input, .. } => {vec![input.into()]}
+            Load { input, .. } => {vec![input.into(), input.pointer_location.clone().into()]}
+            Store { input, output } => {vec![input.into(), output.pointer_location.clone().into()]}
             Branch { input, .. } => {vec![input.into()]}
             CBranch { input0, input1, .. } => {vec![input0.into(), input1.into()]}
             BranchInd { input, .. } => {vec![input.into()]}
