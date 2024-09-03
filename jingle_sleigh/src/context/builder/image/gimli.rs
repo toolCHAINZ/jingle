@@ -62,7 +62,10 @@ pub fn map_gimli_architecture(file: &File) -> Option<&'static str> {
         },
         Architecture::I386 => Some("x86:LE:32:default"),
         Architecture::X86_64 => Some("x86:LE:64:default"),
-
+        Architecture::PowerPc64 => match file.endianness(){
+            Endianness::Little => Some("PowerPC:LE:64:default"),
+            Endianness::Big => Some("PowerPC:BE:64:default")
+        }
         Architecture::Xtensa => match file.endianness() {
             Endianness::Little => Some("Xtensa:LE:32:default"),
             Endianness::Big => Some("Xtensa:BE:32:default"),

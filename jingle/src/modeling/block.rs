@@ -118,7 +118,7 @@ impl<'ctx> ModeledBlock<'ctx> {
     }
 
     pub fn get_last_address(&self) -> u64 {
-        let i =self.instructions.last().unwrap();
+        let i = self.instructions.last().unwrap();
         i.address + i.length as u64
     }
 }

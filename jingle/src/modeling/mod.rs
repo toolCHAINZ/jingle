@@ -132,11 +132,10 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
             let ours = self.get_final_state().read_resolved(vn)?;
             let other_bv = other.get_final_state().read_resolved(vn)?;
             output_terms.push(ours._eq(&other_bv).simplify());
-            if let Indirect(a) = vn{
+            if let Indirect(a) = vn {
                 let ours = self.get_final_state().read_varnode(&a.pointer_location)?;
                 let other = other.get_final_state().read_varnode(&a.pointer_location)?;
                 output_terms.push(ours._eq(&other).simplify());
-
             }
         }
         let imp_terms: Vec<&Bool> = output_terms.iter().collect();
