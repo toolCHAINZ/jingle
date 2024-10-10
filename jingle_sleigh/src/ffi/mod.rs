@@ -20,11 +20,11 @@ mod tests {
         let builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
-        let bin_sleigh = builder
-            .set_image(Image::from(bytes.as_slice()))
+        let sleigh = builder
             .build("x86:LE:64:default")
             .unwrap();
-        let _lib = bin_sleigh.read(0, 1).next().unwrap();
+        let bin_image = sleigh.load_image(bytes.as_slice()).unwrap();
+        let _lib = bin_image.instruction_at(0).unwrap();
     }
     #[test]
     fn test_callother_decode2() {
@@ -32,10 +32,10 @@ mod tests {
         let builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
-        let bin_sleigh = builder
-            .set_image(Image::from(bytes.as_slice()))
+        let sleigh = builder
             .build("x86:LE:64:default")
             .unwrap();
-        let _lib = bin_sleigh.read(0, 1).next().unwrap();
+        let bin_image = sleigh.load_image(bytes.as_slice()).unwrap();
+        let _lib = bin_image.instruction_at(0).unwrap();
     }
 }

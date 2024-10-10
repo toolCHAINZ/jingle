@@ -6,7 +6,7 @@
 #include "sleigh_image.h"
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/loadimage.hh"
-
+#include "varnode_translation.h"
 
 ContextFFI::ContextFFI(rust::Str slaPath): sleigh(&image, &c_db) {
     ghidra::AttributeId::initialize();
@@ -23,8 +23,7 @@ ContextFFI::ContextFFI(rust::Str slaPath): sleigh(&image, &c_db) {
     ghidra::Document *doc = documentStorage.parseDocument(sleighfilename);
     ghidra::Element *root = doc->getRoot();
     documentStorage.registerTag(root);
-    this->sleigh = ghidra::Sleigh(&img, &c_db);
-    this->sleigh.initialize(documentStorage);
+    sleigh.initialize(documentStorage);
 
 }
 
@@ -58,20 +57,6 @@ rust::Str ContextFFI::getRegisterName(VarnodeInfoFFI vn) const {
 
 std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath) {
     return std::make_unique<ContextFFI>(slaPath);
-}
-
-VarnodeInfoFFI varnodeToFFI(ghidra::VarnodeData vn) {
-    VarnodeInfoFFI info;
-    info.space = std::make_unique<AddrSpaceHandle>(vn.space);
-    info.size = vn.size;
-    info.offset = vn.offset;
-    return info;
-}
-
-RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData, std::string> el) {
-    VarnodeInfoFFI varnode = varnodeToFFI(std::get<0>(el));
-    rust::String name = std::get<1>(el);
-    return {varnode, name};
 }
 
 rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {

@@ -3,6 +3,7 @@
 //
 #include "sleigh_image.h"
 #include "dummy_load_image.h"
+#include "varnode_translation.h"
 
 #include <utility>
 
@@ -79,4 +80,34 @@ VarnodeInfoFFI SleighImage::getRegister(rust::Str name) const {
 rust::Str SleighImage::getRegisterName(VarnodeInfoFFI vn) const {
     std::string name = sl.getRegisterName(vn.space->getRaw(), vn.offset, vn.size);
     return {name};
+}
+
+InstructionFFI SleighImage::get_one_instruction(uint64_t offset) const {
+    PcodeCacher pcode;
+    AssemblyCacher assembly;
+    ghidra::Address a = ghidra::Address(sl.getDefaultCodeSpace(), offset);
+    sl.printAssembly(assembly, a);
+    sl.oneInstruction(pcode, a);
+    size_t length = sl.instructionLength(a);
+    InstructionFFI i;
+    Disassembly d;
+    i.ops = std::move(pcode.ops);
+    d.args = std::move(assembly.body);
+    d.mnemonic = std::move(assembly.mnem);
+    i.disassembly = std::move(d);
+    i.address = offset;
+    i.length = length;
+    return i;
+}
+
+
+rust::Vec<RegisterInfoFFI> SleighImage::getRegisters() const {
+    std::map<ghidra::VarnodeData, std::string> reglist;
+    rust::Vec<RegisterInfoFFI> v;
+    sl.getAllRegisters(reglist);
+    v.reserve(reglist.size());
+    for (auto const &vn: reglist) {
+        v.emplace_back(collectRegInfo(vn));
+    }
+    return v;
 }

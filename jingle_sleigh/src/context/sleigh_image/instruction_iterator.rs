@@ -65,18 +65,18 @@ mod test {
         let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
+        let sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        let instr = ctx.read(0, 1).last().unwrap();
+        let sleigh = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
+        let instr = sleigh.read(0, 1).last().unwrap();
         assert_eq!(instr.length, 5);
         assert!(instr.disassembly.mnemonic.eq("MOV"));
         assert!(!instr.ops.is_empty());
-        varnode!(&ctx, #0:4).unwrap();
+        varnode!(&sleigh, #0:4).unwrap();
         let _op = PcodeOperation::Copy {
-            input: varnode!(&ctx, #0:4).unwrap(),
-            output: varnode!(&ctx, "register"[0]:4).unwrap(),
+            input: varnode!(&sleigh, #0:4).unwrap(),
+            output: varnode!(&sleigh, "register"[0]:4).unwrap(),
         };
         assert!(matches!(&instr.ops[0], _op))
     }
@@ -86,11 +86,12 @@ mod test {
         let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
+        let sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        let instr: Vec<Instruction> = ctx.read_block(0, 2).collect();
+        let sleigh_img = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
+        let instr: Vec<Instruction> = sleigh_img.read(0, 2).collect();
         assert_eq!(instr.len(), 1);
     }
+
 }

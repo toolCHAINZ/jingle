@@ -128,57 +128,17 @@ impl SleighContext {
 
 #[cfg(test)]
 mod test {
-    use crate::context::builder::image::Image;
-    use crate::context::builder::SleighContextBuilder;
-    use crate::pcode::PcodeOperation;
-    use crate::{Instruction, RegisterManager, SpaceManager};
-
+    use crate::context::SleighContextBuilder;
+    use crate::RegisterManager;
     use crate::tests::SLEIGH_ARCH;
-    use crate::varnode;
-
-    #[test]
-    fn get_one() {
-        let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
-            .build(SLEIGH_ARCH)
-            .unwrap();
-        let instr = ctx.read(0, 1).last().unwrap();
-        assert_eq!(instr.length, 5);
-        assert!(instr.disassembly.mnemonic.eq("MOV"));
-        assert!(!instr.ops.is_empty());
-        varnode!(&ctx, #0:4).unwrap();
-        let _op = PcodeOperation::Copy {
-            input: varnode!(&ctx, #0:4).unwrap(),
-            output: varnode!(&ctx, "register"[0]:4).unwrap(),
-        };
-        assert!(matches!(&instr.ops[0], _op))
-    }
-
-    #[test]
-    fn stop_at_branch() {
-        let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
-            .build(SLEIGH_ARCH)
-            .unwrap();
-        let instr: Vec<Instruction> = ctx.read_block(0, 2).collect();
-        assert_eq!(instr.len(), 1);
-    }
 
     #[test]
     fn get_regs() {
-        let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
+        let sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        assert_ne!(ctx.get_registers(), vec![]);
+        assert_ne!(sleigh.get_registers(), vec![]);
     }
 }

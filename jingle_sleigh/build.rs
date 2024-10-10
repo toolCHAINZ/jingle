@@ -54,6 +54,7 @@ fn main() {
         "src/ffi/cpp/sleigh_image.cpp",
         "src/ffi/cpp/addrspace_handle.cpp",
         "src/ffi/cpp/addrspace_manager_handle.cpp",
+        "src/ffi/cpp/varnode_translation.cpp",
     ];
     // This assumes all your C++ bindings are in lib
     cxx_build::bridges(rust_sources)
