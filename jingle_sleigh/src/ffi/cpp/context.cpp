@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <utility>
-#include "image_context.h"
+#include "sleigh_image.h"
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/loadimage.hh"
 
@@ -85,6 +85,6 @@ rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
     return v;
 }
 
-std::unique_ptr<SleighImage> ContextFFI::makeImageContext(Image img) {
-    return std::unique_ptr<SleighImage>(new SleighImage(img, sleigh));
+std::unique_ptr<SleighImage> ContextFFI::makeImageContext(Image img) const {
+    return std::make_unique<SleighImage>(img, sleigh);
 }

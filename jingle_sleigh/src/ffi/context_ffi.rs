@@ -3,7 +3,7 @@ use bridge::ContextFFI;
 use cxx::{Exception, UniquePtr};
 use std::sync::Mutex;
 
-type ContextGeneratorFp = fn(&str, bridge::Image) -> Result<UniquePtr<ContextFFI>, Exception>;
+type ContextGeneratorFp = fn(&str) -> Result<UniquePtr<ContextFFI>, Exception>;
 
 pub(crate) static CTX_BUILD_MUTEX: Mutex<ContextGeneratorFp> = Mutex::new(makeContext);
 
@@ -18,6 +18,8 @@ pub(crate) mod bridge {
         type AddrSpaceHandle = crate::ffi::addrspace::bridge::AddrSpaceHandle;
 
         type RegisterInfoFFI = crate::ffi::instruction::bridge::RegisterInfoFFI;
+
+        type SleighImage = crate::ffi::sleigh_image::bridge::SleighImage;
     }
 
     unsafe extern "C++" {
@@ -37,6 +39,8 @@ pub(crate) mod bridge {
         pub(crate) fn getRegisterName(&self, name: VarnodeInfoFFI) -> Result<&str>;
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
+
+        pub(crate) fn makeImageContext(&self, img: Image) -> Result<UniquePtr<SleighImage>>;
     }
     impl Vec<RegisterInfoFFI> {}
 }

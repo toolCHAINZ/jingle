@@ -3,6 +3,7 @@ pub(crate) mod context_ffi;
 pub(crate) mod image;
 pub(crate) mod instruction;
 pub(crate) mod opcode;
+pub(crate) mod sleigh_image;
 
 // Need to pull this in somewhere so that libz symbols are available
 // for the `sleigh` CPP code at link-time.

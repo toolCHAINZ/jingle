@@ -1,4 +1,5 @@
 mod builder;
+mod sleigh_image;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
@@ -12,24 +13,24 @@ pub use builder::image::{Image, ImageSection};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
+use crate::context::sleigh_image::SleighImage;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
+use crate::JingleSleighError::SleighCompilerMutexError;
 use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
-use crate::JingleSleighError::SleighCompilerMutexError;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
     spaces: Vec<SpaceInfo>,
     language_id: String,
-    pub image: Image,
 }
 
 impl Debug for SleighContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Sleigh {{image: {:?}}}", self.image)
+        write!(f, "Sleigh {{arch: {}}}", self.language_id)
     }
 }
 
@@ -80,20 +81,18 @@ impl SleighContext {
     pub(crate) fn new<T: AsRef<Path>>(
         language_def: &LanguageDefinition,
         base_path: T,
-        image: Image,
     ) -> Result<Self, JingleSleighError> {
         let path = base_path.as_ref().join(&language_def.sla_file);
         let abs = path.canonicalize().map_err(|_| LanguageSpecRead)?;
         let path_str = abs.to_str().ok_or(LanguageSpecRead)?;
         match CTX_BUILD_MUTEX.lock() {
             Ok(make_context) => {
-                let ctx = make_context(path_str, image.clone()).map_err(|e| SleighInitError(e.to_string()))?;
+                let ctx = make_context(path_str).map_err(|e| SleighInitError(e.to_string()))?;
                 let mut spaces: Vec<SpaceInfo> = Vec::with_capacity(ctx.getNumSpaces() as usize);
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
                 }
                 Ok(Self {
-                    image,
                     ctx,
                     spaces,
                     language_id: language_def.id.clone(),
@@ -107,14 +106,6 @@ impl SleighContext {
         self.ctx.pin_mut().set_initial_context(name, value);
     }
 
-    pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
-    }
-
-    pub fn read_block(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
-    }
-
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
         let mut spaces = Vec::with_capacity(self.ctx.getNumSpaces() as usize);
         for i in 0..self.ctx.getNumSpaces() {
@@ -126,56 +117,12 @@ impl SleighContext {
     pub fn get_language_id(&self) -> &str {
         &self.language_id
     }
-}
 
-pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a SleighContext,
-    remaining: usize,
-    offset: u64,
-    terminate_branch: bool,
-    already_hit_branch: bool,
-}
-
-impl<'a> SleighContextInstructionIterator<'a> {
-    pub(crate) fn new(
-        sleigh: &'a SleighContext,
-        offset: u64,
-        remaining: usize,
-        terminate_branch: bool,
-    ) -> Self {
-        SleighContextInstructionIterator {
-            sleigh,
-            remaining,
-            offset,
-            terminate_branch,
-            already_hit_branch: false,
-        }
-    }
-}
-
-impl<'a> Iterator for SleighContextInstructionIterator<'a> {
-    type Item = Instruction;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining == 0 {
-            return None;
-        }
-        if !self.sleigh.image.contains_address(self.offset as usize) {
-            return None;
-        }
-        if self.terminate_branch && self.already_hit_branch {
-            return None;
-        }
-        let instr = self
-            .sleigh
-            .ctx
-            .get_one_instruction(self.offset)
-            .map(Instruction::from)
-            .ok()?;
-        self.already_hit_branch = instr.terminates_basic_block();
-        self.offset += instr.length as u64;
-        self.remaining -= 1;
-        Some(instr)
+    pub fn load_image<T: Into<Image>>(&self, img: T) -> Result<SleighImage, JingleSleighError> {
+        self.ctx
+            .makeImageContext(img.into())
+            .map(SleighImage::new)
+            .map_err(|e| JingleSleighError::ImageLoadError)
     }
 }
 

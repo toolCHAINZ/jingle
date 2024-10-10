@@ -1,7 +1,7 @@
 //
 // Created by mark denhoed on 10/10/24.
 //
-#include "image_context.h"
+#include "sleigh_image.h"
 #include "dummy_load_image.h"
 
 #include <utility>

@@ -37,7 +37,7 @@ pub enum JingleSleighError {
     #[error("Attempted to construct an instruction from an empty slice of instructions")]
     EmptyInstruction,
     #[error("Failure to acquire mutex to sleigh FFI function")]
-    SleighCompilerMutexError
+    SleighCompilerMutexError,
 }
 
 impl From<JingleSleighError> for std::fmt::Error {

@@ -2,8 +2,8 @@
 // Created by toolCHAINZ on 10/10/24.
 //
 
-#ifndef JINGLE_SLEIGH_IMAGE_CONTEXT_H
-#define JINGLE_SLEIGH_IMAGE_CONTEXT_H
+#ifndef JINGLE_SLEIGH_SLEIGH_IMAGE_H
+#define JINGLE_SLEIGH_SLEIGH_IMAGE_H
 
 #include "addrspace_handle.h"
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
@@ -18,7 +18,7 @@ class SleighImage{
     DummyLoadImage image;
 
 public:
-    SleighImage(Image img, ghidra::Sleigh& sl);
+    SleighImage(Image img, ghidra::Sleigh sl);
 
     InstructionFFI get_one_instruction(uint64_t offset) const;
 
@@ -33,4 +33,4 @@ public:
     rust::Vec<RegisterInfoFFI> getRegisters() const;
 };
 
-#endif //JINGLE_SLEIGH_IMAGE_CONTEXT_H
+#endif //JINGLE_SLEIGH_SLEIGH_IMAGE_H

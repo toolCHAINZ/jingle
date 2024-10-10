@@ -9,7 +9,7 @@
 #include "sleigh/sleigh.hh"
 #include "jingle_sleigh/src/ffi/image.rs.h"
 #include "sleigh/loadimage.hh"
-#include "image_context.h"
+#include "sleigh_image.h"
 #include "dummy_load_image.h"
 
 class ContextFFI {
@@ -22,7 +22,7 @@ public:
 
     void set_initial_context(rust::Str name, uint32_t val);
 
-    std::unique_ptr<SleighImage> makeImageContext(Image img);
+    std::unique_ptr<SleighImage> makeImageContext(Image img) const;
 
     [[nodiscard]] std::shared_ptr<AddrSpaceHandle> getSpaceByIndex(ghidra::int4 idx) const;
 

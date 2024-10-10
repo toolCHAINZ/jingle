@@ -16,7 +16,6 @@ pub(crate) mod processor_spec;
 #[derive(Debug, Default, Clone)]
 pub struct SleighContextBuilder {
     defs: Vec<(LanguageDefinition, PathBuf)>,
-    image: Option<Image>,
 }
 
 impl SleighContextBuilder {
@@ -29,9 +28,8 @@ impl SleighContextBuilder {
     }
     #[instrument(skip_all, fields(%id))]
     pub fn build(mut self, id: &str) -> Result<SleighContext, JingleSleighError> {
-        let image = self.image.take().ok_or(NoImageProvided)?;
         let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId)?;
-        let mut context = SleighContext::new(lang, path, image)?;
+        let mut context = SleighContext::new(lang, path)?;
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);
         let pspec = parse_pspec(&pspec_path)?;
@@ -39,9 +37,15 @@ impl SleighContextBuilder {
             for set in ctx_sets.sets {
                 // todo: gross hack
                 if set.value.starts_with("0x") {
-                    context.set_initial_context(&set.name, u32::from_str_radix(&set.value[2..], 16).unwrap())
+                    context.set_initial_context(
+                        &set.name,
+                        u32::from_str_radix(&set.value[2..], 16).unwrap(),
+                    )
                 } else {
-                    context.set_initial_context(&set.name, u32::from_str_radix(&set.value, 10).unwrap())
+                    context.set_initial_context(
+                        &set.name,
+                        u32::from_str_radix(&set.value, 10).unwrap(),
+                    )
                 }
             }
         }
@@ -51,7 +55,6 @@ impl SleighContextBuilder {
         let ldef = SleighContextBuilder::_load_folder(path.as_ref())?;
         Ok(SleighContextBuilder {
             defs: ldef,
-            image: None,
         })
     }
 
@@ -83,13 +86,9 @@ impl SleighContextBuilder {
                 defs.extend(d);
             }
         }
-        Ok(SleighContextBuilder { defs, image: None })
+        Ok(SleighContextBuilder { defs })
     }
 
-    pub fn set_image(mut self, img: Image) -> Self {
-        self.image = Some(img);
-        self
-    }
 }
 
 fn find_ldef(path: &Path) -> Result<PathBuf, JingleSleighError> {
@@ -116,7 +115,7 @@ mod tests {
         parse_ldef(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/x86.ldefs",
         ))
-            .unwrap();
+        .unwrap();
     }
 
     #[test]
@@ -124,7 +123,7 @@ mod tests {
         parse_pspec(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/x86.pspec",
         ))
-            .unwrap();
+        .unwrap();
     }
 
     #[test]
@@ -132,7 +131,7 @@ mod tests {
         SleighContextBuilder::load_folder(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/",
         ))
-            .unwrap();
+        .unwrap();
         SleighContextBuilder::load_folder(Path::new("ghidra/Ghidra/Processors/x86/data/languages"))
             .unwrap();
     }
@@ -147,7 +146,7 @@ mod tests {
         let langs = SleighContextBuilder::load_folder(Path::new(
             "ghidra/Ghidra/Processors/x86/data/languages/",
         ))
-            .unwrap();
+        .unwrap();
         assert!(langs.get_language("sdf").is_none());
         assert!(langs.get_language(SLEIGH_ARCH).is_some());
     }

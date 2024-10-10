@@ -399,78 +399,220 @@ impl PcodeOperation {
 
     pub fn inputs(&self) -> Vec<GeneralizedVarNode> {
         match self {
-            Copy { input, .. } => {vec![input.into()]}
-            Load { input, .. } => {vec![input.into(), input.pointer_location.clone().into()]}
-            Store { input, output } => {vec![input.into(), output.pointer_location.clone().into()]}
-            Branch { input, .. } => {vec![input.into()]}
-            CBranch { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            BranchInd { input, .. } => {vec![input.into()]}
-            Call { input, .. } => {vec![input.into()]}
-            CallInd { input, .. } => {vec![input.into()]}
-            CallOther { inputs, .. } => {inputs.iter().map(|i|i.into()).collect()}
-            Return { input, .. } => {vec![input.into()]}
-            IntEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntNotEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedLess  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedLessEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntLess  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntLessEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSExt { input, .. } => {vec![input.into()]}
-            IntZExt { input, .. } => {vec![input.into()]}
-            IntAdd  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSub  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntCarry  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedCarry  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedBorrow  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            Int2Comp { input, .. } => {vec![input.into()]}
-            IntNegate { input, .. } => {vec![input.into()]}
-            IntXor  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntAnd  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntOr  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntLeftShift  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntRightShift  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedRightShift  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntMult  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntDiv  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedDiv  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntRem  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            IntSignedRem  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            BoolNegate  { input, .. } => {vec![input.into()]}
-            BoolXor  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            BoolAnd  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            BoolOr  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatNotEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatLess  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatLessEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatNaN { input, .. } => {vec![input.into()]}
-            FloatAdd  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatDiv  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatMult  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatSub  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            FloatNeg { input, .. } => {vec![input.into()]}
-            FloatAbs { input, .. } => {vec![input.into()]}
-            FloatSqrt { input, .. } => {vec![input.into()]}
-            FloatIntToFloat { input, .. } => {vec![input.into()]}
-            FloatFloatToFloat { input, .. } => {vec![input.into()]}
-            FloatTrunc { input, .. } => {vec![input.into()]}
-            FloatCeil { input, .. } => {vec![input.into()]}
-            FloatFloor { input, .. } => {vec![input.into()]}
-            FloatRound { input, .. } => {vec![input.into()]}
-            MultiEqual  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            Indirect  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            Piece  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            SubPiece  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            Cast { input, .. } => {vec![input.into()]}
-            PtrAdd  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            PtrSub  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            SegmentOp  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            CPoolRef  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            New { input, .. } => {vec![input.into()]}
-            Insert  { input0, input1, .. } => {vec![input0.into(), input1.into()]}
-            Extract  { input0, .. } => {vec![input0.into()]}
-            PopCount { input, .. } => {vec![input.into()]}
-            LzCount { input, .. } => {vec![input.into()]}
+            Copy { input, .. } => {
+                vec![input.into()]
+            }
+            Load { input, .. } => {
+                vec![input.into(), input.pointer_location.clone().into()]
+            }
+            Store { input, output } => {
+                vec![input.into(), output.pointer_location.clone().into()]
+            }
+            Branch { input, .. } => {
+                vec![input.into()]
+            }
+            CBranch { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            BranchInd { input, .. } => {
+                vec![input.into()]
+            }
+            Call { input, .. } => {
+                vec![input.into()]
+            }
+            CallInd { input, .. } => {
+                vec![input.into()]
+            }
+            CallOther { inputs, .. } => inputs.iter().map(|i| i.into()).collect(),
+            Return { input, .. } => {
+                vec![input.into()]
+            }
+            IntEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntNotEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedLess { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedLessEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntLess { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntLessEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSExt { input, .. } => {
+                vec![input.into()]
+            }
+            IntZExt { input, .. } => {
+                vec![input.into()]
+            }
+            IntAdd { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSub { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntCarry { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedCarry { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedBorrow { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            Int2Comp { input, .. } => {
+                vec![input.into()]
+            }
+            IntNegate { input, .. } => {
+                vec![input.into()]
+            }
+            IntXor { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntAnd { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntOr { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntLeftShift { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntRightShift { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedRightShift { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntMult { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntDiv { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedDiv { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntRem { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            IntSignedRem { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            BoolNegate { input, .. } => {
+                vec![input.into()]
+            }
+            BoolXor { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            BoolAnd { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            BoolOr { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatNotEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatLess { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatLessEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatNaN { input, .. } => {
+                vec![input.into()]
+            }
+            FloatAdd { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatDiv { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatMult { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatSub { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            FloatNeg { input, .. } => {
+                vec![input.into()]
+            }
+            FloatAbs { input, .. } => {
+                vec![input.into()]
+            }
+            FloatSqrt { input, .. } => {
+                vec![input.into()]
+            }
+            FloatIntToFloat { input, .. } => {
+                vec![input.into()]
+            }
+            FloatFloatToFloat { input, .. } => {
+                vec![input.into()]
+            }
+            FloatTrunc { input, .. } => {
+                vec![input.into()]
+            }
+            FloatCeil { input, .. } => {
+                vec![input.into()]
+            }
+            FloatFloor { input, .. } => {
+                vec![input.into()]
+            }
+            FloatRound { input, .. } => {
+                vec![input.into()]
+            }
+            MultiEqual { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            Indirect { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            Piece { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            SubPiece { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            Cast { input, .. } => {
+                vec![input.into()]
+            }
+            PtrAdd { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            PtrSub { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            SegmentOp { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            CPoolRef { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            New { input, .. } => {
+                vec![input.into()]
+            }
+            Insert { input0, input1, .. } => {
+                vec![input0.into(), input1.into()]
+            }
+            Extract { input0, .. } => {
+                vec![input0.into()]
+            }
+            PopCount { input, .. } => {
+                vec![input.into()]
+            }
+            LzCount { input, .. } => {
+                vec![input.into()]
+            }
         }
     }
     pub fn output(&self) -> Option<GeneralizedVarNode> {
