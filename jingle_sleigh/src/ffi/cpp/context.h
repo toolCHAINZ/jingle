@@ -9,6 +9,7 @@
 #include "sleigh/sleigh.hh"
 #include "jingle_sleigh/src/ffi/image.rs.h"
 #include "sleigh/loadimage.hh"
+#include "image_context.h"
 
 class DummyLoadImage : public ghidra::LoadImage {
     Image img;
@@ -27,18 +28,16 @@ public:
 
 
 class ContextFFI {
-    DummyLoadImage img;
-    ghidra::DocumentStorage documentStorage;
-    ghidra::ContextInternal contextDatabase;
-    std::unique_ptr<ghidra::Sleigh> sleigh;
+    ghidra::Sleigh sleigh;
+    ghidra::ContextInternal c_db;
+    DummyLoadImage image;
 public:
 
     explicit ContextFFI(rust::Str slaPath, Image img);
 
     void set_initial_context(rust::Str name, uint32_t val);
 
-    InstructionFFI get_one_instruction(uint64_t offset) const;
-
+    std::unique_ptr<SleighImage> makeImageContext(Image img);
 
     [[nodiscard]] std::shared_ptr<AddrSpaceHandle> getSpaceByIndex(ghidra::int4 idx) const;
 

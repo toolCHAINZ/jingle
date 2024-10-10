@@ -30,7 +30,10 @@ add_library(jingle_sleigh_cpp
         src/ffi/cpp/compile.cpp
         src/ffi/cpp/addrspace_handle.cpp
         src/ffi/cpp/addrspace_manager_handle.cpp
-        src/ffi/cpp/context.h)
+        src/ffi/cpp/context.h
+        src/ffi/cpp/image_context.cpp
+        src/ffi/cpp/image_context.h
+        src/ffi/cpp/exception.h)
 
 add_executable(sleigh_compile
         src/ffi/cpp/sleigh/address.cc

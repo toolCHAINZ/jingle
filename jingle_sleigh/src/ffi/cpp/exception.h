@@ -4,6 +4,7 @@
 
 #include "sleigh/error.hh"
 #include "sleigh/xml.hh"
+#include "sleigh/loadimage.hh"
 
 namespace rust {
     namespace behavior {
@@ -14,6 +15,8 @@ namespace rust {
         } catch (const ghidra::LowlevelError &e) {
             fail(e.explain);
         } catch (const ghidra::DecoderError &e) {
+            fail(e.explain);
+        } catch (const ghidra::DataUnavailError &e){
             fail(e.explain);
         } catch (const std::exception &e) {
             fail(e.what());

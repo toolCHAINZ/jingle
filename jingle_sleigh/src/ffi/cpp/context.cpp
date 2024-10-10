@@ -6,52 +6,6 @@
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/loadimage.hh"
 
-class PcodeCacher : public ghidra::PcodeEmit {
-public:
-    rust::Vec<RawPcodeOp> ops;
-
-    PcodeCacher() = default;
-
-    void dump(const ghidra::Address &addr, ghidra::OpCode opc, ghidra::VarnodeData *outvar, ghidra::VarnodeData *vars,
-              ghidra::int4 isize) override {
-        RawPcodeOp op;
-        op.op = opc;
-        op.has_output = false;
-        if (outvar != nullptr && outvar->space != nullptr) {
-            op.has_output = true;
-            op.output.offset = outvar->offset;
-            op.output.size = outvar->size;
-            op.output.space = std::make_unique<AddrSpaceHandle>(AddrSpaceHandle(outvar->space));
-            outvar->space->getType();
-        }
-        op.inputs.reserve(isize);
-        for (int i = 0; i < isize; i++) {
-            VarnodeInfoFFI info;
-            info.space = std::make_unique<AddrSpaceHandle>(vars[i].space);
-            info.size = vars[i].size;
-            info.offset = vars[i].offset;
-            op.space = std::make_unique<AddrSpaceHandle>(addr.getSpace());
-            op.inputs.emplace_back(std::move(info));
-        }
-        ops.emplace_back(op);
-
-    }
-};
-
-class AssemblyCacher : public ghidra::AssemblyEmit {
-public:
-    rust::String mnem;
-    rust::String body;
-
-    AssemblyCacher() : mnem(""), body("") {
-
-    };
-
-    void dump(const ghidra::Address &addr, const std::string &mnem, const std::string &body) override {
-        this->mnem = mnem;
-        this->body = body;
-    }
-};
 
 DummyLoadImage::DummyLoadImage() : ghidra::LoadImage("jingle") {
     img = Image{};
@@ -63,6 +17,7 @@ DummyLoadImage::DummyLoadImage(Image image) : ghidra::LoadImage("jingle") {
 
 void DummyLoadImage::loadFill(ghidra::uint1 *ptr, ghidra::int4 size, const ghidra::Address &addr) {
     size_t offset = addr.getOffset();
+    size_t bytes_written = 0;
     for (const auto &section: img.sections) {
         size_t start = section.base_address;
         size_t end = start + section.data.size();
@@ -71,10 +26,17 @@ void DummyLoadImage::loadFill(ghidra::uint1 *ptr, ghidra::int4 size, const ghidr
             size_t start_idx = offset - start;
             std::memcpy(ptr, &section.data[start_idx], len);
             offset = offset + len;
+            bytes_written += len;
         }
     }
     for (size_t i = offset; i < size; ++i) {
         ptr[i] = 0;
+    }
+    if (bytes_written == 0) {
+        ghidra::ostringstream errmsg;
+        errmsg << "Unable to load " << std::dec << size << " bytes at " << addr.getShortcut();
+        addr.printRaw(errmsg);
+        throw ghidra::DataUnavailError(errmsg.str());
     }
 }
 
@@ -84,12 +46,12 @@ std::string DummyLoadImage::getArchType() const {
     return "placeholder";
 }
 
-ContextFFI::ContextFFI(rust::Str slaPath, Image image) {
+ContextFFI::ContextFFI(rust::Str slaPath) {
     ghidra::AttributeId::initialize();
     ghidra::ElementId::initialize();
 
-    this->img = DummyLoadImage(std::move(image));
-    documentStorage = ghidra::DocumentStorage();
+    DummyLoadImage img = DummyLoadImage(Image());
+    ghidra::DocumentStorage documentStorage = ghidra::DocumentStorage();
 
     std::stringstream sleighfilename;
     sleighfilename << "<sleigh>";
@@ -99,44 +61,27 @@ ContextFFI::ContextFFI(rust::Str slaPath, Image image) {
     ghidra::Document *doc = documentStorage.parseDocument(sleighfilename);
     ghidra::Element *root = doc->getRoot();
     documentStorage.registerTag(root);
-    sleigh = std::make_unique<ghidra::Sleigh>(&img, &contextDatabase);
-    sleigh->initialize(documentStorage);
+    sleigh = ghidra::Sleigh(&img, &c_db);
+    sleigh.initialize(documentStorage);
 
 }
 
 void ContextFFI::set_initial_context(rust::Str name, uint32_t val) {
-    sleigh->setContextDefault(name.operator std::string(), val);
+    sleigh.setContextDefault(name.operator std::string(), val);
 }
 
-InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {
-    PcodeCacher pcode;
-    AssemblyCacher assembly;
-    ghidra::Address a = ghidra::Address(sleigh->getDefaultCodeSpace(), offset);
-    sleigh->printAssembly(assembly, a);
-    sleigh->oneInstruction(pcode, a);
-    size_t length = sleigh->instructionLength(a);
-    InstructionFFI i;
-    Disassembly d;
-    i.ops = std::move(pcode.ops);
-    d.args = std::move(assembly.body);
-    d.mnemonic = std::move(assembly.mnem);
-    i.disassembly = std::move(d);
-    i.address = offset;
-    i.length = length;
-    return i;
-}
 
 
 std::shared_ptr<AddrSpaceHandle> ContextFFI::getSpaceByIndex(ghidra::int4 idx) const {
-    return std::make_shared<AddrSpaceHandle>(sleigh->getSpace(idx));
+    return std::make_shared<AddrSpaceHandle>(sleigh.getSpace(idx));
 }
 
 ghidra::int4 ContextFFI::getNumSpaces() const {
-    return sleigh->numSpaces();
+    return sleigh.numSpaces();
 }
 
 VarnodeInfoFFI ContextFFI::getRegister(rust::Str name) const {
-    ghidra::VarnodeData vn = sleigh->getRegister(name.operator std::string());
+    ghidra::VarnodeData vn = sleigh.getRegister(name.operator std::string());
     VarnodeInfoFFI info;
     info.space = std::make_unique<AddrSpaceHandle>(vn.space);
     info.size = vn.size;
@@ -145,7 +90,7 @@ VarnodeInfoFFI ContextFFI::getRegister(rust::Str name) const {
 };
 
 rust::Str ContextFFI::getRegisterName(VarnodeInfoFFI vn) const {
-    std::string name = sleigh->getRegisterName(vn.space->getRaw(), vn.offset, vn.size);
+    std::string name = sleigh.getRegisterName(vn.space->getRaw(), vn.offset, vn.size);
     return {name};
 }
 
@@ -170,10 +115,14 @@ RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData, std::string> el) 
 rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
     std::map<ghidra::VarnodeData, std::string> reglist;
     rust::Vec<RegisterInfoFFI> v;
-    sleigh->getAllRegisters(reglist);
+    sleigh.getAllRegisters(reglist);
     v.reserve(reglist.size());
-    for (auto const& vn : reglist){
+    for (auto const &vn: reglist) {
         v.emplace_back(collectRegInfo(vn));
     }
     return v;
+}
+
+std::unique_ptr<SleighImage> ContextFFI::makeImageContext(Image img) {
+    return std::unique_ptr<SleighImage>(sleigh, img);
 }
