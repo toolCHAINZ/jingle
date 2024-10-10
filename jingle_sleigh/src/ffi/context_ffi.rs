@@ -25,10 +25,10 @@ pub(crate) mod bridge {
         include!("jingle_sleigh/src/ffi/cpp/exception.h");
 
         pub(crate) type ContextFFI;
-        pub(super) fn makeContext(slaPath: &str, img: Image) -> Result<UniquePtr<ContextFFI>>;
+        pub(super) fn makeContext(slaPath: &str) -> Result<UniquePtr<ContextFFI>>;
         pub(crate) fn set_initial_context(self: Pin<&mut ContextFFI>, name: &str, value: u32);
 
-        pub(crate) fn get_one_instruction(&self, offset: u64) -> Result<InstructionFFI>;
+        // pub(crate) fn get_one_instruction(&self, offset: u64) -> Result<InstructionFFI>;
 
         pub(crate) fn getSpaceByIndex(&self, idx: i32) -> SharedPtr<AddrSpaceHandle>;
         pub(crate) fn getNumSpaces(&self) -> i32;

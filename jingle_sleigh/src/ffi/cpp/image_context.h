@@ -5,10 +5,12 @@
 #ifndef JINGLE_SLEIGH_IMAGE_CONTEXT_H
 #define JINGLE_SLEIGH_IMAGE_CONTEXT_H
 
+#include "addrspace_handle.h"
+#include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/sleigh.hh"
 #include "rust/cxx.h"
 #include "jingle_sleigh/src/ffi/image.rs.h"
-#include "context.h"
+#include "dummy_load_image.h"
 
 class SleighImage{
     ghidra::Sleigh sl;
@@ -16,10 +18,9 @@ class SleighImage{
     DummyLoadImage image;
 
 public:
-    SleighImage(ghidra::Sleigh, Image);
+    SleighImage(Image img, ghidra::Sleigh& sl);
 
     InstructionFFI get_one_instruction(uint64_t offset) const;
-
 
     [[nodiscard]] std::shared_ptr<AddrSpaceHandle> getSpaceByIndex(ghidra::int4 idx) const;
 

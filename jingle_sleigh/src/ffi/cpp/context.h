@@ -10,22 +10,7 @@
 #include "jingle_sleigh/src/ffi/image.rs.h"
 #include "sleigh/loadimage.hh"
 #include "image_context.h"
-
-class DummyLoadImage : public ghidra::LoadImage {
-    Image img;
-public:
-    DummyLoadImage();
-
-    DummyLoadImage(Image img);
-
-    void loadFill(ghidra::uint1 *ptr, ghidra::int4 size, const ghidra::Address &addr) override;
-
-    std::string getArchType(void) const override;
-
-    void adjustVma(long adjust) override;
-
-};
-
+#include "dummy_load_image.h"
 
 class ContextFFI {
     ghidra::Sleigh sleigh;
@@ -33,7 +18,7 @@ class ContextFFI {
     DummyLoadImage image;
 public:
 
-    explicit ContextFFI(rust::Str slaPath, Image img);
+    explicit ContextFFI(rust::Str slaPath);
 
     void set_initial_context(rust::Str name, uint32_t val);
 
@@ -54,6 +39,6 @@ RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData*, std::string> el)
 
 VarnodeInfoFFI varnodeToFFI(ghidra::VarnodeData vn);
 
-std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath, Image img);
+std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath);
 
 #endif //JINGLE_SLEIGH_CONTEXT_H
