@@ -22,7 +22,9 @@ public:
 
     void set_initial_context(rust::Str name, uint32_t val);
 
-    std::unique_ptr<SleighImage> makeImageContext(Image img) const;
+    void setImage(Image img);
+
+    InstructionFFI get_one_instruction(uint64_t offset) const;
 
     [[nodiscard]] std::shared_ptr<AddrSpaceHandle> getSpaceByIndex(ghidra::int4 idx) const;
 

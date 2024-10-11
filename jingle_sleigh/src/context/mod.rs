@@ -1,5 +1,4 @@
 mod builder;
-mod sleigh_image;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
@@ -13,7 +12,6 @@ pub use builder::image::{Image, ImageSection};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
-use crate::context::sleigh_image::SleighImage;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::JingleSleighError::SleighCompilerMutexError;
@@ -118,27 +116,32 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn load_image<T: Into<Image>>(&self, img: T) -> Result<SleighImage, JingleSleighError> {
+    pub fn set_image<T: Into<Image>>(&mut self, img: T) -> Result<(), JingleSleighError> {
         self.ctx
-            .makeImageContext(img.into())
-            .map(SleighImage::new)
+            .pin_mut()
+            .setImage(img.into())
             .map_err(|e| JingleSleighError::ImageLoadError)
+    }
+
+    pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
+        self.ctx
+            .get_one_instruction(offset)
+            .map(Instruction::from)
+            .ok()
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::context::SleighContextBuilder;
-    use crate::RegisterManager;
     use crate::tests::SLEIGH_ARCH;
+    use crate::RegisterManager;
 
     #[test]
     fn get_regs() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder
-            .build(SLEIGH_ARCH)
-            .unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         assert_ne!(sleigh.get_registers(), vec![]);
     }
 }

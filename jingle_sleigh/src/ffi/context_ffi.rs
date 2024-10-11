@@ -19,7 +19,6 @@ pub(crate) mod bridge {
 
         type RegisterInfoFFI = crate::ffi::instruction::bridge::RegisterInfoFFI;
 
-        type SleighImage = crate::ffi::sleigh_image::bridge::SleighImage;
     }
 
     unsafe extern "C++" {
@@ -30,7 +29,7 @@ pub(crate) mod bridge {
         pub(super) fn makeContext(slaPath: &str) -> Result<UniquePtr<ContextFFI>>;
         pub(crate) fn set_initial_context(self: Pin<&mut ContextFFI>, name: &str, value: u32);
 
-        // pub(crate) fn get_one_instruction(&self, offset: u64) -> Result<InstructionFFI>;
+        pub(crate) fn get_one_instruction(&self, offset: u64) -> Result<InstructionFFI>;
 
         pub(crate) fn getSpaceByIndex(&self, idx: i32) -> SharedPtr<AddrSpaceHandle>;
         pub(crate) fn getNumSpaces(&self) -> i32;
@@ -40,7 +39,7 @@ pub(crate) mod bridge {
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
 
-        pub(crate) fn makeImageContext(&self, img: Image) -> Result<UniquePtr<SleighImage>>;
+        pub(crate) fn setImage(self: Pin<&mut ContextFFI>, img: Image) -> Result<()>;
     }
     impl Vec<RegisterInfoFFI> {}
 }

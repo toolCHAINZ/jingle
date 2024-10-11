@@ -14,8 +14,6 @@
 
 class SleighImage{
     ghidra::Sleigh sl;
-    ghidra::ContextInternal c_db;
-    DummyLoadImage image;
 
 public:
     SleighImage(Image img, ghidra::Sleigh sl);

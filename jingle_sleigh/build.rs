@@ -51,7 +51,6 @@ fn main() {
         "src/ffi/cpp/sleigh/slghparse.cc",
         "src/ffi/cpp/context.cpp",
         "src/ffi/cpp/dummy_load_image.cpp",
-        "src/ffi/cpp/sleigh_image.cpp",
         "src/ffi/cpp/addrspace_handle.cpp",
         "src/ffi/cpp/addrspace_manager_handle.cpp",
         "src/ffi/cpp/varnode_translation.cpp",
