@@ -1,7 +1,6 @@
 mod builder;
 mod instruction_iterator;
 
-use std::collections::HashMap;
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
@@ -25,6 +24,7 @@ use crate::context::instruction_iterator::SleighContextInstructionIterator;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
+    image: Option<Image>,
     spaces: Vec<SpaceInfo>,
     language_id: String,
 }
@@ -96,6 +96,7 @@ impl SleighContext {
                 Ok(Self {
                     ctx,
                     spaces,
+                    image: None,
                     language_id: language_def.id.clone(),
                 })
             }
@@ -119,11 +120,16 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn set_image<T: Into<Image>>(&mut self, img: T) -> Result<(), JingleSleighError> {
+    pub fn set_image<T: Into<Image> + Clone>(&mut self, img: T) -> Result<(), JingleSleighError> {
+        self.image = Some(img.clone().into());
         self.ctx
             .pin_mut()
             .setImage(img.into())
             .map_err(|_| ImageLoadError)
+    }
+
+    pub fn get_image(&self) -> Option<&Image>{
+        self.image.as_ref()
     }
 
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
