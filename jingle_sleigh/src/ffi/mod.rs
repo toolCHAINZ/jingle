@@ -11,7 +11,7 @@ use libz_sys::inflate;
 
 #[cfg(test)]
 mod tests {
-    use crate::context::{Image, SleighContextBuilder};
+    use crate::context::{SleighContextBuilder};
     use crate::tests::SLEIGH_ARCH;
 
     #[test]
