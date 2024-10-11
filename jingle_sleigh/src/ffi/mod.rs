@@ -12,6 +12,7 @@ use libz_sys::inflate;
 #[cfg(test)]
 mod tests {
     use crate::context::{Image, SleighContextBuilder};
+    use crate::tests::SLEIGH_ARCH;
 
     #[test]
     fn test_callother_decode() {
@@ -32,5 +33,22 @@ mod tests {
         let mut sleigh = builder.build("x86:LE:64:default").unwrap();
         sleigh.set_image(bytes.as_slice()).unwrap();
         sleigh.instruction_at(0).unwrap();
+    }
+
+    #[test]
+    fn test_two_images(){
+        let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
+        let nops: [u8; 4] = [0x90, 0x90, 0x90, 0x90];
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let mut sleigh = ctx_builder
+            .build(SLEIGH_ARCH)
+            .unwrap();
+        sleigh.set_image(mov_eax_0.as_slice()).unwrap();
+        let instr1 = sleigh.instruction_at(0);
+        sleigh.set_image(nops.as_slice()).unwrap();
+        let instr2 = sleigh.instruction_at(0);
+        assert_ne!(instr1, instr2);
+        assert_ne!(instr1, None);
     }
 }
