@@ -1,5 +1,7 @@
 mod builder;
+mod instruction_iterator;
 
+use std::collections::HashMap;
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
@@ -14,11 +16,12 @@ pub use builder::SleighContextBuilder;
 use crate::context::builder::language_def::LanguageDefinition;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::JingleSleighError::SleighCompilerMutexError;
+use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use crate::context::instruction_iterator::SleighContextInstructionIterator;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -100,8 +103,8 @@ impl SleighContext {
         }
     }
 
-    pub(crate) fn set_initial_context(&mut self, name: &str, value: u32) {
-        self.ctx.pin_mut().set_initial_context(name, value);
+    pub(crate) fn set_initial_context(&mut self, name: &str, value: u32) -> Result<(), JingleSleighError> {
+        self.ctx.pin_mut().set_initial_context(name, value).map_err(|_| ImageLoadError)
     }
 
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
@@ -120,7 +123,7 @@ impl SleighContext {
         self.ctx
             .pin_mut()
             .setImage(img.into())
-            .map_err(|_| JingleSleighError::ImageLoadError)
+            .map_err(|_| ImageLoadError)
     }
 
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
@@ -128,6 +131,18 @@ impl SleighContext {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()
+    }
+
+    pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
+        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
+    }
+
+    pub fn read_until_branch(
+        &self,
+        offset: u64,
+        max_instrs: usize,
+    ) -> SleighContextInstructionIterator {
+        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 }
 

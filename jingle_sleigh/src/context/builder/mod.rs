@@ -39,12 +39,12 @@ impl SleighContextBuilder {
                     context.set_initial_context(
                         &set.name,
                         u32::from_str_radix(&set.value[2..], 16).unwrap(),
-                    )
+                    )?;
                 } else {
                     context.set_initial_context(
                         &set.name,
                         u32::from_str_radix(&set.value, 10).unwrap(),
-                    )
+                    )?;
                 }
             }
         }

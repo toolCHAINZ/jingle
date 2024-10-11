@@ -58,7 +58,7 @@ public:
 };
 
 
-ContextFFI::ContextFFI(rust::Str slaPath): sleigh(new DummyLoadImage(Image()), new ghidra::ContextInternal()) {
+ContextFFI::ContextFFI(rust::Str slaPath): sleigh(new DummyLoadImage(Image()), &c_db) {
     ghidra::AttributeId::initialize();
     ghidra::ElementId::initialize();
 
@@ -116,7 +116,7 @@ rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
 }
 
 void ContextFFI::setImage(Image img) {
-    sleigh.reset(new DummyLoadImage(img), new ghidra::ContextInternal());
+    sleigh.reset(new DummyLoadImage(std::move(img)), &c_db);
 }
 
 InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {

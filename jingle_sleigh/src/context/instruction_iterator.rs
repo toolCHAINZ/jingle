@@ -1,9 +1,8 @@
-use crate::context::sleigh_image::SleighImage;
-use crate::context::{Image, SleighContext};
+use crate::context::{SleighContext};
 use crate::Instruction;
 
 pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a SleighImage,
+    sleigh: &'a SleighContext,
     remaining: usize,
     offset: u64,
     terminate_branch: bool,
@@ -12,7 +11,7 @@ pub struct SleighContextInstructionIterator<'a> {
 
 impl<'a> SleighContextInstructionIterator<'a> {
     pub(crate) fn new(
-        sleigh: &'a SleighImage,
+        sleigh: &'a SleighContext,
         offset: u64,
         remaining: usize,
         terminate_branch: bool,
@@ -39,7 +38,7 @@ impl<'a> Iterator for SleighContextInstructionIterator<'a> {
         }
         let instr = self
             .sleigh
-            .img_ffi
+            .ctx
             .get_one_instruction(self.offset)
             .map(Instruction::from)
             .ok()?;
@@ -52,10 +51,9 @@ impl<'a> Iterator for SleighContextInstructionIterator<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::context::builder::image::Image;
     use crate::context::builder::SleighContextBuilder;
     use crate::pcode::PcodeOperation;
-    use crate::{Instruction, RegisterManager, SpaceManager};
+    use crate::{Instruction, SpaceManager};
 
     use crate::tests::SLEIGH_ARCH;
     use crate::varnode;
@@ -65,10 +63,10 @@ mod test {
         let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder
+        let mut sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        let sleigh = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
+        sleigh.set_image(mov_eax_0.as_slice()).unwrap();
         let instr = sleigh.read(0, 1).last().unwrap();
         assert_eq!(instr.length, 5);
         assert!(instr.disassembly.mnemonic.eq("MOV"));
@@ -83,15 +81,15 @@ mod test {
 
     #[test]
     fn stop_at_branch() {
-        let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
+        let mov_eax_0: [u8; 4] = [0x90, 0x90, 0x90, 0x90];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder
+        let mut sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        let sleigh_img = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
-        let instr: Vec<Instruction> = sleigh_img.read(0, 2).collect();
-        assert_eq!(instr.len(), 1);
+        sleigh.set_image(mov_eax_0.as_slice()).unwrap();
+        let instr: Vec<Instruction> = sleigh.read(0, 5).collect();
+        assert_eq!(instr.len(), 4);
     }
 
 }

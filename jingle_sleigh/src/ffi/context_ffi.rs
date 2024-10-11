@@ -27,7 +27,7 @@ pub(crate) mod bridge {
 
         pub(crate) type ContextFFI;
         pub(super) fn makeContext(slaPath: &str) -> Result<UniquePtr<ContextFFI>>;
-        pub(crate) fn set_initial_context(self: Pin<&mut ContextFFI>, name: &str, value: u32);
+        pub(crate) fn set_initial_context(self: Pin<&mut ContextFFI>, name: &str, value: u32) -> Result<()>;
 
         pub(crate) fn get_one_instruction(&self, offset: u64) -> Result<InstructionFFI>;
 
