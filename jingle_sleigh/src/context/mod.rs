@@ -120,7 +120,7 @@ impl SleighContext {
         self.ctx
             .pin_mut()
             .setImage(img.into())
-            .map_err(|e| JingleSleighError::ImageLoadError)
+            .map_err(|_| JingleSleighError::ImageLoadError)
     }
 
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {

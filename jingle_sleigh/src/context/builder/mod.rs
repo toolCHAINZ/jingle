@@ -1,9 +1,8 @@
-use crate::context::builder::image::Image;
 use crate::context::builder::language_def::{parse_ldef, LanguageDefinition};
 use crate::context::builder::processor_spec::parse_pspec;
 use crate::context::SleighContext;
 use crate::error::JingleSleighError;
-use crate::error::JingleSleighError::{InvalidLanguageId, LanguageSpecRead, NoImageProvided};
+use crate::error::JingleSleighError::{InvalidLanguageId, LanguageSpecRead};
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,7 +26,7 @@ impl SleighContextBuilder {
         self.defs.iter().find(|(p, _)| p.id.eq(id))
     }
     #[instrument(skip_all, fields(%id))]
-    pub fn build(mut self, id: &str) -> Result<SleighContext, JingleSleighError> {
+    pub fn build(&self, id: &str) -> Result<SleighContext, JingleSleighError> {
         let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId)?;
         let mut context = SleighContext::new(lang, path)?;
         event!(Level::INFO, "Created sleigh context");

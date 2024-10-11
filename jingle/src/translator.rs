@@ -31,8 +31,7 @@ impl<'ctx> SleighTranslator<'ctx> {
     ) -> Result<ModeledInstruction<'ctx>, JingleError> {
         let op = self
             .sleigh
-            .read(offset, 1)
-            .next()
+            .instruction_at(offset)
             .ok_or(InstructionDecode)?;
         self.model_instruction(op)
     }
