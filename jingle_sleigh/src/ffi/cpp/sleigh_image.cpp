@@ -4,7 +4,7 @@
 #include "sleigh_image.h"
 #include "dummy_load_image.h"
 #include "varnode_translation.h"
-
+#include "sleigh/sleigh.hh"
 #include <utility>
 
 class PcodeCacher : public ghidra::PcodeEmit {
@@ -54,8 +54,8 @@ public:
     }
 };
 
-SleighImage::SleighImage(Image img, ghidra::Sleigh sl): sl(sl), image(DummyLoadImage(img)) {
-    sl.reset(&image, &c_db);
+SleighImage::SleighImage(Image img, ghidra::Sleigh sl): sl(sl) {
+    sl.reset(new DummyLoadImage(img), new ghidra::ContextInternal());
 }
 
 
