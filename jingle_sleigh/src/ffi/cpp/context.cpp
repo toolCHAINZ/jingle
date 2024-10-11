@@ -8,11 +8,10 @@
 #include "sleigh/loadimage.hh"
 #include "varnode_translation.h"
 
-ContextFFI::ContextFFI(rust::Str slaPath): sleigh(&image, &c_db) {
+ContextFFI::ContextFFI(rust::Str slaPath): sleigh(new DummyLoadImage(Image()), new ghidra::ContextInternal()) {
     ghidra::AttributeId::initialize();
     ghidra::ElementId::initialize();
 
-    DummyLoadImage img = DummyLoadImage(Image());
     ghidra::DocumentStorage documentStorage = ghidra::DocumentStorage();
 
     std::stringstream sleighfilename;
