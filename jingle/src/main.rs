@@ -117,17 +117,17 @@ fn get_instructions(
     let img = decode(hex_bytes).unwrap();
     let max_len = img.len();
     let mut offset = 0;
-    let sleigh = sleigh_build
-        .set_image(Image::from(img))
+    let mut sleigh = sleigh_build
         .build(&architecture)
         .unwrap();
+    sleigh.set_image(img).unwrap();
     let mut instrs = vec![];
     while offset < max_len {
-        for instruction in sleigh.read(offset as u64, 1) {
+        for instruction in sleigh.instruction_at(offset as u64) {
             offset += instruction.length;
             instrs.push(instruction);
         }
-        if sleigh.read(offset as u64, 1).next().is_none() {
+        if sleigh.instruction_at(offset as u64).is_none() {
             break;
         }
     }
