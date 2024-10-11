@@ -54,8 +54,8 @@ public:
     }
 };
 
-SleighImage::SleighImage(Image img, ghidra::Sleigh sl): sl(sl) {
-    sl.reset(new DummyLoadImage(img), new ghidra::ContextInternal());
+SleighImage::SleighImage(Image img, ghidra::Sleigh sl): sl(ghidra::Sleigh(sl)) {
+    this->sl.reset(new DummyLoadImage(img), new ghidra::ContextInternal());
 }
 
 
