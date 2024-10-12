@@ -4,6 +4,7 @@
 #include <memory>
 #include <utility>
 #include "sleigh/globalcontext.hh"
+#include "sleigh/xml.hh"
 #include "sleigh_image.h"
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/loadimage.hh"
@@ -117,6 +118,8 @@ rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
 
 void ContextFFI::setImage(Image img) {
     sleigh.reset(new DummyLoadImage(std::move(img)), &c_db);
+    ghidra::DocumentStorage documentStorage = ghidra::DocumentStorage();
+    sleigh.initialize(documentStorage);
 }
 
 InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {
