@@ -21,10 +21,14 @@ impl Image {
         &self.sections
     }
 
-    pub fn contains_address(&self, addr: usize) -> bool {
+    pub fn contains_address(&self, addr: u64) -> bool {
         self.sections
             .iter()
-            .any(|s| s.base_address <= addr && (s.base_address + s.data.len()) >= addr)
+            .any(|s| s.base_address <= addr as usize && (s.base_address + s.data.len()) >= addr as usize)
+    }
+
+    pub fn contains_range(&self, mut range: Range<u64>) -> bool {
+        range.all(|i| self.contains_address(i))
     }
 }
 

@@ -128,15 +128,20 @@ impl SleighContext {
             .map_err(|_| ImageLoadError)
     }
 
-    pub fn get_image(&self) -> Option<&Image>{
+    pub fn get_image(&self) -> Option<&Image> {
         self.image.as_ref()
     }
 
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
-        self.ctx
+        let instr = self.ctx
             .get_one_instruction(offset)
             .map(Instruction::from)
-            .ok()
+            .ok()?;
+        if self.image.as_ref()?.contains_range(offset..(offset + instr.length as u64)) {
+            Some(instr)
+        } else {
+            None
+        }
     }
 
     pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {

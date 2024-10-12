@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn test_two_images(){
         let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
-        let nops: [u8; 4] = [0x90, 0x90, 0x90, 0x90];
+        let nops: [u8; 9] = [0x90, 0x90, 0x90, 0x90, 0x0f, 0x05, 0x0f, 0x05, 0x0f];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let mut sleigh = ctx_builder
@@ -50,5 +50,10 @@ mod tests {
         let instr2 = sleigh.instruction_at(0);
         assert_ne!(instr1, instr2);
         assert_ne!(instr1, None);
+        let instr2 = sleigh.instruction_at(4);
+        assert_ne!(instr1, instr2);
+        assert_ne!(instr2, None);
+        let instr3 = sleigh.instruction_at(8);
+        assert_eq!(instr3, None);
     }
 }

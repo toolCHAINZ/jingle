@@ -22,7 +22,7 @@ void DummyLoadImage::loadFill(ghidra::uint1 *ptr, ghidra::int4 size, const ghidr
             bytes_written += len;
         }
     }
-    for (size_t i = offset; i < size; ++i) {
+    for (size_t i = bytes_written; i < size; ++i) {
         ptr[i] = 0;
     }
     if (bytes_written == 0) {
