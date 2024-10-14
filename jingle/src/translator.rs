@@ -64,7 +64,7 @@ impl<'ctx> RegisterManager for SleighTranslator<'ctx> {
         self.sleigh.get_register(name)
     }
 
-    fn get_register_name(&self, location: VarNode) -> Option<&str> {
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
         self.sleigh.get_register_name(location)
     }
 

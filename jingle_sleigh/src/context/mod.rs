@@ -61,10 +61,10 @@ impl RegisterManager for SleighContext {
             .map(|(vn, _)| vn.clone())
     }
 
-    fn get_register_name(&self, location: VarNode) -> Option<&str> {
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
         self.registers
             .iter()
-            .find(|(vn, _)| vn == &location)
+            .find(|(vn, _)| vn == location)
             .map(|(_, name)| name.as_str())
     }
 
@@ -186,7 +186,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.get_register_name(VarNode {
+            sleigh.get_register_name(&VarNode {
                 space_index: 4,
                 offset: 512,
                 size: 1
@@ -202,7 +202,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.get_register_name(VarNode {
+            sleigh.get_register_name(&VarNode {
                 space_index: 40,
                 offset: 5122,
                 size: 1
