@@ -9,54 +9,8 @@
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/loadimage.hh"
 #include "varnode_translation.h"
-
-
-class PcodeCacher : public ghidra::PcodeEmit {
-public:
-    rust::Vec<RawPcodeOp> ops;
-
-    PcodeCacher() = default;
-
-    void dump(const ghidra::Address &addr, ghidra::OpCode opc, ghidra::VarnodeData *outvar, ghidra::VarnodeData *vars,
-              ghidra::int4 isize) override {
-        RawPcodeOp op;
-        op.op = opc;
-        op.has_output = false;
-        if (outvar != nullptr && outvar->space != nullptr) {
-            op.has_output = true;
-            op.output.offset = outvar->offset;
-            op.output.size = outvar->size;
-            op.output.space = std::make_unique<AddrSpaceHandle>(AddrSpaceHandle(outvar->space));
-            outvar->space->getType();
-        }
-        op.inputs.reserve(isize);
-        for (int i = 0; i < isize; i++) {
-            VarnodeInfoFFI info;
-            info.space = std::make_unique<AddrSpaceHandle>(vars[i].space);
-            info.size = vars[i].size;
-            info.offset = vars[i].offset;
-            op.space = std::make_unique<AddrSpaceHandle>(addr.getSpace());
-            op.inputs.emplace_back(std::move(info));
-        }
-        ops.emplace_back(op);
-
-    }
-};
-
-class AssemblyCacher : public ghidra::AssemblyEmit {
-public:
-    rust::String mnem;
-    rust::String body;
-
-    AssemblyCacher() : mnem(""), body("") {
-
-    };
-
-    void dump(const ghidra::Address &addr, const std::string &mnem, const std::string &body) override {
-        this->mnem = mnem;
-        this->body = body;
-    }
-};
+#include "jingle_pcode_emitter.h"
+#include "jingle_assembly_emitter.h"
 
 
 ContextFFI::ContextFFI(rust::Str slaPath): sleigh(new DummyLoadImage(Image()), &c_db) {
@@ -123,8 +77,8 @@ void ContextFFI::setImage(Image img) {
 }
 
 InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {
-    PcodeCacher pcode;
-    AssemblyCacher assembly;
+    JinglePcodeEmitter pcode;
+    JingleAssemblyEmitter assembly;
     ghidra::Address a = ghidra::Address(sleigh.getDefaultCodeSpace(), offset);
     sleigh.printAssembly(assembly, a);
     sleigh.oneInstruction(pcode, a);

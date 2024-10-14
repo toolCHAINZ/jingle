@@ -54,6 +54,8 @@ fn main() {
         "src/ffi/cpp/addrspace_handle.cpp",
         "src/ffi/cpp/addrspace_manager_handle.cpp",
         "src/ffi/cpp/varnode_translation.cpp",
+        "src/ffi/cpp/jingle_pcode_emitter.cpp",
+        "src/ffi/cpp/jingle_assembly_emitter.cpp",
     ];
     // This assumes all your C++ bindings are in lib
     cxx_build::bridges(rust_sources)
