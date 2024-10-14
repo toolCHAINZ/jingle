@@ -13,6 +13,7 @@ pub use builder::image::{Image, ImageSection};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
+use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
@@ -20,7 +21,6 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
-use crate::context::instruction_iterator::SleighContextInstructionIterator;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -104,8 +104,15 @@ impl SleighContext {
         }
     }
 
-    pub(crate) fn set_initial_context(&mut self, name: &str, value: u32) -> Result<(), JingleSleighError> {
-        self.ctx.pin_mut().set_initial_context(name, value).map_err(|_| ImageLoadError)
+    pub(crate) fn set_initial_context(
+        &mut self,
+        name: &str,
+        value: u32,
+    ) -> Result<(), JingleSleighError> {
+        self.ctx
+            .pin_mut()
+            .set_initial_context(name, value)
+            .map_err(|_| ImageLoadError)
     }
 
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
@@ -133,11 +140,16 @@ impl SleighContext {
     }
 
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
-        let instr = self.ctx
+        let instr = self
+            .ctx
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        if self.image.as_ref()?.contains_range(offset..(offset + instr.length as u64)) {
+        if self
+            .image
+            .as_ref()?
+            .contains_range(offset..(offset + instr.length as u64))
+        {
             Some(instr)
         } else {
             None
@@ -161,7 +173,7 @@ impl SleighContext {
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::RegisterManager;
+    use crate::{RegisterManager, VarNode};
 
     #[test]
     fn get_regs() {
@@ -169,5 +181,40 @@ mod test {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         assert_ne!(sleigh.get_registers(), vec![]);
+    }
+
+    #[test]
+    fn get_register_name() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        for (vn, name) in sleigh.get_registers() {
+            let addr = sleigh.get_register(&name);
+            assert_eq!(addr, Some(vn));
+        }
+    }
+
+    #[test]
+    fn get_invalid_register_name() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        assert_eq!(sleigh.get_register("fake"), None);
+    }
+
+    #[test]
+    fn get_invalid_register() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        assert_eq!(
+            sleigh.get_register_name(VarNode {
+                space_index: 4,
+                offset: 512,
+                size: 1
+            }),
+            None
+        );
     }
 }
