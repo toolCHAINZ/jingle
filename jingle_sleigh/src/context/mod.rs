@@ -1,10 +1,11 @@
 mod builder;
+mod instruction_iterator;
+pub mod loaded;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::instruction::Instruction;
 use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
 #[cfg(feature = "gimli")]
 pub use builder::image::gimli::map_gimli_architecture;
@@ -12,24 +13,25 @@ pub use builder::image::{Image, ImageSection};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
+use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
-use crate::ffi::instruction::bridge::VarnodeInfoFFI;
+use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
-use crate::JingleSleighError::SleighCompilerMutexError;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
+    image: Option<Image>,
     spaces: Vec<SpaceInfo>,
     language_id: String,
-    pub image: Image,
+    registers: Vec<(VarNode, String)>,
 }
 
 impl Debug for SleighContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Sleigh {{image: {:?}}}", self.image)
+        write!(f, "Sleigh {{arch: {}}}", self.language_id)
     }
 }
 
@@ -53,26 +55,21 @@ impl SpaceManager for SleighContext {
 
 impl RegisterManager for SleighContext {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.ctx.getRegister(name).map(VarNode::from).ok()
+        self.registers
+            .iter()
+            .find(|(_, reg_name)| reg_name.as_str() == name)
+            .map(|(vn, _)| vn.clone())
     }
 
     fn get_register_name(&self, location: VarNode) -> Option<&str> {
-        let space = self.ctx.getSpaceByIndex(location.space_index as i32);
-        self.ctx
-            .getRegisterName(VarnodeInfoFFI {
-                space,
-                offset: location.offset,
-                size: location.size,
-            })
-            .ok()
+        self.registers
+            .iter()
+            .find(|(vn, _)| vn == &location)
+            .map(|(_, name)| name.as_str())
     }
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.ctx
-            .getRegisters()
-            .iter()
-            .map(|b| (VarNode::from(&b.varnode), b.name.clone()))
-            .collect()
+        self.registers.clone()
     }
 }
 
@@ -80,39 +77,44 @@ impl SleighContext {
     pub(crate) fn new<T: AsRef<Path>>(
         language_def: &LanguageDefinition,
         base_path: T,
-        image: Image,
     ) -> Result<Self, JingleSleighError> {
         let path = base_path.as_ref().join(&language_def.sla_file);
         let abs = path.canonicalize().map_err(|_| LanguageSpecRead)?;
         let path_str = abs.to_str().ok_or(LanguageSpecRead)?;
         match CTX_BUILD_MUTEX.lock() {
             Ok(make_context) => {
-                let ctx = make_context(path_str, image.clone()).map_err(|e| SleighInitError(e.to_string()))?;
+                let ctx = make_context(path_str).map_err(|e| SleighInitError(e.to_string()))?;
                 let mut spaces: Vec<SpaceInfo> = Vec::with_capacity(ctx.getNumSpaces() as usize);
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
                 }
+                let registers = ctx
+                    .getRegisters()
+                    .iter()
+                    .map(|b| (VarNode::from(&b.varnode), b.name.clone()))
+                    .collect();
+
                 Ok(Self {
-                    image,
                     ctx,
                     spaces,
+                    image: None,
                     language_id: language_def.id.clone(),
+                    registers,
                 })
             }
             Err(_) => Err(SleighCompilerMutexError),
         }
     }
 
-    pub(crate) fn set_initial_context(&mut self, name: &str, value: u32) {
-        self.ctx.pin_mut().set_initial_context(name, value);
-    }
-
-    pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
-    }
-
-    pub fn read_block(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
+    pub(crate) fn set_initial_context(
+        &mut self,
+        name: &str,
+        value: u32,
+    ) -> Result<(), JingleSleighError> {
+        self.ctx
+            .pin_mut()
+            .set_initial_context(name, value)
+            .map_err(|_| ImageLoadError)
     }
 
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
@@ -126,112 +128,86 @@ impl SleighContext {
     pub fn get_language_id(&self) -> &str {
         &self.language_id
     }
-}
 
-pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a SleighContext,
-    remaining: usize,
-    offset: u64,
-    terminate_branch: bool,
-    already_hit_branch: bool,
-}
-
-impl<'a> SleighContextInstructionIterator<'a> {
-    pub(crate) fn new(
-        sleigh: &'a SleighContext,
-        offset: u64,
-        remaining: usize,
-        terminate_branch: bool,
-    ) -> Self {
-        SleighContextInstructionIterator {
-            sleigh,
-            remaining,
-            offset,
-            terminate_branch,
-            already_hit_branch: false,
-        }
+    pub fn initialize_with_image<T: Into<Image> + Clone>(
+        mut self,
+        img: T,
+    ) -> Result<LoadedSleighContext, JingleSleighError> {
+        self.image = Some(img.clone().into());
+        self.ctx
+            .pin_mut()
+            .setImage(img.into())
+            .map_err(|_| ImageLoadError)?;
+        Ok(LoadedSleighContext::new(self))
     }
-}
 
-impl<'a> Iterator for SleighContextInstructionIterator<'a> {
-    type Item = Instruction;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining == 0 {
-            return None;
-        }
-        if !self.sleigh.image.contains_address(self.offset as usize) {
-            return None;
-        }
-        if self.terminate_branch && self.already_hit_branch {
-            return None;
-        }
-        let instr = self
-            .sleigh
-            .ctx
-            .get_one_instruction(self.offset)
-            .map(Instruction::from)
-            .ok()?;
-        self.already_hit_branch = instr.terminates_basic_block();
-        self.offset += instr.length as u64;
-        self.remaining -= 1;
-        Some(instr)
+    pub fn get_image(&self) -> Option<&Image> {
+        self.image.as_ref()
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::context::builder::image::Image;
-    use crate::context::builder::SleighContextBuilder;
-    use crate::pcode::PcodeOperation;
-    use crate::{Instruction, RegisterManager, SpaceManager};
-
+    use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::varnode;
-
-    #[test]
-    fn get_one() {
-        let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
-            .build(SLEIGH_ARCH)
-            .unwrap();
-        let instr = ctx.read(0, 1).last().unwrap();
-        assert_eq!(instr.length, 5);
-        assert!(instr.disassembly.mnemonic.eq("MOV"));
-        assert!(!instr.ops.is_empty());
-        varnode!(&ctx, #0:4).unwrap();
-        let _op = PcodeOperation::Copy {
-            input: varnode!(&ctx, #0:4).unwrap(),
-            output: varnode!(&ctx, "register"[0]:4).unwrap(),
-        };
-        assert!(matches!(&instr.ops[0], _op))
-    }
-
-    #[test]
-    fn stop_at_branch() {
-        let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
-            .build(SLEIGH_ARCH)
-            .unwrap();
-        let instr: Vec<Instruction> = ctx.read_block(0, 2).collect();
-        assert_eq!(instr.len(), 1);
-    }
+    use crate::{RegisterManager, VarNode};
 
     #[test]
     fn get_regs() {
-        let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
-            .build(SLEIGH_ARCH)
-            .unwrap();
-        assert_ne!(ctx.get_registers(), vec![]);
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        assert_ne!(sleigh.get_registers(), vec![]);
+    }
+
+    #[test]
+    fn get_register_name() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        for (vn, name) in sleigh.get_registers() {
+            let addr = sleigh.get_register(&name);
+            assert_eq!(addr, Some(vn));
+        }
+    }
+
+    #[test]
+    fn get_invalid_register_name() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        assert_eq!(sleigh.get_register("fake"), None);
+    }
+
+    #[test]
+    fn get_valid_register() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        assert_eq!(
+            sleigh.get_register_name(VarNode {
+                space_index: 4,
+                offset: 512,
+                size: 1
+            }),
+            Some("CF")
+        );
+    }
+
+    #[test]
+    fn get_invalid_register() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        assert_eq!(
+            sleigh.get_register_name(VarNode {
+                space_index: 40,
+                offset: 5122,
+                size: 1
+            }),
+            None
+        );
     }
 }

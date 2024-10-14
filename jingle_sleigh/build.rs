@@ -20,6 +20,7 @@ fn main() {
     let rust_sources = vec![
         "src/ffi/addrspace.rs",
         "src/ffi/context_ffi.rs",
+        "src/ffi/sleigh_image.rs",
         "src/ffi/instruction.rs",
         "src/ffi/opcode.rs",
         "src/ffi/image.rs",
@@ -49,8 +50,12 @@ fn main() {
         "src/ffi/cpp/sleigh/slghscan.cc",
         "src/ffi/cpp/sleigh/slghparse.cc",
         "src/ffi/cpp/context.cpp",
+        "src/ffi/cpp/dummy_load_image.cpp",
         "src/ffi/cpp/addrspace_handle.cpp",
         "src/ffi/cpp/addrspace_manager_handle.cpp",
+        "src/ffi/cpp/varnode_translation.cpp",
+        "src/ffi/cpp/jingle_pcode_emitter.cpp",
+        "src/ffi/cpp/jingle_assembly_emitter.cpp",
     ];
     // This assumes all your C++ bindings are in lib
     cxx_build::bridges(rust_sources)

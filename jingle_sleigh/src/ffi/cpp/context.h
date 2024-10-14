@@ -9,36 +9,22 @@
 #include "sleigh/sleigh.hh"
 #include "jingle_sleigh/src/ffi/image.rs.h"
 #include "sleigh/loadimage.hh"
-
-class DummyLoadImage : public ghidra::LoadImage {
-    Image img;
-public:
-    DummyLoadImage();
-
-    DummyLoadImage(Image img);
-
-    void loadFill(ghidra::uint1 *ptr, ghidra::int4 size, const ghidra::Address &addr) override;
-
-    std::string getArchType(void) const override;
-
-    void adjustVma(long adjust) override;
-
-};
-
+#include "sleigh_image.h"
+#include "dummy_load_image.h"
 
 class ContextFFI {
-    DummyLoadImage img;
-    ghidra::DocumentStorage documentStorage;
-    ghidra::ContextInternal contextDatabase;
-    std::unique_ptr<ghidra::Sleigh> sleigh;
+    ghidra::Sleigh sleigh;
+    ghidra::ContextInternal c_db;
+    DummyLoadImage image;
 public:
 
-    explicit ContextFFI(rust::Str slaPath, Image img);
+    explicit ContextFFI(rust::Str slaPath);
 
     void set_initial_context(rust::Str name, uint32_t val);
 
-    InstructionFFI get_one_instruction(uint64_t offset) const;
+    void setImage(Image img);
 
+    InstructionFFI get_one_instruction(uint64_t offset) const;
 
     [[nodiscard]] std::shared_ptr<AddrSpaceHandle> getSpaceByIndex(ghidra::int4 idx) const;
 
@@ -55,6 +41,6 @@ RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData*, std::string> el)
 
 VarnodeInfoFFI varnodeToFFI(ghidra::VarnodeData vn);
 
-std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath, Image img);
+std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath);
 
 #endif //JINGLE_SLEIGH_CONTEXT_H

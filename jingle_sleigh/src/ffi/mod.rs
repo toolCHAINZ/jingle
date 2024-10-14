@@ -11,7 +11,8 @@ use libz_sys::inflate;
 
 #[cfg(test)]
 mod tests {
-    use crate::context::{Image, SleighContextBuilder};
+    use crate::context::SleighContextBuilder;
+    use crate::tests::SLEIGH_ARCH;
 
     #[test]
     fn test_callother_decode() {
@@ -19,11 +20,9 @@ mod tests {
         let builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
-        let bin_sleigh = builder
-            .set_image(Image::from(bytes.as_slice()))
-            .build("x86:LE:64:default")
-            .unwrap();
-        let _lib = bin_sleigh.read(0, 1).next().unwrap();
+        let sleigh = builder.build("x86:LE:64:default").unwrap();
+        let sleigh = sleigh.initialize_with_image(bytes.as_slice()).unwrap();
+        sleigh.instruction_at(0).unwrap();
     }
     #[test]
     fn test_callother_decode2() {
@@ -31,10 +30,28 @@ mod tests {
         let builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
-        let bin_sleigh = builder
-            .set_image(Image::from(bytes.as_slice()))
-            .build("x86:LE:64:default")
-            .unwrap();
-        let _lib = bin_sleigh.read(0, 1).next().unwrap();
+        let sleigh = builder.build("x86:LE:64:default").unwrap();
+        let sleigh = sleigh.initialize_with_image(bytes.as_slice()).unwrap();
+        sleigh.instruction_at(0).unwrap();
+    }
+
+    #[test]
+    fn test_two_images() {
+        let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
+        let nops: [u8; 9] = [0x90, 0x90, 0x90, 0x90, 0x0f, 0x05, 0x0f, 0x05, 0x0f];
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        let mut sleigh = sleigh.initialize_with_image(mov_eax_0.as_slice()).unwrap();
+        let instr1 = sleigh.instruction_at(0);
+        sleigh.set_image(nops.as_slice()).unwrap();
+        let instr2 = sleigh.instruction_at(0);
+        assert_ne!(instr1, instr2);
+        assert_ne!(instr1, None);
+        let instr2 = sleigh.instruction_at(4);
+        assert_ne!(instr1, instr2);
+        assert_ne!(instr2, None);
+        let instr3 = sleigh.instruction_at(8);
+        assert_eq!(instr3, None);
     }
 }
