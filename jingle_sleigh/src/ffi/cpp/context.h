@@ -35,6 +35,8 @@ public:
     rust::Str getRegisterName(VarnodeInfoFFI name) const;
 
     rust::Vec<RegisterInfoFFI> getRegisters() const;
+
+    std::unique_ptr<SleighImage> loadImage(Image img);
 };
 
 RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData*, std::string> el);

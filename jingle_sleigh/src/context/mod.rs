@@ -1,5 +1,6 @@
 mod builder;
 mod instruction_iterator;
+mod sleigh_image;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
@@ -21,6 +22,7 @@ use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
+use crate::context::sleigh_image::SleighImage;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -120,12 +122,8 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn set_image<T: Into<Image> + Clone>(&mut self, img: T) -> Result<(), JingleSleighError> {
-        self.image = Some(img.clone().into());
-        self.ctx
-            .pin_mut()
-            .setImage(img.into())
-            .map_err(|_| ImageLoadError)
+    pub fn load_image<T: Into<Image> + Clone>(&mut self, img: T) -> Result<SleighImage, JingleSleighError>{
+        self.ctx.pin_mut().loadImage(img.clone().into()).map_err(|_| ImageLoadError).map(SleighImage::new)
     }
 
     pub fn get_image(&self) -> Option<&Image> {
@@ -144,17 +142,6 @@ impl SleighContext {
         }
     }
 
-    pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
-    }
-
-    pub fn read_until_branch(
-        &self,
-        offset: u64,
-        max_instrs: usize,
-    ) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
-    }
 }
 
 #[cfg(test)]

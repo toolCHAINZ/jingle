@@ -18,6 +18,7 @@ pub(crate) mod bridge {
         type AddrSpaceHandle = crate::ffi::addrspace::bridge::AddrSpaceHandle;
 
         type RegisterInfoFFI = crate::ffi::instruction::bridge::RegisterInfoFFI;
+        type SleighImage = crate::ffi::sleigh_image::bridge::SleighImage;
 
     }
 
@@ -39,7 +40,7 @@ pub(crate) mod bridge {
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
 
-        pub(crate) fn setImage(self: Pin<&mut ContextFFI>, img: Image) -> Result<()>;
+        pub(crate) fn loadImage(self: Pin<&mut ContextFFI>, img: Image) -> Result<UniquePtr<SleighImage>>;
     }
     impl Vec<RegisterInfoFFI> {}
 }

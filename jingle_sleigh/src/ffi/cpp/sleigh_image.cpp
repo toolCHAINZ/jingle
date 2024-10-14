@@ -5,10 +5,12 @@
 #include "dummy_load_image.h"
 #include "varnode_translation.h"
 #include "sleigh/sleigh.hh"
+#include "jingle_assembly_emitter.h"
+#include "jingle_pcode_emitter.h"
 #include <utility>
 
 
-SleighImage::SleighImage(Image img, ghidra::Sleigh sl): sl(ghidra::Sleigh(sl)) {
+SleighImage::SleighImage(Image img, ghidra::Sleigh* sl): sl(ghidra::Sleigh(*sl)) {
     this->sl.reset(new DummyLoadImage(img), new ghidra::ContextInternal());
 }
 
@@ -43,4 +45,22 @@ rust::Vec<RegisterInfoFFI> SleighImage::getRegisters() const {
         v.emplace_back(collectRegInfo(vn));
     }
     return v;
+}
+
+InstructionFFI SleighImage::get_one_instruction(uint64_t offset) const {
+    JinglePcodeEmitter pcode;
+    JingleAssemblyEmitter assembly;
+    ghidra::Address a = ghidra::Address(sl.getDefaultCodeSpace(), offset);
+    sl.printAssembly(assembly, a);
+    sl.oneInstruction(pcode, a);
+    size_t length = sl.instructionLength(a);
+    InstructionFFI i;
+    Disassembly d;
+    i.ops = std::move(pcode.ops);
+    d.args = std::move(assembly.body);
+    d.mnemonic = std::move(assembly.mnem);
+    i.disassembly = std::move(d);
+    i.address = offset;
+    i.length = length;
+    return i;
 }

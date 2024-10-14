@@ -1,6 +1,5 @@
-mod instruction_iterator;
 
-use crate::context::sleigh_image::instruction_iterator::SleighContextInstructionIterator;
+use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::sleigh_image::bridge::SleighImage as SleighImageFFI;
 use crate::{Instruction, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use cxx::UniquePtr;
@@ -97,7 +96,7 @@ mod test{
         let nops: [u8; 4] = [0x90, 0x90, 0x90, 0x90];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder
+        let mut sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
        let img1 = sleigh.load_image(mov_eax_0.as_slice()).unwrap();

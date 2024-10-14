@@ -1,8 +1,9 @@
 use crate::context::{SleighContext};
+use crate::context::sleigh_image::SleighImage;
 use crate::Instruction;
 
 pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a SleighContext,
+    sleigh: &'a SleighImage,
     remaining: usize,
     offset: u64,
     terminate_branch: bool,
@@ -11,7 +12,7 @@ pub struct SleighContextInstructionIterator<'a> {
 
 impl<'a> SleighContextInstructionIterator<'a> {
     pub(crate) fn new(
-        sleigh: &'a SleighContext,
+        sleigh: &'a SleighImage,
         offset: u64,
         remaining: usize,
         terminate_branch: bool,
@@ -36,12 +37,9 @@ impl<'a> Iterator for SleighContextInstructionIterator<'a> {
         if self.terminate_branch && self.already_hit_branch {
             return None;
         }
-        let instr = self
-            .sleigh
-            .ctx
-            .get_one_instruction(self.offset)
-            .map(Instruction::from)
-            .ok()?;
+        let instr = self.sleigh.
+            instruction_at(self.offset)
+            .map(Instruction::from)?;
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;
@@ -66,7 +64,7 @@ mod test {
         let mut sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        sleigh.set_image(mov_eax_0.as_slice()).unwrap();
+        let sleigh = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
         let instr = sleigh.read(0, 1).last().unwrap();
         assert_eq!(instr.length, 5);
         assert!(instr.disassembly.mnemonic.eq("MOV"));
@@ -87,7 +85,7 @@ mod test {
         let mut sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        sleigh.set_image(mov_eax_0.as_slice()).unwrap();
+        let sleigh = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
         let instr: Vec<Instruction> = sleigh.read(0, 5).collect();
         assert_eq!(instr.len(), 4);
     }

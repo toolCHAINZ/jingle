@@ -3,6 +3,7 @@ pub(crate) mod context_ffi;
 pub(crate) mod image;
 pub(crate) mod instruction;
 pub(crate) mod opcode;
+pub(crate) mod sleigh_image;
 
 // Need to pull this in somewhere so that libz symbols are available
 // for the `sleigh` CPP code at link-time.
@@ -21,7 +22,7 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
         let mut sleigh = builder.build("x86:LE:64:default").unwrap();
-        sleigh.set_image(bytes.as_slice()).unwrap();
+        let sleigh = sleigh.load_image(bytes.as_slice()).unwrap();
         sleigh.instruction_at(0).unwrap();
     }
     #[test]
@@ -31,7 +32,7 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
         let mut sleigh = builder.build("x86:LE:64:default").unwrap();
-        sleigh.set_image(bytes.as_slice()).unwrap();
+        let sleigh = sleigh.load_image(bytes.as_slice()).unwrap();
         sleigh.instruction_at(0).unwrap();
     }
 
@@ -44,16 +45,16 @@ mod tests {
         let mut sleigh = ctx_builder
             .build(SLEIGH_ARCH)
             .unwrap();
-        sleigh.set_image(mov_eax_0.as_slice()).unwrap();
-        let instr1 = sleigh.instruction_at(0);
-        sleigh.set_image(nops.as_slice()).unwrap();
-        let instr2 = sleigh.instruction_at(0);
+        let sl1 = sleigh.load_image(mov_eax_0.as_slice()).unwrap();
+        let instr1 = sl1.instruction_at(0);
+        let sl2 = sleigh.load_image(nops.as_slice()).unwrap();
+        let instr2 = sl2.instruction_at(0);
         assert_ne!(instr1, instr2);
         assert_ne!(instr1, None);
-        let instr2 = sleigh.instruction_at(4);
+        let instr2 = sl1.instruction_at(4);
         assert_ne!(instr1, instr2);
         assert_ne!(instr2, None);
-        let instr3 = sleigh.instruction_at(8);
+        let instr3 = sl2.instruction_at(8);
         assert_eq!(instr3, None);
     }
 }

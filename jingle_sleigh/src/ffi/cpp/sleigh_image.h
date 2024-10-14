@@ -16,7 +16,7 @@ class SleighImage{
     ghidra::Sleigh sl;
 
 public:
-    SleighImage(Image img, ghidra::Sleigh sl);
+    SleighImage(Image img, ghidra::Sleigh* sl);
 
     InstructionFFI get_one_instruction(uint64_t offset) const;
 

@@ -94,6 +94,15 @@ InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {
     return i;
 }
 
+std::unique_ptr<SleighImage> ContextFFI::loadImage(Image img) {
+    DummyLoadImage d;
+    ghidra::ContextInternal i;
+    ghidra::DocumentStorage doc;
+    sleigh.reset(&d, &i);
+    sleigh.initialize(doc);
+    return std::make_unique<SleighImage>(img, &sleigh);
+}
+
 std::unique_ptr<ContextFFI> makeContext(rust::Str slaPath) {
     return std::make_unique<ContextFFI>(slaPath);
 }
