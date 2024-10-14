@@ -2,7 +2,8 @@ use clap::{Parser, Subcommand};
 use hex::decode;
 use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle::JingleContext;
-use jingle_sleigh::context::{Image, SleighContext, SleighContextBuilder};
+use jingle_sleigh::context::loaded::LoadedSleighContext;
+use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -112,16 +113,16 @@ fn get_instructions(
     config: &JingleConfig,
     architecture: String,
     hex_bytes: String,
-) -> (SleighContext, Vec<Instruction>) {
+) -> (LoadedSleighContext, Vec<Instruction>) {
     let sleigh_build = config.sleigh_builder().unwrap();
     let img = decode(hex_bytes).unwrap();
     let max_len = img.len();
     let mut offset = 0;
-    let mut sleigh = sleigh_build.build(&architecture).unwrap();
-    sleigh.set_image(img).unwrap();
+    let sleigh = sleigh_build.build(&architecture).unwrap();
+    let sleigh = sleigh.initialize_with_image(img).unwrap();
     let mut instrs = vec![];
     while offset < max_len {
-        for instruction in sleigh.instruction_at(offset as u64) {
+        if let Some(instruction) = sleigh.instruction_at(offset as u64) {
             offset += instruction.length;
             instrs.push(instruction);
         }
