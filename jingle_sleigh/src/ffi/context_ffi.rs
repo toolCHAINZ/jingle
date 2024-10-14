@@ -13,7 +13,7 @@ pub(crate) mod bridge {
         type Image = crate::context::Image;
         type InstructionFFI = crate::ffi::instruction::bridge::InstructionFFI;
 
-        type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;
+        // type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;
 
         type AddrSpaceHandle = crate::ffi::addrspace::bridge::AddrSpaceHandle;
 
@@ -38,8 +38,8 @@ pub(crate) mod bridge {
         pub(crate) fn getSpaceByIndex(&self, idx: i32) -> SharedPtr<AddrSpaceHandle>;
         pub(crate) fn getNumSpaces(&self) -> i32;
 
-        pub(crate) fn getRegister(&self, name: &str) -> Result<VarnodeInfoFFI>;
-        pub(crate) fn getRegisterName(&self, name: VarnodeInfoFFI) -> Result<&str>;
+        // pub(crate) fn getRegister(&self, name: &str) -> Result<VarnodeInfoFFI>;
+        // pub(crate) fn getRegisterName(&self, name: VarnodeInfoFFI) -> Result<&str>;
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
 

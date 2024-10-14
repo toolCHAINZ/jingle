@@ -32,7 +32,7 @@ impl SleighContextBuilder {
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);
         let pspec = parse_pspec(&pspec_path)?;
-        if let Some(ctx_sets) = pspec.context_data.map(|d| d.context_set).flatten() {
+        if let Some(ctx_sets) = pspec.context_data.and_then(|d| d.context_set) {
             for set in ctx_sets.sets {
                 // todo: gross hack
                 if set.value.starts_with("0x") {
@@ -43,7 +43,7 @@ impl SleighContextBuilder {
                 } else {
                     context.set_initial_context(
                         &set.name,
-                        u32::from_str_radix(&set.value, 10).unwrap(),
+                        set.value.parse::<u32>().unwrap(),
                     )?;
                 }
             }

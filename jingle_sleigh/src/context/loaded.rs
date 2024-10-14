@@ -2,7 +2,6 @@ use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::{Image, SleighContext};
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError};
-use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 pub struct LoadedSleighContext(SleighContext);

@@ -20,8 +20,8 @@ mod tests {
         let builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
-        let mut sleigh = builder.build("x86:LE:64:default").unwrap();
-        let sleigh = sleigh.set_image(bytes.as_slice()).unwrap();
+        let sleigh = builder.build("x86:LE:64:default").unwrap();
+        let sleigh = sleigh.initialize_with_image(bytes.as_slice()).unwrap();
         sleigh.instruction_at(0).unwrap();
     }
     #[test]
@@ -30,8 +30,8 @@ mod tests {
         let builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
 
-        let mut sleigh = builder.build("x86:LE:64:default").unwrap();
-        let sleigh = sleigh.set_image(bytes.as_slice()).unwrap();
+        let sleigh = builder.build("x86:LE:64:default").unwrap();
+        let sleigh = sleigh.initialize_with_image(bytes.as_slice()).unwrap();
         sleigh.instruction_at(0).unwrap();
     }
 
@@ -41,8 +41,8 @@ mod tests {
         let nops: [u8; 9] = [0x90, 0x90, 0x90, 0x90, 0x0f, 0x05, 0x0f, 0x05, 0x0f];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let mut sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let mut sleigh = sleigh.set_image(mov_eax_0.as_slice()).unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        let mut sleigh = sleigh.initialize_with_image(mov_eax_0.as_slice()).unwrap();
         let instr1 = sleigh.instruction_at(0);
         sleigh.set_image(nops.as_slice()).unwrap();
         let instr2 = sleigh.instruction_at(0);

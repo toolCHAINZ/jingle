@@ -132,7 +132,7 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn set_image<T: Into<Image> + Clone>(
+    pub fn initialize_with_image<T: Into<Image> + Clone>(
         mut self,
         img: T,
     ) -> Result<LoadedSleighContext, JingleSleighError> {
