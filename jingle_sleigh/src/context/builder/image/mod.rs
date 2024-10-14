@@ -22,9 +22,9 @@ impl Image {
     }
 
     pub fn contains_address(&self, addr: u64) -> bool {
-        self.sections
-            .iter()
-            .any(|s| s.base_address <= addr as usize && (s.base_address + s.data.len()) >= addr as usize)
+        self.sections.iter().any(|s| {
+            s.base_address <= addr as usize && (s.base_address + s.data.len()) >= addr as usize
+        })
     }
 
     pub fn contains_range(&self, mut range: Range<u64>) -> bool {

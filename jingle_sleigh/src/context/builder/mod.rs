@@ -52,9 +52,7 @@ impl SleighContextBuilder {
     }
     pub fn load_folder<T: AsRef<Path>>(path: T) -> Result<Self, JingleSleighError> {
         let ldef = SleighContextBuilder::_load_folder(path.as_ref())?;
-        Ok(SleighContextBuilder {
-            defs: ldef,
-        })
+        Ok(SleighContextBuilder { defs: ldef })
     }
 
     fn _load_folder(path: &Path) -> Result<Vec<(LanguageDefinition, PathBuf)>, JingleSleighError> {
@@ -87,7 +85,6 @@ impl SleighContextBuilder {
         }
         Ok(SleighContextBuilder { defs })
     }
-
 }
 
 fn find_ldef(path: &Path) -> Result<PathBuf, JingleSleighError> {

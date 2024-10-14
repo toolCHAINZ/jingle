@@ -11,7 +11,7 @@ use libz_sys::inflate;
 
 #[cfg(test)]
 mod tests {
-    use crate::context::{SleighContextBuilder};
+    use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
 
     #[test]
@@ -36,14 +36,12 @@ mod tests {
     }
 
     #[test]
-    fn test_two_images(){
+    fn test_two_images() {
         let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
         let nops: [u8; 9] = [0x90, 0x90, 0x90, 0x90, 0x0f, 0x05, 0x0f, 0x05, 0x0f];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let mut sleigh = ctx_builder
-            .build(SLEIGH_ARCH)
-            .unwrap();
+        let mut sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let mut sleigh = sleigh.set_image(mov_eax_0.as_slice()).unwrap();
         let instr1 = sleigh.instruction_at(0);
         sleigh.set_image(nops.as_slice()).unwrap();

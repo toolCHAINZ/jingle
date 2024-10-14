@@ -1,4 +1,4 @@
-use crate::context::{SleighContext};
+use crate::context::SleighContext;
 use crate::Instruction;
 
 pub struct SleighContextInstructionIterator<'a> {
@@ -63,9 +63,7 @@ mod test {
         let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let mut sleigh = ctx_builder
-            .build(SLEIGH_ARCH)
-            .unwrap();
+        let mut sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let sleigh = sleigh.set_image(mov_eax_0.as_slice()).unwrap();
         let instr = sleigh.read(0, 1).last().unwrap();
         assert_eq!(instr.length, 5);
@@ -84,12 +82,9 @@ mod test {
         let mov_eax_0: [u8; 4] = [0x90, 0x90, 0x90, 0x90];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let mut sleigh = ctx_builder
-            .build(SLEIGH_ARCH)
-            .unwrap();
+        let mut sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let sleigh = sleigh.set_image(mov_eax_0.as_slice()).unwrap();
         let instr: Vec<Instruction> = sleigh.read(0, 5).collect();
         assert_eq!(instr.len(), 4);
     }
-
 }

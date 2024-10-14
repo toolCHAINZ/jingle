@@ -1,9 +1,9 @@
-use std::fmt::{Debug, Formatter};
-use std::ops::{Deref, DerefMut};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::{Image, SleighContext};
-use crate::{Instruction, JingleSleighError};
 use crate::JingleSleighError::ImageLoadError;
+use crate::{Instruction, JingleSleighError};
+use std::fmt::{Debug, Formatter};
+use std::ops::{Deref, DerefMut};
 
 pub struct LoadedSleighContext(SleighContext);
 
@@ -22,8 +22,8 @@ impl DerefMut for LoadedSleighContext {
 }
 
 impl LoadedSleighContext {
-    pub(crate) fn new(sleigh_context: SleighContext) -> Self{
-    Self(sleigh_context)
+    pub(crate) fn new(sleigh_context: SleighContext) -> Self {
+        Self(sleigh_context)
     }
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
         let instr = self

@@ -15,6 +15,7 @@ pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
+use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
@@ -22,14 +23,13 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
-use crate::context::loaded::LoadedSleighContext;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
     image: Option<Image>,
     spaces: Vec<SpaceInfo>,
     language_id: String,
-    registers: Vec<(VarNode, String)>
+    registers: Vec<(VarNode, String)>,
 }
 
 impl Debug for SleighContext {
@@ -58,11 +58,17 @@ impl SpaceManager for SleighContext {
 
 impl RegisterManager for SleighContext {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.registers.iter().find(|(_,reg_name)| reg_name.as_str() == name).map(|(vn,_)| vn.clone())
+        self.registers
+            .iter()
+            .find(|(_, reg_name)| reg_name.as_str() == name)
+            .map(|(vn, _)| vn.clone())
     }
 
     fn get_register_name(&self, location: VarNode) -> Option<&str> {
-        self.registers.iter().find(|(vn,_)| vn == &location).map(|(_,name)| name.as_str())
+        self.registers
+            .iter()
+            .find(|(vn, _)| vn == &location)
+            .map(|(_, name)| name.as_str())
     }
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
@@ -85,7 +91,7 @@ impl SleighContext {
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
                 }
-                let registers =  ctx
+                let registers = ctx
                     .getRegisters()
                     .iter()
                     .map(|b| (VarNode::from(&b.varnode), b.name.clone()))
@@ -126,7 +132,10 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn set_image<T: Into<Image> + Clone>(mut self, img: T) -> Result<LoadedSleighContext, JingleSleighError> {
+    pub fn set_image<T: Into<Image> + Clone>(
+        mut self,
+        img: T,
+    ) -> Result<LoadedSleighContext, JingleSleighError> {
         self.image = Some(img.clone().into());
         self.ctx
             .pin_mut()
@@ -138,7 +147,6 @@ impl SleighContext {
     pub fn get_image(&self) -> Option<&Image> {
         self.image.as_ref()
     }
-
 }
 
 #[cfg(test)]
