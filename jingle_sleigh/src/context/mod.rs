@@ -27,6 +27,7 @@ pub struct SleighContext {
     image: Option<Image>,
     spaces: Vec<SpaceInfo>,
     language_id: String,
+    registers: Vec<(VarNode, String)>
 }
 
 impl Debug for SleighContext {
@@ -55,26 +56,15 @@ impl SpaceManager for SleighContext {
 
 impl RegisterManager for SleighContext {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.ctx.getRegister(name).map(VarNode::from).ok()
+        self.registers.iter().find(|(_,reg_name)| reg_name.as_str() == name).map(|(vn,_)| vn.clone())
     }
 
     fn get_register_name(&self, location: VarNode) -> Option<&str> {
-        let space = self.ctx.getSpaceByIndex(location.space_index as i32);
-        self.ctx
-            .getRegisterName(VarnodeInfoFFI {
-                space,
-                offset: location.offset,
-                size: location.size,
-            })
-            .ok()
+        self.registers.iter().find(|(vn,_)| vn == &location).map(|(_,name)| name.as_str())
     }
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.ctx
-            .getRegisters()
-            .iter()
-            .map(|b| (VarNode::from(&b.varnode), b.name.clone()))
-            .collect()
+        self.registers.clone()
     }
 }
 
@@ -93,11 +83,18 @@ impl SleighContext {
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
                 }
+                let registers =  ctx
+                    .getRegisters()
+                    .iter()
+                    .map(|b| (VarNode::from(&b.varnode), b.name.clone()))
+                    .collect();
+
                 Ok(Self {
                     ctx,
                     spaces,
                     image: None,
                     language_id: language_def.id.clone(),
+                    registers,
                 })
             }
             Err(_) => Err(SleighCompilerMutexError),
@@ -203,7 +200,7 @@ mod test {
     }
 
     #[test]
-    fn get_invalid_register() {
+    fn get_valid_register() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
@@ -212,6 +209,22 @@ mod test {
             sleigh.get_register_name(VarNode {
                 space_index: 4,
                 offset: 512,
+                size: 1
+            }),
+            Some("CF")
+        );
+    }
+
+    #[test]
+    fn get_invalid_register() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        assert_eq!(
+            sleigh.get_register_name(VarNode {
+                space_index: 40,
+                offset: 5122,
                 size: 1
             }),
             None
