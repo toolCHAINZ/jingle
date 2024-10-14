@@ -117,9 +117,7 @@ fn get_instructions(
     let img = decode(hex_bytes).unwrap();
     let max_len = img.len();
     let mut offset = 0;
-    let mut sleigh = sleigh_build
-        .build(&architecture)
-        .unwrap();
+    let mut sleigh = sleigh_build.build(&architecture).unwrap();
     sleigh.set_image(img).unwrap();
     let mut instrs = vec![];
     while offset < max_len {
