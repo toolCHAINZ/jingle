@@ -1,6 +1,6 @@
 mod builder;
 mod instruction_iterator;
-mod loaded;
+pub mod loaded;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
