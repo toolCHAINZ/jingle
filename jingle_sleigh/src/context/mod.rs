@@ -6,7 +6,6 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::instruction::Instruction;
 use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
 #[cfg(feature = "gimli")]
 pub use builder::image::gimli::map_gimli_architecture;
@@ -14,10 +13,8 @@ pub use builder::image::{Image, ImageSection};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
-use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
-use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
