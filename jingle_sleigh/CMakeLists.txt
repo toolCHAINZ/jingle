@@ -35,7 +35,10 @@ add_library(jingle_sleigh_cpp
         src/ffi/cpp/sleigh_image.h
         src/ffi/cpp/exception.h
         src/ffi/cpp/varnode_translation.cpp
-        src/ffi/cpp/varnode_translation.h)
+        src/ffi/cpp/varnode_translation.h
+        src/ffi/cpp/jingle_pcode_emitter.cpp
+        src/ffi/cpp/jingle_assembly_emitter.cpp
+        src/ffi/cpp/jingle_assembly_emitter.h)
 
 add_executable(sleigh_compile
         src/ffi/cpp/sleigh/address.cc
