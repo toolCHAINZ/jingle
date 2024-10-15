@@ -5,7 +5,6 @@
 #include <utility>
 #include "sleigh/globalcontext.hh"
 #include "sleigh/xml.hh"
-#include "sleigh_image.h"
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/loadimage.hh"
 #include "varnode_translation.h"

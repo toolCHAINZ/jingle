@@ -9,7 +9,6 @@
 #include "sleigh/sleigh.hh"
 #include "jingle_sleigh/src/ffi/image.rs.h"
 #include "sleigh/loadimage.hh"
-#include "sleigh_image.h"
 #include "dummy_load_image.h"
 
 class ContextFFI {
@@ -22,7 +21,7 @@ public:
 
     void set_initial_context(rust::Str name, uint32_t val);
 
-    void setImage(Image img);
+    void setImage(ImageFFI const&img);
 
     InstructionFFI get_one_instruction(uint64_t offset) const;
 
