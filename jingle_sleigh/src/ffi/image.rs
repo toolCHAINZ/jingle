@@ -2,6 +2,7 @@ use crate::context::image::ImageProvider;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::VarNode;
 use std::fmt::{Debug, Formatter};
+use cxx::ExternType;
 
 pub(crate) struct ImageFFI<'a> {
     provider: Box<dyn ImageProvider + 'a>,
@@ -20,6 +21,11 @@ impl<'a> ImageFFI<'a> {
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
         self.provider.has_range(vn)
     }
+}
+
+unsafe impl<'a> ExternType for ImageFFI<'a>{
+    type Id = cxx::type_id!("ImageFFI");
+    type Kind = cxx::kind::Opaque;
 }
 
 #[cxx::bridge]

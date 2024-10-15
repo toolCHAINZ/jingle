@@ -3,7 +3,9 @@ use crate::context::{Image, SleighContext};
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
+use std::mem;
 use std::ops::{Deref, DerefMut};
+use cxx::UniquePtr;
 use crate::context::image::ImageProvider;
 use crate::ffi::image::ImageFFI;
 
@@ -66,11 +68,16 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     pub fn set_image<T: ImageProvider + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
-        self.1 = ImageFFI::new(img);
-        self.ctx
+        let (sleigh, img_ref) = self.borrow_parts();
+        *img_ref = ImageFFI::new(img);
+        sleigh.ctx
             .pin_mut()
-            .setImage(&self.1)
+            .setImage(img_ref)
             .map_err(|_| ImageLoadError)
+    }
+
+    fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
+        (&mut self.0, &mut self.1)
     }
 }
 

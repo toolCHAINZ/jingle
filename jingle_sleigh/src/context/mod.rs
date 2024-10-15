@@ -10,7 +10,6 @@ use crate::ffi::context_ffi::bridge::ContextFFI;
 use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
 #[cfg(feature = "gimli")]
 pub use builder::image::gimli::map_gimli_architecture;
-pub use builder::image::{Image, ImageSection};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
