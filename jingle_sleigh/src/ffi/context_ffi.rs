@@ -10,7 +10,7 @@ pub(crate) static CTX_BUILD_MUTEX: Mutex<ContextGeneratorFp> = Mutex::new(makeCo
 #[cxx::bridge]
 pub(crate) mod bridge {
     unsafe extern "C++" {
-        type ImageFFI = crate::ffi::image::ImageFFI;
+        type ImageFFI<'a> = crate::ffi::image::ImageFFI<'a>;
         type InstructionFFI = crate::ffi::instruction::bridge::InstructionFFI;
 
         // type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;

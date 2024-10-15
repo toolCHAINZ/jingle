@@ -8,6 +8,7 @@
 #include "sleigh/loadimage.hh"
 #include "sleigh/xml.hh"
 #include "varnode_translation.h"
+#include "rust_load_image.h"
 #include <memory>
 #include <utility>
 
@@ -67,7 +68,7 @@ rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
 }
 
 void ContextFFI::setImage(ImageFFI const &img) {
-  sleigh.reset(new DummyLoadImage(), &c_db);
+  sleigh.reset(new RustLoadImage(img), &c_db);
   ghidra::DocumentStorage documentStorage = ghidra::DocumentStorage();
   sleigh.initialize(documentStorage);
 }

@@ -7,14 +7,14 @@ use std::ops::{Deref, DerefMut};
 use crate::context::image::ImageProvider;
 use crate::ffi::image::ImageFFI;
 
-pub struct LoadedSleighContext(SleighContext, ImageFFI);
+pub struct LoadedSleighContext<'a>(SleighContext, ImageFFI<'a>);
 
-impl Debug for LoadedSleighContext {
+impl<'a> Debug for LoadedSleighContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
-impl Deref for LoadedSleighContext {
+impl<'a> Deref for LoadedSleighContext<'a> {
     type Target = SleighContext;
 
     fn deref(&self) -> &Self::Target {
@@ -22,20 +22,20 @@ impl Deref for LoadedSleighContext {
     }
 }
 
-impl DerefMut for LoadedSleighContext {
+impl<'a> DerefMut for LoadedSleighContext<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl LoadedSleighContext {
-    pub(crate) fn new<T: ImageProvider>(sleigh_context: SleighContext, img: T) -> Result<Self, JingleSleighError> {
+impl<'a> LoadedSleighContext<'a> {
+    pub(crate) fn new<T: ImageProvider + 'a>(mut sleigh_context: SleighContext, img: T) -> Result<Self, JingleSleighError> {
         let img = ImageFFI::new(img);
         sleigh_context
-            .pin_mut()
+            .ctx.pin_mut()
             .setImage(&img)
             .map_err(|_| ImageLoadError)?;
-        Self(sleigh_context, img)
+        Ok(Self(sleigh_context, img))
     }
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
         let instr = self
@@ -43,10 +43,9 @@ impl LoadedSleighContext {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
+        let vn = VarNode { space_index: self.0.get_code_space_idx(), size: instr.length, offset };
         if self
-            .image
-            .as_ref()?
-            .contains_range(offset..(offset + instr.length as u64))
+            .1.has_range(&vn)
         {
             Some(instr)
         } else {
@@ -66,16 +65,16 @@ impl LoadedSleighContext {
         SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
-    pub fn set_image<T: Into<Image> + Clone>(&mut self, img: T) -> Result<(), JingleSleighError> {
-        self.image = Some(img.clone().into());
+    pub fn set_image<T: ImageProvider + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
+        self.1 = ImageFFI::new(img);
         self.ctx
             .pin_mut()
-            .setImage(img.into())
+            .setImage(&self.1)
             .map_err(|_| ImageLoadError)
     }
 }
 
-impl SpaceManager for LoadedSleighContext {
+impl<'a> SpaceManager for LoadedSleighContext<'a> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.0.get_space_info(idx)
     }
@@ -89,7 +88,7 @@ impl SpaceManager for LoadedSleighContext {
     }
 }
 
-impl RegisterManager for LoadedSleighContext {
+impl<'a> RegisterManager for LoadedSleighContext<'a> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.0.get_register(name)
     }

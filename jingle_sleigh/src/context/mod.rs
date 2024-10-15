@@ -129,17 +129,14 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn initialize_with_image<T: ImageProvider>(
-        mut self,
+    pub fn initialize_with_image<'b, T: ImageProvider + 'b>(
+        self,
         img: T,
-    ) -> Result<LoadedSleighContext, JingleSleighError> {
+    ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
 
-        Ok(LoadedSleighContext::new(self))
+        LoadedSleighContext::new(self, img)
     }
 
-    pub fn get_image(&self) -> Option<&Image> {
-        self.image.as_ref()
-    }
 }
 
 #[cfg(test)]
