@@ -1,3 +1,4 @@
+use std::cmp::min;
 use crate::VarNode;
 use std::ops::Range;
 
@@ -10,21 +11,26 @@ pub trait ImageProvider {
 impl ImageProvider for &[u8] {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         //todo: check the space. Ignoring for now
-        if vn.offset >= self.len() as u64 {
+        let vn_range: Range<usize> = Range::from(vn);
+        let vn_range = Range{start: vn_range.start, end: min(vn_range.end, self.len())};
+        if  let Some(s) = self.get(vn_range) {
+            if let Some(mut o) = output.get_mut(0..s.len()) {
+                o.copy_from_slice(s)
+            }
+            let o_len = output.len();
+            if let Some( o) = output.get_mut(s.len()..o_len){
+                o.fill(0);
+            }
+            return s.len();
+        } else {
             output.fill(0);
             0
-        } else {
-            let vn_range: Range<usize> = Range::from(vn);
-            let output_len = output.len();
-            output.copy_from_slice(&self[vn_range.clone()]);
-            output[vn_range.end..output_len].fill(0);
-            vn_range.len()
         }
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
         let vn_range: Range<usize> = Range::from(vn);
-        vn_range.start > 0 && vn_range.start < self.len() && vn_range.end < self.len()
+        vn_range.start >= 0 && vn_range.start < self.len() && vn_range.end <= self.len()
     }
 }
 

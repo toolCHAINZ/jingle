@@ -7,7 +7,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use crate::ffi::context_ffi::ImageFFI;
 
-pub struct LoadedSleighContext<'a>(SleighContext, ImageFFI<'a>);
+pub struct LoadedSleighContext<'a>(SleighContext, Box<ImageFFI<'a>>);
 
 impl<'a> Debug for LoadedSleighContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -33,13 +33,15 @@ impl<'a> LoadedSleighContext<'a> {
         mut sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
-        let img = ImageFFI::new(img);
-        sleigh_context
+        let img = Box::new(ImageFFI::new(img));
+        let mut s = Self(sleigh_context, img);
+        let (ctx, img) = s.borrow_parts();
+        ctx
             .ctx
             .pin_mut()
             .setImage(&img)
             .map_err(|_| ImageLoadError)?;
-        Ok(Self(sleigh_context, img))
+        Ok(s)
     }
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
         let instr = self
