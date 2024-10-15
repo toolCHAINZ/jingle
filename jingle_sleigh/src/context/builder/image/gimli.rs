@@ -1,42 +1,18 @@
 use crate::context::builder::image::Perms;
 use crate::context::{Image, ImageSection};
-use crate::JingleSleighError;
+use crate::{JingleSleighError, VarNode};
 use crate::JingleSleighError::ImageLoadError;
 use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
 use tracing::{event, instrument, Level};
+use crate::context::image::ImageProvider;
 
-impl<'d> TryFrom<File<'d>> for Image {
-    type Error = JingleSleighError;
-    #[instrument(skip_all)]
-    fn try_from(value: File) -> Result<Self, Self::Error> {
-        let mut img: Image = Image { sections: vec![] };
-        for x in value
-            .sections()
-            .filter(|s| matches!(s.kind(), SectionKind::Text))
-        {
-            let base_address = x.address();
-            let data = x.data().map_err(|_| ImageLoadError)?.to_vec();
-            let perms = map_kind(&x.kind());
-            let name = x.name().unwrap_or("<unknown>");
-            let start = base_address;
-            let end = base_address + data.len() as u64;
-            event!(
-                Level::TRACE,
-                "Selecting section {} ({:x}-{:x})",
-                name,
-                start,
-                end
-            );
-            img.sections.push(ImageSection {
-                perms,
-                data,
-                base_address: base_address as usize,
-            })
-        }
-        if img.sections.is_empty() {
-            event!(Level::WARN, "No executable sections loaded from file")
-        }
-        Ok(img)
+impl<'a> ImageProvider for File<'a>{
+    fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
+        todo!()
+    }
+
+    fn has_full_range(&self, vn: &VarNode) -> bool {
+        todo!()
     }
 }
 
