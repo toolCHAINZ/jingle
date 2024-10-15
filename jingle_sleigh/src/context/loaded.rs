@@ -1,13 +1,13 @@
+use crate::context::image::ImageProvider;
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
-use crate::context::{SleighContext};
+use crate::context::SleighContext;
+use crate::ffi::image::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
+use cxx::UniquePtr;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut};
-use cxx::UniquePtr;
-use crate::context::image::ImageProvider;
-use crate::ffi::image::ImageFFI;
 
 pub struct LoadedSleighContext<'a>(SleighContext, ImageFFI<'a>);
 
@@ -31,10 +31,14 @@ impl<'a> DerefMut for LoadedSleighContext<'a> {
 }
 
 impl<'a> LoadedSleighContext<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(mut sleigh_context: SleighContext, img: T) -> Result<Self, JingleSleighError> {
+    pub(crate) fn new<T: ImageProvider + 'a>(
+        mut sleigh_context: SleighContext,
+        img: T,
+    ) -> Result<Self, JingleSleighError> {
         let img = ImageFFI::new(img);
         sleigh_context
-            .ctx.pin_mut()
+            .ctx
+            .pin_mut()
             .setImage(&img)
             .map_err(|_| ImageLoadError)?;
         Ok(Self(sleigh_context, img))
@@ -45,10 +49,12 @@ impl<'a> LoadedSleighContext<'a> {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        let vn = VarNode { space_index: self.0.get_code_space_idx(), size: instr.length, offset };
-        if self
-            .1.has_range(&vn)
-        {
+        let vn = VarNode {
+            space_index: self.0.get_code_space_idx(),
+            size: instr.length,
+            offset,
+        };
+        if self.1.has_range(&vn) {
             Some(instr)
         } else {
             None
@@ -70,7 +76,8 @@ impl<'a> LoadedSleighContext<'a> {
     pub fn set_image<T: ImageProvider + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
         *img_ref = ImageFFI::new(img);
-        sleigh.ctx
+        sleigh
+            .ctx
             .pin_mut()
             .setImage(img_ref)
             .map_err(|_| ImageLoadError)
