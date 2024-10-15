@@ -1,37 +1,29 @@
 use std::fmt::{Debug, Formatter};
+use crate::context::image::ImageProvider;
+use crate::ffi::instruction::bridge::VarnodeInfoFFI;
+use crate::VarNode;
 
-#[cxx::bridge]
-pub(crate) mod bridge {
-    #[derive(Debug, Clone)]
-    pub struct Perms {
-        pub(crate) read: bool,
-        pub(crate) write: bool,
-        pub(crate) exec: bool,
+pub(crate) struct ImageFFI{
+    provider: Box<dyn ImageProvider>
+}
+
+impl ImageFFI{
+    pub(crate) fn new<T: ImageProvider>(provider: T) -> Self{
+        Self{provider: Box::new(provider)}
     }
-
-    #[derive(Clone)]
-    pub struct ImageSection {
-        pub(crate) data: Vec<u8>,
-        pub(crate) base_address: usize,
-        pub(crate) perms: Perms,
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct Image {
-        pub sections: Vec<ImageSection>,
+    fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize{
+        self.provider.load(VarNode::from(vn), out)
     }
 }
 
-impl Debug for bridge::ImageSection {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut d = f.debug_struct("ImageSection");
-        d.field("base_address", &self.base_address)
-            .field("perms", &self.perms);
-        if self.data.len() > 16 {
-            d.field("data", &format!("[ < {} bytes > ]", self.data.len()));
-        } else {
-            d.field("data", &self.data);
-        }
-        d.finish()
+#[cxx::bridge]
+pub(crate) mod bridge {
+    extern "C++"{
+        type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;
+    }
+    extern "Rust"{
+
+        type ImageFFI;
+        fn load(self: &ImageFFI, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize;
     }
 }

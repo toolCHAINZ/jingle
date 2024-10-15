@@ -1,7 +1,7 @@
-#[cfg(feature = "elf")]
+/*#[cfg(feature = "elf")]
 pub mod elf;
 #[cfg(feature = "gimli")]
-pub mod gimli;
+pub mod gimli;*/
 
 pub use crate::ffi::image::bridge::{Image, ImageSection, Perms};
 use std::ops::Range;

@@ -1,6 +1,7 @@
 mod builder;
 mod instruction_iterator;
 pub mod loaded;
+pub mod image;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
@@ -20,10 +21,10 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use crate::context::image::ImageProvider;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
-    image: Option<Image>,
     spaces: Vec<SpaceInfo>,
     language_id: String,
     registers: Vec<(VarNode, String)>,
@@ -97,7 +98,6 @@ impl SleighContext {
                 Ok(Self {
                     ctx,
                     spaces,
-                    image: None,
                     language_id: language_def.id.clone(),
                     registers,
                 })
@@ -129,15 +129,11 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn initialize_with_image<T: Into<Image> + Clone>(
+    pub fn initialize_with_image<T: ImageProvider>(
         mut self,
         img: T,
     ) -> Result<LoadedSleighContext, JingleSleighError> {
-        self.image = Some(img.clone().into());
-        self.ctx
-            .pin_mut()
-            .setImage(img.into())
-            .map_err(|_| ImageLoadError)?;
+
         Ok(LoadedSleighContext::new(self))
     }
 

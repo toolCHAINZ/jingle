@@ -10,7 +10,7 @@ pub(crate) static CTX_BUILD_MUTEX: Mutex<ContextGeneratorFp> = Mutex::new(makeCo
 #[cxx::bridge]
 pub(crate) mod bridge {
     unsafe extern "C++" {
-        type Image = crate::context::Image;
+        type ImageFFI = crate::ffi::image::ImageFFI;
         type InstructionFFI = crate::ffi::instruction::bridge::InstructionFFI;
 
         // type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;
@@ -43,7 +43,7 @@ pub(crate) mod bridge {
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
 
-        pub(crate) fn setImage(self: Pin<&mut ContextFFI>, img: Image) -> Result<()>;
+        pub(crate) fn setImage(self: Pin<&mut ContextFFI>, img: &ImageFFI) -> Result<()>;
     }
     impl Vec<RegisterInfoFFI> {}
 }

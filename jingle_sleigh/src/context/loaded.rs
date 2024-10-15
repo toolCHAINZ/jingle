@@ -4,8 +4,10 @@ use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+use crate::context::image::ImageProvider;
+use crate::ffi::image::ImageFFI;
 
-pub struct LoadedSleighContext(SleighContext);
+pub struct LoadedSleighContext(SleighContext, ImageFFI);
 
 impl Debug for LoadedSleighContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -27,8 +29,13 @@ impl DerefMut for LoadedSleighContext {
 }
 
 impl LoadedSleighContext {
-    pub(crate) fn new(sleigh_context: SleighContext) -> Self {
-        Self(sleigh_context)
+    pub(crate) fn new<T: ImageProvider>(sleigh_context: SleighContext, img: T) -> Result<Self, JingleSleighError> {
+        let img = ImageFFI::new(img);
+        sleigh_context
+            .pin_mut()
+            .setImage(&img)
+            .map_err(|_| ImageLoadError)?;
+        Self(sleigh_context, img)
     }
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
         let instr = self
