@@ -4,9 +4,7 @@ use crate::context::SleighContext;
 use crate::ffi::image::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
-use cxx::UniquePtr;
 use std::fmt::{Debug, Formatter};
-use std::mem;
 use std::ops::{Deref, DerefMut};
 
 pub struct LoadedSleighContext<'a>(SleighContext, ImageFFI<'a>);

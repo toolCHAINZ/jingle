@@ -2,7 +2,6 @@ use crate::context::image::ImageProvider;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::VarNode;
 use cxx::ExternType;
-use std::fmt::{Debug, Formatter};
 
 pub(crate) struct ImageFFI<'a> {
     provider: Box<dyn ImageProvider + 'a>,

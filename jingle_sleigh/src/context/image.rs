@@ -1,5 +1,4 @@
 use crate::VarNode;
-use object::ReadRef;
 use std::ops::Range;
 
 pub trait ImageProvider {
