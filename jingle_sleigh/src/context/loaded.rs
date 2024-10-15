@@ -1,5 +1,5 @@
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
-use crate::context::{Image, SleighContext};
+use crate::context::{SleighContext};
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};

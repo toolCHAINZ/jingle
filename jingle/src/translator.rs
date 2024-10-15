@@ -13,7 +13,7 @@ use z3::Context;
 #[derive(Debug, Clone)]
 pub struct SleighTranslator<'ctx> {
     z3_ctx: &'ctx Context,
-    sleigh: &'ctx LoadedSleighContext,
+    sleigh: &'ctx LoadedSleighContext<'ctx>,
 }
 
 impl<'ctx> SleighTranslator<'ctx> {
