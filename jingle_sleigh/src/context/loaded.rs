@@ -1,11 +1,11 @@
 use crate::context::image::ImageProvider;
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
-use crate::ffi::image::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+use crate::ffi::context_ffi::ImageFFI;
 
 pub struct LoadedSleighContext<'a>(SleighContext, ImageFFI<'a>);
 

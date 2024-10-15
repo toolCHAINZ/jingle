@@ -20,10 +20,8 @@ fn main() {
     let rust_sources = vec![
         "src/ffi/addrspace.rs",
         "src/ffi/context_ffi.rs",
-        "src/ffi/image.rs",
         "src/ffi/instruction.rs",
         "src/ffi/opcode.rs",
-        "src/ffi/image.rs",
     ];
 
     let cpp_sources = vec![

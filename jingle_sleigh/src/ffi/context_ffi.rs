@@ -2,6 +2,7 @@ use crate::ffi::context_ffi::bridge::makeContext;
 use bridge::ContextFFI;
 use cxx::{Exception, UniquePtr};
 use std::sync::Mutex;
+use crate::context::image::ImageProvider;
 
 type ContextGeneratorFp = fn(&str) -> Result<UniquePtr<ContextFFI>, Exception>;
 
@@ -10,10 +11,9 @@ pub(crate) static CTX_BUILD_MUTEX: Mutex<ContextGeneratorFp> = Mutex::new(makeCo
 #[cxx::bridge]
 pub(crate) mod bridge {
     unsafe extern "C++" {
-        type ImageFFI<'a> = crate::ffi::image::ImageFFI<'a>;
         type InstructionFFI = crate::ffi::instruction::bridge::InstructionFFI;
 
-        // type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;
+        type VarnodeInfoFFI = crate::ffi::instruction::bridge::VarnodeInfoFFI;
 
         type AddrSpaceHandle = crate::ffi::addrspace::bridge::AddrSpaceHandle;
 
@@ -45,5 +45,15 @@ pub(crate) mod bridge {
 
         pub(crate) fn setImage(self: Pin<&mut ContextFFI>, img: &ImageFFI) -> Result<()>;
     }
+
+    extern "Rust" {
+        include!("jingle_sleigh/src/ffi/instruction.rs.h");
+        type ImageFFI<'a>;
+        fn load(self: &ImageFFI, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize;
+    }
     impl Vec<RegisterInfoFFI> {}
+}
+
+pub(crate) struct ImageFFI<'a> {
+    pub(crate) provider: Box<dyn ImageProvider + 'a>,
 }
