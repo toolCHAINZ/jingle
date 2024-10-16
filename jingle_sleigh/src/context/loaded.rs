@@ -1,12 +1,12 @@
 use crate::context::image::ImageProvider;
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
+use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use crate::ffi::context_ffi::ImageFFI;
 
 pub struct LoadedSleighContext<'a>(SleighContext, Pin<Box<ImageFFI<'a>>>);
 
@@ -37,8 +37,7 @@ impl<'a> LoadedSleighContext<'a> {
         let img = Box::pin(ImageFFI::new(img));
         let mut s = Self(sleigh_context, img);
         let (ctx, img) = s.borrow_parts();
-        ctx
-            .ctx
+        ctx.ctx
             .pin_mut()
             .setImage(&img)
             .map_err(|_| ImageLoadError)?;

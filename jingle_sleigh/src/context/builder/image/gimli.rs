@@ -1,21 +1,25 @@
-use std::cmp::{max, min};
-use crate::{VarNode};
-use object::{Architecture, Endianness, File, Object, ObjectSection, ReadRef, SectionKind};
 use crate::context::image::ImageProvider;
+use crate::VarNode;
+use object::{Architecture, Endianness, File, Object, ObjectSection, ReadRef, SectionKind};
+use std::cmp::{max, min};
 
 impl<'a> ImageProvider for File<'a> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);
-        let output_start_addr = vn.offset as usize;
+        let output_start_addr = vn.offset;
         let output_end_addr = output_start_addr + vn.size;
-        for x in self.sections().filter(|s| s.kind() == SectionKind::Text) {
+        if let Some(x) = self.sections().find(|s| {
+            s.kind() == SectionKind::Text
+                && output_start_addr > s.address()
+                && output_start_addr < (s.address() + s.size())
+        }) {
             if let Ok(data) = x.data() {
                 let input_start_addr = x.address() as usize;
                 let input_end_addr = input_start_addr + data.len();
                 let start_addr = max(input_start_addr, output_start_addr);
                 let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
-                if end_addr > start_addr{
+                if end_addr > start_addr {
                     let i_s = start_addr - x.address() as usize;
                     let i_e = end_addr - x.address() as usize;
                     let o_s = start_addr - vn.offset as usize;
@@ -31,7 +35,11 @@ impl<'a> ImageProvider for File<'a> {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
-        todo!()
+        self.sections()
+            .filter(|s| s.kind() == SectionKind::Text)
+            .any(|s| {
+                s.address() <= vn.offset && (s.address() + s.size()) >= (vn.offset + vn.size as u64)
+            })
     }
 }
 
