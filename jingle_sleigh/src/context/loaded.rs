@@ -1,34 +1,53 @@
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
-use crate::context::{Image, SleighContext};
+use crate::context::SleighContext;
+use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
+use crate::context::image::{ImageProvider, ImageSection};
 
-pub struct LoadedSleighContext(SleighContext);
+pub struct LoadedSleighContext<'a> {
+    sleigh: SleighContext,
+    img: Pin<Box<ImageFFI<'a>>>,
+}
 
-impl Debug for LoadedSleighContext {
+impl<'a> Debug for LoadedSleighContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        self.sleigh.fmt(f)
     }
 }
-impl Deref for LoadedSleighContext {
+impl<'a> Deref for LoadedSleighContext<'a> {
     type Target = SleighContext;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.sleigh
     }
 }
 
-impl DerefMut for LoadedSleighContext {
+impl<'a> DerefMut for LoadedSleighContext<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.sleigh
     }
 }
 
-impl LoadedSleighContext {
-    pub(crate) fn new(sleigh_context: SleighContext) -> Self {
-        Self(sleigh_context)
+impl<'a> LoadedSleighContext<'a> {
+    pub(crate) fn new<T: ImageProvider + Sized + 'a>(
+        sleigh_context: SleighContext,
+        img: T,
+    ) -> Result<Self, JingleSleighError> {
+        let img = Box::pin(ImageFFI::new(img));
+        let mut s = Self {
+            sleigh: sleigh_context,
+            img
+        };
+        let (ctx, img) = s.borrow_parts();
+        ctx.ctx
+            .pin_mut()
+            .setImage(img)
+            .map_err(|_| ImageLoadError)?;
+        Ok(s)
     }
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
         let instr = self
@@ -36,11 +55,12 @@ impl LoadedSleighContext {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        if self
-            .image
-            .as_ref()?
-            .contains_range(offset..(offset + instr.length as u64))
-        {
+        let vn = VarNode {
+            space_index: self.sleigh.get_code_space_idx(),
+            size: instr.length,
+            offset,
+        };
+        if self.img.has_range(&vn) {
             Some(instr)
         } else {
             None
@@ -59,39 +79,50 @@ impl LoadedSleighContext {
         SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
-    pub fn set_image<T: Into<Image> + Clone>(&mut self, img: T) -> Result<(), JingleSleighError> {
-        self.image = Some(img.clone().into());
-        self.ctx
+    pub fn set_image<T: ImageProvider + Sized + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
+        let (sleigh, img_ref) = self.borrow_parts();
+        *img_ref = ImageFFI::new(img);
+        sleigh
+            .ctx
             .pin_mut()
-            .setImage(img.into())
+            .setImage(img_ref)
             .map_err(|_| ImageLoadError)
     }
+
+    pub fn get_sections(&self) -> impl Iterator<Item=ImageSection> {
+        self.img.provider.get_section_info()
+    }
+
+    fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
+        (&mut self.sleigh, &mut self.img)
+    }
+
 }
 
-impl SpaceManager for LoadedSleighContext {
+impl<'a> SpaceManager for LoadedSleighContext<'a> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.0.get_space_info(idx)
+        self.sleigh.get_space_info(idx)
     }
 
     fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.0.get_all_space_info()
+        self.sleigh.get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
-        self.0.get_code_space_idx()
+        self.sleigh.get_code_space_idx()
     }
 }
 
-impl RegisterManager for LoadedSleighContext {
+impl<'a> RegisterManager for LoadedSleighContext<'a> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.0.get_register(name)
+        self.sleigh.get_register(name)
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.0.get_register_name(location)
+        self.sleigh.get_register_name(location)
     }
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.0.get_registers()
+        self.sleigh.get_registers()
     }
 }

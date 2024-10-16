@@ -9,6 +9,7 @@ pub use crate::varnode::display::{
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::ops::Range;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -53,6 +54,23 @@ impl VarNode {
     }
 }
 
+impl From<&VarNode> for Range<u64> {
+    fn from(value: &VarNode) -> Self {
+        Range {
+            start: value.offset,
+            end: value.offset + value.size as u64,
+        }
+    }
+}
+
+impl From<&VarNode> for Range<usize> {
+    fn from(value: &VarNode) -> Self {
+        Range {
+            start: value.offset as usize,
+            end: value.offset as usize + value.size,
+        }
+    }
+}
 #[macro_export]
 macro_rules! varnode {
     ($ctx:expr, #$offset:literal:$size:literal) => {

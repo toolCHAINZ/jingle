@@ -79,11 +79,11 @@ mod test {
 
     #[test]
     fn stop_at_branch() {
-        let mov_eax_0: [u8; 4] = [0x90, 0x90, 0x90, 0x90];
+        let mov_eax_0: Vec<u8> = vec![0x90, 0x90, 0x90, 0x90];
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let sleigh = sleigh.initialize_with_image(mov_eax_0.as_slice()).unwrap();
+        let sleigh = sleigh.initialize_with_image(mov_eax_0).unwrap();
         let instr: Vec<Instruction> = sleigh.read(0, 5).collect();
         assert_eq!(instr.len(), 4);
     }

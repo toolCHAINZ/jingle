@@ -8,7 +8,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{event, instrument, Level};
 
-pub mod image;
 pub(crate) mod language_def;
 pub(crate) mod processor_spec;
 

@@ -30,5 +30,4 @@ hex = { version = "0.4.3" , optional = true}
 [features]
 default = []
 bin_features = ["dep:clap", "dep:confy", "dep:hex"]
-elf = ["jingle_sleigh/elf"]
 gimli = ["jingle_sleigh/gimli"]

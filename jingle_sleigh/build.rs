@@ -20,10 +20,8 @@ fn main() {
     let rust_sources = vec![
         "src/ffi/addrspace.rs",
         "src/ffi/context_ffi.rs",
-        "src/ffi/sleigh_image.rs",
         "src/ffi/instruction.rs",
         "src/ffi/opcode.rs",
-        "src/ffi/image.rs",
     ];
 
     let cpp_sources = vec![
@@ -51,6 +49,7 @@ fn main() {
         "src/ffi/cpp/sleigh/slghparse.cc",
         "src/ffi/cpp/context.cpp",
         "src/ffi/cpp/dummy_load_image.cpp",
+        "src/ffi/cpp/rust_load_image.cpp",
         "src/ffi/cpp/addrspace_handle.cpp",
         "src/ffi/cpp/addrspace_manager_handle.cpp",
         "src/ffi/cpp/varnode_translation.cpp",
@@ -58,7 +57,7 @@ fn main() {
         "src/ffi/cpp/jingle_assembly_emitter.cpp",
     ];
     // This assumes all your C++ bindings are in lib
-    cxx_build::bridges(rust_sources)
+    cxx_build::bridges(&rust_sources)
         .files(cpp_sources)
         .flag_if_supported("-std=c++17")
         .flag_if_supported("-Dmain=c_main")
@@ -72,6 +71,9 @@ fn main() {
         .compile("jingle_sleigh");
 
     println!("cargo::rerun-if-changed=src/ffi/cpp/");
+    for src in rust_sources {
+        println!("cargo::rerun-if-changed={src}");
+    }
     println!("cargo::rerun-if-changed=src/ffi/addrspace.rs");
     println!("cargo::rerun-if-changed=src/ffi/context_ffi.rs");
     println!("cargo::rerun-if-changed=src/ffi/instruction.rs");

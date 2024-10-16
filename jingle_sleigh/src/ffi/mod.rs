@@ -1,6 +1,5 @@
 pub(crate) mod addrspace;
 pub(crate) mod context_ffi;
-pub(crate) mod image;
 pub(crate) mod instruction;
 pub(crate) mod opcode;
 
