@@ -40,7 +40,7 @@ impl<'a> LoadedSleighContext<'a> {
         let img = Box::pin(ImageFFI::new(img));
         let mut s = Self {
             sleigh: sleigh_context,
-            img: img
+            img
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
