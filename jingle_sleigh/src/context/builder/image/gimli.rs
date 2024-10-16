@@ -7,12 +7,12 @@ impl<'a> ImageProvider for File<'a> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);
-        let output_start_addr = vn.offset;
+        let output_start_addr = vn.offset as usize;
         let output_end_addr = output_start_addr + vn.size;
         if let Some(x) = self.sections().find(|s| {
             s.kind() == SectionKind::Text
-                && output_start_addr > s.address()
-                && output_start_addr < (s.address() + s.size())
+                && output_start_addr > s.address() as usize
+                && output_start_addr < (s.address() + s.size()) as usize
         }) {
             if let Ok(data) = x.data() {
                 let input_start_addr = x.address() as usize;
