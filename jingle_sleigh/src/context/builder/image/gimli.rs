@@ -1,7 +1,90 @@
 use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms};
-use crate::VarNode;
-use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
+use crate::{JingleSleighError, VarNode};
+use object::{Architecture, Endianness, File, Object, ObjectSection, Section, SectionKind};
 use std::cmp::{max, min};
+
+
+pub struct OwnedSection {
+    data: Vec<u8>,
+    perms: Perms,
+    base_address: usize,
+}
+
+impl<'a> From<&'a OwnedSection> for ImageSection<'a> {
+    fn from(value: &'a OwnedSection) -> Self {
+        ImageSection {
+            data: value.data.as_slice(),
+            perms: value.perms.clone(),
+            base_address: value.base_address.clone(),
+        }
+    }
+}
+
+impl<'a, 'b> TryFrom<Section<'a, 'b>> for OwnedSection {
+    type Error = JingleSleighError;
+
+    fn try_from(value: Section) -> Result<Self, Self::Error> {
+        let data = value.data().map_err(|_| JingleSleighError::ImageLoadError)?.to_vec();
+        Ok(OwnedSection {
+            data,
+            perms: map_sec_kind(&value.kind()),
+            base_address: value.address() as usize,
+        })
+    }
+}
+
+pub struct OwnedFile {
+    sections: Vec<OwnedSection>,
+}
+
+impl OwnedFile {
+    pub fn new(file: &File) -> Result<Self, JingleSleighError> {
+        let mut sections = vec![];
+        for x in file.sections() {
+            sections.push(x.try_into()?);
+        }
+        Ok(Self { sections })
+    }
+}
+
+impl ImageProvider for OwnedFile {
+    fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
+        let mut written = 0;
+        output.fill(0);
+        let output_start_addr = vn.offset as usize;
+        let output_end_addr = output_start_addr + vn.size;
+        if let Some(x) = self.get_section_info().find(|s| {
+            output_start_addr > s.base_address
+                && output_start_addr < (s.base_address + s.data.len())
+        }) {
+            let input_start_addr = x.base_address;
+            let input_end_addr = input_start_addr + x.data.len();
+            let start_addr = max(input_start_addr, output_start_addr);
+            let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
+            if end_addr > start_addr {
+                let i_s = start_addr - x.base_address;
+                let i_e = end_addr - x.base_address as usize;
+                let o_s = start_addr - vn.offset as usize;
+                let o_e = end_addr - vn.offset as usize;
+                let out_slice = &mut output[o_s..o_e];
+                let in_slice = &x.data[i_s..i_e];
+                out_slice.copy_from_slice(in_slice);
+                written += end_addr - start_addr;
+            }
+        }
+        written
+    }
+
+    fn has_full_range(&self, vn: &VarNode) -> bool {
+        self.get_section_info().any(|s| {
+            s.base_address <= vn.offset as usize && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size)
+        })
+    }
+
+    fn get_section_info(&self) -> ImageSectionIterator {
+        ImageSectionIterator::new(self.sections.iter().map(ImageSection::from))
+    }
+}
 
 impl<'a> ImageProvider for File<'a> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
