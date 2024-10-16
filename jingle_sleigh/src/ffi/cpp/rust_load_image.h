@@ -5,7 +5,7 @@
 #ifndef JINGLE_SLEIGH_RUST_LOAD_IMAGE_H
 #define JINGLE_SLEIGH_RUST_LOAD_IMAGE_H
 
-#include "jingle_sleigh/src/ffi/image.rs.h"
+#include "context.h"
 #include "sleigh/loadimage.hh"
 
 class RustLoadImage : public ghidra::LoadImage {

@@ -9,7 +9,6 @@
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/sleigh.hh"
 #include "rust/cxx.h"
-#include "jingle_sleigh/src/ffi/image.rs.h"
 #include "dummy_load_image.h"
 
 class SleighImage{

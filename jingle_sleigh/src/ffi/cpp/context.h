@@ -1,13 +1,14 @@
 #ifndef JINGLE_SLEIGH_CONTEXT_H
 #define JINGLE_SLEIGH_CONTEXT_H
 
+class ContextFFI;
+#include "jingle_sleigh/src/ffi/context_ffi.rs.h"
 #include "rust/cxx.h"
 #include "sleigh/types.h"
 #include "addrspace_handle.h"
 #include "jingle_sleigh/src/ffi/instruction.rs.h"
 #include "sleigh/globalcontext.hh"
 #include "sleigh/sleigh.hh"
-#include "jingle_sleigh/src/ffi/image.rs.h"
 #include "sleigh/loadimage.hh"
 #include "dummy_load_image.h"
 
