@@ -1,10 +1,7 @@
 use crate::context::image::{ImageProvider, ImageProviderExt, ImageSection, Perms};
 use crate::VarNode;
-use object::elf::{SHF_EXECINSTR, SHF_WRITE};
-use object::{Architecture, Endianness, File, Object, ObjectSection, SectionFlags, SectionKind};
+use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
 use std::cmp::{max, min};
-use std::io::empty;
-use std::iter::once;
 
 impl<'a> ImageProvider for File<'a> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {

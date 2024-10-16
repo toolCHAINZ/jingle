@@ -45,7 +45,7 @@ impl ImageProvider for &[u8] {
 impl ImageProviderExt for &[u8] {
     fn get_section_info(&self) -> impl Iterator<Item = ImageSection> {
         once(ImageSection {
-            data: &self,
+            data: self,
             base_address: 0,
             perms: Perms {
                 read: true,
@@ -69,7 +69,7 @@ impl ImageProvider for Vec<u8> {
 impl ImageProviderExt for Vec<u8> {
     fn get_section_info(&self) -> impl Iterator<Item = ImageSection> {
         once(ImageSection {
-            data: &self,
+            data: self,
             base_address: 0,
             perms: Perms {
                 read: true,
@@ -119,7 +119,7 @@ impl Perms {
 
 #[derive(Debug, Clone)]
 pub struct ImageSection<'a> {
-    pub(crate) data: &'a [u8],
-    pub(crate) base_address: usize,
-    pub(crate) perms: Perms,
+    pub data: &'a [u8],
+    pub base_address: usize,
+    pub perms: Perms,
 }

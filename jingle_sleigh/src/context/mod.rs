@@ -13,7 +13,7 @@ pub use builder::image::gimli::map_gimli_architecture;
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
-use crate::context::image::{ImageProvider, ImageProviderExt};
+use crate::context::image::ImageProviderExt;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};

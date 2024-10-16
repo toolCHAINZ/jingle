@@ -1,4 +1,4 @@
-use crate::context::image::{ImageProvider, ImageProviderExt};
+use crate::context::image::ImageProviderExt;
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
