@@ -33,6 +33,7 @@ impl<'a, 'b> TryFrom<Section<'a, 'b>> for OwnedSection {
     }
 }
 
+#[derive(Debug)]
 pub struct OwnedFile {
     sections: Vec<OwnedSection>,
 }
@@ -54,7 +55,7 @@ impl ImageProvider for OwnedFile {
         let output_start_addr = vn.offset as usize;
         let output_end_addr = output_start_addr + vn.size;
         if let Some(x) = self.get_section_info().find(|s| {
-            output_start_addr > s.base_address
+            output_start_addr >= s.base_address
                 && output_start_addr < (s.base_address + s.data.len())
         }) {
             let input_start_addr = x.base_address;
@@ -93,7 +94,7 @@ impl<'a> ImageProvider for File<'a> {
         let output_start_addr = vn.offset as usize;
         let output_end_addr = output_start_addr + vn.size;
         if let Some(x) = self.sections().find(|s| {
-            output_start_addr > s.address() as usize
+            output_start_addr >= s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize
         }) {
             if let Ok(data) = x.data() {
