@@ -31,7 +31,7 @@ impl<'a> DerefMut for LoadedSleighContext<'a> {
 
 impl<'a> LoadedSleighContext<'a> {
     pub(crate) fn new<T: ImageProvider + 'a>(
-        mut sleigh_context: SleighContext,
+        sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
         let img = Box::pin(ImageFFI::new(img));
@@ -39,7 +39,7 @@ impl<'a> LoadedSleighContext<'a> {
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
             .pin_mut()
-            .setImage(&img)
+            .setImage(img)
             .map_err(|_| ImageLoadError)?;
         Ok(s)
     }

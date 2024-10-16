@@ -27,7 +27,7 @@ impl<'a> ImageProvider for File<'a> {
                     let out_slice = &mut output[o_s..o_e];
                     let in_slice = &data[i_s..i_e];
                     out_slice.copy_from_slice(in_slice);
-                    written += (end_addr - start_addr);
+                    written += end_addr - start_addr;
                 }
             }
         }

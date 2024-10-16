@@ -17,14 +17,14 @@ impl ImageProvider for &[u8] {
             end: min(vn_range.end, self.len()),
         };
         if let Some(s) = self.get(vn_range) {
-            if let Some(mut o) = output.get_mut(0..s.len()) {
+            if let Some(o) = output.get_mut(0..s.len()) {
                 o.copy_from_slice(s)
             }
             let o_len = output.len();
             if let Some(o) = output.get_mut(s.len()..o_len) {
                 o.fill(0);
             }
-            return s.len();
+            s.len()
         } else {
             output.fill(0);
             0
