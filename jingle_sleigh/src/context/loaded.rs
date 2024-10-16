@@ -8,24 +8,27 @@ use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use crate::context::image::ImageProvider;
 
-pub struct LoadedSleighContext<'a>(SleighContext, Pin<Box<ImageFFI<'a>>>);
+pub struct LoadedSleighContext<'a> {
+    sleigh: SleighContext,
+    img: Pin<Box<ImageFFI<'a>>>,
+}
 
 impl<'a> Debug for LoadedSleighContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        self.sleigh.fmt(f)
     }
 }
 impl<'a> Deref for LoadedSleighContext<'a> {
     type Target = SleighContext;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.sleigh
     }
 }
 
 impl<'a> DerefMut for LoadedSleighContext<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.sleigh
     }
 }
 
@@ -35,7 +38,10 @@ impl<'a> LoadedSleighContext<'a> {
         img: T,
     ) -> Result<Self, JingleSleighError> {
         let img = Box::pin(ImageFFI::new(img));
-        let mut s = Self(sleigh_context, img);
+        let mut s = Self {
+            sleigh: sleigh_context,
+            img: img
+        };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
             .pin_mut()
@@ -50,11 +56,11 @@ impl<'a> LoadedSleighContext<'a> {
             .map(Instruction::from)
             .ok()?;
         let vn = VarNode {
-            space_index: self.0.get_code_space_idx(),
+            space_index: self.sleigh.get_code_space_idx(),
             size: instr.length,
             offset,
         };
-        if self.1.has_range(&vn) {
+        if self.img.has_range(&vn) {
             Some(instr)
         } else {
             None
@@ -84,34 +90,34 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
-        (&mut self.0, &mut self.1)
+        (&mut self.sleigh, &mut self.img)
     }
 }
 
 impl<'a> SpaceManager for LoadedSleighContext<'a> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.0.get_space_info(idx)
+        self.sleigh.get_space_info(idx)
     }
 
     fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.0.get_all_space_info()
+        self.sleigh.get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
-        self.0.get_code_space_idx()
+        self.sleigh.get_code_space_idx()
     }
 }
 
 impl<'a> RegisterManager for LoadedSleighContext<'a> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.0.get_register(name)
+        self.sleigh.get_register(name)
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.0.get_register_name(location)
+        self.sleigh.get_register_name(location)
     }
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.0.get_registers()
+        self.sleigh.get_registers()
     }
 }
