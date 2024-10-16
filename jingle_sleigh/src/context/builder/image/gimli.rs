@@ -1,6 +1,6 @@
 use crate::context::image::ImageProvider;
 use crate::VarNode;
-use object::{Architecture, Endianness, File, Object, ObjectSection, ReadRef, SectionKind};
+use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
 use std::cmp::{max, min};
 
 impl<'a> ImageProvider for File<'a> {

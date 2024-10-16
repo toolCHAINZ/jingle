@@ -19,10 +19,6 @@ pub enum JingleSleighError {
     /// Unable to load the provided binary image for sleigh
     #[error("Something went wrong putting bytes into sleigh")]
     ImageLoadError,
-    /// Unable to parse the provided elf for sleigh
-    #[cfg(feature = "elf")]
-    #[error("Trouble loading an elf")]
-    ElfLoadError(#[from] elf::ParseError),
     /// Attempted to initialize sleigh with an empty image
     #[error("You didn't provide any bytes to sleigh")]
     NoImageProvided,

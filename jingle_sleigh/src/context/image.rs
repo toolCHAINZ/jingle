@@ -33,7 +33,7 @@ impl ImageProvider for &[u8] {
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
         let vn_range: Range<usize> = Range::from(vn);
-        vn_range.start >= 0 && vn_range.start < self.len() && vn_range.end <= self.len()
+        vn_range.start < self.len() && vn_range.end <= self.len()
     }
 }
 
