@@ -1,4 +1,4 @@
-use crate::context::image::{ImageProvider, ImageProviderExt, ImageSection, Perms};
+use crate::context::image::{ImageProvider, ImageSection, Perms};
 use crate::VarNode;
 use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
 use std::cmp::{max, min};
@@ -38,9 +38,7 @@ impl<'a> ImageProvider for File<'a> {
             s.address() <= vn.offset && (s.address() + s.size()) >= (vn.offset + vn.size as u64)
         })
     }
-}
 
-impl<'a> ImageProviderExt for File<'a> {
     fn get_section_info(&self) -> impl Iterator<Item = ImageSection> {
         self.sections().filter_map(|s| {
             if let Ok(data) = s.data() {

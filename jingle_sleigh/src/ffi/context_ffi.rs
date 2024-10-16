@@ -1,4 +1,4 @@
-use crate::context::image::{ImageProvider, ImageProviderExt};
+use crate::context::image::{ImageProvider};
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::VarNode;
@@ -62,7 +62,7 @@ pub(crate) struct ImageFFI<'a> {
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: ImageProviderExt + 'a>(provider: T) -> Self {
+    pub(crate) fn new<T: ImageProvider + 'a>(provider: T) -> Self {
         Self {
             provider: Box::pin(provider),
         }

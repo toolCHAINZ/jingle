@@ -13,7 +13,6 @@ pub use builder::image::gimli::map_gimli_architecture;
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
-use crate::context::image::ImageProviderExt;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
@@ -21,6 +20,7 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use crate::context::image::ImageProvider;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -128,7 +128,7 @@ impl SleighContext {
         &self.language_id
     }
 
-    pub fn initialize_with_image<'b, T: ImageProviderExt + 'b>(
+    pub fn initialize_with_image<'b, T: ImageProvider + 'b>(
         self,
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
