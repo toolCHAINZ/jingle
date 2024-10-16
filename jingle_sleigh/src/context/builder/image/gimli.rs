@@ -1,7 +1,10 @@
-use crate::context::image::ImageProvider;
+use crate::context::image::{ImageProvider, ImageProviderExt, ImageSection, Perms};
 use crate::VarNode;
-use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
+use object::elf::{SHF_EXECINSTR, SHF_WRITE};
+use object::{Architecture, Endianness, File, Object, ObjectSection, SectionFlags, SectionKind};
 use std::cmp::{max, min};
+use std::io::empty;
+use std::iter::once;
 
 impl<'a> ImageProvider for File<'a> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
@@ -10,8 +13,7 @@ impl<'a> ImageProvider for File<'a> {
         let output_start_addr = vn.offset as usize;
         let output_end_addr = output_start_addr + vn.size;
         if let Some(x) = self.sections().find(|s| {
-            s.kind() == SectionKind::Text
-                && output_start_addr > s.address() as usize
+            output_start_addr > s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize
         }) {
             if let Ok(data) = x.data() {
@@ -36,10 +38,27 @@ impl<'a> ImageProvider for File<'a> {
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
         self.sections()
-            .filter(|s| s.kind() == SectionKind::Text)
             .any(|s| {
                 s.address() <= vn.offset && (s.address() + s.size()) >= (vn.offset + vn.size as u64)
             })
+    }
+
+
+}
+
+impl<'a> ImageProviderExt for File<'a>{
+    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
+        self.sections().filter_map(|s| {
+            if let Ok(data) = s.data() {
+                Some(ImageSection {
+                    data,
+                    base_address: s.address() as usize,
+                    perms: map_sec_kind(&s.kind()),
+                })
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -69,5 +88,18 @@ pub fn map_gimli_architecture(file: &File) -> Option<&'static str> {
             Endianness::Big => Some("Xtensa:BE:32:default"),
         },
         _ => None,
+    }
+}
+
+fn map_sec_kind(kind: &SectionKind) -> Perms {
+    match kind {
+        SectionKind::Unknown => Perms::RWX,
+        SectionKind::Text => Perms::RX,
+        SectionKind::Data => Perms::RW,
+        SectionKind::ReadOnlyData => Perms::R,
+        SectionKind::ReadOnlyDataWithRel => Perms::R,
+        SectionKind::ReadOnlyString => Perms::R,
+        SectionKind::UninitializedData => Perms::RW,
+        _ => Perms::NONE
     }
 }

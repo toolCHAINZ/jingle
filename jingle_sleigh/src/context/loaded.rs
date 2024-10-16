@@ -1,4 +1,4 @@
-use crate::context::image::ImageProvider;
+use crate::context::image::{ImageProvider, ImageProviderExt};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
@@ -30,7 +30,7 @@ impl<'a> DerefMut for LoadedSleighContext<'a> {
 }
 
 impl<'a> LoadedSleighContext<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(
+    pub(crate) fn new<T: ImageProviderExt + 'a>(
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
@@ -73,7 +73,7 @@ impl<'a> LoadedSleighContext<'a> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
-    pub fn set_image<T: ImageProvider + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
+    pub fn set_image<T: ImageProviderExt + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
         *img_ref = ImageFFI::new(img);
         sleigh

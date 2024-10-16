@@ -1,11 +1,16 @@
 use crate::VarNode;
 use std::cmp::min;
+use std::iter::once;
 use std::ops::Range;
 
 pub trait ImageProvider {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
     fn has_full_range(&self, vn: &VarNode) -> bool;
+}
+
+pub trait ImageProviderExt: ImageProvider {
+    fn get_section_info(&self) -> impl Iterator<Item=ImageSection>;
 }
 
 impl ImageProvider for &[u8] {
@@ -37,6 +42,20 @@ impl ImageProvider for &[u8] {
     }
 }
 
+impl ImageProviderExt for &[u8] {
+    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
+        once(ImageSection {
+            data: &self,
+            base_address: 0,
+            perms: Perms {
+                read: true,
+                write: false,
+                exec: true,
+            },
+        })
+    }
+}
+
 impl ImageProvider for Vec<u8> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         self.as_slice().load(vn, output)
@@ -45,4 +64,62 @@ impl ImageProvider for Vec<u8> {
     fn has_full_range(&self, vn: &VarNode) -> bool {
         self.as_slice().has_full_range(vn)
     }
+}
+
+impl ImageProviderExt for Vec<u8> {
+    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
+        once(ImageSection {
+            data: &self,
+            base_address: 0,
+            perms: Perms {
+                read: true,
+                write: false,
+                exec: true,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Perms {
+    pub(crate) read: bool,
+    pub(crate) write: bool,
+    pub(crate) exec: bool,
+}
+
+impl Perms {
+    pub const RWX: Perms = Perms {
+        read: true,
+        write: true,
+        exec: true,
+    };
+    pub const RX: Perms = Perms {
+        read: true,
+        write: false,
+        exec: true,
+    };
+
+    pub const RW: Perms = Perms {
+        read: true,
+        write: true,
+        exec: false,
+    };
+    pub const R: Perms = Perms {
+        read: true,
+        write: false,
+        exec: false,
+    };
+
+    pub const NONE: Perms = Perms {
+        read: false,
+        write: false,
+        exec: false,
+    };
+}
+
+#[derive(Debug, Clone)]
+pub struct ImageSection<'a> {
+    pub(crate) data: &'a [u8],
+    pub(crate) base_address: usize,
+    pub(crate) perms: Perms,
 }
