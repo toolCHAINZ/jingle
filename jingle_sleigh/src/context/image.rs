@@ -82,9 +82,9 @@ impl ImageProviderExt for Vec<u8> {
 
 #[derive(Debug, Clone)]
 pub struct Perms {
-    pub(crate) read: bool,
-    pub(crate) write: bool,
-    pub(crate) exec: bool,
+    pub read: bool,
+    pub write: bool,
+    pub exec: bool,
 }
 
 impl Perms {
