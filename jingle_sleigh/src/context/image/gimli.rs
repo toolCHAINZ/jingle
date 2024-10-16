@@ -3,7 +3,7 @@ use crate::{JingleSleighError, VarNode};
 use object::{Architecture, Endianness, File, Object, ObjectSection, Section, SectionKind};
 use std::cmp::{max, min};
 
-
+#[derive(Debug, PartialEq, Eq)]
 pub struct OwnedSection {
     data: Vec<u8>,
     perms: Perms,
@@ -40,7 +40,7 @@ pub struct OwnedFile {
 impl OwnedFile {
     pub fn new(file: &File) -> Result<Self, JingleSleighError> {
         let mut sections = vec![];
-        for x in file.sections() {
+        for x in file.sections().filter(|f|f.kind() == SectionKind::Text) {
             sections.push(x.try_into()?);
         }
         Ok(Self { sections })
