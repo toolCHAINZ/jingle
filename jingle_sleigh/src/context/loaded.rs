@@ -6,7 +6,7 @@ use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceMan
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use crate::context::image::ImageProvider;
+use crate::context::image::{ImageProvider, ImageSection};
 
 pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
@@ -89,8 +89,8 @@ impl<'a> LoadedSleighContext<'a> {
             .map_err(|_| ImageLoadError)
     }
 
-    pub fn get_img_provider<T: ImageProvider + Sized + 'a>(&self) -> Pin<&dyn ImageProvider> {
-        self.img.provider.as_ref()
+    pub fn get_sections<T: ImageProvider + Sized + 'a>(&self) -> impl Iterator<Item=ImageSection> {
+        self.img.provider.get_section_info()
     }
 
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {

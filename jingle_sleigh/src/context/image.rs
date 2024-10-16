@@ -11,7 +11,7 @@ pub trait ImageProvider {
 }
 
 pub struct ImageSectionIterator<'a> {
-    pub(crate) iter: Box<dyn Iterator<Item=ImageSection<'a>> + 'a>,
+    iter: Box<dyn Iterator<Item=ImageSection<'a>> + 'a>,
 }
 
 impl<'a> ImageSectionIterator<'a> {
@@ -20,6 +20,13 @@ impl<'a> ImageSectionIterator<'a> {
     }
 }
 
+impl<'a> Iterator for ImageSectionIterator<'a>{
+    type Item = ImageSection<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
 impl ImageProvider for &[u8] {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         //todo: check the space. Ignoring for now
@@ -83,7 +90,7 @@ impl ImageProvider for Vec<u8> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Perms {
     pub read: bool,
     pub write: bool,
@@ -120,9 +127,21 @@ impl Perms {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImageSection<'a> {
     pub data: &'a [u8],
     pub base_address: usize,
     pub perms: Perms,
+}
+
+#[cfg(test)]
+mod tests{
+    use crate::context::image::{ImageProvider, ImageSection};
+
+    #[test]
+    fn test_vec_sections(){
+        let data: Vec<u8> = vec![1,2,3];
+        let sections: Vec<ImageSection> = data.get_section_info().collect();
+        assert_ne!(sections, vec![])
+    }
 }
