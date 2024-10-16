@@ -89,7 +89,7 @@ impl<'a> LoadedSleighContext<'a> {
             .map_err(|_| ImageLoadError)
     }
 
-    pub fn get_sections<T: ImageProvider + Sized + 'a>(&self) -> impl Iterator<Item=ImageSection> {
+    pub fn get_sections(&self) -> impl Iterator<Item=ImageSection> {
         self.img.provider.get_section_info()
     }
 
