@@ -10,7 +10,7 @@ pub trait ImageProvider {
 }
 
 pub trait ImageProviderExt: ImageProvider {
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection>;
+    fn get_section_info(&self) -> impl Iterator<Item = ImageSection>;
 }
 
 impl ImageProvider for &[u8] {
@@ -43,7 +43,7 @@ impl ImageProvider for &[u8] {
 }
 
 impl ImageProviderExt for &[u8] {
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
+    fn get_section_info(&self) -> impl Iterator<Item = ImageSection> {
         once(ImageSection {
             data: &self,
             base_address: 0,
@@ -67,7 +67,7 @@ impl ImageProvider for Vec<u8> {
 }
 
 impl ImageProviderExt for Vec<u8> {
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
+    fn get_section_info(&self) -> impl Iterator<Item = ImageSection> {
         once(ImageSection {
             data: &self,
             base_address: 0,

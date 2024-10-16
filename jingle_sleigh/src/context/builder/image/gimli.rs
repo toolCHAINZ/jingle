@@ -37,17 +37,14 @@ impl<'a> ImageProvider for File<'a> {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
-        self.sections()
-            .any(|s| {
-                s.address() <= vn.offset && (s.address() + s.size()) >= (vn.offset + vn.size as u64)
-            })
+        self.sections().any(|s| {
+            s.address() <= vn.offset && (s.address() + s.size()) >= (vn.offset + vn.size as u64)
+        })
     }
-
-
 }
 
-impl<'a> ImageProviderExt for File<'a>{
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
+impl<'a> ImageProviderExt for File<'a> {
+    fn get_section_info(&self) -> impl Iterator<Item = ImageSection> {
         self.sections().filter_map(|s| {
             if let Ok(data) = s.data() {
                 Some(ImageSection {
@@ -100,6 +97,6 @@ fn map_sec_kind(kind: &SectionKind) -> Perms {
         SectionKind::ReadOnlyDataWithRel => Perms::R,
         SectionKind::ReadOnlyString => Perms::R,
         SectionKind::UninitializedData => Perms::RW,
-        _ => Perms::NONE
+        _ => Perms::NONE,
     }
 }
