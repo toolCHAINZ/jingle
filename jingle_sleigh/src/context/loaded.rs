@@ -33,7 +33,7 @@ impl<'a> DerefMut for LoadedSleighContext<'a> {
 }
 
 impl<'a> LoadedSleighContext<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(
+    pub(crate) fn new<T: ImageProvider + Sized + 'a>(
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
@@ -79,7 +79,7 @@ impl<'a> LoadedSleighContext<'a> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
-    pub fn set_image<T: ImageProvider + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
+    pub fn set_image<T: ImageProvider + Sized + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
         *img_ref = ImageFFI::new(img);
         sleigh
@@ -89,9 +89,14 @@ impl<'a> LoadedSleighContext<'a> {
             .map_err(|_| ImageLoadError)
     }
 
+    pub fn get_img_provider<T: ImageProvider + Sized + 'a>(&self) -> Pin<&dyn ImageProvider> {
+        self.img.provider.as_ref()
+    }
+
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
         (&mut self.sleigh, &mut self.img)
     }
+
 }
 
 impl<'a> SpaceManager for LoadedSleighContext<'a> {

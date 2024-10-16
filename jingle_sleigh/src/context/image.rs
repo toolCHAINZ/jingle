@@ -7,7 +7,17 @@ pub trait ImageProvider {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
     fn has_full_range(&self, vn: &VarNode) -> bool;
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> where Self: Sized;
+    fn get_section_info(&self) -> ImageSectionIterator;
+}
+
+pub struct ImageSectionIterator<'a> {
+    pub(crate) iter: Box<dyn Iterator<Item=ImageSection<'a>> + 'a>,
+}
+
+impl<'a> ImageSectionIterator<'a> {
+    pub(crate) fn new<T: Iterator<Item=ImageSection<'a>> + 'a>(iter: T) -> Self {
+        Self { iter: Box::new(iter) }
+    }
 }
 
 impl ImageProvider for &[u8] {
@@ -38,8 +48,8 @@ impl ImageProvider for &[u8] {
         vn_range.start < self.len() && vn_range.end <= self.len()
     }
 
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
-        once(ImageSection {
+    fn get_section_info(&self) -> ImageSectionIterator {
+        ImageSectionIterator::new(once(ImageSection {
             data: self,
             base_address: 0,
             perms: Perms {
@@ -47,7 +57,7 @@ impl ImageProvider for &[u8] {
                 write: false,
                 exec: true,
             },
-        })
+        }))
     }
 }
 
@@ -60,8 +70,8 @@ impl ImageProvider for Vec<u8> {
         self.as_slice().has_full_range(vn)
     }
 
-    fn get_section_info(&self) -> impl Iterator<Item=ImageSection> {
-        once(ImageSection {
+    fn get_section_info(&self) -> ImageSectionIterator {
+        ImageSectionIterator::new(once(ImageSection {
             data: self,
             base_address: 0,
             perms: Perms {
@@ -69,7 +79,7 @@ impl ImageProvider for Vec<u8> {
                 write: false,
                 exec: true,
             },
-        })
+        }))
     }
 }
 
