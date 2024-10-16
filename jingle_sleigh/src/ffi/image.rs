@@ -8,7 +8,7 @@ use crate::ffi::context_ffi::ImageFFI;
 impl<'a> ImageFFI<'a> {
     pub(crate) fn new<T: ImageProvider + 'a>(provider: T) -> Self {
         Self {
-            provider: Box::new(provider),
+            provider: Box::pin(provider),
         }
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {

@@ -1,38 +1,37 @@
-use crate::context::builder::image::Perms;
-use crate::context::{Image, ImageSection};
-use crate::{JingleSleighError, VarNode};
-use crate::JingleSleighError::ImageLoadError;
-use object::{Architecture, Endianness, File, Object, ObjectSection, SectionKind};
-use tracing::{event, instrument, Level};
+use std::cmp::{max, min};
+use crate::{VarNode};
+use object::{Architecture, Endianness, File, Object, ObjectSection, ReadRef, SectionKind};
 use crate::context::image::ImageProvider;
 
-impl<'a> ImageProvider for File<'a>{
+impl<'a> ImageProvider for File<'a> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
-        todo!()
+        let mut written = 0;
+        output.fill(0);
+        let output_start_addr = vn.offset as usize;
+        let output_end_addr = output_start_addr + vn.size;
+        for x in self.sections().filter(|s| s.kind() == SectionKind::Text) {
+            if let Ok(data) = x.data() {
+                let input_start_addr = x.address() as usize;
+                let input_end_addr = input_start_addr + data.len();
+                let start_addr = max(input_start_addr, output_start_addr);
+                let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
+                if end_addr > start_addr{
+                    let i_s = start_addr - x.address() as usize;
+                    let i_e = end_addr - x.address() as usize;
+                    let o_s = start_addr - vn.offset as usize;
+                    let o_e = end_addr - vn.offset as usize;
+                    let out_slice = &mut output[o_s..o_e];
+                    let in_slice = &data[i_s..i_e];
+                    out_slice.copy_from_slice(in_slice);
+                    written += (end_addr - start_addr);
+                }
+            }
+        }
+        written
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
         todo!()
-    }
-}
-
-fn map_kind(kind: &SectionKind) -> Perms {
-    Perms {
-        exec: matches!(kind, SectionKind::Text),
-        write: matches!(kind, SectionKind::Data)
-            && !matches!(
-                kind,
-                SectionKind::ReadOnlyData
-                    | SectionKind::ReadOnlyString
-                    | SectionKind::ReadOnlyDataWithRel
-            ),
-        read: matches!(
-            kind,
-            SectionKind::Data
-                | SectionKind::ReadOnlyData
-                | SectionKind::ReadOnlyString
-                | SectionKind::ReadOnlyDataWithRel
-        ),
     }
 }
 

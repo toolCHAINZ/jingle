@@ -1,3 +1,4 @@
+use std::pin::Pin;
 use crate::ffi::context_ffi::bridge::makeContext;
 use bridge::ContextFFI;
 use cxx::{Exception, UniquePtr};
@@ -55,5 +56,5 @@ pub(crate) mod bridge {
 }
 
 pub(crate) struct ImageFFI<'a> {
-    pub(crate) provider: Box<dyn ImageProvider + 'a>,
+    pub(crate) provider: Pin<Box<dyn ImageProvider + 'a>>,
 }

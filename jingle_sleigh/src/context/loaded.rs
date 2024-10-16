@@ -5,9 +5,10 @@ use crate::JingleSleighError::ImageLoadError;
 use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
 use crate::ffi::context_ffi::ImageFFI;
 
-pub struct LoadedSleighContext<'a>(SleighContext, Box<ImageFFI<'a>>);
+pub struct LoadedSleighContext<'a>(SleighContext, Pin<Box<ImageFFI<'a>>>);
 
 impl<'a> Debug for LoadedSleighContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -33,7 +34,7 @@ impl<'a> LoadedSleighContext<'a> {
         mut sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
-        let img = Box::new(ImageFFI::new(img));
+        let img = Box::pin(ImageFFI::new(img));
         let mut s = Self(sleigh_context, img);
         let (ctx, img) = s.borrow_parts();
         ctx
