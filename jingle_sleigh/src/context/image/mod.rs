@@ -3,6 +3,9 @@ use std::cmp::min;
 use std::iter::once;
 use std::ops::Range;
 
+#[cfg(feature = "gimli")]
+pub mod gimli;
+
 pub trait ImageProvider {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
