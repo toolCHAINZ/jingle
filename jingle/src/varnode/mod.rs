@@ -26,7 +26,10 @@ pub enum ResolvedVarnode<'ctx> {
 }
 
 impl<'ctx> ResolvedVarnode<'ctx> {
-    pub fn display<T: RegisterManager>(&self, ctx: &T) -> Result<ResolvedVarNodeDisplay, JingleError> {
+    pub fn display<T: RegisterManager>(
+        &self,
+        ctx: &T,
+    ) -> Result<ResolvedVarNodeDisplay, JingleError> {
         match self {
             ResolvedVarnode::Direct(d) => Ok(ResolvedVarNodeDisplay::Direct(d.display(ctx)?)),
             ResolvedVarnode::Indirect(i) => Ok(ResolvedVarNodeDisplay::Indirect(
