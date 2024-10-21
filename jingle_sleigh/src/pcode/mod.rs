@@ -393,7 +393,7 @@ impl PcodeOperation {
     ) -> Result<PcodeOperationDisplay<'a, T>, JingleSleighError> {
         Ok(PcodeOperationDisplay {
             op: self.clone(),
-            spaces: ctx,
+            ctx: ctx,
         })
     }
 

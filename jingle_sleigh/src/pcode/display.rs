@@ -11,279 +11,33 @@ use crate::RegisterManager;
 
 pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
     pub(crate) op: PcodeOperation,
-    pub(crate) spaces: &'a T,
+    pub(crate) ctx: &'a T,
 }
 
-impl<'a, T: RegisterManager> PcodeOperationDisplay<'a, T>{
-
-}
+impl<'a, T: RegisterManager> PcodeOperationDisplay<'a, T> {}
 
 impl<'a, T> Display for PcodeOperationDisplay<'a, T>
-where
-    T: RegisterManager,
+    where
+        T: RegisterManager,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.op {
-            Copy { input, output } => {
-                write!(
-                    f,
-                    "{} = {}",
-                    output.display(self.spaces)?,
-                    input.display(self.spaces)?
-                )
-            }
-            PopCount { input, output } => {
-                write!(
-                    f,
-                    "{} = popcount({})",
-                    output.display(self.spaces)?,
-                    input.display(self.spaces)?
-                )
-            }
-            IntZExt { input, output } => {
-                write!(
-                    f,
-                    "{} = zext({})",
-                    output.display(self.spaces)?,
-                    input.display(self.spaces)?
-                )
-            }
-            IntSExt { input, output } => {
-                write!(
-                    f,
-                    "{} = sext({})",
-                    output.display(self.spaces)?,
-                    input.display(self.spaces)?
-                )
-            }
-            Store { output, input } => {
-                write!(
-                    f,
-                    "{} = {}",
-                    output.display(self.spaces)?,
-                    input.display(self.spaces)?
-                )
-            }
-            Load { input, output } => {
-                write!(
-                    f,
-                    "{} = {}",
-                    output.display(self.spaces)?,
-                    input.display(self.spaces)?
-                )
-            }
-            IntCarry {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = carry({}, {})",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?
-            ),
-            IntSignedCarry {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = s.carry({}, {})",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?
-            ),
-            IntSignedBorrow {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = s.borrow({}, {})",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?
-            ),
-            Int2Comp { output, input } => write!(
-                f,
-                "{} = -{}",
-                output.display(self.spaces)?,
-                input.display(self.spaces)?
-            ),
-            IntAdd {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} + {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntSub {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} - {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntAnd {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} & {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntOr {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} v {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntXor {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} ^ {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntRightShift {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} >> {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntLeftShift {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} << {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntLess {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} < {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntLessEqual {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} <= {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntSignedLess {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} s< {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntSignedLessEqual {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} s<= {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntEqual {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} == {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            IntNotEqual {
-                output,
-                input0,
-                input1,
-            } => write!(
-                f,
-                "{} = {} != {}",
-                output.display(self.spaces)?,
-                input0.display(self.spaces)?,
-                input1.display(self.spaces)?,
-            ),
-            CallOther { output, inputs } => {
-                if let Some(output) = output {
-                    write!(f, "{} = ", output.display(self.spaces)?)?;
-                }
-                write!(f, "userop(")?;
-                let mut args = Vec::with_capacity(inputs.len());
-                for i in inputs {
-                    args.push(format!("{}", i.display(self.spaces)?));
-                }
-                write!(f, "{}", args.join(", "))?;
-                write!(f, ")")
-            }
-            CallInd { input } => write!(f, "call [{}]", input.display(self.spaces)?),
-            Return { input } => write!(f, "return [{}]", input.display(self.spaces)?),
-            Branch { input } => write!(f, "branch {}", input.display(self.spaces)?),
-            CBranch { input0, input1 } => write!(
-                f,
-                "if {} branch {}",
-                input1.display(self.spaces)?,
-                input0.display(self.spaces)?
-            ),
-            BranchInd { input } => write!(f, "branch [{}]", input.display(self.spaces)?),
-            Call { input } => write!(f, "call {}", input.display(self.spaces)?),
-            IntNegate { input, output } => write!(
-                f,
-                "{} =  ~{}",
-                output.display(self.spaces)?,
-                input.display(self.spaces)?
-            ),
-            _ => write!(f, "<please impl print> {:?}", self.op),
+        if let Some(o) = self.op.output() {
+            write!(f, "{} = ", o.display(self.ctx)?)?;
         }
+        write!(f, "{} ", self.op.opcode())?;
+        let mut args: Vec<String> = vec![];
+        for x in self.op.inputs() {
+            args.push(format!("{}", x.display(self.ctx)?));
+        }
+        write!(f, "{}", args.join(", "))?;
+        Ok(())
+    }
+}
+
+
+impl Display for crate::ffi::opcode::bridge::OpCode{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let d = format!("{:?}", self);
+        write!(f, "{}", d[5..].to_string())
     }
 }
