@@ -1,9 +1,14 @@
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::space::SpaceInfo;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Debug)]
-pub struct VarNodeDisplay {
+pub enum VarNodeDisplay{
+    Raw(RawVarNodeDisplay),
+    Register(String)
+}
+#[derive(Clone, Debug)]
+pub struct RawVarNodeDisplay {
     pub offset: u64,
     pub size: usize,
     pub space_info: SpaceInfo,
@@ -22,7 +27,7 @@ pub enum GeneralizedVarNodeDisplay {
     Indirect(IndirectVarNodeDisplay),
 }
 
-impl Display for VarNodeDisplay {
+impl Display for RawVarNodeDisplay{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.space_info._type == SpaceType::IPTR_CONSTANT {
             write!(f, "{:x}:{:x}", self.offset, self.size)
@@ -33,6 +38,15 @@ impl Display for VarNodeDisplay {
                 self.space_info.name, self.offset, self.size
             )
         }
+    }
+}
+impl Display for VarNodeDisplay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self{
+            VarNodeDisplay::Raw(r) => {write!(f, "{}", r)}
+            VarNodeDisplay::Register(a) => {write!(f, "{}", a)}
+        }
+
     }
 }
 

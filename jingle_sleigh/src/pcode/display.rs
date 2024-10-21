@@ -7,15 +7,20 @@ use crate::pcode::PcodeOperation::{
 };
 use crate::space::SpaceManager;
 use std::fmt::{Display, Formatter};
+use crate::RegisterManager;
 
-pub struct PcodeOperationDisplay<'a, T: SpaceManager> {
+pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
     pub(crate) op: PcodeOperation,
     pub(crate) spaces: &'a T,
 }
 
+impl<'a, T: RegisterManager> PcodeOperationDisplay<'a, T>{
+
+}
+
 impl<'a, T> Display for PcodeOperationDisplay<'a, T>
 where
-    T: SpaceManager,
+    T: RegisterManager,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.op {

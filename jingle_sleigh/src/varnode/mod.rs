@@ -10,6 +10,7 @@ pub use crate::varnode::display::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Range;
+use crate::{RawVarNodeDisplay, RegisterManager};
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -34,14 +35,18 @@ pub struct VarNode {
 }
 
 impl VarNode {
-    pub fn display<T: SpaceManager>(&self, ctx: &T) -> Result<VarNodeDisplay, JingleSleighError> {
+    pub fn display<T: RegisterManager>(&self, ctx: &T) -> Result<VarNodeDisplay, JingleSleighError> {
+        if let Some(name) = ctx.get_register_name(self) {
+            Ok(VarNodeDisplay::Register(name.to_string()))
+        }else{
         ctx.get_space_info(self.space_index)
-            .map(|space_info| VarNodeDisplay {
+            .map(|space_info| VarNodeDisplay::Raw(RawVarNodeDisplay {
                 size: self.size,
                 offset: self.offset,
                 space_info: space_info.clone(),
-            })
+            }))
             .ok_or(JingleSleighError::InvalidSpaceName)
+        }
     }
 
     pub fn covers(&self, other: &VarNode) -> bool {
@@ -107,7 +112,7 @@ pub struct IndirectVarNode {
 }
 
 impl IndirectVarNode {
-    pub fn display<T: SpaceManager>(
+    pub fn display<T: RegisterManager>(
         &self,
         ctx: &T,
     ) -> Result<IndirectVarNodeDisplay, JingleSleighError> {
@@ -132,7 +137,7 @@ pub enum GeneralizedVarNode {
 }
 
 impl GeneralizedVarNode {
-    pub fn display<T: SpaceManager>(
+    pub fn display<T: RegisterManager>(
         &self,
         ctx: &T,
     ) -> Result<GeneralizedVarNodeDisplay, JingleSleighError> {

@@ -18,7 +18,7 @@ pub use crate::ffi::opcode::OpCode;
 use crate::pcode::display::PcodeOperationDisplay;
 use crate::space::SpaceManager;
 use crate::varnode::{IndirectVarNode, VarNode};
-use crate::GeneralizedVarNode;
+use crate::{GeneralizedVarNode, RegisterManager};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -387,7 +387,7 @@ impl PcodeOperation {
         )
     }
 
-    pub fn display<'a, T: SpaceManager>(
+    pub fn display<'a, T: RegisterManager>(
         &self,
         ctx: &'a T,
     ) -> Result<PcodeOperationDisplay<'a, T>, JingleSleighError> {
