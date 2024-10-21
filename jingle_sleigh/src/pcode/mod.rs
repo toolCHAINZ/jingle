@@ -16,7 +16,6 @@ use crate::error::JingleSleighError;
 use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
 use crate::pcode::display::PcodeOperationDisplay;
-use crate::space::SpaceManager;
 use crate::varnode::{IndirectVarNode, VarNode};
 use crate::{GeneralizedVarNode, RegisterManager};
 use serde::{Deserialize, Serialize};
@@ -393,7 +392,7 @@ impl PcodeOperation {
     ) -> Result<PcodeOperationDisplay<'a, T>, JingleSleighError> {
         Ok(PcodeOperationDisplay {
             op: self.clone(),
-            ctx: ctx,
+            ctx,
         })
     }
 

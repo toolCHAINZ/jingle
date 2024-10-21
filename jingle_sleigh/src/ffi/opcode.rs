@@ -1,4 +1,3 @@
-use std::fmt::{Display, Formatter};
 pub use bridge::OpCode;
 
 #[cxx::bridge]

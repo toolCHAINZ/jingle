@@ -15,7 +15,7 @@ impl<'a> From<&'a OwnedSection> for ImageSection<'a> {
         ImageSection {
             data: value.data.as_slice(),
             perms: value.perms.clone(),
-            base_address: value.base_address.clone(),
+            base_address: value.base_address,
         }
     }
 }
@@ -64,7 +64,7 @@ impl ImageProvider for OwnedFile {
             let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
             if end_addr > start_addr {
                 let i_s = start_addr - x.base_address;
-                let i_e = end_addr - x.base_address as usize;
+                let i_e = end_addr - x.base_address;
                 let o_s = start_addr - vn.offset as usize;
                 let o_e = end_addr - vn.offset as usize;
                 let out_slice = &mut output[o_s..o_e];

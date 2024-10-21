@@ -1,11 +1,4 @@
 use crate::pcode::PcodeOperation;
-use crate::pcode::PcodeOperation::{
-    Branch, BranchInd, CBranch, Call, CallInd, CallOther, Copy, Int2Comp, IntAdd, IntAnd, IntCarry,
-    IntEqual, IntLeftShift, IntLess, IntLessEqual, IntNegate, IntNotEqual, IntOr, IntRightShift,
-    IntSExt, IntSignedBorrow, IntSignedCarry, IntSignedLess, IntSignedLessEqual, IntSub, IntXor,
-    IntZExt, Load, PopCount, Return, Store,
-};
-use crate::space::SpaceManager;
 use std::fmt::{Display, Formatter};
 use crate::RegisterManager;
 
@@ -38,6 +31,6 @@ impl<'a, T> Display for PcodeOperationDisplay<'a, T>
 impl Display for crate::ffi::opcode::bridge::OpCode{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let d = format!("{:?}", self);
-        write!(f, "{}", d[5..].to_string())
+        write!(f, "{}", &d[5..])
     }
 }
