@@ -24,7 +24,10 @@ impl<'a, 'b> TryFrom<Section<'a, 'b>> for OwnedSection {
     type Error = JingleSleighError;
 
     fn try_from(value: Section) -> Result<Self, Self::Error> {
-        let data = value.data().map_err(|_| JingleSleighError::ImageLoadError)?.to_vec();
+        let data = value
+            .data()
+            .map_err(|_| JingleSleighError::ImageLoadError)?
+            .to_vec();
         Ok(OwnedSection {
             data,
             perms: map_sec_kind(&value.kind()),
@@ -41,7 +44,7 @@ pub struct OwnedFile {
 impl OwnedFile {
     pub fn new(file: &File) -> Result<Self, JingleSleighError> {
         let mut sections = vec![];
-        for x in file.sections().filter(|f|f.kind() == SectionKind::Text) {
+        for x in file.sections().filter(|f| f.kind() == SectionKind::Text) {
             sections.push(x.try_into()?);
         }
         Ok(Self { sections })
@@ -78,7 +81,8 @@ impl ImageProvider for OwnedFile {
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
         self.get_section_info().any(|s| {
-            s.base_address <= vn.offset as usize && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size)
+            s.base_address <= vn.offset as usize
+                && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size)
         })
     }
 

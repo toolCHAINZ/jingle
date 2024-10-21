@@ -3,9 +3,9 @@ use crate::space::SpaceInfo;
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Debug)]
-pub enum VarNodeDisplay{
+pub enum VarNodeDisplay {
     Raw(RawVarNodeDisplay),
-    Register(String)
+    Register(String),
 }
 #[derive(Clone, Debug)]
 pub struct RawVarNodeDisplay {
@@ -27,7 +27,7 @@ pub enum GeneralizedVarNodeDisplay {
     Indirect(IndirectVarNodeDisplay),
 }
 
-impl Display for RawVarNodeDisplay{
+impl Display for RawVarNodeDisplay {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.space_info._type == SpaceType::IPTR_CONSTANT {
             write!(f, "{:x}:{:x}", self.offset, self.size)
@@ -42,11 +42,14 @@ impl Display for RawVarNodeDisplay{
 }
 impl Display for VarNodeDisplay {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self{
-            VarNodeDisplay::Raw(r) => {write!(f, "{}", r)}
-            VarNodeDisplay::Register(a) => {write!(f, "{}", a)}
+        match self {
+            VarNodeDisplay::Raw(r) => {
+                write!(f, "{}", r)
+            }
+            VarNodeDisplay::Register(a) => {
+                write!(f, "{}", a)
+            }
         }
-
     }
 }
 

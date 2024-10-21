@@ -14,16 +14,18 @@ pub trait ImageProvider {
 }
 
 pub struct ImageSectionIterator<'a> {
-    iter: Box<dyn Iterator<Item=ImageSection<'a>> + 'a>,
+    iter: Box<dyn Iterator<Item = ImageSection<'a>> + 'a>,
 }
 
 impl<'a> ImageSectionIterator<'a> {
-    pub(crate) fn new<T: Iterator<Item=ImageSection<'a>> + 'a>(iter: T) -> Self {
-        Self { iter: Box::new(iter) }
+    pub(crate) fn new<T: Iterator<Item = ImageSection<'a>> + 'a>(iter: T) -> Self {
+        Self {
+            iter: Box::new(iter),
+        }
     }
 }
 
-impl<'a> Iterator for ImageSectionIterator<'a>{
+impl<'a> Iterator for ImageSectionIterator<'a> {
     type Item = ImageSection<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -138,12 +140,12 @@ pub struct ImageSection<'a> {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use crate::context::image::{ImageProvider, ImageSection};
 
     #[test]
-    fn test_vec_sections(){
-        let data: Vec<u8> = vec![1,2,3];
+    fn test_vec_sections() {
+        let data: Vec<u8> = vec![1, 2, 3];
         let sections: Vec<ImageSection> = data.get_section_info().collect();
         assert_ne!(sections, vec![])
     }

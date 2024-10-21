@@ -1,6 +1,6 @@
 use crate::pcode::PcodeOperation;
-use std::fmt::{Display, Formatter};
 use crate::RegisterManager;
+use std::fmt::{Display, Formatter};
 
 pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
     pub(crate) op: PcodeOperation,
@@ -10,8 +10,8 @@ pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
 impl<'a, T: RegisterManager> PcodeOperationDisplay<'a, T> {}
 
 impl<'a, T> Display for PcodeOperationDisplay<'a, T>
-    where
-        T: RegisterManager,
+where
+    T: RegisterManager,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(o) = self.op.output() {
@@ -27,8 +27,7 @@ impl<'a, T> Display for PcodeOperationDisplay<'a, T>
     }
 }
 
-
-impl Display for crate::ffi::opcode::bridge::OpCode{
+impl Display for crate::ffi::opcode::bridge::OpCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let d = format!("{:?}", self);
         write!(f, "{}", &d[5..])

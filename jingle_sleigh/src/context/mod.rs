@@ -11,6 +11,7 @@ use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
+use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
@@ -18,7 +19,6 @@ use crate::VarNode;
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
-use crate::context::image::ImageProvider;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,

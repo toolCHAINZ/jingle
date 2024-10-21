@@ -1,3 +1,4 @@
+use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
@@ -6,7 +7,6 @@ use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceMan
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use crate::context::image::{ImageProvider, ImageSection};
 
 pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
@@ -40,7 +40,7 @@ impl<'a> LoadedSleighContext<'a> {
         let img = Box::pin(ImageFFI::new(img));
         let mut s = Self {
             sleigh: sleigh_context,
-            img
+            img,
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
@@ -79,7 +79,10 @@ impl<'a> LoadedSleighContext<'a> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
-    pub fn set_image<T: ImageProvider + Sized + 'a>(&mut self, img: T) -> Result<(), JingleSleighError> {
+    pub fn set_image<T: ImageProvider + Sized + 'a>(
+        &mut self,
+        img: T,
+    ) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
         *img_ref = ImageFFI::new(img);
         sleigh
@@ -89,14 +92,13 @@ impl<'a> LoadedSleighContext<'a> {
             .map_err(|_| ImageLoadError)
     }
 
-    pub fn get_sections(&self) -> impl Iterator<Item=ImageSection> {
+    pub fn get_sections(&self) -> impl Iterator<Item = ImageSection> {
         self.img.provider.get_section_info()
     }
 
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
         (&mut self.sleigh, &mut self.img)
     }
-
 }
 
 impl<'a> SpaceManager for LoadedSleighContext<'a> {
