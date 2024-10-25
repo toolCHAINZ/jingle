@@ -17,6 +17,7 @@ mod branch;
 mod instruction;
 mod slice;
 mod state;
+mod functional;
 
 pub use block::ModeledBlock;
 pub use branch::*;
