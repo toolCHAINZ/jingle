@@ -1,7 +1,7 @@
-use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use crate::modeling::State;
+use jingle_sleigh::{SpaceInfo, SpaceManager};
+use crate::modeling::bmc::state::MemoryState;
 
 #[derive(Debug)]
 pub struct JingleContext<'ctx, 'sl> {
@@ -9,28 +9,27 @@ pub struct JingleContext<'ctx, 'sl> {
     pub sleigh: LoadedSleighContext<'sl>
 }
 
-impl<'ctx, 'a> JingleContext<'ctx, 'a> {
-    pub fn new(z3: &'ctx Context, sleigh: LoadedSleighContext<'a>) -> Self {
+impl<'ctx, 'sl> crate::JingleContext<'ctx, 'sl> {
+    pub fn new(z3: &'ctx Context, sleigh: LoadedSleighContext<'sl>) -> Self {
         Self {
             z3,
             sleigh,
         }
     }
-    pub fn fresh_state<'b>(&'b self) -> State<'b, 'ctx> {
-        State::new(&self)
+    pub fn fresh_state<'b>(&'b self) -> MemoryState<'b, 'ctx, 'sl> {
+        MemoryState::new(&self)
     }
 }
-
-impl<'ctx, 'a> SpaceManager for JingleContext<'ctx, 'a> {
+impl SpaceManager for JingleContext<'_, '_>{
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
 
     fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.sleigh.get_all_space_info()
+        todo!()
     }
 
     fn get_code_space_idx(&self) -> usize {
-        self.sleigh.get_code_space_idx()
+        todo!()
     }
 }
