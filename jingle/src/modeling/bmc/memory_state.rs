@@ -1,18 +1,23 @@
-use std::ops::Add;
-use z3::ast::{Array, Ast, Bool, BV};
-use jingle_sleigh::{GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, SpaceManager, VarNode};
-use crate::JingleError;
-use crate::JingleError::{ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace, ZeroSizedVarnode};
-use crate::modeling::bmc::context::JingleContext;
+use crate::modeling::bmc::context::BMCJingleContext;
 use crate::modeling::bmc::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
+use crate::JingleError;
+use crate::JingleError::{
+    ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
+    ZeroSizedVarnode,
+};
+use jingle_sleigh::{
+    GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType, VarNode,
+};
+use std::ops::Add;
+use z3::ast::{Array, Ast, Bool, BV};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
 /// on an initial state
 #[derive(Clone, Debug)]
 pub struct MemoryState<'a, 'ctx, 'sl> {
-    jingle: &'a JingleContext<'ctx, 'sl>,
+    jingle: &'a BMCJingleContext<'ctx, 'sl>,
     spaces: Vec<BMCModeledSpace<'ctx>>,
 }
 
@@ -31,7 +36,7 @@ impl<'a, 'ctx, 'sl> SpaceManager for MemoryState<'a, 'ctx, 'sl> {
 }
 
 impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
-    pub fn new(jingle: &'a JingleContext<'ctx, 'sl>) -> Self {
+    pub fn new(jingle: &'a BMCJingleContext<'ctx, 'sl>) -> Self {
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
             .iter()
@@ -47,7 +52,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
             .ok_or(UnmodeledSpace)
     }
 
-    pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV<'a>, JingleError> {
+    pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
         let space = self
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
@@ -68,12 +73,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
             }
         }
     }
-    
 
-    pub fn read_varnode_indirect(
-        &self,
-        indirect: &IndirectVarNode,
-    ) -> Result<BV<'a>, JingleError> {
+    pub fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV<'a>, JingleError> {
         let pointer_space_info = self
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
@@ -119,39 +120,35 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
     pub fn write_varnode<'b>(
         &'b mut self,
         dest: &VarNode,
-        val: BV<'b>,
+        val: BV<'ctx>,
     ) -> Result<(), JingleError> {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
-        match self.jingle.get_space_info(dest.space_index).unwrap()._type {
-            SpaceType::IPTR_CONSTANT => Err(ConstantWrite),
-            _ => {
+        match self.jingle.get_space_info(dest.space_index).unwrap() {
+            SpaceInfo{_type: SpaceType::IPTR_CONSTANT, ..} => Err(ConstantWrite),
+            info => {
                 let space = self
                     .spaces
                     .get_mut(dest.space_index)
                     .ok_or(UnmodeledSpace)?;
                 space.write(
                     &val,
-                    &BV::from_u64(
-                        &self.jingle.z3,
-                        dest.offset,
-                        self.get_space_info(dest.space_index).unwrap().index_size_bytes * 8,
-                    ),
+                    &BV::from_u64(&self.jingle.z3, dest.offset, info.index_size_bytes * 8),
                 )?;
                 Ok(())
             }
         }
     }
-    
 
     /// Model a write to an [IndirectVarNode] on top of the current context.
-    pub fn write_varnode_indirect<'b>(
-        &'b mut self,
+    pub fn write_varnode_indirect(
+        & mut self,
         dest: &IndirectVarNode,
-        val: BV<'b>,
+        val: BV<'ctx>,
     ) -> Result<(), JingleError> {
-        if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT {
+        if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
+        {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
@@ -159,12 +156,13 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         Ok(())
     }
 
-    pub fn write_varnode_metadata_indirect<'b>(
-        &'b mut self,
+    pub fn write_varnode_metadata_indirect(
+        & mut self,
         dest: &IndirectVarNode,
-        val: BV<'b>,
+        val: BV<'ctx>,
     ) -> Result<(), JingleError> {
-        if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT {
+        if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
+        {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
@@ -172,9 +170,9 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         Ok(())
     }
 
-    pub fn read_resolved<'a, 'b: 'ctx, 'c>(
-        &'a self,
-        vn: &'a ResolvedVarnode<'b>,
+    pub fn read_resolved(
+        &self,
+        vn: & ResolvedVarnode<'ctx>,
     ) -> Result<BV<'ctx>, JingleError> {
         match vn {
             ResolvedVarnode::Direct(d) => self.read_varnode(d),
@@ -192,9 +190,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
             }
         }
     }
-    
 
-    pub fn _eq(&self, other: &MemoryState) -> Result<Bool<'ctx>, JingleError> {
+    pub fn _eq(&self, other: &MemoryState<'_, 'ctx, '_>) -> Result<Bool<'ctx>, JingleError> {
         let mut terms = vec![];
         for (i, _) in self
             .get_all_space_info()
@@ -210,4 +207,3 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         Ok(Bool::and(self.jingle.z3, eq_terms.as_slice()))
     }
 }
-
