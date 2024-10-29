@@ -1,4 +1,4 @@
-use crate::modeling::bmc::memory_state::MemoryState;
+use crate::modeling::bmc::machine::memory::MemoryState;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;

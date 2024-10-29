@@ -39,11 +39,7 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
     /// Read [size_bytes] bytes of data from the given BV [offset], using the endianness
     /// of the space
-    pub fn read(
-        &self,
-        offset: &BV<'ctx>,
-        size_bytes: usize,
-    ) -> Result<BV<'ctx>, JingleError> {
+    pub fn read(&self, offset: &BV<'ctx>, size_bytes: usize) -> Result<BV<'ctx>, JingleError> {
         if offset.get_size() != self.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -102,10 +98,10 @@ fn write_to_array<'ctx, const W: u32>(
 
 #[cfg(test)]
 mod tests {
+    use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
-    use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
 
     fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace {
         let space_info = SpaceInfo {

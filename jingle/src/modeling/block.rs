@@ -4,6 +4,7 @@ use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
+use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
 use jingle_sleigh::Instruction;
 use jingle_sleigh::PcodeOperation;
@@ -11,7 +12,6 @@ use jingle_sleigh::{SpaceInfo, SpaceManager};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use z3::Context;
-use crate::JingleContext;
 
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
@@ -108,7 +108,6 @@ impl<'ctx> ModeledBlock<'ctx> {
         }
         Ok(model)
     }
-    
 
     pub fn get_first_address(&self) -> u64 {
         self.instructions[0].address
