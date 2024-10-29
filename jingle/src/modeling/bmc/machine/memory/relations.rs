@@ -1,10 +1,10 @@
-use crate::modeling::bmc::memory_state::MemoryState;
 use crate::JingleError;
 use jingle_sleigh::PcodeOperation;
 use std::cmp::{min, Ordering};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use z3::ast::{Ast, BV};
+use crate::modeling::bmc::machine::memory::MemoryState;
 
 impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
     fn apply(&self, op: PcodeOperation) -> Result<Self, JingleError> {

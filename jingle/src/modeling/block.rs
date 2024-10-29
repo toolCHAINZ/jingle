@@ -11,6 +11,7 @@ use jingle_sleigh::{SpaceInfo, SpaceManager};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use z3::Context;
+use crate::JingleContext;
 
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
@@ -61,12 +62,11 @@ impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
 }
 
 impl<'ctx> ModeledBlock<'ctx> {
-    pub fn read<T: Iterator<Item = Instruction>, S: SpaceManager>(
-        z3: &'ctx Context,
-        space_manager: &S,
+    pub fn read<'sl, T: Iterator<Item = Instruction>, S: SpaceManager>(
+        jingle: &JingleContext<'ctx, 'sl>,
         instr_iter: T,
     ) -> Result<Self, JingleError> {
-        let original_state = State::new(z3, space_manager);
+        let original_state = jingle.fresh_state();
         let state = original_state.clone();
 
         let mut block_terminated = false;
@@ -95,7 +95,7 @@ impl<'ctx> ModeledBlock<'ctx> {
         );
 
         let mut model = Self {
-            z3,
+            z3: jingle.z3,
             instructions,
             state,
             original_state,
@@ -108,10 +108,7 @@ impl<'ctx> ModeledBlock<'ctx> {
         }
         Ok(model)
     }
-
-    pub fn fresh(&self) -> Result<Self, JingleError> {
-        ModeledBlock::read(self.z3, self, self.instructions.clone().into_iter())
-    }
+    
 
     pub fn get_first_address(&self) -> u64 {
         self.instructions[0].address

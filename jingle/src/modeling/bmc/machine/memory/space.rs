@@ -13,7 +13,7 @@ use z3::{Context, Sort};
 /// a given value originated from a CALLOTHER operation. This is necessary for distinguishing
 /// between normal indirect jumps and some syscalls
 #[derive(Clone, Debug)]
-pub(crate) struct BMCModeledSpace<'ctx> {
+pub struct BMCModeledSpace<'ctx> {
     data: Array<'ctx>,
     word_size_bytes: u32,
     index_size_bytes: u32,
@@ -22,7 +22,7 @@ pub(crate) struct BMCModeledSpace<'ctx> {
 
 impl<'ctx> BMCModeledSpace<'ctx> {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub(crate) fn new(z3: &'ctx Context, space_info: &SpaceInfo) -> Self {
+    pub fn new(z3: &'ctx Context, space_info: &SpaceInfo) -> Self {
         let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
         let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
         Self {
@@ -34,12 +34,12 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
 
     /// Get the z3 Array for this space
-    pub(crate) fn get_space(&self) -> &Array<'ctx> {
+    pub fn get_space(&self) -> &Array<'ctx> {
         &self.data
     }
     /// Read [size_bytes] bytes of data from the given BV [offset], using the endianness
     /// of the space
-    pub(crate) fn read(
+    pub fn read(
         &self,
         offset: &BV<'ctx>,
         size_bytes: usize,
@@ -51,7 +51,7 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
 
     /// Write the given bitvector of data to the given bitvector offset
-    pub(crate) fn write(&mut self, val: &BV<'ctx>, offset: &BV<'ctx>) -> Result<(), JingleError> {
+    pub fn write(&mut self, val: &BV<'ctx>, offset: &BV<'ctx>) -> Result<(), JingleError> {
         if offset.get_size() != self.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -102,10 +102,10 @@ fn write_to_array<'ctx, const W: u32>(
 
 #[cfg(test)]
 mod tests {
-    use crate::modeling::bmc::space::BMCModeledSpace;
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
+    use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
 
     fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace {
         let space_info = SpaceInfo {

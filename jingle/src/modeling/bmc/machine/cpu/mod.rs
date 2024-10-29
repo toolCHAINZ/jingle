@@ -54,7 +54,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
 
 #[cfg(test)]
 mod tests {
-    use crate::modeling::bmc::address::ConcretePcodeAddress;
+    use crate::modeling::bmc::machine::cpu::ConcretePcodeAddress;
     use z3::{Config, Context};
 
     #[test]

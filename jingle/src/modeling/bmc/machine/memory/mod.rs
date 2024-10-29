@@ -1,7 +1,7 @@
 mod relations;
+pub mod space;
 
 use crate::modeling::bmc::context::BMCJingleContext;
-use crate::modeling::bmc::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::JingleError;
 use crate::JingleError::{
@@ -13,6 +13,7 @@ use jingle_sleigh::{
 };
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
+use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
