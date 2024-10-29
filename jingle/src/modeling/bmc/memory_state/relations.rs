@@ -382,10 +382,10 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
 
                 final_state.write(output, outbv)?;
             }
-            PcodeOperation::Branch { input } => {}
-            PcodeOperation::BranchInd { input } => {}
-            PcodeOperation::Call { input } => {}
-            PcodeOperation::CBranch { input0, input1 } => {}
+            PcodeOperation::Branch { .. } => {}
+            PcodeOperation::BranchInd { .. } => {}
+            PcodeOperation::Call { .. } => {}
+            PcodeOperation::CBranch { .. } => {}
             PcodeOperation::SubPiece {
                 input0,
                 input1,
@@ -420,8 +420,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                     final_state.write(out, hash_bv)?;
                 }
             }
-            PcodeOperation::CallInd { input } => {}
-            PcodeOperation::Return { input } => {}
+            PcodeOperation::CallInd { .. } => {}
+            PcodeOperation::Return { .. } => {}
             v => return Err(JingleError::UnmodeledInstruction(Box::new(v.clone()))),
         };
         Ok(final_state)

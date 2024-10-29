@@ -1,23 +1,20 @@
+use crate::modeling::State;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;
-use jingle_sleigh::context::loaded::LoadedSleighContext;
-use crate::modeling::State;
 
 #[derive(Debug)]
 pub struct JingleContext<'ctx, 'sl> {
     pub z3: &'ctx Context,
-    pub sleigh: LoadedSleighContext<'sl>
+    pub sleigh: LoadedSleighContext<'sl>,
 }
 
 impl<'ctx, 'a> JingleContext<'ctx, 'a> {
     pub fn new(z3: &'ctx Context, sleigh: LoadedSleighContext<'a>) -> Self {
-        Self {
-            z3,
-            sleigh,
-        }
+        Self { z3, sleigh }
     }
-    pub fn fresh_state<'b>(&'b self) -> State<'b, 'ctx> {
-        State::new(&self)
+    pub fn fresh_state(&self) -> State<'ctx> {
+        State::new(self.z3, self)
     }
 }
 

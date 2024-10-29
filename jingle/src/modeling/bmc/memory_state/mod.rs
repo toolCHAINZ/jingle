@@ -42,7 +42,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
             .iter()
-            .map(|s| BMCModeledSpace::new(&jingle.z3, s))
+            .map(|s| BMCModeledSpace::new(jingle.z3, s))
             .collect();
         Self { jingle, spaces }
     }
@@ -60,13 +60,13 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
-                &self.jingle.z3,
+                self.jingle.z3,
                 varnode.offset as i64,
                 (varnode.size * 8) as u32,
             )),
             _ => {
                 let offset = BV::from_i64(
-                    &self.jingle.z3,
+                    self.jingle.z3,
                     varnode.offset as i64,
                     space.index_size_bytes * 8,
                 );
@@ -119,7 +119,11 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         }
     }
 
-    pub fn write<T: Into<GeneralizedVarNode>>(&mut self, dest: T, val: BV<'ctx>) -> Result<(), JingleError> {
+    pub fn write<T: Into<GeneralizedVarNode>>(
+        &mut self,
+        dest: T,
+        val: BV<'ctx>,
+    ) -> Result<(), JingleError> {
         let gen: GeneralizedVarNode = dest.into();
         match gen {
             GeneralizedVarNode::Direct(d) => self.write_varnode(&d, val),
@@ -127,13 +131,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         }
     }
 
-
     /// Model a write to a [VarNode] on top of the current context.
-    fn write_varnode<'b>(
-        &'b mut self,
-        dest: &VarNode,
-        val: BV<'ctx>,
-    ) -> Result<(), JingleError> {
+    fn write_varnode<'b>(&'b mut self, dest: &VarNode, val: BV<'ctx>) -> Result<(), JingleError> {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
@@ -149,7 +148,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                     .ok_or(UnmodeledSpace)?;
                 space.write(
                     &val,
-                    &BV::from_u64(&self.jingle.z3, dest.offset, info.index_size_bytes * 8),
+                    &BV::from_u64(self.jingle.z3, dest.offset, info.index_size_bytes * 8),
                 )?;
                 Ok(())
             }

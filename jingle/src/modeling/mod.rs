@@ -18,6 +18,7 @@ mod instruction;
 mod slice;
 mod state;
 // mod functional;
+#[allow(unused)]
 mod bmc;
 
 pub use block::ModeledBlock;
