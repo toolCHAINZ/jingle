@@ -13,7 +13,7 @@ impl<'ctx, 'sl> BMCJingleContext<'ctx, 'sl> {
     pub fn new(z3: &'ctx Context, sleigh: LoadedSleighContext<'sl>) -> Self {
         Self { z3, sleigh }
     }
-    pub fn fresh_state<'b>(&'b self) -> MemoryState<'b, 'ctx, 'sl> {
+    pub fn fresh_memory_state<'b>(&'b self) -> MemoryState<'b, 'ctx, 'sl> {
         MemoryState::new(self)
     }
 }
