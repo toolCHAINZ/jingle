@@ -62,7 +62,7 @@ impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
 }
 
 impl<'ctx> ModeledBlock<'ctx> {
-    pub fn read<'sl, T: Iterator<Item = Instruction>, S: SpaceManager>(
+    pub fn read<'sl, T: Iterator<Item = Instruction>>(
         jingle: &JingleContext<'ctx, 'sl>,
         instr_iter: T,
     ) -> Result<Self, JingleError> {
