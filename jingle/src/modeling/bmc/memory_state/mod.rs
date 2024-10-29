@@ -1,3 +1,5 @@
+mod relations;
+
 use crate::modeling::bmc::context::BMCJingleContext;
 use crate::modeling::bmc::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
@@ -52,7 +54,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
             .ok_or(UnmodeledSpace)
     }
 
-    pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
+    fn read_varnode(&self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
         let space = self
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
@@ -74,7 +76,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         }
     }
 
-    pub fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV<'a>, JingleError> {
+    fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV<'ctx>, JingleError> {
         let pointer_space_info = self
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
@@ -90,7 +92,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         space.read(&ptr, indirect.access_size_bytes)
     }
 
-    pub fn read_varnode_metadata_indirect(
+    fn read_varnode_metadata_indirect(
         &self,
         indirect: &IndirectVarNode,
     ) -> Result<BV<'a>, JingleError> {
@@ -109,15 +111,25 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         space.read(&ptr, indirect.access_size_bytes)
     }
 
-    pub fn read(&self, vn: GeneralizedVarNode) -> Result<BV<'a>, JingleError> {
-        match vn {
+    pub fn read<T: Into<GeneralizedVarNode>>(&self, vn: T) -> Result<BV<'ctx>, JingleError> {
+        let gen: GeneralizedVarNode = vn.into();
+        match gen {
             GeneralizedVarNode::Direct(d) => self.read_varnode(&d),
             GeneralizedVarNode::Indirect(i) => self.read_varnode_indirect(&i),
         }
     }
 
+    pub fn write<T: Into<GeneralizedVarNode>>(&mut self, dest: T, val: BV<'ctx>) -> Result<(), JingleError> {
+        let gen: GeneralizedVarNode = dest.into();
+        match gen {
+            GeneralizedVarNode::Direct(d) => self.write_varnode(&d, val),
+            GeneralizedVarNode::Indirect(i) => self.write_varnode_indirect(&i, val),
+        }
+    }
+
+
     /// Model a write to a [VarNode] on top of the current context.
-    pub fn write_varnode<'b>(
+    fn write_varnode<'b>(
         &'b mut self,
         dest: &VarNode,
         val: BV<'ctx>,
@@ -126,7 +138,10 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
             return Err(MismatchedWordSize);
         }
         match self.jingle.get_space_info(dest.space_index).unwrap() {
-            SpaceInfo{_type: SpaceType::IPTR_CONSTANT, ..} => Err(ConstantWrite),
+            SpaceInfo {
+                _type: SpaceType::IPTR_CONSTANT,
+                ..
+            } => Err(ConstantWrite),
             info => {
                 let space = self
                     .spaces
@@ -142,8 +157,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
     }
 
     /// Model a write to an [IndirectVarNode] on top of the current context.
-    pub fn write_varnode_indirect(
-        & mut self,
+    fn write_varnode_indirect(
+        &mut self,
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<(), JingleError> {
@@ -156,8 +171,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         Ok(())
     }
 
-    pub fn write_varnode_metadata_indirect(
-        & mut self,
+    fn write_varnode_metadata_indirect(
+        &mut self,
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<(), JingleError> {
@@ -170,10 +185,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         Ok(())
     }
 
-    pub fn read_resolved(
-        &self,
-        vn: & ResolvedVarnode<'ctx>,
-    ) -> Result<BV<'ctx>, JingleError> {
+    pub fn read_resolved(&self, vn: &ResolvedVarnode<'ctx>) -> Result<BV<'ctx>, JingleError> {
         match vn {
             ResolvedVarnode::Direct(d) => self.read_varnode(d),
             ResolvedVarnode::Indirect(indirect) => {
