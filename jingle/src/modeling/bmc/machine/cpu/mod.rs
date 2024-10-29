@@ -1,5 +1,7 @@
 mod relations;
 
+use crate::JingleError;
+use jingle_sleigh::VarNode;
 use std::num::NonZeroI8;
 use std::ops::{Add, Deref};
 use z3::ast::{Ast, BV};
@@ -11,6 +13,7 @@ pub type PcodeOffset = u8;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ConcretePcodeAddress(PcodeMachineAddress, PcodeOffset);
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct SymbolicPcodeAddress<'ctx>(BV<'ctx>);
 
 impl<'ctx> Deref for SymbolicPcodeAddress<'ctx> {
@@ -30,6 +33,11 @@ impl ConcretePcodeAddress {
     }
 }
 
+impl From<&VarNode> for ConcretePcodeAddress {
+    fn from(value: &VarNode) -> Self {
+        value.offset.into()
+    }
+}
 impl From<u64> for ConcretePcodeAddress {
     fn from(value: u64) -> Self {
         Self(value, 0)
@@ -39,6 +47,18 @@ impl From<u64> for ConcretePcodeAddress {
 impl<'ctx> SymbolicPcodeAddress<'ctx> {
     const MACHINE_TOP: u32 = size_of::<PcodeMachineAddress>() as u32 * 8;
     const PIVOT: u32 = size_of::<PcodeOffset>() as u32 * 8;
+
+    pub fn try_from_symbolic_dest(z3: &'ctx Context, bv: &BV<'ctx>) -> Result<Self, JingleError> {
+        if bv.get_size() != Self::MACHINE_TOP {
+            Err(JingleError::InvalidBranchTargetSize)
+        } else {
+            Ok(SymbolicPcodeAddress(bv.concat(&BV::from_u64(
+                z3,
+                0u64,
+                size_of::<PcodeOffset>() as u32 * 8,
+            ))))
+        }
+    }
 
     fn extract_pcode(&self) -> BV<'ctx> {
         self.extract(Self::PIVOT - 1, 0)
@@ -60,7 +80,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         }
     }
 
-    pub fn increment_pcode(&self) -> SymbolicPcodeAddress<'ctx>{
+    pub fn increment_pcode(&self) -> SymbolicPcodeAddress<'ctx> {
         let ext = self.extract_pcode().add(1u64);
         let machine = self.extract_machine();
         SymbolicPcodeAddress(machine.concat(&ext))
@@ -69,7 +89,8 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
 
 #[cfg(test)]
 mod tests {
-    use crate::modeling::bmc::machine::cpu::ConcretePcodeAddress;
+    use crate::modeling::bmc::machine::cpu::{ConcretePcodeAddress, SymbolicPcodeAddress};
+    use z3::ast::BV;
     use z3::{Config, Context};
 
     #[test]
@@ -82,7 +103,7 @@ mod tests {
     }
 
     #[test]
-    fn increment_pcode_addr(){
+    fn increment_pcode_addr() {
         let addr = ConcretePcodeAddress(0, 0);
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
@@ -91,6 +112,22 @@ mod tests {
         assert_eq!(plus_1.concretize().unwrap(), ConcretePcodeAddress(0, 1));
         let symbolized = ConcretePcodeAddress(0, 0xff).symbolize(&z3);
         let plus_1 = symbolized.increment_pcode();
-        assert_eq!(plus_1.concretize().unwrap(), ConcretePcodeAddress(0,0));
+        assert_eq!(plus_1.concretize().unwrap(), ConcretePcodeAddress(0, 0));
+    }
+
+    #[test]
+    fn create_symbolic_addr() {
+        let z3 = Context::new(&Config::new());
+        let addr = BV::from_u64(&z3, 0xdeadbeef, 64);
+        let wrong = BV::from_u64(&z3, 0xdeadbeef, 65);
+
+        let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &addr).unwrap();
+        assert_eq!(
+            sym.concretize().unwrap(),
+            ConcretePcodeAddress(0xdeadbeef, 0)
+        );
+
+        let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &wrong);
+        assert!(matches!(sym, Err(_)));
     }
 }

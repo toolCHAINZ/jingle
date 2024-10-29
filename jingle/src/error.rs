@@ -7,8 +7,8 @@ pub enum JingleError {
     Sleigh(#[from] JingleSleighError),
     #[error("Given address disassembles cleanly but does not terminate within the given bound")]
     DisassemblyLengthBound,
-    #[error("This block exhibits unhandled intra-instruction control-flow")]
-    IntraInstructionControlFlow,
+    #[error("Attempted to construct an illegally-sized branch target")]
+    InvalidBranchTargetSize,
     #[error("A z3 array selection operation returned something other than a bitvector")]
     UnexpectedArraySort,
     #[error("Something referenced a space that isn't declared")]
