@@ -1,17 +1,18 @@
+use std::rc::Rc;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BMCJingleContext<'ctx, 'sl> {
     pub z3: &'ctx Context,
-    pub sleigh: LoadedSleighContext<'sl>,
+    pub sleigh: Rc<LoadedSleighContext<'sl>>,
 }
 
 impl<'ctx, 'sl> BMCJingleContext<'ctx, 'sl> {
     pub fn new(z3: &'ctx Context, sleigh: LoadedSleighContext<'sl>) -> Self {
-        Self { z3, sleigh }
+        Self { z3, sleigh: Rc::new(sleigh) }
     }
     pub fn fresh_memory_state<'b>(&'b self) -> MemoryState<'b, 'ctx, 'sl> {
         MemoryState::new(self)
