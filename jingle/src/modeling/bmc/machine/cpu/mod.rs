@@ -2,7 +2,6 @@ mod relations;
 
 use crate::JingleError;
 use jingle_sleigh::VarNode;
-use std::num::NonZeroI8;
 use std::ops::{Add, Deref};
 use z3::ast::{Ast, BV};
 use z3::Context;
@@ -38,8 +37,8 @@ impl From<&VarNode> for ConcretePcodeAddress {
         value.offset.into()
     }
 }
-impl From<u64> for ConcretePcodeAddress {
-    fn from(value: u64) -> Self {
+impl From<PcodeMachineAddress> for ConcretePcodeAddress {
+    fn from(value: PcodeMachineAddress) -> Self {
         Self(value, 0)
     }
 }
@@ -47,6 +46,10 @@ impl From<u64> for ConcretePcodeAddress {
 impl<'ctx> SymbolicPcodeAddress<'ctx> {
     const MACHINE_TOP: u32 = size_of::<PcodeMachineAddress>() as u32 * 8;
     const PIVOT: u32 = size_of::<PcodeOffset>() as u32 * 8;
+
+    pub fn fresh(z3: &'ctx Context) -> Self {
+        Self(BV::fresh_const(z3, "pc", Self::MACHINE_TOP))
+    }
 
     pub fn try_from_symbolic_dest(z3: &'ctx Context, bv: &BV<'ctx>) -> Result<Self, JingleError> {
         if bv.get_size() != Self::MACHINE_TOP {

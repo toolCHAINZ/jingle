@@ -18,7 +18,7 @@ impl<'ctx, 'sl> BMCJingleContext<'ctx, 'sl> {
         }
     }
     pub fn fresh_memory_state(&self) -> MemoryState<'ctx, 'sl> {
-        MemoryState::new(self)
+        MemoryState::fresh(self)
     }
 }
 impl SpaceManager for BMCJingleContext<'_, '_> {

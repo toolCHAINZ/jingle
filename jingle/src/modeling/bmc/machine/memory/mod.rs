@@ -39,7 +39,7 @@ impl<'ctx, 'sl> SpaceManager for MemoryState<'ctx, 'sl> {
 }
 
 impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
-    pub fn new(jingle: &BMCJingleContext<'ctx, 'sl>) -> Self {
+    pub fn fresh(jingle: &BMCJingleContext<'ctx, 'sl>) -> Self {
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()

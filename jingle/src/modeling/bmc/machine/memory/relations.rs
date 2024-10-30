@@ -7,7 +7,7 @@ use std::ops::{Add, Neg};
 use z3::ast::{Ast, BV};
 
 impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
-    fn apply(&self, op: PcodeOperation) -> Result<Self, JingleError> {
+    pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         let mut final_state = self.clone();
         match &op {
             PcodeOperation::Copy { input, output } => {
@@ -195,7 +195,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, false);
                 let out_bv = carry_bool.ite(
@@ -249,7 +249,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvslt(&in1);
                 let out_bv = out_bool.ite(
@@ -264,7 +264,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvsle(&in1);
                 let out_bv = out_bool.ite(
@@ -279,7 +279,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvult(&in1);
                 let out_bv = out_bool.ite(
@@ -294,7 +294,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvule(&in1);
                 let out_bv = out_bool.ite(
@@ -309,7 +309,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1);
@@ -325,7 +325,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1).not();
@@ -341,7 +341,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; 
+                let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let result =
                     in0.bvand(&in1)
@@ -361,7 +361,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let i0 = self.read(input0)?;
-                let i1 = self.read(input1)?; 
+                let i1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let result = i0
                     .bvor(&i1)
@@ -374,7 +374,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let i0 = self.read(input0)?;
-                let i1 = self.read(input1)?; 
+                let i1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let result = i0
                     .bvxor(&i1)
@@ -433,7 +433,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
             }
             PcodeOperation::CallInd { .. } => {}
             PcodeOperation::Return { .. } => {}
-            v => return Err(JingleError::UnmodeledInstruction(Box::new(v.clone()))),
+            v => return Err(JingleError::UnmodeledInstruction(Box::new((*v).clone()))),
         };
         Ok(final_state)
     }
