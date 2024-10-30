@@ -8,7 +8,7 @@ use z3::Context;
 impl<'ctx> SymbolicPcodeAddress<'ctx> {
     pub(crate) fn apply_op(
         &self,
-        memory: &MemoryState<'_, 'ctx, '_>,
+        memory: &MemoryState<'ctx, '_>,
         op: &PcodeOperation,
         z3: &'ctx Context,
     ) -> Result<Self, JingleError> {

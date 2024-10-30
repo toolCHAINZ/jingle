@@ -6,7 +6,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use z3::ast::{Ast, BV};
 
-impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
+impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
     fn apply(&self, op: PcodeOperation) -> Result<Self, JingleError> {
         let mut final_state = self.clone();
         match &op {
@@ -195,7 +195,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, false);
                 let out_bv = carry_bool.ite(
                     &BV::from_i64(self.jingle.z3, 0, 8),
@@ -209,8 +210,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
-                                              // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?;
+                // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, true);
                 let out_bv = carry_bool.ite(
                     &BV::from_i64(self.jingle.z3, 0, 8),
@@ -224,9 +225,10 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
-                                              // todo: need to do some experimentation as to what the intended
-                                              // meaning of "overflow" is in sleigh vs what it means in z3
+                let in1 = self.read(input1)?;
+                // bool arg seems to be for whether this check is signed
+                // todo: need to do some experimentation as to what the intended
+                // meaning of "overflow" is in sleigh vs what it means in z3
                 let borrow_bool = in0.bvsub_no_underflow(&in1, true);
                 let out_bv = borrow_bool.ite(
                     &BV::from_i64(self.jingle.z3, 0, 8),
@@ -247,7 +249,8 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvslt(&in1);
                 let out_bv = out_bool.ite(
                     &BV::from_i64(self.jingle.z3, 1, 8),
@@ -267,7 +270,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                     &BV::from_i64(self.jingle.z3, 1, 8),
                     &BV::from_i64(self.jingle.z3, 0, 8),
                 );
-                final_state.write(output, out_bv);
+                final_state.write(output, out_bv)?;
             }
             PcodeOperation::IntLess {
                 input0,
@@ -281,7 +284,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                     &BV::from_i64(self.jingle.z3, 1, 8),
                     &BV::from_i64(self.jingle.z3, 0, 8),
                 );
-                final_state.write(output, out_bv);
+                final_state.write(output, out_bv)?;
             }
             PcodeOperation::IntLessEqual {
                 input0,
@@ -289,13 +292,14 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvule(&in1);
                 let out_bv = out_bool.ite(
                     &BV::from_i64(self.jingle.z3, 1, 8),
                     &BV::from_i64(self.jingle.z3, 0, 8),
                 );
-                final_state.write(output, out_bv);
+                final_state.write(output, out_bv)?;
             }
             PcodeOperation::IntEqual {
                 input0,
@@ -303,14 +307,15 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1);
                 let out_bv = out_bool.ite(
                     &BV::from_i64(self.jingle.z3, 1, outsize * 8),
                     &BV::from_i64(self.jingle.z3, 0, outsize * 8),
                 );
-                final_state.write(output, out_bv);
+                final_state.write(output, out_bv)?;
             }
             PcodeOperation::IntNotEqual {
                 input0,
@@ -325,7 +330,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                     &BV::from_i64(self.jingle.z3, 1, outsize * 8),
                     &BV::from_i64(self.jingle.z3, 0, outsize * 8),
                 );
-                final_state.write(output, out_bv);
+                final_state.write(output, out_bv)?;
             }
             PcodeOperation::BoolAnd {
                 input0,
@@ -356,7 +361,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
                 let result = i0
                     .bvor(&i1)
                     .bvand(&BV::from_u64(self.jingle.z3, 1, i0.get_size()));
-                final_state.write(output, result);
+                final_state.write(output, result)?;
             }
             PcodeOperation::BoolXor {
                 input0,

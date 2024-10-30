@@ -19,12 +19,12 @@ use z3::ast::{Array, Ast, Bool, BV};
 /// is represented with Z3 formulas built up as select and store operations
 /// on an initial state
 #[derive(Clone, Debug)]
-pub struct MemoryState<'a, 'ctx, 'sl> {
-    jingle: &'a BMCJingleContext<'ctx, 'sl>,
+pub struct MemoryState<'ctx, 'sl> {
+    jingle: BMCJingleContext<'ctx, 'sl>,
     spaces: Vec<BMCModeledSpace<'ctx>>,
 }
 
-impl<'a, 'ctx, 'sl> SpaceManager for MemoryState<'a, 'ctx, 'sl> {
+impl<'ctx, 'sl> SpaceManager for MemoryState<'ctx, 'sl> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.jingle.get_space_info(idx)
     }
@@ -38,8 +38,9 @@ impl<'a, 'ctx, 'sl> SpaceManager for MemoryState<'a, 'ctx, 'sl> {
     }
 }
 
-impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
-    pub fn new(jingle: &'a BMCJingleContext<'ctx, 'sl>) -> Self {
+impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
+    pub fn new(jingle: &BMCJingleContext<'ctx, 'sl>) -> Self {
+        let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
             .iter()
@@ -96,7 +97,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
     fn read_varnode_metadata_indirect(
         &self,
         indirect: &IndirectVarNode,
-    ) -> Result<BV<'a>, JingleError> {
+    ) -> Result<BV<'ctx>, JingleError> {
         let pointer_space_info = self
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
@@ -203,7 +204,7 @@ impl<'a, 'ctx, 'sl> MemoryState<'a, 'ctx, 'sl> {
         }
     }
 
-    pub fn _eq(&self, other: &MemoryState<'_, 'ctx, '_>) -> Result<Bool<'ctx>, JingleError> {
+    pub fn _eq(&self, other: &MemoryState<'ctx, '_>) -> Result<Bool<'ctx>, JingleError> {
         let mut terms = vec![];
         for (i, _) in self
             .get_all_space_info()

@@ -3,13 +3,13 @@ use cpu::SymbolicPcodeAddress;
 
 pub(crate) mod cpu;
 pub(crate) mod memory;
-pub struct MachineState<'a, 'ctx, 'sl> {
-    memory: MemoryState<'a, 'ctx, 'sl>,
+pub struct MachineState<'ctx, 'sl> {
+    memory: MemoryState<'ctx, 'sl>,
     pc: SymbolicPcodeAddress<'ctx>,
 }
 
-impl<'a, 'ctx, 'sl> MachineState<'a, 'ctx, 'sl> {
-    pub fn new(memory: MemoryState<'a, 'ctx, 'sl>, pc: SymbolicPcodeAddress<'ctx>) -> Self {
+impl<'ctx, 'sl> MachineState<'ctx, 'sl> {
+    pub fn new(memory: MemoryState<'ctx, 'sl>, pc: SymbolicPcodeAddress<'ctx>) -> Self {
         Self { memory, pc }
     }
 }
