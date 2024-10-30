@@ -11,6 +11,16 @@ pub trait ImageProvider {
 
     fn has_full_range(&self, vn: &VarNode) -> bool;
     fn get_section_info(&self) -> ImageSectionIterator;
+
+    fn get_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
+        let mut vec = vec![0u8; vn.size];
+        let size = self.load(vn, &mut vec);
+        if size < vn.size {
+            None
+        } else {
+            Some(vec)
+        }
+    }
 }
 
 pub struct ImageSectionIterator<'a> {
