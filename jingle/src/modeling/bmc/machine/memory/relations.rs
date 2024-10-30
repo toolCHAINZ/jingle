@@ -264,7 +264,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvsle(&in1);
                 let out_bv = out_bool.ite(
                     &BV::from_i64(self.jingle.z3, 1, 8),
@@ -278,7 +279,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvult(&in1);
                 let out_bv = out_bool.ite(
                     &BV::from_i64(self.jingle.z3, 1, 8),
@@ -323,7 +325,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1).not();
                 let out_bv = out_bool.ite(
@@ -338,7 +341,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let in0 = self.read(input0)?;
-                let in1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let in1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let result =
                     in0.bvand(&in1)
                         .bvand(&BV::from_u64(self.jingle.z3, 1, in0.get_size()));
@@ -357,7 +361,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let i0 = self.read(input0)?;
-                let i1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let i1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let result = i0
                     .bvor(&i1)
                     .bvand(&BV::from_u64(self.jingle.z3, 1, i0.get_size()));
@@ -369,7 +374,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 output,
             } => {
                 let i0 = self.read(input0)?;
-                let i1 = self.read(input1)?; // bool arg seems to be for whether this check is signed
+                let i1 = self.read(input1)?; 
+                // bool arg seems to be for whether this check is signed
                 let result = i0
                     .bvxor(&i1)
                     .bvand(&BV::from_u64(self.jingle.z3, 1, i0.get_size()));

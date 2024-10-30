@@ -27,10 +27,10 @@ impl SpaceManager for BMCJingleContext<'_, '_> {
     }
 
     fn get_all_space_info(&self) -> &[SpaceInfo] {
-        todo!()
+        self.sleigh.get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
-        todo!()
+        self.sleigh.get_code_space_idx()
     }
 }
