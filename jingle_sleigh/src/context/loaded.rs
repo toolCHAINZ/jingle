@@ -71,6 +71,14 @@ impl<'a> LoadedSleighContext<'a> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, false)
     }
 
+    pub fn read_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
+        if vn.space_index == self.get_code_space_idx() {
+            self.img.provider.get_bytes(vn)
+        } else {
+            None
+        }
+    }
+
     pub fn read_until_branch(
         &self,
         offset: u64,
