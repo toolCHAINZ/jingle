@@ -17,9 +17,6 @@ impl<'ctx, 'sl> BMCJingleContext<'ctx, 'sl> {
             sleigh: Rc::new(sleigh),
         }
     }
-    pub fn fresh_memory_state(&self) -> MemoryState<'ctx, 'sl> {
-        MemoryState::fresh(self)
-    }
 }
 impl SpaceManager for BMCJingleContext<'_, '_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
