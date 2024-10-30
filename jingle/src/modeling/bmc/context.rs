@@ -1,4 +1,3 @@
-use crate::modeling::bmc::machine::memory::MemoryState;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use std::rc::Rc;
