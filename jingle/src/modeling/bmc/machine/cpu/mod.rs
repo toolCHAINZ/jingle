@@ -70,14 +70,10 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
     pub fn concretize(&self) -> Option<ConcretePcodeAddress> {
         let pcode_offset = self.extract_pcode().simplify();
         let machine_addr = self.extract_machine().simplify();
-
-        if pcode_offset.is_const() && machine_addr.is_const() {
-            let pcode_offset = pcode_offset.as_u64().unwrap() as PcodeOffset;
-            let machine_addr = machine_addr.as_u64().unwrap();
-            Some(ConcretePcodeAddress(machine_addr, pcode_offset))
-        } else {
-            None
-        }
+        pcode_offset
+            .as_u64()
+            .zip(machine_addr.as_u64())
+            .map(|(p, m)| ConcretePcodeAddress(m, p as PcodeOffset))
     }
 
     pub fn increment_pcode(&self) -> SymbolicPcodeAddress<'ctx> {
