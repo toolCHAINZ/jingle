@@ -27,6 +27,18 @@ impl<'ctx> Deref for SymbolicPcodeAddress<'ctx> {
 }
 
 impl ConcretePcodeAddress {
+    pub fn next_pcode(&self) -> Self {
+        self.add_pcode_offset(1)
+    }
+
+    pub fn machine(&self) -> PcodeMachineAddress {
+        self.0
+    }
+
+    pub fn pcode(&self) -> PcodeOffset {
+        self.1
+    }
+
     fn add_pcode_offset(&self, off: PcodeOffset) -> Self {
         Self(self.0, self.1.wrapping_add(off))
     }

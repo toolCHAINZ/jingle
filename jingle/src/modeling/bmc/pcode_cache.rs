@@ -1,15 +1,20 @@
+use crate::modeling::bmc::context::BMCJingleContext;
 use crate::modeling::bmc::machine::cpu::ConcretePcodeAddress;
 use jingle_sleigh::branch::PcodeBranchDestination;
-use jingle_sleigh::PcodeOperation;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use jingle_sleigh::{Instruction, PcodeOperation};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
+#[derive(Default)]
 pub struct SimpleOperationCache {
     /// Addresses and operations that have already been visited
     operations: BTreeMap<ConcretePcodeAddress, PcodeOperation>,
     /// Addresses that we need to visit
-    pending_destinations: HashSet<ConcretePcodeAddress>,
+    pending_destinations: BTreeSet<ConcretePcodeAddress>,
     /// Addresses that we have already determined contain indirect jumps that we must model
     indirect_frontier: HashSet<ConcretePcodeAddress>,
+    /// Addresses that are branched to but do not generate any pcode. Will be needed
+    /// for assertions
+    illegal_addresses: HashSet<ConcretePcodeAddress>,
 }
 
 impl SimpleOperationCache {
@@ -43,5 +48,30 @@ impl SimpleOperationCache {
                 }
             }
         }
+    }
+
+    fn process_instruction(&mut self, instr: &Instruction) {
+        let mut addr = ConcretePcodeAddress::from(instr.address);
+        for op in &instr.ops {
+            self.add_operation(addr, op);
+            addr = addr.next_pcode();
+        }
+    }
+
+    fn initialize(start_address: ConcretePcodeAddress, ctx: BMCJingleContext) -> Self {
+        let mut s = Self::default();
+        s.pending_destinations.insert(start_address);
+        while !s.pending_destinations.is_empty() {
+            let addr = s.pending_destinations.pop_first().unwrap();
+            if addr.pcode() != 0 {
+                panic!("This should never happen")
+            }
+            if let Some(a) = ctx.sleigh.instruction_at(addr.machine()) {
+                s.process_instruction(&a);
+            } else {
+                s.illegal_addresses.insert(start_address);
+            }
+        }
+        s
     }
 }
