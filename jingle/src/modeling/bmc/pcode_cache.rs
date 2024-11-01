@@ -4,7 +4,7 @@ use jingle_sleigh::branch::PcodeBranchDestination;
 use jingle_sleigh::{Instruction, PcodeOperation};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SimpleOperationCache {
     /// Addresses and operations that have already been visited
     operations: BTreeMap<ConcretePcodeAddress, PcodeOperation>,
@@ -58,7 +58,7 @@ impl SimpleOperationCache {
         }
     }
 
-    fn initialize(start_address: ConcretePcodeAddress, ctx: BMCJingleContext) -> Self {
+    pub fn initialize(start_address: ConcretePcodeAddress, ctx: BMCJingleContext) -> Self {
         let mut s = Self::default();
         s.pending_destinations.insert(start_address);
         while !s.pending_destinations.is_empty() {
@@ -73,5 +73,13 @@ impl SimpleOperationCache {
             }
         }
         s
+    }
+
+    pub fn merge(&mut self, other: Self) {
+        self.illegal_addresses.extend(&other.illegal_addresses);
+        self.indirect_frontier.extend(&other.indirect_frontier);
+        self.pending_destinations
+            .extend(&other.pending_destinations);
+        self.operations.extend(other.operations.into_iter());
     }
 }
