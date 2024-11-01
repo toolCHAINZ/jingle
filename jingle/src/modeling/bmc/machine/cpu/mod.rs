@@ -1,7 +1,7 @@
 mod relations;
 
 use crate::JingleError;
-use jingle_sleigh::VarNode;
+use jingle_sleigh::{SpaceManager, VarNode};
 use std::ops::{Add, Deref};
 use z3::ast::{Ast, BV};
 use z3::Context;
@@ -24,19 +24,31 @@ impl<'ctx> Deref for SymbolicPcodeAddress<'ctx> {
 }
 
 impl ConcretePcodeAddress {
+    fn add_pcode_offset(&self, off: PcodeOffset) -> Self {
+        Self(self.0, self.1.wrapping_add(off))
+    }
     pub fn symbolize<'ctx>(&self, z3: &'ctx Context) -> SymbolicPcodeAddress<'ctx> {
         SymbolicPcodeAddress(BV::concat(
             &BV::from_u64(z3, self.0, size_of::<PcodeMachineAddress>() as u32 * 8),
             &BV::from_u64(z3, self.1 as u64, size_of::<PcodeOffset>() as u32 * 8),
         ))
     }
-}
 
-impl From<&VarNode> for ConcretePcodeAddress {
-    fn from(value: &VarNode) -> Self {
-        value.offset.into()
+    pub fn resolve_from_varnode<T: SpaceManager>(
+        vn: &VarNode,
+        sp: &T,
+        loc: ConcretePcodeAddress,
+    ) -> Self {
+        if vn.space_index == sp.get_code_space_idx() {
+            // relative jump
+            loc.add_pcode_offset(vn.offset as u8)
+        } else {
+            // absolute jump
+            ConcretePcodeAddress(vn.offset, 0)
+        }
     }
 }
+
 impl From<PcodeMachineAddress> for ConcretePcodeAddress {
     fn from(value: PcodeMachineAddress) -> Self {
         Self(value, 0)
@@ -88,7 +100,9 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
 
 #[cfg(test)]
 mod tests {
-    use crate::modeling::bmc::machine::cpu::{ConcretePcodeAddress, SymbolicPcodeAddress};
+    use crate::modeling::bmc::machine::cpu::{
+        ConcretePcodeAddress, PcodeOffset, SymbolicPcodeAddress,
+    };
     use z3::ast::BV;
     use z3::{Config, Context};
 
@@ -128,5 +142,17 @@ mod tests {
 
         let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &wrong);
         assert!(matches!(sym, Err(_)));
+    }
+
+    #[test]
+    fn test_relative_math() {
+        let addr = ConcretePcodeAddress(4, 4);
+        let dec1 = addr.add_pcode_offset(-1i8 as PcodeOffset);
+        let add1 = addr.add_pcode_offset(1i8 as PcodeOffset);
+        let add255 = addr.add_pcode_offset(255);
+
+        assert_eq!(dec1, ConcretePcodeAddress(4, 3));
+        assert_eq!(add1, ConcretePcodeAddress(4, 5));
+        assert_eq!(dec1, add255);
     }
 }
