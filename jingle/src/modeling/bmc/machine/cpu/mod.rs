@@ -9,9 +9,12 @@ use z3::Context;
 pub type PcodeMachineAddress = u64;
 pub type PcodeOffset = u8;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct ConcretePcodeAddress(PcodeMachineAddress, PcodeOffset);
 
+// todo: add PcodeAddressSpace to Concrete and Symbolic addresses?
+// probably necessary for harvard architecture modeling.
+// ALSO: could be useful for callother.
 #[derive(Debug, Eq, PartialEq)]
 pub struct SymbolicPcodeAddress<'ctx>(BV<'ctx>);
 
@@ -34,12 +37,8 @@ impl ConcretePcodeAddress {
         ))
     }
 
-    pub fn resolve_from_varnode<T: SpaceManager>(
-        vn: &VarNode,
-        sp: &T,
-        loc: ConcretePcodeAddress,
-    ) -> Self {
-        if vn.space_index == sp.get_code_space_idx() {
+    pub fn resolve_from_varnode(vn: &VarNode, loc: ConcretePcodeAddress) -> Self {
+        if vn.is_const() {
             // relative jump
             loc.add_pcode_offset(vn.offset as u8)
         } else {

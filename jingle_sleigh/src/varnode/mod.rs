@@ -35,6 +35,13 @@ pub struct VarNode {
 }
 
 impl VarNode {
+    /// This value is hardcoded in `space.cc` within `SLEIGH`. Also hardcoding it here for convenience.
+    /// todo: It would be best if this was checked with a static assert from cxx
+    const CONST_SPACE_INDEX: usize = 0;
+
+    pub fn is_const(&self) -> bool {
+        self.space_index == Self::CONST_SPACE_INDEX
+    }
     pub fn display<T: RegisterManager>(
         &self,
         ctx: &T,

@@ -1,5 +1,5 @@
-pub mod display;
 pub mod branch;
+pub mod display;
 
 use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,

@@ -10,6 +10,13 @@ pub enum PcodeBranchDestination {
     IndirectBranch(IndirectVarNode),
     IndirectCall(IndirectVarNode),
     Return(IndirectVarNode),
+    // todo: add CallOther?
+}
+
+impl PcodeBranchDestination {
+    pub fn is_indirect(&self) -> bool {
+        matches!(self, IndirectBranch(_) | IndirectCall(_) | Return(_))
+    }
 }
 impl PcodeOperation {
     pub fn branch_destination(&self) -> Option<PcodeBranchDestination> {

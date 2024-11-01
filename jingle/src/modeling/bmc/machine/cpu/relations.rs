@@ -1,6 +1,4 @@
-use crate::modeling::bmc::machine::cpu::{
-    ConcretePcodeAddress, SymbolicPcodeAddress,
-};
+use crate::modeling::bmc::machine::cpu::{ConcretePcodeAddress, SymbolicPcodeAddress};
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
 use jingle_sleigh::PcodeOperation;
@@ -16,14 +14,13 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         z3: &'ctx Context,
     ) -> Result<Self, JingleError> {
         match op {
-            PcodeOperation::Branch { input } => Ok(ConcretePcodeAddress::resolve_from_varnode(
-                input, memory, location,
-            )
-            .symbolize(z3)),
+            PcodeOperation::Branch { input } => {
+                Ok(ConcretePcodeAddress::resolve_from_varnode(input, location).symbolize(z3))
+            }
             PcodeOperation::CBranch { input0, input1 } => {
                 let fallthrough = self.increment_pcode();
-                let dest = ConcretePcodeAddress::resolve_from_varnode(input0, memory, location)
-                    .symbolize(z3);
+                let dest =
+                    ConcretePcodeAddress::resolve_from_varnode(input0, location).symbolize(z3);
                 let take_branch =
                     memory
                         .read(input1)?
