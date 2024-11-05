@@ -14,7 +14,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         z3: &'ctx Context,
     ) -> Result<Self, JingleError> {
         match op {
-            PcodeOperation::Branch { input } => {
+            PcodeOperation::Branch { input } | PcodeOperation::Call {input} => {
                 Ok(ConcretePcodeAddress::resolve_from_varnode(input, location).symbolize(z3))
             }
             PcodeOperation::CBranch { input0, input1 } => {
