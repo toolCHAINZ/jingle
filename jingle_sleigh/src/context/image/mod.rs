@@ -28,7 +28,7 @@ pub struct ImageSectionIterator<'a> {
 }
 
 impl<'a> ImageSectionIterator<'a> {
-    pub(crate) fn new<T: Iterator<Item = ImageSection<'a>> + 'a>(iter: T) -> Self {
+    pub fn new<T: Iterator<Item = ImageSection<'a>> + 'a>(iter: T) -> Self {
         Self {
             iter: Box::new(iter),
         }
