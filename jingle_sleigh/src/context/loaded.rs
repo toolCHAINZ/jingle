@@ -8,9 +8,17 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 
+/// A guard type representing a sleigh context initialized with an image.
+/// In addition to the methods in [SleighContext], is able to
+/// query bytes for address ranges from its source image, as well
+/// as ISA instructions (and associated `p-code`).
 pub struct LoadedSleighContext<'a> {
+    /// A handle to `sleigh`. By construction, this context is initialized with an image
     sleigh: SleighContext,
+    /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
+    /// The current virtual base address for the image loaded by this context.
+    base_offset: u64,
 }
 
 impl<'a> Debug for LoadedSleighContext<'a> {
@@ -33,6 +41,9 @@ impl<'a> DerefMut for LoadedSleighContext<'a> {
 }
 
 impl<'a> LoadedSleighContext<'a> {
+    /// Consumes a [SleighContext] and an image provider, initializes
+    /// sleigh with the image provider, and combines them into a single
+    /// [LoadedSleigh*Context] guard value.
     pub(crate) fn new<T: ImageProvider + Sized + 'a>(
         sleigh_context: SleighContext,
         img: T,
@@ -41,6 +52,7 @@ impl<'a> LoadedSleighContext<'a> {
         let mut s = Self {
             sleigh: sleigh_context,
             img,
+            base_offset: 0,
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
@@ -49,7 +61,11 @@ impl<'a> LoadedSleighContext<'a> {
             .map_err(|_| ImageLoadError)?;
         Ok(s)
     }
+    /// Query `sleigh` for the instruction associated with the given offset in the default code
+    /// space.
+    /// todo: consider using a varnode instead of a raw offset.
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
+        let offset = self.adjust_base_address(offset);
         let instr = self
             .ctx
             .get_one_instruction(offset)
@@ -67,26 +83,45 @@ impl<'a> LoadedSleighContext<'a> {
         }
     }
 
+    /// Read an iterator of at most `max_instrs` [`Instruction`]s from `offset` in the default code
+    /// space.
+    /// todo: consider using a varnode instead of a raw offset
     pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
+        SleighContextInstructionIterator::new(
+            self,
+            self.adjust_base_address(offset),
+            max_instrs,
+            false,
+        )
     }
 
+    /// Read the byte range specified by the given [`VarNode`] from the configured image provider.
     pub fn read_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
         if vn.space_index == self.get_code_space_idx() {
-            self.img.provider.get_bytes(vn)
+            self.img.provider.get_bytes(&self.adjust_varnode_vma(vn))
         } else {
             None
         }
     }
 
+    /// Read an iterator of at most `max_instrs` [`Instruction`]s from `offset` in the default code
+    /// space, terminating if a branch is encountered.
+    /// todo: consider using a varnode instead of a raw offset
     pub fn read_until_branch(
         &self,
         offset: u64,
         max_instrs: usize,
     ) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
+        SleighContextInstructionIterator::new(
+            self,
+            self.adjust_base_address(offset),
+            max_instrs,
+            true,
+        )
     }
 
+    /// Re-initialize `sleigh` with a new image, without re-parsing the `.sla` definitions. This
+    /// is _much_ faster than generating a new context.
     pub fn set_image<T: ImageProvider + Sized + 'a>(
         &mut self,
         img: T,
@@ -100,12 +135,39 @@ impl<'a> LoadedSleighContext<'a> {
             .map_err(|_| ImageLoadError)
     }
 
+    /// Returns an iterator of entries describing the sections of the configured image provider.
     pub fn get_sections(&self) -> impl Iterator<Item = ImageSection> {
-        self.img.provider.get_section_info()
+        self.img.provider.get_section_info().map(|mut s| {
+            s.base_address = s.base_address + self.base_offset as usize;
+            s
+        })
     }
 
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
         (&mut self.sleigh, &mut self.img)
+    }
+
+    /// Rebase the loaded image to `offset`
+    pub fn set_base_address(&mut self, offset: u64) {
+        self.base_offset = offset;
+    }
+
+    /// Get the current base address
+    pub fn get_base_address(&self) -> u64 {
+        self.base_offset
+    }
+
+    fn adjust_base_address(&self, offset: u64) -> u64 {
+        offset.wrapping_sub(self.base_offset)
+    }
+
+    // todo: properly account for spaces with non-byte-based indexing
+    fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
+        VarNode {
+            space_index: vn.space_index,
+            size: vn.size,
+            offset: vn.offset.wrapping_sub(self.base_offset),
+        }
     }
 }
 
@@ -134,5 +196,54 @@ impl<'a> RegisterManager for LoadedSleighContext<'a> {
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
         self.sleigh.get_registers()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::context::SleighContextBuilder;
+    use crate::tests::SLEIGH_ARCH;
+    use crate::VarNode;
+
+    #[test]
+    fn test_adjust_vma() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        let img: [u8; 5] = [0x55, 1, 2, 3, 4];
+        let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
+        let first = loaded
+            .read_bytes(&VarNode {
+                space_index: 3,
+                size: 5,
+                offset: 0,
+            })
+            .unwrap();
+        assert_eq!(first.as_slice(), img.as_slice());
+        let instr1 = loaded.instruction_at(0).unwrap();
+        assert_eq!(instr1.disassembly.mnemonic, "PUSH");
+        loaded.set_base_address(100);
+        assert!(loaded.instruction_at(0).is_none());
+        assert_eq!(
+            loaded.read_bytes(&VarNode {
+                space_index: 3,
+                size: 5,
+                offset: 0
+            }),
+            None
+        );
+        let second = loaded
+            .read_bytes(&VarNode {
+                space_index: 3,
+                size: 5,
+                offset: 100,
+            })
+            .unwrap();
+        assert_eq!(second.as_slice(), img.as_slice());
+        let instr2 = loaded.instruction_at(100).unwrap();
+        assert_eq!(instr2.disassembly.mnemonic, "PUSH");
+        for (a, b) in instr2.ops.iter().zip(instr1.ops) {
+            assert_eq!(a.opcode(), b.opcode())
+        }
     }
 }
