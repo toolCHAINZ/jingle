@@ -1,7 +1,8 @@
-use crate::JingleError;
+use crate::{JingleContext, JingleError};
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
+use std::rc::Rc;
 use z3::ast::{Array, BV};
 use z3::{Context, Sort};
 
@@ -23,13 +24,13 @@ pub(crate) struct ModeledSpace<'ctx> {
 
 impl<'ctx> ModeledSpace<'ctx> {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub(crate) fn new(z3: &'ctx Context, space_info: &SpaceInfo) -> Self {
-        let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
-        let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
+    pub(crate) fn new(jingle: &JingleContext<'ctx>, space_info: &SpaceInfo) -> Self {
+        let domain = Sort::bitvector(jingle.z3, space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(jingle.z3, space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
-            data: Array::fresh_const(z3, &space_info.name, &domain, &range),
-            metadata: Array::const_array(z3, &domain, &BV::from_u64(z3, 0, 1)),
+            data: Array::fresh_const(jingle.z3, &space_info.name, &domain, &range),
+            metadata: Array::const_array(jingle.z3, &domain, &BV::from_u64(jingle.z3, 0, 1)),
             space_info: space_info.clone(),
         }
     }
@@ -137,8 +138,11 @@ mod tests {
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
+    use jingle_sleigh::context::SleighContextBuilder;
+    use crate::JingleContext;
+    use crate::tests::SLEIGH_ARCH;
 
-    fn make_space(z3: &Context, endianness: SleighEndianness) -> ModeledSpace {
+    fn make_space<'ctx>(z3: &JingleContext<'ctx>, endianness: SleighEndianness) -> ModeledSpace<'ctx> {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),
@@ -150,8 +154,12 @@ mod tests {
         ModeledSpace::new(z3, &space_info)
     }
     fn test_endian_write(e: SleighEndianness) {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let z3 = Context::new(&Config::new());
-        let mut space = make_space(&z3, e);
+        let jingle = JingleContext::new(&z3, &sleigh);
+        let mut space = make_space(&jingle, e);
         space
             .write_data(
                 &BV::from_u64(&z3, 0xdead_beef, 32),
@@ -173,8 +181,12 @@ mod tests {
     }
 
     fn test_endian_read(e: SleighEndianness) {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let z3 = Context::new(&Config::new());
-        let mut space = make_space(&z3, e);
+        let jingle = JingleContext::new(&z3, &sleigh);
+        let mut space = make_space(&jingle, e);
         let byte_layout = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
@@ -196,8 +208,12 @@ mod tests {
     }
 
     fn test_single_write(e: SleighEndianness) {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let z3 = Context::new(&Config::new());
-        let mut space = make_space(&z3, e);
+        let jingle = JingleContext::new(&z3, &sleigh);
+        let mut space = make_space(&jingle, e);
         space
             .write_data(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32))
             .unwrap();

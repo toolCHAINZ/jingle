@@ -8,14 +8,14 @@ use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 
 use crate::varnode::ResolvedVarnode;
-use crate::JingleError;
+use crate::{JingleContext, JingleError};
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use z3::Context;
 
 /// A `jingle` model of an individual SLEIGH instruction
 #[derive(Debug, Clone)]
 pub struct ModeledInstruction<'ctx> {
-    z3: &'ctx Context,
+    jingle: JingleContext<'ctx>,
     pub instr: Instruction,
     state: State<'ctx>,
     original_state: State<'ctx>,
@@ -25,19 +25,18 @@ pub struct ModeledInstruction<'ctx> {
 }
 
 impl<'ctx> ModeledInstruction<'ctx> {
-    pub fn new<T: SpaceManager>(
+    pub fn new(
         instr: Instruction,
-        sleigh: &T,
-        z3: &'ctx Context,
+        jingle: &JingleContext<'ctx>,
     ) -> Result<Self, JingleError> {
-        let original_state = State::new(z3, sleigh);
+        let original_state = State::new(jingle);
         let state = original_state.clone();
         let next_vn = state.get_default_code_space_info().make_varnode(
             instr.next_addr(),
             state.get_default_code_space_info().index_size_bytes as usize,
         );
         let mut model = Self {
-            z3,
+            jingle: jingle.clone(),
             instr,
             state,
             original_state,
@@ -52,7 +51,7 @@ impl<'ctx> ModeledInstruction<'ctx> {
     }
 
     pub fn fresh(&self) -> Result<Self, JingleError> {
-        ModeledInstruction::new(self.instr.clone(), self, self.z3)
+        ModeledInstruction::new(self.instr.clone(), &self.jingle)
     }
 }
 
@@ -71,8 +70,8 @@ impl<'ctx> SpaceManager for ModeledInstruction<'ctx> {
 }
 
 impl<'ctx> ModelingContext<'ctx> for ModeledInstruction<'ctx> {
-    fn get_z3(&self) -> &'ctx Context {
-        self.z3
+    fn get_jingle(&self) -> &JingleContext<'ctx> {
+        &self.jingle
     }
 
     fn get_address(&self) -> u64 {
