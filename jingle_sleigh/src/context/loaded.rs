@@ -17,8 +17,6 @@ pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
     /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
-    /// The current virtual base address for the image loaded by this context.
-    base_offset: u64,
 }
 
 impl<'a> Debug for LoadedSleighContext<'a> {
@@ -52,7 +50,6 @@ impl<'a> LoadedSleighContext<'a> {
         let mut s = Self {
             sleigh: sleigh_context,
             img,
-            base_offset: 0,
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
@@ -65,7 +62,6 @@ impl<'a> LoadedSleighContext<'a> {
     /// space.
     /// todo: consider using a varnode instead of a raw offset.
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
-        let offset = self.adjust_base_address(offset);
         let instr = self
             .ctx
             .get_one_instruction(offset)
@@ -89,7 +85,7 @@ impl<'a> LoadedSleighContext<'a> {
     pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
         SleighContextInstructionIterator::new(
             self,
-            self.adjust_base_address(offset),
+            offset,
             max_instrs,
             false,
         )
@@ -114,7 +110,7 @@ impl<'a> LoadedSleighContext<'a> {
     ) -> SleighContextInstructionIterator {
         SleighContextInstructionIterator::new(
             self,
-            self.adjust_base_address(offset),
+            offset,
             max_instrs,
             true,
         )
@@ -138,7 +134,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// Returns an iterator of entries describing the sections of the configured image provider.
     pub fn get_sections(&self) -> impl Iterator<Item = ImageSection> {
         self.img.provider.get_section_info().map(|mut s| {
-            s.base_address = s.base_address + self.base_offset as usize;
+            s.base_address = s.base_address + self.get_base_address() as usize;
             s
         })
     }
@@ -149,16 +145,12 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Rebase the loaded image to `offset`
     pub fn set_base_address(&mut self, offset: u64) {
-        self.base_offset = offset;
+        self.img.set_base_address(offset);
     }
 
     /// Get the current base address
     pub fn get_base_address(&self) -> u64 {
-        self.base_offset
-    }
-
-    fn adjust_base_address(&self, offset: u64) -> u64 {
-        offset.wrapping_sub(self.base_offset)
+        self.img.get_base_address()
     }
 
     // todo: properly account for spaces with non-byte-based indexing
@@ -166,7 +158,7 @@ impl<'a> LoadedSleighContext<'a> {
         VarNode {
             space_index: vn.space_index,
             size: vn.size,
-            offset: vn.offset.wrapping_sub(self.base_offset),
+            offset: vn.offset.wrapping_sub(self.get_base_address()),
         }
     }
 }
@@ -202,6 +194,7 @@ impl<'a> RegisterManager for LoadedSleighContext<'a> {
 #[cfg(test)]
 mod tests {
     use crate::context::SleighContextBuilder;
+    use crate::PcodeOperation::Branch;
     use crate::tests::SLEIGH_ARCH;
     use crate::VarNode;
 
@@ -245,5 +238,21 @@ mod tests {
         for (a, b) in instr2.ops.iter().zip(instr1.ops) {
             assert_eq!(a.opcode(), b.opcode())
         }
+    }
+
+    #[test]
+    pub fn relative_addresses(){
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        // JMP $+5
+        let img: [u8; 2] = [0xeb, 0x05];
+        let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
+        let instr = loaded.instruction_at(0).unwrap();
+        assert_eq!(instr.ops[0], Branch {input: VarNode{ space_index: 3, size: 8, offset: 7}});
+        loaded.set_base_address(0x100);
+        let instr2 = loaded.instruction_at(0x100).unwrap();
+        assert_eq!(instr2.ops[0], Branch {input: VarNode{ space_index: 3, size: 8, offset: 0x107}});
+
     }
 }
