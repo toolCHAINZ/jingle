@@ -403,10 +403,10 @@ impl PcodeOperation {
                 vec![input.into()]
             }
             Load { input, .. } => {
-                vec![input.into(), input.pointer_location.clone().into()]
+                vec![input.into()]
             }
-            Store { input, output } => {
-                vec![input.into(), output.pointer_location.clone().into()]
+            Store { input, .. } => {
+                vec![input.into()]
             }
             Branch { input, .. } => {
                 vec![input.into()]
