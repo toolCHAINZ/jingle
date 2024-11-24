@@ -16,6 +16,12 @@ impl<'ctx, 'sl> BMCJingleContext<'ctx, 'sl> {
             sleigh: Rc::new(sleigh),
         }
     }
+    pub fn with_fresh_z3_context<'ctx2>(&self, z3: &'ctx2 Context) -> BMCJingleContext<'ctx2, 'sl> {
+        BMCJingleContext{
+            z3,
+            sleigh: self.sleigh.clone()
+        }
+    }
 }
 impl SpaceManager for BMCJingleContext<'_, '_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
