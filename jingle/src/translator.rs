@@ -2,6 +2,7 @@ use crate::error::JingleError;
 use jingle_sleigh::{Instruction, RegisterManager, SpaceInfo, VarNode};
 
 use crate::modeling::ModeledInstruction;
+use crate::JingleContext;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::SpaceManager;
@@ -12,14 +13,15 @@ use z3::Context;
 /// modeling them in one go
 #[derive(Debug, Clone)]
 pub struct SleighTranslator<'ctx> {
-    z3_ctx: &'ctx Context,
+    jingle: JingleContext<'ctx>,
     sleigh: &'ctx LoadedSleighContext<'ctx>,
 }
 
 impl<'ctx> SleighTranslator<'ctx> {
     /// Make a new sleigh translator
     pub fn new(sleigh: &'ctx LoadedSleighContext, z3_ctx: &'ctx Context) -> Self {
-        Self { z3_ctx, sleigh }
+        let jingle = JingleContext::new(z3_ctx, sleigh);
+        Self { jingle, sleigh }
     }
 
     /// Ask sleigh to read one instruction from the given offset and attempt
@@ -41,7 +43,7 @@ impl<'ctx> SleighTranslator<'ctx> {
         &self,
         instr: Instruction,
     ) -> Result<ModeledInstruction<'ctx>, JingleError> {
-        ModeledInstruction::new(instr, self.sleigh, self.z3_ctx)
+        ModeledInstruction::new(instr, &self.jingle)
     }
 }
 

@@ -1,12 +1,12 @@
 use crate::modeling::{BranchConstraint, ModelingContext, State};
 use crate::varnode::ResolvedVarnode;
+use crate::JingleContext;
 use jingle_sleigh::PcodeOperation;
 use std::collections::HashSet;
-use z3::Context;
 
 impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
-    fn get_z3(&self) -> &'ctx Context {
-        self[0].get_z3()
+    fn get_jingle(&self) -> &JingleContext<'ctx> {
+        self[0].get_jingle()
     }
 
     fn get_address(&self) -> u64 {
