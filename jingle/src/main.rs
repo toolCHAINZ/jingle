@@ -173,7 +173,7 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
         length: 1,
     });
 
-    let jingle_ctx = JingleContext::new(&z3, sleigh);
+    let jingle_ctx = JingleContext::new(&z3, &sleigh);
     let block = ModeledBlock::read(&jingle_ctx, instrs.into_iter()).unwrap();
     let final_state = jingle_ctx.fresh_state();
     solver.assert(&final_state._eq(block.get_final_state()).unwrap().simplify());
