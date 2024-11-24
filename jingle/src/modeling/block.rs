@@ -4,14 +4,13 @@ use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
+use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
-use jingle_sleigh::{Instruction, RegisterManager, VarNode};
 use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{Instruction};
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use z3::Context;
-use crate::JingleContext;
 
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
@@ -62,7 +61,7 @@ impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
 }
 
 impl<'ctx> ModeledBlock<'ctx> {
-    pub fn read<T: Iterator<Item=Instruction>>(
+    pub fn read<T: Iterator<Item = Instruction>>(
         jingle: &JingleContext<'ctx>,
         instr_iter: T,
     ) -> Result<Self, JingleError> {

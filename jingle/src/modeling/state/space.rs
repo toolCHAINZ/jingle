@@ -1,10 +1,9 @@
-use crate::{JingleContext, JingleError};
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
+use crate::{JingleContext, JingleError};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
-use std::rc::Rc;
 use z3::ast::{Array, BV};
-use z3::{Context, Sort};
+use z3::Sort;
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -135,14 +134,17 @@ fn write_to_array<'ctx, const W: u32>(
 #[cfg(test)]
 mod tests {
     use crate::modeling::state::space::ModeledSpace;
+    use crate::tests::SLEIGH_ARCH;
+    use crate::JingleContext;
+    use jingle_sleigh::context::SleighContextBuilder;
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
-    use jingle_sleigh::context::SleighContextBuilder;
-    use crate::JingleContext;
-    use crate::tests::SLEIGH_ARCH;
 
-    fn make_space<'ctx>(z3: &JingleContext<'ctx>, endianness: SleighEndianness) -> ModeledSpace<'ctx> {
+    fn make_space<'ctx>(
+        z3: &JingleContext<'ctx>,
+        endianness: SleighEndianness,
+    ) -> ModeledSpace<'ctx> {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),

@@ -18,11 +18,11 @@ mod instruction;
 mod slice;
 mod state;
 
+use crate::JingleContext;
 pub use block::ModeledBlock;
 pub use branch::*;
 pub use instruction::ModeledInstruction;
 pub use state::State;
-use crate::JingleContext;
 
 /// `jingle` models straight-line traces of computations. This trait represents all the information
 /// needed to model a given trace.
@@ -185,7 +185,11 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
     /// branch to the given [u64]
     fn can_branch_to_address(&self, addr: u64) -> Result<Bool<'ctx>, JingleError> {
         let branch_constraint = self.get_branch_constraint().build_bv(self)?;
-        let addr_bv = BV::from_i64(self.get_jingle().z3, addr as i64, branch_constraint.get_size());
+        let addr_bv = BV::from_i64(
+            self.get_jingle().z3,
+            addr as i64,
+            branch_constraint.get_size(),
+        );
         Ok(branch_constraint._eq(&addr_bv))
     }
 }
@@ -497,9 +501,9 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             }
             PcodeOperation::Int2Comp { input, output } => {
                 let in0 = self.read_and_track(input.into())?;
-                let flipped = in0
-                    .bvneg()
-                    .add(BV::from_u64(self.get_jingle().z3, 1, in0.get_size()));
+                let flipped =
+                    in0.bvneg()
+                        .add(BV::from_u64(self.get_jingle().z3, 1, in0.get_size()));
                 self.write(&output.into(), flipped)
             }
             PcodeOperation::IntSignedLess {
@@ -595,16 +599,16 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0
-                    .bvand(&i1)
-                    .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
+                let result =
+                    i0.bvand(&i1)
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
                 self.write(&output.into(), result)
             }
             PcodeOperation::BoolNegate { input, output } => {
                 let val = self.read_and_track(input.into())?;
-                let negated = val
-                    .bvneg()
-                    .bvand(&BV::from_u64(self.get_jingle().z3, 1, val.get_size()));
+                let negated =
+                    val.bvneg()
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, val.get_size()));
                 self.write(&output.into(), negated)
             }
             PcodeOperation::BoolOr {
@@ -614,9 +618,9 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0
-                    .bvor(&i1)
-                    .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
+                let result =
+                    i0.bvor(&i1)
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
                 self.write(&output.into(), result)
             }
             PcodeOperation::BoolXor {
@@ -626,9 +630,9 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0
-                    .bvxor(&i1)
-                    .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
+                let result =
+                    i0.bvxor(&i1)
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
                 self.write(&output.into(), result)
             }
             PcodeOperation::PopCount { input, output } => {

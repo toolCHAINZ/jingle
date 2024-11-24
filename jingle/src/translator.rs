@@ -2,11 +2,11 @@ use crate::error::JingleError;
 use jingle_sleigh::{Instruction, RegisterManager, SpaceInfo, VarNode};
 
 use crate::modeling::ModeledInstruction;
+use crate::JingleContext;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::SpaceManager;
 use z3::Context;
-use crate::JingleContext;
 
 /// This type wraps z3 and a sleigh context and allows for both modeling instructions that
 /// sleigh context has already produced, or reading new instructions directly out of sleigh and

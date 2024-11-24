@@ -1,7 +1,7 @@
-use std::ops::Deref;
-use std::rc::Rc;
 use crate::modeling::State;
 use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
+use std::ops::Deref;
+use std::rc::Rc;
 use z3::Context;
 
 #[derive(Clone, Debug)]
@@ -15,8 +15,7 @@ pub struct JingleContextInternal<'ctx> {
 #[derive(Clone, Debug)]
 pub struct JingleContext<'ctx>(Rc<JingleContextInternal<'ctx>>);
 
-
-impl<'ctx> Deref for JingleContext<'ctx>{
+impl<'ctx> Deref for JingleContext<'ctx> {
     type Target = JingleContextInternal<'ctx>;
 
     fn deref(&self) -> &Self::Target {
@@ -53,14 +52,17 @@ impl<'ctx> SpaceManager for JingleContext<'ctx> {
     }
 }
 
-
 impl<'ctx> RegisterManager for JingleContext<'ctx> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.registers.iter().find_map(|i| i.1.eq(name).then_some(i.0.clone()))
+        self.registers
+            .iter()
+            .find_map(|i| i.1.eq(name).then_some(i.0.clone()))
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.registers.iter().find_map(|i| i.0.eq(location).then_some(i.1.as_str()))
+        self.registers
+            .iter()
+            .find_map(|i| i.0.eq(location).then_some(i.1.as_str()))
     }
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {

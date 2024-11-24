@@ -8,12 +8,13 @@ use crate::error::JingleError::{
 
 use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
-use jingle_sleigh::{GeneralizedVarNode, IndirectVarNode, RegisterManager, SpaceInfo, SpaceManager, SpaceType, VarNode};
-use std::ops::Add;
-use std::rc::Rc;
-use z3::ast::{Array, Ast, Bool, BV};
-use z3::Context;
 use crate::JingleContext;
+use jingle_sleigh::{
+    GeneralizedVarNode, IndirectVarNode, RegisterManager, SpaceInfo, SpaceManager, SpaceType,
+    VarNode,
+};
+use std::ops::Add;
+use z3::ast::{Array, Ast, Bool, BV};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -58,11 +59,10 @@ impl<'ctx> State<'ctx> {
         for space_info in jingle.get_all_space_info() {
             spaces.push(ModeledSpace::new(jingle, space_info));
         }
-        let mut s: Self = Self {
+        Self {
             jingle: jingle.clone(),
             spaces: Default::default(),
-        };
-        s
+        }
     }
 
     pub fn get_space(&self, idx: usize) -> Result<&Array<'ctx>, JingleError> {
@@ -83,8 +83,11 @@ impl<'ctx> State<'ctx> {
                 (varnode.size * 8) as u32,
             )),
             _ => {
-                let offset =
-                    BV::from_i64(self.jingle.z3, varnode.offset as i64, space.index_size_bytes * 8);
+                let offset = BV::from_i64(
+                    self.jingle.z3,
+                    varnode.offset as i64,
+                    space.index_size_bytes * 8,
+                );
                 let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
                 arr.read_data(&offset, varnode.size)
             }
@@ -96,7 +99,11 @@ impl<'ctx> State<'ctx> {
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
 
-        let offset = BV::from_i64(self.jingle.z3, varnode.offset as i64, space.index_size_bytes * 8);
+        let offset = BV::from_i64(
+            self.jingle.z3,
+            varnode.offset as i64,
+            space.index_size_bytes * 8,
+        );
         let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
         arr.read_metadata(&offset, varnode.size)
     }
@@ -162,7 +169,10 @@ impl<'ctx> State<'ctx> {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
-        let info = self.jingle.get_space_info(dest.space_index).ok_or(UnmodeledSpace)?;
+        let info = self
+            .jingle
+            .get_space_info(dest.space_index)
+            .ok_or(UnmodeledSpace)?;
         match info._type {
             SpaceType::IPTR_CONSTANT => Err(ConstantWrite),
             _ => {
@@ -172,11 +182,7 @@ impl<'ctx> State<'ctx> {
                     .ok_or(UnmodeledSpace)?;
                 space.write_data(
                     &val,
-                    &BV::from_u64(
-                        self.jingle.z3,
-                        dest.offset,
-                        info.index_size_bytes * 8,
-                    ),
+                    &BV::from_u64(self.jingle.z3, dest.offset, info.index_size_bytes * 8),
                 )?;
                 Ok(())
             }
@@ -197,15 +203,14 @@ impl<'ctx> State<'ctx> {
             .spaces
             .get_mut(dest.space_index)
             .ok_or(UnmodeledSpace)?;
-        let info = self.jingle.get_space_info(dest.space_index).ok_or(UnmodeledSpace)?;
+        let info = self
+            .jingle
+            .get_space_info(dest.space_index)
+            .ok_or(UnmodeledSpace)?;
 
         space.write_metadata(
             &val,
-            &BV::from_u64(
-                self.jingle.z3,
-                dest.offset,
-                info.index_size_bytes * 8,
-            ),
+            &BV::from_u64(self.jingle.z3, dest.offset, info.index_size_bytes * 8),
         )?;
         Ok(())
     }
@@ -216,7 +221,10 @@ impl<'ctx> State<'ctx> {
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<(), JingleError> {
-        let info = self.jingle.get_space_info(dest.pointer_space_index).ok_or(UnmodeledSpace)?;
+        let info = self
+            .jingle
+            .get_space_info(dest.pointer_space_index)
+            .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(ConstantWrite);
@@ -231,7 +239,10 @@ impl<'ctx> State<'ctx> {
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<(), JingleError> {
-        let info = self.jingle.get_space_info(dest.pointer_space_index).ok_or(UnmodeledSpace)?;
+        let info = self
+            .jingle
+            .get_space_info(dest.pointer_space_index)
+            .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(ConstantWrite);
@@ -267,7 +278,10 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn get_default_code_space_info(&self) -> &SpaceInfo {
-        &self.jingle.get_space_info(self.jingle.get_code_space_idx()).unwrap()
+        self
+            .jingle
+            .get_space_info(self.jingle.get_code_space_idx())
+            .unwrap()
     }
 
     pub(crate) fn immediate_metadata_array(&self, val: bool, s: usize) -> BV<'ctx> {

@@ -47,13 +47,19 @@ impl BlockEndBehavior {
         ctx: &'a T,
     ) -> Result<BV<'ctx>, JingleError> {
         match self {
-            Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().z3, f.offset, (f.size * 8) as u32)),
+            Fallthrough(f) => Ok(BV::from_u64(
+                ctx.get_jingle().z3,
+                f.offset,
+                (f.size * 8) as u32,
+            )),
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
-                    GeneralizedVarNode::Direct(d) => {
-                        Ok(BV::from_u64(ctx.get_jingle().z3, d.offset, (d.size * 8) as u32))
-                    }
+                    GeneralizedVarNode::Direct(d) => Ok(BV::from_u64(
+                        ctx.get_jingle().z3,
+                        d.offset,
+                        (d.size * 8) as u32,
+                    )),
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()

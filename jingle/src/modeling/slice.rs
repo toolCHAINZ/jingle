@@ -1,9 +1,8 @@
 use crate::modeling::{BranchConstraint, ModelingContext, State};
 use crate::varnode::ResolvedVarnode;
+use crate::JingleContext;
 use jingle_sleigh::PcodeOperation;
 use std::collections::HashSet;
-use z3::Context;
-use crate::JingleContext;
 
 impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
     fn get_jingle(&self) -> &JingleContext<'ctx> {

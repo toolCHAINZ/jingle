@@ -11,7 +11,6 @@ pub use error::JingleError;
 pub use translator::SleighTranslator;
 
 #[cfg(test)]
-mod tests{
+mod tests {
     pub(crate) const SLEIGH_ARCH: &str = "x86:LE:64:default";
-
 }
