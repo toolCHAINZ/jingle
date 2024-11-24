@@ -134,7 +134,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// Returns an iterator of entries describing the sections of the configured image provider.
     pub fn get_sections(&self) -> impl Iterator<Item = ImageSection> {
         self.img.provider.get_section_info().map(|mut s| {
-            s.base_address = s.base_address + self.get_base_address() as usize;
+            s.base_address += self.get_base_address() as usize;
             s
         })
     }

@@ -10,7 +10,6 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use tracing::instrument;
 use z3::ast::{Ast, Bool, BV};
-use z3::Context;
 
 mod block;
 mod branch;
