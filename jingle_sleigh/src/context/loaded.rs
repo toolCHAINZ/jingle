@@ -83,12 +83,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// space.
     /// todo: consider using a varnode instead of a raw offset
     pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(
-            self,
-            offset,
-            max_instrs,
-            false,
-        )
+        SleighContextInstructionIterator::new(self, offset, max_instrs, false)
     }
 
     /// Read the byte range specified by the given [`VarNode`] from the configured image provider.
@@ -108,12 +103,7 @@ impl<'a> LoadedSleighContext<'a> {
         offset: u64,
         max_instrs: usize,
     ) -> SleighContextInstructionIterator {
-        SleighContextInstructionIterator::new(
-            self,
-            offset,
-            max_instrs,
-            true,
-        )
+        SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
     /// Re-initialize `sleigh` with a new image, without re-parsing the `.sla` definitions. This
@@ -194,8 +184,8 @@ impl<'a> RegisterManager for LoadedSleighContext<'a> {
 #[cfg(test)]
 mod tests {
     use crate::context::SleighContextBuilder;
-    use crate::PcodeOperation::Branch;
     use crate::tests::SLEIGH_ARCH;
+    use crate::PcodeOperation::Branch;
     use crate::VarNode;
 
     #[test]
@@ -241,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    pub fn relative_addresses(){
+    pub fn relative_addresses() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
@@ -249,10 +239,27 @@ mod tests {
         let img: [u8; 2] = [0xeb, 0x05];
         let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
         let instr = loaded.instruction_at(0).unwrap();
-        assert_eq!(instr.ops[0], Branch {input: VarNode{ space_index: 3, size: 8, offset: 7}});
+        assert_eq!(
+            instr.ops[0],
+            Branch {
+                input: VarNode {
+                    space_index: 3,
+                    size: 8,
+                    offset: 7
+                }
+            }
+        );
         loaded.set_base_address(0x100);
         let instr2 = loaded.instruction_at(0x100).unwrap();
-        assert_eq!(instr2.ops[0], Branch {input: VarNode{ space_index: 3, size: 8, offset: 0x107}});
-
+        assert_eq!(
+            instr2.ops[0],
+            Branch {
+                input: VarNode {
+                    space_index: 3,
+                    size: 8,
+                    offset: 0x107
+                }
+            }
+        );
     }
 }

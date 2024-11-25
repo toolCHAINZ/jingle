@@ -17,9 +17,9 @@ impl<'ctx, 'sl> BMCJingleContext<'ctx, 'sl> {
         }
     }
     pub fn with_fresh_z3_context<'ctx2>(&self, z3: &'ctx2 Context) -> BMCJingleContext<'ctx2, 'sl> {
-        BMCJingleContext{
+        BMCJingleContext {
             z3,
-            sleigh: self.sleigh.clone()
+            sleigh: self.sleigh.clone(),
         }
     }
 }

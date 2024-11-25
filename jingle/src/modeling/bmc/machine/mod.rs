@@ -1,8 +1,8 @@
-use cpu::concrete::ConcretePcodeAddress;
 use crate::modeling::bmc::context::BMCJingleContext;
-use cpu::concrete::PcodeMachineAddress;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
+use cpu::concrete::ConcretePcodeAddress;
+use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
 

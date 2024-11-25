@@ -1,5 +1,5 @@
-mod relations;
 pub mod concrete;
+mod relations;
 pub mod symbolic;
 
 use jingle_sleigh::SpaceManager;
@@ -7,16 +7,16 @@ use std::ops::{Add, Deref};
 use z3::ast::Ast;
 #[cfg(test)]
 mod tests {
+    use crate::modeling::bmc::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
     use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
     use z3::ast::BV;
     use z3::{Config, Context};
-    use crate::modeling::bmc::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
 
     #[test]
     fn address_round_trip() {
         let addr = ConcretePcodeAddress {
             machine: 0xdeadbeefcafebabe,
-            pcode: 0x50
+            pcode: 0x50,
         };
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
@@ -28,28 +28,38 @@ mod tests {
     fn increment_pcode_addr() {
         let addr = ConcretePcodeAddress {
             machine: 0,
-            pcode: 0
+            pcode: 0,
         };
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
-        assert_eq!(symbolized.concretize().unwrap(), ConcretePcodeAddress {
-            machine: 0,
-            pcode: 0
-        });
+        assert_eq!(
+            symbolized.concretize().unwrap(),
+            ConcretePcodeAddress {
+                machine: 0,
+                pcode: 0
+            }
+        );
         let plus_1 = symbolized.increment_pcode();
-        assert_eq!(plus_1.concretize().unwrap(), ConcretePcodeAddress {
-            machine: 0,
-            pcode: 1
-        });
+        assert_eq!(
+            plus_1.concretize().unwrap(),
+            ConcretePcodeAddress {
+                machine: 0,
+                pcode: 1
+            }
+        );
         let symbolized = ConcretePcodeAddress {
             machine: 0,
-            pcode: 0xff
-        }.symbolize(&z3);
+            pcode: 0xff,
+        }
+        .symbolize(&z3);
         let plus_1 = symbolized.increment_pcode();
-        assert_eq!(plus_1.concretize().unwrap(), ConcretePcodeAddress {
-            machine: 0,
-            pcode: 0
-        });
+        assert_eq!(
+            plus_1.concretize().unwrap(),
+            ConcretePcodeAddress {
+                machine: 0,
+                pcode: 0
+            }
+        );
     }
 
     #[test]
@@ -75,20 +85,26 @@ mod tests {
     fn test_relative_math() {
         let addr = ConcretePcodeAddress {
             machine: 4,
-            pcode: 4
+            pcode: 4,
         };
         let dec1 = addr.add_pcode_offset(-1i8 as PcodeOffset);
         let add1 = addr.add_pcode_offset(1i8 as PcodeOffset);
         let add255 = addr.add_pcode_offset(255);
 
-        assert_eq!(dec1, ConcretePcodeAddress {
-            machine: 4,
-            pcode: 3
-        });
-        assert_eq!(add1, ConcretePcodeAddress {
-            machine: 4,
-            pcode: 5
-        });
+        assert_eq!(
+            dec1,
+            ConcretePcodeAddress {
+                machine: 4,
+                pcode: 3
+            }
+        );
+        assert_eq!(
+            add1,
+            ConcretePcodeAddress {
+                machine: 4,
+                pcode: 5
+            }
+        );
         assert_eq!(dec1, add255);
     }
 }

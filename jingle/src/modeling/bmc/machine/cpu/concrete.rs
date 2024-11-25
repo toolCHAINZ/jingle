@@ -1,8 +1,7 @@
-use z3::Context;
-use z3::ast::BV;
-use jingle_sleigh::VarNode;
 use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
-
+use jingle_sleigh::VarNode;
+use z3::ast::BV;
+use z3::Context;
 
 pub type PcodeMachineAddress = u64;
 pub type PcodeOffset = u8;
@@ -28,14 +27,18 @@ impl ConcretePcodeAddress {
     pub(crate) fn add_pcode_offset(&self, off: PcodeOffset) -> Self {
         Self {
             machine: self.machine,
-            pcode: self.pcode.wrapping_add(off)
+            pcode: self.pcode.wrapping_add(off),
         }
     }
     pub fn symbolize<'ctx>(&self, z3: &'ctx Context) -> SymbolicPcodeAddress<'ctx> {
-        SymbolicPcodeAddress(BV::concat(
-            &BV::from_u64(z3, self.machine, size_of::<PcodeMachineAddress>() as u32 * 8),
-            &BV::from_u64(z3, self.pcode as u64, size_of::<PcodeOffset>() as u32 * 8),
-        ))
+        SymbolicPcodeAddress {
+            machine: BV::from_u64(
+                z3,
+                self.machine,
+                size_of::<PcodeMachineAddress>() as u32 * 8,
+            ),
+            pcode: BV::from_u64(z3, self.pcode as u64, size_of::<PcodeOffset>() as u32 * 8),
+        }
     }
 
     pub fn resolve_from_varnode(vn: &VarNode, loc: ConcretePcodeAddress) -> Self {
@@ -46,7 +49,7 @@ impl ConcretePcodeAddress {
             // absolute jump
             ConcretePcodeAddress {
                 machine: vn.offset,
-                pcode: 0
+                pcode: 0,
             }
         }
     }
@@ -56,7 +59,7 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
     fn from(value: PcodeMachineAddress) -> Self {
         Self {
             machine: value,
-            pcode: 0
+            pcode: 0,
         }
     }
 }

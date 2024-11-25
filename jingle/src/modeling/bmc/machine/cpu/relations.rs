@@ -1,10 +1,10 @@
+use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
 use jingle_sleigh::PcodeOperation;
 use z3::ast::{Ast, BV};
 use z3::Context;
-use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 
 impl<'ctx> SymbolicPcodeAddress<'ctx> {
     pub(crate) fn apply_op(
@@ -15,7 +15,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         z3: &'ctx Context,
     ) -> Result<Self, JingleError> {
         match op {
-            PcodeOperation::Branch { input } | PcodeOperation::Call {input} => {
+            PcodeOperation::Branch { input } | PcodeOperation::Call { input } => {
                 Ok(ConcretePcodeAddress::resolve_from_varnode(input, location).symbolize(z3))
             }
             PcodeOperation::CBranch { input0, input1 } => {
@@ -26,8 +26,9 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
                     memory
                         .read(input1)?
                         ._eq(&BV::from_u64(z3, 1, (input1.size * 8) as u32));
-                let final_dest = take_branch.ite(&dest.0, &fallthrough.0);
-                Ok(SymbolicPcodeAddress(final_dest))
+                let machine = take_branch.ite(&dest.machine, &fallthrough.machine);
+                let pcode = take_branch.ite(&dest.pcode, &fallthrough.pcode);
+                Ok(SymbolicPcodeAddress { machine, pcode })
             }
             PcodeOperation::BranchInd { input }
             | PcodeOperation::CallInd { input }

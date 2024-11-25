@@ -66,7 +66,8 @@ pub(crate) struct ImageFFI<'a> {
 impl<'a> ImageFFI<'a> {
     pub(crate) fn new<T: ImageProvider + 'a>(provider: T) -> Self {
         Self {
-            provider: Box::pin(provider), base_offset: 0
+            provider: Box::pin(provider),
+            base_offset: 0,
         }
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {
@@ -79,11 +80,11 @@ impl<'a> ImageFFI<'a> {
         self.provider.has_full_range(&self.adjust_varnode_vma(vn))
     }
 
-    pub(crate) fn get_base_address(&self) -> u64{
+    pub(crate) fn get_base_address(&self) -> u64 {
         self.base_offset
     }
-    
-    pub(crate) fn set_base_address(&mut self, offset: u64){
+
+    pub(crate) fn set_base_address(&mut self, offset: u64) {
         self.base_offset = offset
     }
     // todo: properly account for spaces with non-byte-based indexing
