@@ -1,6 +1,7 @@
+use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{PcodeOperation, SpaceManager, SpaceType, VarNode};
 use std::cmp::{min, Ordering};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
@@ -429,13 +430,41 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                     Ok(final_state)
                 }
             }
-            PcodeOperation::Branch { .. }
-            | PcodeOperation::BranchInd { .. }
+            PcodeOperation::Branch { input } => {
+                final_state.conditional_clear_internal_space(input);
+                Ok(final_state)
+            }
+            PcodeOperation::CBranch { input0, .. } => {
+                final_state.conditional_clear_internal_space(input0);
+                Ok(final_state)
+            }
+            PcodeOperation::BranchInd { .. }
             | PcodeOperation::Call { .. }
-            | PcodeOperation::CBranch { .. }
             | PcodeOperation::CallInd { .. }
-            | PcodeOperation::Return { .. } => Ok(final_state),
+            | PcodeOperation::Return { .. } => {
+                final_state.clear_internal_space();
+                Ok(final_state)
+            }
             v => Err(JingleError::UnmodeledInstruction(Box::new((*v).clone()))),
+        }
+    }
+
+    fn conditional_clear_internal_space(&mut self, vn: &VarNode) {
+        if let Some(a) = self.jingle.get_space_info(vn.space_index) {
+            // if this is a branch outside the machine instruction
+            if a._type != SpaceType::IPTR_INTERNAL {
+                // then reset the internal space
+                self.clear_internal_space()
+            }
+        }
+    }
+
+    fn clear_internal_space(&mut self) {
+        for x in self.get_all_space_info().to_vec() {
+            let idx = x.index;
+            if x._type == SpaceType::IPTR_INTERNAL {
+                self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, &x);
+            }
         }
     }
 }
