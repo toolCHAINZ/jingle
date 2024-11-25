@@ -122,10 +122,10 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
     }
 
     pub fn write<T: Into<GeneralizedVarNode>>(
-        &mut self,
+        self,
         dest: T,
         val: BV<'ctx>,
-    ) -> Result<(), JingleError> {
+    ) -> Result<Self, JingleError> {
         let gen: GeneralizedVarNode = dest.into();
         match gen {
             GeneralizedVarNode::Direct(d) => self.write_varnode(&d, val),
@@ -134,7 +134,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
     }
 
     /// Model a write to a [VarNode] on top of the current context.
-    fn write_varnode<'b>(&'b mut self, dest: &VarNode, val: BV<'ctx>) -> Result<(), JingleError> {
+    fn write_varnode(mut self, dest: &VarNode, val: BV<'ctx>) -> Result<Self, JingleError> {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
@@ -152,24 +152,24 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                     &val,
                     &BV::from_u64(self.jingle.z3, dest.offset, info.index_size_bytes * 8),
                 )?;
-                Ok(())
+                Ok(self)
             }
         }
     }
 
     /// Model a write to an [IndirectVarNode] on top of the current context.
     fn write_varnode_indirect(
-        &mut self,
+        mut self,
         dest: &IndirectVarNode,
         val: BV<'ctx>,
-    ) -> Result<(), JingleError> {
+    ) -> Result<Self, JingleError> {
         if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
         self.spaces[dest.pointer_space_index].write(&val, &ptr)?;
-        Ok(())
+        Ok(self)
     }
 
     fn write_varnode_metadata_indirect(

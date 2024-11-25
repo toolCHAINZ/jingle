@@ -1,9 +1,10 @@
-use crate::modeling::bmc::machine::cpu::{ConcretePcodeAddress, SymbolicPcodeAddress};
+use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
 use jingle_sleigh::PcodeOperation;
 use z3::ast::{Ast, BV};
 use z3::Context;
+use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 
 impl<'ctx> SymbolicPcodeAddress<'ctx> {
     pub(crate) fn apply_op(

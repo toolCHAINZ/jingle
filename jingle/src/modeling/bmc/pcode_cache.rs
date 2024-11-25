@@ -1,5 +1,5 @@
 use crate::modeling::bmc::context::BMCJingleContext;
-use crate::modeling::bmc::machine::cpu::ConcretePcodeAddress;
+use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::branch::PcodeBranchDestination;
 use jingle_sleigh::{Instruction, PcodeOperation};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
