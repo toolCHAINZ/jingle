@@ -20,9 +20,9 @@ pub struct SimpleOperationCache {
 impl SimpleOperationCache {
     fn add_operation(&mut self, addr: ConcretePcodeAddress, op: &PcodeOperation) {
         // if we have already visited this address, this should be a noop
-        if !self.operations.contains_key(&addr) {
+        if let std::collections::btree_map::Entry::Vacant(e) = self.operations.entry(addr) {
             // mark that we have visited the operation and remove it from "next"
-            self.operations.insert(addr, op.clone());
+            e.insert(op.clone());
             self.pending_destinations.remove(&addr);
             // look for more things to add
             if let Some(dest) = op.branch_destination() {
@@ -80,6 +80,6 @@ impl SimpleOperationCache {
         self.indirect_frontier.extend(&other.indirect_frontier);
         self.pending_destinations
             .extend(&other.pending_destinations);
-        self.operations.extend(other.operations.into_iter());
+        self.operations.extend(other.operations);
     }
 }

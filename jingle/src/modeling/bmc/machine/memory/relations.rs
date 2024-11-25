@@ -199,8 +199,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, false);
                 let out_bv = carry_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -214,8 +214,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, true);
                 let out_bv = carry_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -231,8 +231,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // meaning of "overflow" is in sleigh vs what it means in z3
                 let borrow_bool = in0.bvsub_no_underflow(&in1, true);
                 let out_bv = borrow_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -240,7 +240,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 let in0 = self.read(input)?;
                 let flipped = in0
                     .bvneg()
-                    .add(BV::from_u64(&self.jingle.z3, 1, in0.get_size()));
+                    .add(BV::from_u64(self.jingle.z3, 1, in0.get_size()));
                 final_state.write(output, flipped)
             }
             PcodeOperation::IntSignedLess {
@@ -253,8 +253,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvslt(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -268,8 +268,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvsle(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -283,8 +283,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvult(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -298,8 +298,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvule(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 1, 8),
-                    &BV::from_i64(&self.jingle.z3, 0, 8),
+                    &BV::from_i64(self.jingle.z3, 1, 8),
+                    &BV::from_i64(self.jingle.z3, 0, 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -314,8 +314,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 1, outsize * 8),
-                    &BV::from_i64(&self.jingle.z3, 0, outsize * 8),
+                    &BV::from_i64(self.jingle.z3, 1, outsize * 8),
+                    &BV::from_i64(self.jingle.z3, 0, outsize * 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -330,8 +330,8 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1).not();
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(&self.jingle.z3, 1, outsize * 8),
-                    &BV::from_i64(&self.jingle.z3, 0, outsize * 8),
+                    &BV::from_i64(self.jingle.z3, 1, outsize * 8),
+                    &BV::from_i64(self.jingle.z3, 0, outsize * 8),
                 );
                 final_state.write(output, out_bv)
             }
@@ -345,14 +345,14 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let result =
                     in0.bvand(&in1)
-                        .bvand(&BV::from_u64(&self.jingle.z3, 1, in0.get_size()));
+                        .bvand(&BV::from_u64(self.jingle.z3, 1, in0.get_size()));
                 final_state.write(output, result)
             }
             PcodeOperation::BoolNegate { input, output } => {
                 let val = self.read(input)?;
                 let negated = val
                     .bvneg()
-                    .bvand(&BV::from_u64(&self.jingle.z3, 1, val.get_size()));
+                    .bvand(&BV::from_u64(self.jingle.z3, 1, val.get_size()));
                 final_state.write(output, negated)
             }
             PcodeOperation::BoolOr {
@@ -365,7 +365,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let result = i0
                     .bvor(&i1)
-                    .bvand(&BV::from_u64(&self.jingle.z3, 1, i0.get_size()));
+                    .bvand(&BV::from_u64(self.jingle.z3, 1, i0.get_size()));
                 final_state.write(output, result)
             }
             PcodeOperation::BoolXor {
@@ -378,13 +378,13 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 // bool arg seems to be for whether this check is signed
                 let result = i0
                     .bvxor(&i1)
-                    .bvand(&BV::from_u64(&self.jingle.z3, 1, i0.get_size()));
+                    .bvand(&BV::from_u64(self.jingle.z3, 1, i0.get_size()));
                 final_state.write(output, result)
             }
             PcodeOperation::PopCount { input, output } => {
                 let size = output.size as u32;
                 let in0 = self.read(input)?;
-                let mut outbv = BV::from_i64(&self.jingle.z3, 0, output.size as u32 * 8);
+                let mut outbv = BV::from_i64(self.jingle.z3, 0, output.size as u32 * 8);
                 for i in 0..size * 8 {
                     let extract = in0.extract(i, i);
                     let extend = extract.zero_ext((size * 8) - 1);
@@ -423,7 +423,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
                 let hash = hasher.finish();
                 if let Some(out) = output {
                     let size = out.size * 8;
-                    let hash_bv = BV::from_u64(&self.jingle.z3, hash, size as u32);
+                    let hash_bv = BV::from_u64(self.jingle.z3, hash, size as u32);
                     final_state.write(out, hash_bv)
                 } else {
                     Ok(final_state)

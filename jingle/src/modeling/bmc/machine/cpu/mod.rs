@@ -78,7 +78,7 @@ mod tests {
         );
 
         let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &wrong);
-        assert!(matches!(sym, Err(_)));
+        assert!(sym.is_err());
     }
 
     #[test]
