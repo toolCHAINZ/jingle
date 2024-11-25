@@ -7,7 +7,7 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
+use crate::space::{ArchInfoProvider, RegisterManager, SpaceInfo, SpaceManager};
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
@@ -68,6 +68,40 @@ impl RegisterManager for SleighContext {
 
     fn get_registers(&self) -> Vec<(VarNode, String)> {
         self.registers.clone()
+    }
+}
+
+impl ArchInfoProvider for SleighContext {
+    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+        self.spaces.get(idx)
+    }
+
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+        self.spaces.iter()
+    }
+
+    fn get_code_space_idx(&self) -> usize {
+        self.ctx
+            .getSpaceByIndex(0)
+            .getManager()
+            .getDefaultCodeSpace()
+            .getIndex() as usize
+    }
+
+    fn get_register(&self, name: &str) -> Option<VarNode> {
+        self.registers
+            .iter()
+            .find(|(_, reg_name)| reg_name.as_str() == name)
+            .map(|(vn, _)| vn.clone())    }
+
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
+        self.registers
+            .iter()
+            .find(|(vn, _)| vn == location)
+            .map(|(_, name)| name.as_str())    }
+
+    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
+        self.registers.iter()
     }
 }
 

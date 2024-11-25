@@ -1,3 +1,4 @@
+use jingle_sleigh::ArchInfoProvider;
 use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
@@ -7,7 +8,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use z3::ast::{Ast, BV};
 
-impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
+impl<'ctx> MemoryState<'ctx> {
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         let mut final_state = self.clone();
         match &op {
@@ -460,7 +461,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
     }
 
     fn clear_internal_space(&mut self) {
-        for x in self.get_all_space_info().to_vec() {
+        for x in self.jingle.get_all_space_info() {
             let idx = x.index;
             if x._type == SpaceType::IPTR_INTERNAL {
                 self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, &x);

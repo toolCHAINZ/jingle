@@ -143,3 +143,23 @@ impl<T: SpaceManager> SpaceManager for &[T] {
         self[0].get_code_space_idx()
     }
 }
+
+pub trait ArchInfoProvider{
+    /// Retrieve the [`SpaceInfo`] associated with the given index, if it exists
+    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
+
+    /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
+    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo>;
+
+    /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
+    fn get_code_space_idx(&self) -> usize;
+    
+    /// Given a register name, get a corresponding [`VarNode`], if one exists
+    fn get_register(&self, name: &str) -> Option<VarNode>;
+
+    /// Given a [`VarNode`], get the name of the corresponding architectural register, if one exists
+    fn get_register_name(&self, location: &VarNode) -> Option<&str>;
+
+    /// Get a listing of all register name/[`VarNode`] pairs
+    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)>;
+}

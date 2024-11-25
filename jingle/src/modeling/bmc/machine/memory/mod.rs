@@ -9,9 +9,7 @@ use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
-use jingle_sleigh::{
-    GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType, VarNode,
-};
+use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType, VarNode};
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
 
@@ -19,31 +17,16 @@ use z3::ast::{Array, Ast, Bool, BV};
 /// is represented with Z3 formulas built up as select and store operations
 /// on an initial state
 #[derive(Clone, Debug)]
-pub struct MemoryState<'ctx, 'sl> {
-    jingle: BMCJingleContext<'ctx, 'sl>,
+pub struct MemoryState<'ctx> {
+    jingle: BMCJingleContext<'ctx>,
     spaces: Vec<BMCModeledSpace<'ctx>>,
 }
 
-impl<'ctx, 'sl> SpaceManager for MemoryState<'ctx, 'sl> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.jingle.get_space_info(idx)
-    }
-
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.jingle.get_all_space_info()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self.jingle.get_code_space_idx()
-    }
-}
-
-impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
-    pub fn fresh(jingle: &BMCJingleContext<'ctx, 'sl>) -> Self {
+impl<'ctx> MemoryState<'ctx> {
+    pub fn fresh(jingle: &BMCJingleContext<'ctx>) -> Self {
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
-            .iter()
             .map(|s| BMCModeledSpace::new(jingle.z3, s))
             .collect();
         Self { jingle, spaces }
@@ -57,7 +40,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
     }
 
     fn read_varnode(&self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
-        let space = self
+        let space = self.jingle
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
         match space._type {
@@ -79,7 +62,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
     }
 
     fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV<'ctx>, JingleError> {
-        let pointer_space_info = self
+        let pointer_space_info = self.jingle
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
@@ -98,7 +81,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
         &self,
         indirect: &IndirectVarNode,
     ) -> Result<BV<'ctx>, JingleError> {
-        let pointer_space_info = self
+        let pointer_space_info = self.jingle
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
@@ -163,7 +146,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<Self, JingleError> {
-        if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
+        if self.jingle.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
@@ -177,7 +160,7 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<(), JingleError> {
-        if self.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
+        if self.jingle.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
@@ -204,11 +187,10 @@ impl<'ctx, 'sl> MemoryState<'ctx, 'sl> {
         }
     }
 
-    pub fn _eq(&self, other: &MemoryState<'ctx, '_>) -> Result<Bool<'ctx>, JingleError> {
+    pub fn _eq(&self, other: &MemoryState<'ctx>) -> Result<Bool<'ctx>, JingleError> {
         let mut terms = vec![];
-        for (i, _) in self
+        for (i, _) in self.jingle
             .get_all_space_info()
-            .iter()
             .enumerate()
             .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
         {

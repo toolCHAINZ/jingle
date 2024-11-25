@@ -8,14 +8,14 @@ use jingle_sleigh::PcodeOperation;
 
 pub(crate) mod cpu;
 pub(crate) mod memory;
-pub struct MachineState<'ctx, 'sl> {
-    jingle: BMCJingleContext<'ctx, 'sl>,
-    memory: MemoryState<'ctx, 'sl>,
+pub struct MachineState<'ctx> {
+    jingle: BMCJingleContext<'ctx>,
+    memory: MemoryState<'ctx>,
     pc: SymbolicPcodeAddress<'ctx>,
 }
 
-impl<'ctx, 'sl> MachineState<'ctx, 'sl> {
-    pub fn fresh(jingle: &BMCJingleContext<'ctx, 'sl>) -> Self {
+impl<'ctx> MachineState<'ctx> {
+    pub fn fresh(jingle: &BMCJingleContext<'ctx>) -> Self {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),
@@ -24,7 +24,7 @@ impl<'ctx, 'sl> MachineState<'ctx, 'sl> {
     }
 
     pub fn fresh_for_address(
-        jingle: &BMCJingleContext<'ctx, 'sl>,
+        jingle: &BMCJingleContext<'ctx>,
         machine_addr: PcodeMachineAddress,
     ) -> Self {
         let pc = ConcretePcodeAddress::from(machine_addr);
