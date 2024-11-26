@@ -1,9 +1,9 @@
 use crate::modeling::bmc::context::BMCJingleContext;
 use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::branch::PcodeBranchDestination;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{Instruction, PcodeOperation};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
-use jingle_sleigh::context::loaded::LoadedSleighContext;
 
 #[derive(Default, Clone)]
 pub struct SimpleOperationCache {

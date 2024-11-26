@@ -1,9 +1,9 @@
+use crate::JingleContext;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{ArchInfoProvider, RegisterManager, SpaceInfo, SpaceManager, VarNode};
 use std::ops::Deref;
 use std::rc::Rc;
 use z3::Context;
-use crate::JingleContext;
 
 #[derive(Clone, Debug)]
 pub struct CachedArchInfo {
@@ -26,14 +26,16 @@ impl ArchInfoProvider for BMCJingleContext<'_> {
     }
 
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.info.registers
+        self.info
+            .registers
             .iter()
             .find(|(_, reg_name)| reg_name.as_str() == name)
             .map(|(vn, _)| vn.clone())
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.info.registers
+        self.info
+            .registers
             .iter()
             .find(|(vn, _)| vn == location)
             .map(|(_, name)| name.as_str())

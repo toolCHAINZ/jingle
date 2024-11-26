@@ -1,7 +1,7 @@
-use jingle_sleigh::ArchInfoProvider;
 use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
+use jingle_sleigh::ArchInfoProvider;
 use jingle_sleigh::{PcodeOperation, SpaceManager, SpaceType, VarNode};
 use std::cmp::{min, Ordering};
 use std::hash::{DefaultHasher, Hash, Hasher};

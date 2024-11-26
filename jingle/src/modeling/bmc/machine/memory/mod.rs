@@ -9,7 +9,10 @@ use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
-use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType, VarNode};
+use jingle_sleigh::{
+    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType,
+    VarNode,
+};
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
 
@@ -40,7 +43,8 @@ impl<'ctx> MemoryState<'ctx> {
     }
 
     fn read_varnode(&self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
-        let space = self.jingle
+        let space = self
+            .jingle
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
         match space._type {
@@ -62,7 +66,8 @@ impl<'ctx> MemoryState<'ctx> {
     }
 
     fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV<'ctx>, JingleError> {
-        let pointer_space_info = self.jingle
+        let pointer_space_info = self
+            .jingle
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
@@ -81,7 +86,8 @@ impl<'ctx> MemoryState<'ctx> {
         &self,
         indirect: &IndirectVarNode,
     ) -> Result<BV<'ctx>, JingleError> {
-        let pointer_space_info = self.jingle
+        let pointer_space_info = self
+            .jingle
             .get_space_info(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
@@ -146,7 +152,12 @@ impl<'ctx> MemoryState<'ctx> {
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<Self, JingleError> {
-        if self.jingle.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
+        if self
+            .jingle
+            .get_space_info(dest.pointer_space_index)
+            .unwrap()
+            ._type
+            == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
@@ -160,7 +171,12 @@ impl<'ctx> MemoryState<'ctx> {
         dest: &IndirectVarNode,
         val: BV<'ctx>,
     ) -> Result<(), JingleError> {
-        if self.jingle.get_space_info(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
+        if self
+            .jingle
+            .get_space_info(dest.pointer_space_index)
+            .unwrap()
+            ._type
+            == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
@@ -189,10 +205,7 @@ impl<'ctx> MemoryState<'ctx> {
 
     pub fn _eq(&self, other: &MemoryState<'ctx>) -> Result<Bool<'ctx>, JingleError> {
         let mut terms = vec![];
-        for (i, _) in self.jingle
-            .get_all_space_info()
-            .enumerate()
-        {
+        for (i, _) in self.jingle.get_all_space_info().enumerate() {
             let self_space = self.get_space(i)?;
             let other_space = other.get_space(i)?;
             terms.push(self_space._eq(other_space))
@@ -202,13 +215,13 @@ impl<'ctx> MemoryState<'ctx> {
     }
 
     /// A helper function for Branch and CBranch.
-    /// 
+    ///
     /// These two opcodes are able to perform p-code-relative branching, in which a
     /// CONSTANT branch target varnode is used to indicate a jump within p-code in the same
     /// machine instruction. In these cases, we DO want to enforce state constraints on the `unique`
     /// space.
-    /// 
-    /// This function accepts the destination varnode of a jump and will conditionally reset the 
+    ///
+    /// This function accepts the destination varnode of a jump and will conditionally reset the
     /// `unique` space iff the jump is NOT p-code-relative.
     fn conditional_clear_internal_space(&mut self, vn: &VarNode) {
         if let Some(a) = self.jingle.get_space_info(vn.space_index) {

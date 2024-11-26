@@ -92,13 +92,15 @@ impl ArchInfoProvider for SleighContext {
         self.registers
             .iter()
             .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn.clone())    }
+            .map(|(vn, _)| vn.clone())
+    }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
         self.registers
             .iter()
             .find(|(vn, _)| vn == location)
-            .map(|(_, name)| name.as_str())    }
+            .map(|(_, name)| name.as_str())
+    }
 
     fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
         self.registers.iter()
