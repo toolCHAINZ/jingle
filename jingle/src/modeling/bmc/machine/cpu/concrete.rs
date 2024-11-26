@@ -1,5 +1,6 @@
 use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::VarNode;
+use std::fmt::{Display, Formatter, LowerHex};
 use z3::ast::BV;
 use z3::Context;
 
@@ -9,6 +10,18 @@ pub type PcodeOffset = u8;
 pub struct ConcretePcodeAddress {
     pub(crate) machine: PcodeMachineAddress,
     pub(crate) pcode: PcodeOffset,
+}
+
+impl Display for ConcretePcodeAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.machine, self.pcode)
+    }
+}
+
+impl LowerHex for ConcretePcodeAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:x}:{:x}", self.machine, self.pcode)
+    }
 }
 
 impl ConcretePcodeAddress {

@@ -387,6 +387,10 @@ impl PcodeOperation {
         )
     }
 
+    pub fn has_fallthrough(&self) -> bool {
+        !matches!(self, Return { .. } | Branch { .. } | BranchInd { .. })
+    }
+
     pub fn display<'a, T: RegisterManager>(
         &self,
         ctx: &'a T,
