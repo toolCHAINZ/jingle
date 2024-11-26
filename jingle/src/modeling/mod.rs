@@ -18,7 +18,7 @@ mod slice;
 mod state;
 // mod functional;
 #[allow(unused)]
-mod bmc;
+pub mod bmc;
 
 use crate::JingleContext;
 pub use block::ModeledBlock;
