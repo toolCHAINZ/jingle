@@ -192,7 +192,6 @@ impl<'ctx> MemoryState<'ctx> {
         for (i, _) in self.jingle
             .get_all_space_info()
             .enumerate()
-            .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
         {
             let self_space = self.get_space(i)?;
             let other_space = other.get_space(i)?;
@@ -200,5 +199,41 @@ impl<'ctx> MemoryState<'ctx> {
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
         Ok(Bool::and(self.jingle.z3, eq_terms.as_slice()))
+    }
+
+    /// A helper function for Branch and CBranch.
+    /// 
+    /// These two opcodes are able to perform p-code-relative branching, in which a
+    /// CONSTANT branch target varnode is used to indicate a jump within p-code in the same
+    /// machine instruction. In these cases, we DO want to enforce state constraints on the `unique`
+    /// space.
+    /// 
+    /// This function accepts the destination varnode of a jump and will conditionally reset the 
+    /// `unique` space iff the jump is NOT p-code-relative.
+    fn conditional_clear_internal_space(&mut self, vn: &VarNode) {
+        if let Some(a) = self.jingle.get_space_info(vn.space_index) {
+            // if this is a branch outside the machine instruction
+            if a._type != SpaceType::IPTR_CONSTANT {
+                // then reset the internal space
+                self.clear_internal_space()
+            }
+        }
+    }
+
+    /// Sets the 'internal' space to be a new [BMCModeledSpace].
+    ///
+    /// The `unique` space contains 'scratch' data used to express the functionality of a machine
+    /// instruction. It is purely a construction of the p-code encoding and is assumed to be unique
+    /// to each machine instruction.
+    ///
+    /// Therefore, if modeling a jump to another instruction, it is necessary to replace this space
+    /// with a fresh space, to prevent constraining its contents across machine instruction boundaries.
+    pub fn clear_internal_space(&mut self) {
+        for x in self.jingle.get_all_space_info() {
+            let idx = x.index;
+            if x._type == SpaceType::IPTR_INTERNAL {
+                self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, &x);
+            }
+        }
     }
 }

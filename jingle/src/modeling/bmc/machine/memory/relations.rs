@@ -449,23 +449,4 @@ impl<'ctx> MemoryState<'ctx> {
             v => Err(JingleError::UnmodeledInstruction(Box::new((*v).clone()))),
         }
     }
-
-    fn conditional_clear_internal_space(&mut self, vn: &VarNode) {
-        if let Some(a) = self.jingle.get_space_info(vn.space_index) {
-            // if this is a branch outside the machine instruction
-            if a._type != SpaceType::IPTR_INTERNAL {
-                // then reset the internal space
-                self.clear_internal_space()
-            }
-        }
-    }
-
-    fn clear_internal_space(&mut self) {
-        for x in self.jingle.get_all_space_info() {
-            let idx = x.index;
-            if x._type == SpaceType::IPTR_INTERNAL {
-                self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, &x);
-            }
-        }
-    }
 }
