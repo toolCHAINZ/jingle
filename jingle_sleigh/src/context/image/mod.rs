@@ -105,7 +105,7 @@ impl ImageProvider for Vec<u8> {
     }
 }
 
-impl<T: ImageProvider> ImageProvider for &T{
+impl<T: ImageProvider> ImageProvider for &T {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         (*self).load(vn, output)
     }
