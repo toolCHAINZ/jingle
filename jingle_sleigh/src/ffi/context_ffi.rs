@@ -58,25 +58,36 @@ pub(crate) mod bridge {
 }
 
 pub(crate) struct ImageFFI<'a> {
+    /// A thing that has bytes at addresses
     pub(crate) provider: Pin<Box<dyn ImageProvider + 'a>>,
     /// The current virtual base address for the image loaded by this context.
     pub(crate) base_offset: u64,
+    /// The space that this image is attached to. For now, always the
+    /// default code space.
+    pub(crate) space_index: usize,
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(provider: T) -> Self {
+    pub(crate) fn new<T: ImageProvider + 'a>(provider: T, idx: usize) -> Self {
         Self {
             provider: Box::pin(provider),
             base_offset: 0,
+            space_index: idx,
         }
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {
         let addr = VarNode::from(vn);
+        if addr.space_index != self.space_index {
+            return 0;
+        }
         let adjusted = self.adjust_varnode_vma(&addr);
         self.provider.load(&adjusted, out)
     }
 
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
+        if vn.space_index != self.space_index {
+            return false;
+        }
         self.provider.has_full_range(&self.adjust_varnode_vma(vn))
     }
 

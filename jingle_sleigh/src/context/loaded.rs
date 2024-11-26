@@ -46,7 +46,7 @@ impl<'a> LoadedSleighContext<'a> {
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
-        let img = Box::pin(ImageFFI::new(img));
+        let img = Box::pin(ImageFFI::new(img, sleigh_context.get_code_space_idx()));
         let mut s = Self {
             sleigh: sleigh_context,
             img,
@@ -113,7 +113,7 @@ impl<'a> LoadedSleighContext<'a> {
         img: T,
     ) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
-        *img_ref = ImageFFI::new(img);
+        *img_ref = ImageFFI::new(img, sleigh.get_code_space_idx());
         sleigh
             .ctx
             .pin_mut()
