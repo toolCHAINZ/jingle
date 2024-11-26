@@ -3,6 +3,7 @@ use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::branch::PcodeBranchDestination;
 use jingle_sleigh::{Instruction, PcodeOperation};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
+use jingle_sleigh::context::loaded::LoadedSleighContext;
 
 #[derive(Default, Clone)]
 pub struct SimpleOperationCache {
@@ -58,7 +59,7 @@ impl SimpleOperationCache {
         }
     }
 
-    pub fn initialize(start_address: ConcretePcodeAddress, ctx: BMCJingleContext) -> Self {
+    pub fn initialize(start_address: ConcretePcodeAddress, ctx: LoadedSleighContext<'_>) -> Self {
         let mut s = Self::default();
         s.pending_destinations.insert(start_address);
         while !s.pending_destinations.is_empty() {
@@ -66,7 +67,7 @@ impl SimpleOperationCache {
             if addr.pcode() != 0 {
                 panic!("This should never happen")
             }
-            if let Some(a) = ctx.sleigh.instruction_at(addr.machine()) {
+            if let Some(a) = ctx.instruction_at(addr.machine()) {
                 s.process_instruction(&a);
             } else {
                 s.illegal_addresses.insert(start_address);
