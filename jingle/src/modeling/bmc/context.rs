@@ -6,7 +6,7 @@ use z3::Context;
 use crate::JingleContext;
 
 #[derive(Clone, Debug)]
-struct CachedArchInfo {
+pub struct CachedArchInfo {
     registers: Vec<(VarNode, String)>,
     spaces: Vec<SpaceInfo>,
     default_code_space: usize,

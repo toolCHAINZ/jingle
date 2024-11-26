@@ -232,7 +232,7 @@ impl<'ctx> MemoryState<'ctx> {
         for x in self.jingle.get_all_space_info() {
             let idx = x.index;
             if x._type == SpaceType::IPTR_INTERNAL {
-                self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, &x);
+                self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, x);
             }
         }
     }
