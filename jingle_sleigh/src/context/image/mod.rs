@@ -105,6 +105,20 @@ impl ImageProvider for Vec<u8> {
     }
 }
 
+impl<T: ImageProvider> ImageProvider for &T{
+    fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
+        (*self).load(vn, output)
+    }
+
+    fn has_full_range(&self, vn: &VarNode) -> bool {
+        (*self).has_full_range(vn)
+    }
+
+    fn get_section_info(&self) -> ImageSectionIterator {
+        (*self).get_section_info()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Perms {
     pub read: bool,
