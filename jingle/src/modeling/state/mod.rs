@@ -278,8 +278,7 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn get_default_code_space_info(&self) -> &SpaceInfo {
-        self
-            .jingle
+        self.jingle
             .get_space_info(self.jingle.get_code_space_idx())
             .unwrap()
     }
