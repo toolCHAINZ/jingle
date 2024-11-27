@@ -70,6 +70,8 @@ fn main() {
         .flag_if_supported("-DLOCAL_ZLIB")
         .flag_if_supported("-DNO_GZIP")
         .flag_if_supported("-Wno-register")
+        .flag_if_supported("-Wno-deprecated")
+        .flag_if_supported("-Wno-unused-const-variable")
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-unused-function")
         .flag_if_supported("-Wno-unneeded-internal-declaration")
