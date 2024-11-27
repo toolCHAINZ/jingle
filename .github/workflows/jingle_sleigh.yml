@@ -1,17 +1,6 @@
 name: jingle_sleigh
 
-on:
-  push:
-    paths:
-      - jingle_sleigh/**
-      - Cargo.lock
-      - Cargo.toml
-  pull_request:
-    paths:
-      - jingle_sleigh/**
-      - Cargo.lock
-      - Cargo.toml
-
+on: [push]
 jobs:
   jingle_sleigh-build-test:
     name: Build and Test jingle_sleigh on ${{ matrix.os }}
