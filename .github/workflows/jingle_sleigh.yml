@@ -1,0 +1,63 @@
+name: jingle_sleigh
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - jingle_sleigh/**
+      - Cargo.lock
+      - Cargo.toml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - jingle_sleigh/**
+      - Cargo.lock
+      - Cargo.toml
+
+jobs:
+  jingle_sleigh-build-test:
+    name: Build and Test jingle_sleigh on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies (Windows Only)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install -y llvm
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-jingle_sleigh-${{ hashFiles('jingle_sleigh/**', 'Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-jingle_sleigh-
+
+      - name: Build jingle_sleigh
+        run: cargo build --verbose --manifest-path jingle_sleigh/Cargo.toml
+
+      - name: Test jingle_sleigh
+        run: cargo test --verbose --manifest-path jingle_sleigh/Cargo.toml
