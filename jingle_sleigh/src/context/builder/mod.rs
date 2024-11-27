@@ -97,6 +97,9 @@ fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
             }
         }
     }
+    if ldefs.is_empty() {
+        return Err(LanguageSpecRead);
+    }
     Ok(ldefs)
 }
 
