@@ -57,11 +57,16 @@ impl SleighContextBuilder {
         if !path.is_dir() {
             return Err(LanguageSpecRead);
         }
-        let ldef_path = find_ldef(&path)?;
-        let defs = parse_ldef(ldef_path.as_path())?;
-        let defs = defs
+        let ldef_paths = find_ldef(&path)?;
+        let defs: Vec<(LanguageDefinition, PathBuf)> = ldef_paths
             .iter()
-            .map(|f| (f.clone(), path.to_path_buf()))
+            .map(|ldef_path| {
+                let defs: Vec<LanguageDefinition> = parse_ldef(ldef_path.as_path()).unwrap();
+                defs.iter()
+                    .map(|f| (f.clone(), path.to_path_buf()))
+                    .collect::<Vec<(LanguageDefinition, PathBuf)>>()
+            })
+            .flatten()
             .collect();
         Ok(defs)
     }
@@ -83,15 +88,16 @@ impl SleighContextBuilder {
     }
 }
 
-fn find_ldef(path: &Path) -> Result<PathBuf, JingleSleighError> {
+fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
+    let mut ldefs = vec![];
     for entry in (fs::read_dir(path).map_err(|_| LanguageSpecRead)?).flatten() {
         if let Some(e) = entry.path().extension() {
             if e == "ldefs" {
-                return Ok(entry.path().clone());
+                ldefs.push(entry.path().clone());
             }
         }
     }
-    Err(LanguageSpecRead)
+    Ok(ldefs)
 }
 
 #[cfg(test)]
