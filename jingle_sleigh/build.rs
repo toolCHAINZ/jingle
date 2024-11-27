@@ -64,7 +64,9 @@ fn main() {
     ];
     // This assumes all your C++ bindings are in lib
     let mut bridge = cxx_build::bridges(&rust_sources);
-    bridge.files(cpp_sources).flag_if_supported("-std=c++17")
+    bridge
+        .files(cpp_sources)
+        .flag_if_supported("-std=c++17")
         .flag_if_supported("-DLOCAL_ZLIB")
         .flag_if_supported("-DNO_GZIP")
         .flag_if_supported("-Wno-register")
@@ -77,12 +79,11 @@ fn main() {
         .flag_if_supported("-Wno-unused-but-set-variable")
         .flag_if_supported("-Wno-sign-compare")
         .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy");
-    
+
     if cfg!(windows) {
         bridge.flag_if_supported("-D_WINDOWS");
     }
-    bridge
-        .compile("jingle_sleigh");
+    bridge.compile("jingle_sleigh");
 
     println!("cargo::rerun-if-changed=src/ffi/cpp/");
     for src in rust_sources {
@@ -106,11 +107,20 @@ fn copy_cpp_sources<T: AsRef<Path>, E: AsRef<Path>>(inpath: T, outpath: E) {
     let _ = fs::create_dir(&outpath);
     for path in fs::read_dir(inpath).unwrap().flatten() {
         if let Some(name) = path.file_name().to_str() {
-            if name.ends_with(".cc") || name.ends_with(".c") || name.ends_with(".hh") || name.ends_with(".h") {
+            if name.ends_with(".cc")
+                || name.ends_with(".c")
+                || name.ends_with(".hh")
+                || name.ends_with(".h")
+            {
                 let mut result = PathBuf::from(outpath.as_ref());
                 result.push(name);
                 copy(path.path().as_path(), result.as_path()).unwrap();
-                println!("Copying {} ({} => {})", name, path.path().to_str().unwrap(), result.to_str().unwrap());
+                println!(
+                    "Copying {} ({} => {})",
+                    name,
+                    path.path().to_str().unwrap(),
+                    result.to_str().unwrap()
+                );
             }
         }
     }

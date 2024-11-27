@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   jingle-build-test:
-    name: Build and Test jingle on Ubuntu
+    name: Build jingle on Ubuntu
     runs-on: ubuntu-latest
 
     steps:

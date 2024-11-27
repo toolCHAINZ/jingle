@@ -3,7 +3,7 @@ name: jingle_sleigh
 on: [push]
 jobs:
   jingle_sleigh-build-test:
-    name: Build and Test jingle_sleigh on ${{ matrix.os }}
+    name: Build jingle_sleigh on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
