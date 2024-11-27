@@ -43,7 +43,7 @@ jobs:
             ${{ runner.os }}-cargo-build-jingle_sleigh-
 
       - name: Build jingle_sleigh
-        run: cargo build --verbose --manifest-path jingle_sleigh/Cargo.toml
+        run: cargo build --manifest-path jingle_sleigh/Cargo.toml
 
 #      - name: Test jingle_sleigh
-#        run: cargo test --verbose --manifest-path jingle_sleigh/Cargo.toml
+#        run: cargo test --manifest-path jingle_sleigh/Cargo.toml

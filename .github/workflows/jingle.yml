@@ -35,7 +35,7 @@ jobs:
             ubuntu-cargo-build-jingle-
 
       - name: Build jingle
-        run: cargo build --verbose --manifest-path jingle/Cargo.toml
+        run: cargo build --manifest-path jingle/Cargo.toml
 
 #      - name: Test jingle
-#        run: cargo test --verbose --manifest-path jingle/Cargo.toml
+#        run: cargo test --manifest-path jingle/Cargo.toml
