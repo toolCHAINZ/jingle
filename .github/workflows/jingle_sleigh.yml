@@ -13,7 +13,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
+        with:
+          submodules: true
       - name: Install Dependencies (Windows Only)
         if: matrix.os == 'windows-latest'
         run: |
