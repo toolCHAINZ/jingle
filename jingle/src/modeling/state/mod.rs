@@ -61,7 +61,7 @@ impl<'ctx> State<'ctx> {
         }
         Self {
             jingle: jingle.clone(),
-            spaces: Default::default(),
+            spaces,
         }
     }
 
