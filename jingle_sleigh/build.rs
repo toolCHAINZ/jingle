@@ -1,11 +1,11 @@
 use std::fs;
 use std::fs::copy;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 fn main() {
     if cfg!(target_os = "macos") {
         println!("cargo::rustc-link-search=/opt/homebrew/lib")
     }
-    if !cpp_src_path().exists() {
+    if !sleigh_path().exists()  | !zlib_path().exists() {
         let submod = submod_path();
         if !submod.read_dir().is_ok_and(|f| f.count() != 0) {
             panic!(
@@ -25,6 +25,13 @@ fn main() {
     ];
 
     let cpp_sources = vec![
+        "src/ffi/cpp/zlib/inflate.c",
+        "src/ffi/cpp/zlib/zutil.c",
+        "src/ffi/cpp/zlib/inftrees.c",
+        "src/ffi/cpp/zlib/inffast.c",
+        "src/ffi/cpp/zlib/adler32.c",
+        "src/ffi/cpp/zlib/trees.c",
+
         "src/ffi/cpp/sleigh/address.cc",
         "src/ffi/cpp/sleigh/compression.cc",
         "src/ffi/cpp/sleigh/context.cc",
@@ -60,7 +67,11 @@ fn main() {
     cxx_build::bridges(&rust_sources)
         .files(cpp_sources)
         .flag_if_supported("-std=c++17")
-        .flag_if_supported("-Dmain=c_main")
+        .flag_if_supported("-DLOCAL_ZLIB")
+        .flag_if_supported("-DNO_GZIP")
+        .flag_if_supported("-Wno-register")
+        .flag_if_supported("-Wno-deprecated")
+        .flag_if_supported("-Wno-unused-const-variable")
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-unused-function")
         .flag_if_supported("-Wno-unneeded-internal-declaration")
@@ -79,30 +90,44 @@ fn main() {
     println!("cargo::rerun-if-changed=src/ffi/instruction.rs");
     println!(
         "cargo::rerun-if-changed={}",
-        ghidra_cpp_path().to_str().unwrap()
+        ghidra_sleigh_path().to_str().unwrap()
     );
 }
 
 fn copy_sources() {
-    fs::create_dir(cpp_src_path()).unwrap();
-    for path in fs::read_dir(ghidra_cpp_path()).unwrap().flatten() {
+    copy_cpp_sources(ghidra_sleigh_path(), sleigh_path());
+    copy_cpp_sources(ghidra_zlib_path(), zlib_path());
+}
+
+fn copy_cpp_sources<T: AsRef<Path>,E: AsRef<Path>>(inpath: T, outpath: E){
+    let _ = fs::create_dir(&outpath);
+    for path in fs::read_dir(inpath).unwrap().flatten() {
         if let Some(name) = path.file_name().to_str() {
-            if name.ends_with(".cc") || name.ends_with(".hh") || name.ends_with(".h") {
-                let mut result = cpp_src_path();
+            if name.ends_with(".cc") || name.ends_with(".c") || name.ends_with(".hh") || name.ends_with(".h") {
+                let mut result = PathBuf::from(outpath.as_ref());
                 result.push(name);
                 copy(path.path().as_path(), result.as_path()).unwrap();
-                println!("Copying {}", name)
+                println!("Copying {} ({} => {})", name, path.path().to_str().unwrap(), result.to_str().unwrap());
             }
         }
     }
 }
 
-fn cpp_src_path() -> PathBuf {
+fn sleigh_path() -> PathBuf {
     let mut p = PathBuf::new();
     p.push("src");
     p.push("ffi");
     p.push("cpp");
     p.push("sleigh");
+    p
+}
+
+fn zlib_path() -> PathBuf {
+    let mut p = PathBuf::new();
+    p.push("src");
+    p.push("ffi");
+    p.push("cpp");
+    p.push("zlib");
     p
 }
 
@@ -112,7 +137,7 @@ fn submod_path() -> PathBuf {
     p
 }
 
-fn ghidra_cpp_path() -> PathBuf {
+fn ghidra_sleigh_path() -> PathBuf {
     let mut p = PathBuf::new();
     p.push(submod_path());
     p.push("Ghidra");
@@ -121,5 +146,17 @@ fn ghidra_cpp_path() -> PathBuf {
     p.push("src");
     p.push("decompile");
     p.push("cpp");
+    p
+}
+
+fn ghidra_zlib_path() -> PathBuf {
+    let mut p = PathBuf::new();
+    p.push(submod_path());
+    p.push("Ghidra");
+    p.push("Features");
+    p.push("Decompiler");
+    p.push("src");
+    p.push("decompile");
+    p.push("zlib");
     p
 }
