@@ -1,6 +1,19 @@
 name: jingle
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - jingle/**
+      - Cargo.lock
+      - Cargo.toml
+  pull_request:
+    paths:
+      - jingle/**
+      - Cargo.lock
+      - Cargo.toml
 
 jobs:
   jingle-build-test:
