@@ -2,9 +2,6 @@ name: jingle
 
 on:
   push:
-    branches:
-      - main
-      - dev
     paths:
       - jingle/**
       - Cargo.lock
