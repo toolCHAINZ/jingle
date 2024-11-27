@@ -9,7 +9,7 @@
 void RustLoadImage::loadFill(ghidra::uint1 *ptr, ghidra::int4 size, const ghidra::Address &addr) {
     ghidra::VarnodeData vn = {addr.getSpace(), addr.getOffset(), static_cast<ghidra::uint4>(size)};
 
-    size_t result = img.load(varnodeToFFI(vn), rust::Slice(ptr, size));
+    size_t result = img.load(varnodeToFFI(vn), rust::Slice<std::uint8_t>(ptr, size));
     if(result == 0){
         ghidra::ostringstream errmsg;
         errmsg << "Unable to load " << std::dec << size << " bytes at "
