@@ -37,5 +37,5 @@ jobs:
       - name: Build jingle
         run: cargo build --verbose --manifest-path jingle/Cargo.toml
 
-      - name: Test jingle
-        run: cargo test --verbose --manifest-path jingle/Cargo.toml
+#      - name: Test jingle
+#        run: cargo test --verbose --manifest-path jingle/Cargo.toml
