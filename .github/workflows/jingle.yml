@@ -1,0 +1,54 @@
+name: jingle
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - jingle/**
+      - Cargo.lock
+      - Cargo.toml
+  pull_request:
+    paths:
+      - jingle/**
+      - Cargo.lock
+      - Cargo.toml
+
+jobs:
+  jingle-build-test:
+    name: Build jingle on Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ubuntu-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ubuntu-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ubuntu-cargo-build-jingle-${{ hashFiles('jingle/**', 'Cargo.lock') }}
+          restore-keys: |
+            ubuntu-cargo-build-jingle-
+
+      - name: Build jingle
+        run: cargo build --manifest-path jingle/Cargo.toml
+
+#      - name: Test jingle
+#        run: cargo test --manifest-path jingle/Cargo.toml

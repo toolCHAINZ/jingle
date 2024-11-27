@@ -5,7 +5,7 @@ fn main() {
     if cfg!(target_os = "macos") {
         println!("cargo::rustc-link-search=/opt/homebrew/lib")
     }
-    if !sleigh_path().exists()  | !zlib_path().exists() {
+    if !sleigh_path().exists() | !zlib_path().exists() {
         let submod = submod_path();
         if !submod.read_dir().is_ok_and(|f| f.count() != 0) {
             panic!(
@@ -31,7 +31,6 @@ fn main() {
         "src/ffi/cpp/zlib/inffast.c",
         "src/ffi/cpp/zlib/adler32.c",
         "src/ffi/cpp/zlib/trees.c",
-
         "src/ffi/cpp/sleigh/address.cc",
         "src/ffi/cpp/sleigh/compression.cc",
         "src/ffi/cpp/sleigh/context.cc",
@@ -64,7 +63,8 @@ fn main() {
         "src/ffi/cpp/jingle_assembly_emitter.cpp",
     ];
     // This assumes all your C++ bindings are in lib
-    cxx_build::bridges(&rust_sources)
+    let mut bridge = cxx_build::bridges(&rust_sources);
+    bridge
         .files(cpp_sources)
         .flag_if_supported("-std=c++17")
         .flag_if_supported("-DLOCAL_ZLIB")
@@ -78,8 +78,12 @@ fn main() {
         .flag_if_supported("-Wno-format")
         .flag_if_supported("-Wno-unused-but-set-variable")
         .flag_if_supported("-Wno-sign-compare")
-        .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy")
-        .compile("jingle_sleigh");
+        .flag_if_supported("-Wno-deprecated-copy-with-user-provided-copy");
+
+    if cfg!(windows) {
+        bridge.flag_if_supported("-D_WINDOWS");
+    }
+    bridge.compile("jingle_sleigh");
 
     println!("cargo::rerun-if-changed=src/ffi/cpp/");
     for src in rust_sources {
@@ -99,15 +103,24 @@ fn copy_sources() {
     copy_cpp_sources(ghidra_zlib_path(), zlib_path());
 }
 
-fn copy_cpp_sources<T: AsRef<Path>,E: AsRef<Path>>(inpath: T, outpath: E){
+fn copy_cpp_sources<T: AsRef<Path>, E: AsRef<Path>>(inpath: T, outpath: E) {
     let _ = fs::create_dir(&outpath);
     for path in fs::read_dir(inpath).unwrap().flatten() {
         if let Some(name) = path.file_name().to_str() {
-            if name.ends_with(".cc") || name.ends_with(".c") || name.ends_with(".hh") || name.ends_with(".h") {
+            if name.ends_with(".cc")
+                || name.ends_with(".c")
+                || name.ends_with(".hh")
+                || name.ends_with(".h")
+            {
                 let mut result = PathBuf::from(outpath.as_ref());
                 result.push(name);
                 copy(path.path().as_path(), result.as_path()).unwrap();
-                println!("Copying {} ({} => {})", name, path.path().to_str().unwrap(), result.to_str().unwrap());
+                println!(
+                    "Copying {} ({} => {})",
+                    name,
+                    path.path().to_str().unwrap(),
+                    result.to_str().unwrap()
+                );
             }
         }
     }

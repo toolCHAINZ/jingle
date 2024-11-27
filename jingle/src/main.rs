@@ -23,7 +23,7 @@ impl JingleConfig {
 
 impl Default for JingleConfig {
     fn default() -> Self {
-        return if cfg!(target_os = "windows") {
+        if cfg!(target_os = "windows") {
             let path = PathBuf::from(r"C:\Program Files\ghidra");
             Self { ghidra_path: path }
         } else if cfg!(target_os = "macos") {
@@ -32,7 +32,7 @@ impl Default for JingleConfig {
         } else {
             let path = PathBuf::from(r"/opt/ghidra");
             Self { ghidra_path: path }
-        };
+        }
     }
 }
 
@@ -41,7 +41,7 @@ impl From<&JingleParams> for JingleConfig {
         let path = value.ghidra_path.clone();
         Self {
             ghidra_path: path
-                .map(|p| PathBuf::from(p))
+                .map(PathBuf::from)
                 .unwrap_or(JingleConfig::default().ghidra_path),
         }
     }
