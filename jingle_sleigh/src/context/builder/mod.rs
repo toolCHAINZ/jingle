@@ -60,13 +60,12 @@ impl SleighContextBuilder {
         let ldef_paths = find_ldef(&path)?;
         let defs: Vec<(LanguageDefinition, PathBuf)> = ldef_paths
             .iter()
-            .map(|ldef_path| {
+            .flat_map(|ldef_path| {
                 let defs: Vec<LanguageDefinition> = parse_ldef(ldef_path.as_path()).unwrap();
                 defs.iter()
                     .map(|f| (f.clone(), path.to_path_buf()))
                     .collect::<Vec<(LanguageDefinition, PathBuf)>>()
             })
-            .flatten()
             .collect();
         Ok(defs)
     }
