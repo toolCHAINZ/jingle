@@ -7,9 +7,6 @@ on:
       - Cargo.lock
       - Cargo.toml
   pull_request:
-    branches:
-      - main
-      - dev
     paths:
       - jingle_sleigh/**
       - Cargo.lock
