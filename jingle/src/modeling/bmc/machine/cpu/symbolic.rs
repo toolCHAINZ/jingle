@@ -2,6 +2,7 @@ use crate::modeling::bmc::machine::cpu::concrete::{
     ConcretePcodeAddress, PcodeMachineAddress, PcodeOffset,
 };
 use crate::JingleError;
+use jingle_sleigh::VarNode;
 use std::ops::Add;
 use z3::ast::{Ast, BV};
 use z3::Context;
@@ -58,9 +59,17 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
                 pcode: p as PcodeOffset,
             })
     }
-
+    pub fn interpret_branch_dest_varnode(&self, vn: &VarNode) -> Self {
+        match vn.is_const() {
+            true => self.add_pcode_offset(vn.offset),
+            false => ConcretePcodeAddress::from(vn.offset).symbolize(self.machine.get_ctx()),
+        }
+    }
     pub fn increment_pcode(&self) -> SymbolicPcodeAddress<'ctx> {
-        let pcode = self.extract_pcode().add(1u64);
+        self.add_pcode_offset(1)
+    }
+    fn add_pcode_offset(&self, offset: u64) -> SymbolicPcodeAddress<'ctx> {
+        let pcode = self.extract_pcode() + offset;
         let machine = self.extract_machine().clone();
         SymbolicPcodeAddress { machine, pcode }
     }

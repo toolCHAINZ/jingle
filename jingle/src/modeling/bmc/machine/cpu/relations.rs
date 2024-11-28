@@ -2,7 +2,7 @@ use crate::modeling::bmc::machine::cpu::concrete::ConcretePcodeAddress;
 use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
 use crate::modeling::bmc::machine::memory::MemoryState;
 use crate::JingleError;
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{PcodeOperation, VarNode};
 use z3::ast::{Ast, BV};
 use z3::Context;
 
@@ -11,17 +11,16 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         &self,
         memory: &MemoryState<'ctx>,
         op: &PcodeOperation,
-        location: ConcretePcodeAddress,
         z3: &'ctx Context,
     ) -> Result<Self, JingleError> {
         match op {
             PcodeOperation::Branch { input } | PcodeOperation::Call { input } => {
-                Ok(ConcretePcodeAddress::resolve_from_varnode(input, location).symbolize(z3))
+                Ok(self.interpret_branch_dest_varnode(input))
             }
             PcodeOperation::CBranch { input0, input1 } => {
                 let fallthrough = self.increment_pcode();
                 let dest =
-                    ConcretePcodeAddress::resolve_from_varnode(input0, location).symbolize(z3);
+                    self.interpret_branch_dest_varnode(input0);
                 let take_branch =
                     memory
                         .read(input1)?

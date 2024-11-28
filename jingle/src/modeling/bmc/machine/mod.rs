@@ -38,20 +38,18 @@ impl<'ctx> MachineState<'ctx> {
     fn apply_control_flow(
         &self,
         op: &PcodeOperation,
-        location: ConcretePcodeAddress,
     ) -> Result<SymbolicPcodeAddress<'ctx>, JingleError> {
-        self.pc.apply_op(&self.memory, op, location, self.jingle.z3)
+        self.pc.apply_op(&self.memory, op, self.jingle.z3)
     }
 
     pub fn apply(
         &self,
         op: &PcodeOperation,
-        location: ConcretePcodeAddress,
     ) -> Result<Self, JingleError> {
         Ok(Self {
             jingle: self.jingle.clone(),
             memory: self.memory.apply(op)?,
-            pc: self.apply_control_flow(op, location)?,
+            pc: self.apply_control_flow(op)?,
         })
     }
 }
