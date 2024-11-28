@@ -1,0 +1,38 @@
+name: Style
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - '**/*.rs'
+      - Cargo.toml
+      - Cargo.lock
+  pull_request:
+    paths:
+      - '**/*.rs'
+      - Cargo.toml
+      - Cargo.lock
+
+jobs:
+  lint:
+    name: Fmt and Clippy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Check formatting with cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: Check code with cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings

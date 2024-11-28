@@ -20,16 +20,15 @@ include = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cxx = "1.0.122"
+cxx = "1.0.131"
 serde = { version = "1.0.203", features = ["derive"] }
 serde-xml-rs = "0.6.0"
 thiserror = { version = "1.0.61", features = [] }
 object = { version = "0.36.0", optional = true }
-libz-sys = { version = "1.1.18", default-features = false, features = ["libc"] }
 tracing = "0.1.40"
 
 [build-dependencies]
-cxx-build = "1.0.122"
+cxx-build = "1.0.131"
 
 [features]
 gimli = ["dep:object"]
