@@ -24,7 +24,7 @@ impl<'ctx> Deref for JingleContext<'ctx> {
 }
 impl<'ctx> JingleContext<'ctx> {
     pub fn new<S: RegisterManager>(z3: &'ctx Context, r: &S) -> Self {
-        let spaces = r.get_all_space_info().to_vec();
+        let spaces = r.get_all_space_info().cloned().collect();
         let default_code_space_index = r.get_code_space_idx();
         Self(Rc::new(JingleContextInternal {
             z3,
@@ -43,8 +43,8 @@ impl<'ctx> SpaceManager for JingleContext<'ctx> {
         self.spaces.get(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.spaces.as_slice()
+    fn get_all_space_info(&self) -> impl Iterator< Item = &SpaceInfo> {
+        self.spaces.iter()
     }
 
     fn get_code_space_idx(&self) -> usize {

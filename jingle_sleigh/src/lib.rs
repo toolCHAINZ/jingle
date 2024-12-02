@@ -13,8 +13,8 @@ pub use instruction::*;
 pub use pcode::*;
 pub use space::{RegisterManager, SleighEndianness, SpaceInfo, SpaceManager};
 pub use varnode::display::*;
-pub use varnode::{create_varnode, GeneralizedVarNode, IndirectVarNode, VarNode};
-
+pub use varnode::{GeneralizedVarNode, IndirectVarNode, VarNode};
+pub use space::SharedSpaceInfo;
 #[cfg(test)]
 mod tests {
     pub(crate) const SLEIGH_ARCH: &str = "x86:LE:64:default";

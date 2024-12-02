@@ -1,11 +1,13 @@
 use crate::context::image::ImageProvider;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::VarNode;
+use crate::{SpaceInfo, VarNode};
 use bridge::ContextFFI;
 use cxx::{Exception, ExternType, UniquePtr};
 use std::pin::Pin;
+use std::rc::Rc;
 use std::sync::Mutex;
+use crate::space::SharedSpaceInfo;
 
 type ContextGeneratorFp = fn(&str) -> Result<UniquePtr<ContextFFI>, Exception>;
 
@@ -64,28 +66,33 @@ pub(crate) struct ImageFFI<'a> {
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
     /// default code space.
-    pub(crate) space_index: usize,
+    pub(crate) space: SharedSpaceInfo,
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(provider: T, idx: usize) -> Self {
+    pub(crate) fn new<T: ImageProvider + 'a>(provider: T, space: Rc<SpaceInfo>) -> Self {
         Self {
             provider: Box::pin(provider),
             base_offset: 0,
-            space_index: idx,
+            space: space.into(),
         }
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {
-        let addr = VarNode::from(vn);
-        if addr.space_index != self.space_index {
+        if vn.space.getIndex() as usize != self.space.index {
             return 0;
         }
+        let addr = VarNode {
+            space: self.space.clone(),
+            offset: vn.offset,
+            size: vn.size,
+        };
+
         let adjusted = self.adjust_varnode_vma(&addr);
         self.provider.load(&adjusted, out)
     }
 
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
-        if vn.space_index != self.space_index {
+        if vn.space.index != self.space.index {
             return false;
         }
         self.provider.has_full_range(&self.adjust_varnode_vma(vn))
@@ -101,7 +108,7 @@ impl<'a> ImageFFI<'a> {
     // todo: properly account for spaces with non-byte-based indexing
     fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
         VarNode {
-            space_index: vn.space_index,
+            space: vn.space.clone(),
             size: vn.size,
             offset: vn.offset.wrapping_sub(self.base_offset),
         }

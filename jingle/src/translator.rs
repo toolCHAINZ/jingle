@@ -52,7 +52,7 @@ impl<'ctx> SpaceManager for SleighTranslator<'ctx> {
         self.sleigh.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.sleigh.get_all_space_info()
     }
 

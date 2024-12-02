@@ -127,7 +127,7 @@ impl<'ctx> SpaceManager for ModeledBlock<'ctx> {
         self.state.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.state.get_all_space_info()
     }
     fn get_code_space_idx(&self) -> usize {

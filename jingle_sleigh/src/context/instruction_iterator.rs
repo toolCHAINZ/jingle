@@ -40,7 +40,7 @@ impl<'a> Iterator for SleighContextInstructionIterator<'a> {
             .sleigh
             .ctx
             .get_one_instruction(self.offset)
-            .map(Instruction::from)
+            .map(|i| self.sleigh.translate_instruction(i))
             .ok()?;
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;

@@ -72,7 +72,7 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
         match v {
             Direct(d) => self
                 .get_final_state()
-                .get_space_info(d.space_index)
+                .get_space_info(d.space.index)
                 .map(|o| o._type == SpaceType::IPTR_PROCESSOR)
                 .unwrap_or(false),
             Indirect(_) => true,
@@ -231,7 +231,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                     pointer,
                     pointer_location: indirect.pointer_location.clone(),
                     access_size_bytes: indirect.access_size_bytes,
-                    pointer_space_idx: indirect.pointer_space_index,
+                    pointer_space: indirect.pointer_space.clone(),
                 }));
                 self.get_final_state().read_varnode_indirect(&indirect)
             }
@@ -254,7 +254,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                     pointer,
                     pointer_location: indirect.pointer_location.clone(),
                     access_size_bytes: indirect.access_size_bytes,
-                    pointer_space_idx: indirect.pointer_space_index,
+                    pointer_space: indirect.pointer_space.clone(),
                 }));
                 self.get_final_state_mut()
                     .write_varnode_indirect(indirect, val)?;

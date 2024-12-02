@@ -1,76 +1,69 @@
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::space::SpaceInfo;
-use std::fmt::{Debug, Display, Formatter};
+use crate::{GeneralizedVarNode, IndirectVarNode, VarNode};
+use std::fmt::{Debug, Display, Formatter, LowerHex};
 
-#[derive(Clone, Debug)]
-pub enum VarNodeDisplay {
-    Raw(RawVarNodeDisplay),
-    Register(String),
-}
-#[derive(Clone, Debug)]
-pub struct RawVarNodeDisplay {
-    pub offset: u64,
-    pub size: usize,
-    pub space_info: SpaceInfo,
-}
-
-#[derive(Clone, Debug)]
-pub struct IndirectVarNodeDisplay {
-    pub pointer_space_name: String,
-    pub pointer_location: VarNodeDisplay,
-    pub access_size_bytes: usize,
-}
-
-#[derive(Clone, Debug)]
-pub enum GeneralizedVarNodeDisplay {
-    Direct(VarNodeDisplay),
-    Indirect(IndirectVarNodeDisplay),
-}
-
-impl Display for RawVarNodeDisplay {
+impl Display for VarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.space_info._type == SpaceType::IPTR_CONSTANT {
+        if self.space._type == SpaceType::IPTR_CONSTANT {
+            write!(f, "{}:{}", self.offset, self.size)
+        } else {
+            write!(f, "{}[{}]:{}", self.space.name, self.offset, self.size)
+        }
+    }
+}
+
+impl LowerHex for VarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.space._type == SpaceType::IPTR_CONSTANT {
             write!(f, "{:x}:{:x}", self.offset, self.size)
         } else {
-            write!(
-                f,
-                "{}[{:x}]:{:x}",
-                self.space_info.name, self.offset, self.size
-            )
-        }
-    }
-}
-impl Display for VarNodeDisplay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VarNodeDisplay::Raw(r) => {
-                write!(f, "{}", r)
-            }
-            VarNodeDisplay::Register(a) => {
-                write!(f, "{}", a)
-            }
+            write!(f, "{}[{:x}]:{:x}", self.space.name, self.offset, self.size)
         }
     }
 }
 
-impl Display for IndirectVarNodeDisplay {
+impl Display for IndirectVarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "*({}[{}]:{})",
-            self.pointer_space_name, self.pointer_location, self.access_size_bytes
+            self.pointer_space.name, self.pointer_location, self.access_size_bytes
         )
     }
 }
 
-impl Display for GeneralizedVarNodeDisplay {
+impl LowerHex for IndirectVarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "*({}[{:x}]:{:x})",
+            self.pointer_space.name, self.pointer_location, self.access_size_bytes
+        )
+    }
+}
+
+impl Display for GeneralizedVarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            GeneralizedVarNodeDisplay::Direct(v) => {
+            GeneralizedVarNode::Direct(v) => {
                 write!(f, "{v}")
             }
-            GeneralizedVarNodeDisplay::Indirect(v) => {
+            GeneralizedVarNode::Indirect(v) => {
                 write!(f, "{v}")
+            }
+        }
+    }
+}
+
+impl LowerHex for GeneralizedVarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeneralizedVarNode::Direct(d) => {
+                write!(f, "{:x}", d)
+            }
+            GeneralizedVarNode::Indirect(i) => {
+                write!(f, "{:x}", i)
             }
         }
     }

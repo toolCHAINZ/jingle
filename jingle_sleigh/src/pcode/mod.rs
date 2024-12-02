@@ -16,13 +16,12 @@ use crate::pcode::PcodeOperation::{
 use crate::error::JingleSleighError;
 use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
-use crate::pcode::display::PcodeOperationDisplay;
 use crate::varnode::{IndirectVarNode, VarNode};
 use crate::{GeneralizedVarNode, RegisterManager};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum PcodeOperation {
     Copy {
         input: VarNode,
@@ -387,14 +386,8 @@ impl PcodeOperation {
         )
     }
 
-    pub fn display<'a, T: RegisterManager>(
-        &self,
-        ctx: &'a T,
-    ) -> Result<PcodeOperationDisplay<'a, T>, JingleSleighError> {
-        Ok(PcodeOperationDisplay {
-            op: self.clone(),
-            ctx,
-        })
+    pub fn has_fallthrough(&self) -> bool {
+        !matches!(self, Return { .. } | Branch { .. } | BranchInd { .. })
     }
 
     pub fn inputs(&self) -> Vec<GeneralizedVarNode> {
@@ -689,214 +682,6 @@ impl PcodeOperation {
             Extract { output, .. } => Some(GeneralizedVarNode::from(output)),
             PopCount { output, .. } => Some(GeneralizedVarNode::from(output)),
             LzCount { output, .. } => Some(GeneralizedVarNode::from(output)),
-        }
-    }
-}
-
-impl From<RawPcodeOp> for PcodeOperation {
-    fn from(value: RawPcodeOp) -> Self {
-        macro_rules! one_in {
-            ($op:tt) => {
-                $op {
-                    input: VarNode::from(&value.inputs[0]),
-                }
-            };
-        }
-
-        macro_rules! one_in_indirect {
-            ($op:tt) => {
-                $op {
-                    input: IndirectVarNode {
-                        pointer_location: VarNode::from(&value.inputs[0]),
-                        access_size_bytes: value.space.getAddrSize() as usize,
-                        pointer_space_index: value.space.getIndex() as usize,
-                    },
-                }
-            };
-        }
-
-        macro_rules! two_in {
-            ($op:tt) => {
-                $op {
-                    input0: VarNode::from(&value.inputs[0]),
-                    input1: VarNode::from(&value.inputs[1]),
-                }
-            };
-        }
-        macro_rules! one_in_one_out {
-            ($op:tt) => {
-                $op {
-                    output: VarNode::from(value.output),
-                    input: VarNode::from(&value.inputs[0]),
-                }
-            };
-        }
-        macro_rules! two_in_one_out {
-            ($op:tt) => {
-                $op {
-                    output: VarNode::from(value.output),
-                    input0: VarNode::from(&value.inputs[0]),
-                    input1: VarNode::from(&value.inputs[1]),
-                }
-            };
-        }
-        match value.op {
-            OpCode::CPUI_COPY => one_in_one_out!(Copy),
-            OpCode::CPUI_LOAD => {
-                let space_id = value.inputs[0].offset;
-                let space = value.inputs[0]
-                    .space
-                    .getManager()
-                    .getSpaceFromPointer(space_id);
-                let output = VarNode::from(&value.output);
-                Load {
-                    input: IndirectVarNode {
-                        pointer_space_index: space.getIndex() as usize,
-                        pointer_location: VarNode::from(&value.inputs[1]),
-                        access_size_bytes: output.size,
-                    },
-                    output: value.output.into(),
-                }
-            }
-            OpCode::CPUI_STORE => {
-                let space_id = value.inputs[0].offset;
-                let space = value.inputs[0]
-                    .space
-                    .getManager()
-                    .getSpaceFromPointer(space_id);
-                let input = VarNode::from(&value.inputs[2]);
-                Store {
-                    output: IndirectVarNode {
-                        pointer_space_index: space.getIndex() as usize,
-                        pointer_location: VarNode::from(&value.inputs[1]),
-                        access_size_bytes: input.size,
-                    },
-                    input,
-                }
-            }
-            OpCode::CPUI_BRANCH => one_in!(Branch),
-            OpCode::CPUI_CBRANCH => two_in!(CBranch),
-            OpCode::CPUI_BRANCHIND => one_in_indirect!(BranchInd),
-            OpCode::CPUI_CALL => one_in!(Call),
-            OpCode::CPUI_CALLIND => one_in_indirect!(CallInd),
-            OpCode::CPUI_CALLOTHER => {
-                let output = match value.has_output {
-                    true => Some(value.output.into()),
-                    false => None,
-                };
-                //let inputs: Vec<VarNode> = Vec::with_capacity(value.inputs.len());
-                let inputs: Vec<VarNode> = value.inputs.iter().map(|i| i.into()).collect();
-                CallOther { inputs, output }
-            }
-            OpCode::CPUI_RETURN => one_in_indirect!(Return),
-            OpCode::CPUI_INT_EQUAL => two_in_one_out!(IntEqual),
-            OpCode::CPUI_INT_NOTEQUAL => two_in_one_out!(IntNotEqual),
-            OpCode::CPUI_INT_SLESS => two_in_one_out!(IntSignedLess),
-            OpCode::CPUI_INT_SLESSEQUAL => two_in_one_out!(IntSignedLessEqual),
-            OpCode::CPUI_INT_LESS => two_in_one_out!(IntLess),
-            OpCode::CPUI_INT_LESSEQUAL => two_in_one_out!(IntLessEqual),
-            OpCode::CPUI_INT_ZEXT => one_in_one_out!(IntZExt),
-            OpCode::CPUI_INT_SEXT => one_in_one_out!(IntSExt),
-            OpCode::CPUI_INT_ADD => two_in_one_out!(IntAdd),
-            OpCode::CPUI_INT_SUB => two_in_one_out!(IntSub),
-            OpCode::CPUI_INT_CARRY => two_in_one_out!(IntCarry),
-            OpCode::CPUI_INT_SCARRY => two_in_one_out!(IntSignedCarry),
-            OpCode::CPUI_INT_SBORROW => two_in_one_out!(IntSignedBorrow),
-            OpCode::CPUI_INT_2COMP => one_in_one_out!(Int2Comp),
-            OpCode::CPUI_INT_NEGATE => one_in_one_out!(IntNegate),
-            OpCode::CPUI_INT_XOR => two_in_one_out!(IntXor),
-            OpCode::CPUI_INT_AND => two_in_one_out!(IntAnd),
-            OpCode::CPUI_INT_OR => two_in_one_out!(IntOr),
-            OpCode::CPUI_INT_LEFT => two_in_one_out!(IntLeftShift),
-            OpCode::CPUI_INT_RIGHT => two_in_one_out!(IntRightShift),
-            OpCode::CPUI_INT_SRIGHT => two_in_one_out!(IntSignedRightShift),
-            OpCode::CPUI_INT_MULT => two_in_one_out!(IntMult),
-            OpCode::CPUI_INT_DIV => two_in_one_out!(IntDiv),
-            OpCode::CPUI_INT_SDIV => two_in_one_out!(IntSignedDiv),
-            OpCode::CPUI_INT_REM => two_in_one_out!(IntRem),
-            OpCode::CPUI_INT_SREM => two_in_one_out!(IntSignedRem),
-            OpCode::CPUI_BOOL_NEGATE => one_in_one_out!(BoolNegate),
-            OpCode::CPUI_BOOL_XOR => two_in_one_out!(BoolXor),
-            OpCode::CPUI_BOOL_AND => two_in_one_out!(BoolAnd),
-            OpCode::CPUI_BOOL_OR => two_in_one_out!(BoolOr),
-            OpCode::CPUI_FLOAT_EQUAL => two_in_one_out!(FloatEqual),
-            OpCode::CPUI_FLOAT_NOTEQUAL => two_in_one_out!(FloatNotEqual),
-            OpCode::CPUI_FLOAT_LESS => two_in_one_out!(FloatLess),
-            OpCode::CPUI_FLOAT_LESSEQUAL => two_in_one_out!(FloatLessEqual),
-            OpCode::CPUI_FLOAT_NAN => one_in_one_out!(FloatNaN),
-            OpCode::CPUI_FLOAT_ADD => two_in_one_out!(FloatAdd),
-            OpCode::CPUI_FLOAT_DIV => two_in_one_out!(FloatDiv),
-            OpCode::CPUI_FLOAT_MULT => two_in_one_out!(FloatMult),
-            OpCode::CPUI_FLOAT_SUB => two_in_one_out!(FloatSub),
-            OpCode::CPUI_FLOAT_NEG => one_in_one_out!(FloatNeg),
-            OpCode::CPUI_FLOAT_ABS => one_in_one_out!(FloatAbs),
-            OpCode::CPUI_FLOAT_SQRT => one_in_one_out!(FloatSqrt),
-            OpCode::CPUI_FLOAT_INT2FLOAT => one_in_one_out!(FloatIntToFloat),
-            OpCode::CPUI_FLOAT_FLOAT2FLOAT => one_in_one_out!(FloatFloatToFloat),
-            OpCode::CPUI_FLOAT_TRUNC => one_in_one_out!(FloatTrunc),
-            OpCode::CPUI_FLOAT_CEIL => one_in_one_out!(FloatCeil),
-            OpCode::CPUI_FLOAT_FLOOR => one_in_one_out!(FloatFloor),
-            OpCode::CPUI_FLOAT_ROUND => one_in_one_out!(FloatRound),
-            OpCode::CPUI_MULTIEQUAL => MultiEqual {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                // todo: actually parse out extra args. This never happens in raw pcode so punting for now.
-                inputs: Vec::new(),
-            },
-            OpCode::CPUI_INDIRECT => two_in_one_out!(Indirect),
-            OpCode::CPUI_PIECE => two_in_one_out!(Piece),
-            OpCode::CPUI_SUBPIECE => two_in_one_out!(SubPiece),
-            OpCode::CPUI_CAST => one_in_one_out!(Cast),
-            OpCode::CPUI_PTRADD => PtrAdd {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                input2: VarNode::from(&value.inputs[2]),
-            },
-            OpCode::CPUI_PTRSUB => PtrSub {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-            },
-            OpCode::CPUI_SEGMENTOP => SegmentOp {
-                output: VarNode::from(value.output),
-                //todo: based on ghidra source, we likely want to extract some other piece
-                // of info here from the FFI object for input0's address space instead of
-                // storing the varnode
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                input2: VarNode::from(&value.inputs[2]),
-            },
-            OpCode::CPUI_CPOOLREF => CPoolRef {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                // todo: actually parse out extra args. This never happens in raw pcode so punting for now.
-                inputs: Vec::new(),
-            },
-            OpCode::CPUI_NEW => New {
-                output: VarNode::from(value.output),
-                input: VarNode::from(&value.inputs[0]),
-                size: value.inputs.get(1).map(VarNode::from),
-            },
-            OpCode::CPUI_INSERT => Insert {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                position: VarNode::from(&value.inputs[2]),
-                size: VarNode::from(&value.inputs[3]),
-            },
-            OpCode::CPUI_EXTRACT => Extract {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                position: VarNode::from(&value.inputs[1]),
-                size: VarNode::from(&value.inputs[2]),
-            },
-            OpCode::CPUI_POPCOUNT => one_in_one_out!(PopCount),
-            OpCode::CPUI_LZCOUNT => one_in_one_out!(LzCount),
-            // Sleigh should not be emitting any other values.
-            _ => unreachable!(),
         }
     }
 }

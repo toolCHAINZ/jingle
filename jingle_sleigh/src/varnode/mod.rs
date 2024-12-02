@@ -3,14 +3,12 @@ pub mod display;
 use crate::error::JingleSleighError;
 
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::space::SpaceManager;
-pub use crate::varnode::display::{
-    GeneralizedVarNodeDisplay, IndirectVarNodeDisplay, VarNodeDisplay,
-};
-use crate::{RawVarNodeDisplay, RegisterManager};
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use crate::space::{SharedSpaceInfo, SpaceManager};
+use crate::{RegisterManager, SpaceInfo, SpaceType};
+use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
+use std::rc::Rc;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -22,10 +20,10 @@ use std::ops::Range;
 /// `<space>\[<offset>\]:<size>`. In the case of constants, we simplify this to `<offset>:<size>`.
 /// For registers, we will (soon! (TM)) perform a register lookup and instead show the pretty
 /// architecture-defined register name.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct VarNode {
     /// The index at which the relevant space can be found in a [`SpaceManager`]
-    pub space_index: usize,
+    pub space: SharedSpaceInfo,
     /// The offset into the given space
     pub offset: u64,
     /// The size in bytes of the given [`VarNode`]
@@ -35,27 +33,12 @@ pub struct VarNode {
 }
 
 impl VarNode {
-    pub fn display<T: RegisterManager>(
-        &self,
-        ctx: &T,
-    ) -> Result<VarNodeDisplay, JingleSleighError> {
-        if let Some(name) = ctx.get_register_name(self) {
-            Ok(VarNodeDisplay::Register(name.to_string()))
-        } else {
-            ctx.get_space_info(self.space_index)
-                .map(|space_info| {
-                    VarNodeDisplay::Raw(RawVarNodeDisplay {
-                        size: self.size,
-                        offset: self.offset,
-                        space_info: space_info.clone(),
-                    })
-                })
-                .ok_or(JingleSleighError::InvalidSpaceName)
-        }
+    pub fn is_const(&self) -> bool {
+        self.space._type == SpaceType::IPTR_CONSTANT
     }
 
     pub fn covers(&self, other: &VarNode) -> bool {
-        if self.space_index != other.space_index {
+        if self.space.index != other.space.index {
             return false;
         }
         let self_range = self.offset..(self.offset + self.size as u64);
@@ -91,68 +74,18 @@ macro_rules! varnode {
     };
 }
 
-pub fn create_varnode<T: SpaceManager>(
-    ctx: &T,
-    name: &str,
-    offset: u64,
-    size: usize,
-) -> Result<VarNode, JingleSleighError> {
-    for (space_index, space) in ctx.get_all_space_info().iter().enumerate() {
-        if space.name.eq(name) {
-            return Ok(VarNode {
-                space_index,
-                size,
-                offset,
-            });
-        }
-    }
-    Err(JingleSleighError::InvalidSpaceName)
-}
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct IndirectVarNode {
-    pub pointer_space_index: usize,
+    pub pointer_space: SharedSpaceInfo,
     pub pointer_location: VarNode,
     pub access_size_bytes: usize,
 }
 
-impl IndirectVarNode {
-    pub fn display<T: RegisterManager>(
-        &self,
-        ctx: &T,
-    ) -> Result<IndirectVarNodeDisplay, JingleSleighError> {
-        let pointer_location = self.pointer_location.display(ctx);
-        let pointer_space_name = ctx
-            .get_space_info(self.pointer_space_index)
-            .ok_or(JingleSleighError::InvalidSpaceName);
-        pointer_location.and_then(|pointer_loc| {
-            pointer_space_name.map(|space| IndirectVarNodeDisplay {
-                pointer_space_name: space.name.clone(),
-                pointer_location: pointer_loc,
-                access_size_bytes: self.access_size_bytes,
-            })
-        })
-    }
-}
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum GeneralizedVarNode {
     Direct(VarNode),
     Indirect(IndirectVarNode),
-}
-
-impl GeneralizedVarNode {
-    pub fn display<T: RegisterManager>(
-        &self,
-        ctx: &T,
-    ) -> Result<GeneralizedVarNodeDisplay, JingleSleighError> {
-        match self {
-            GeneralizedVarNode::Direct(d) => Ok(GeneralizedVarNodeDisplay::Direct(d.display(ctx)?)),
-            GeneralizedVarNode::Indirect(i) => {
-                Ok(GeneralizedVarNodeDisplay::Indirect(i.display(ctx)?))
-            }
-        }
-    }
 }
 
 impl From<&VarNode> for GeneralizedVarNode {
@@ -179,66 +112,57 @@ impl From<IndirectVarNode> for GeneralizedVarNode {
     }
 }
 
-impl From<VarnodeInfoFFI> for VarNode {
-    fn from(value: VarnodeInfoFFI) -> Self {
-        Self {
-            size: value.size,
-            space_index: value.space.getIndex() as usize,
-            offset: value.offset,
-        }
-    }
-}
-
-impl From<&VarnodeInfoFFI> for VarNode {
-    fn from(value: &VarnodeInfoFFI) -> Self {
-        Self {
-            size: value.size,
-            space_index: value.space.getIndex() as usize,
-            offset: value.offset,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::VarNode;
+    use crate::{SleighEndianness, SpaceInfo, SpaceType, VarNode};
+    use std::rc::Rc;
+    use crate::space::SharedSpaceInfo;
 
     #[test]
     fn test_overlap() {
+        let space: SharedSpaceInfo = Rc::new(SpaceInfo {
+            index: 3,
+            index_size_bytes: 4,
+            word_size_bytes: 4,
+            _type: SpaceType::IPTR_PROCESSOR,
+            name: "ram".to_string(),
+            endianness: SleighEndianness::Little,
+        }).into();
+
         let vn1 = VarNode {
             offset: 0,
-            space_index: 0,
+            space: space.clone(),
             size: 4,
         };
         let tests = [
             VarNode {
                 offset: 0,
-                space_index: 0,
+                space: space.clone(),
                 size: 4,
             },
             VarNode {
                 offset: 0,
-                space_index: 0,
+                space: space.clone(),
                 size: 3,
             },
             VarNode {
                 offset: 0,
-                space_index: 0,
+                space: space.clone(),
                 size: 2,
             },
             VarNode {
                 offset: 2,
-                space_index: 0,
+                space: space.clone(),
                 size: 1,
             },
             VarNode {
                 offset: 2,
-                space_index: 0,
+                space: space.clone(),
                 size: 2,
             },
             VarNode {
                 offset: 2,
-                space_index: 0,
+                space: space.clone(),
                 size: 1,
             },
         ];

@@ -1,15 +1,13 @@
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
-use crate::pcode::display::PcodeOperationDisplay;
 use crate::pcode::PcodeOperation;
 use crate::JingleSleighError::EmptyInstruction;
 use crate::{OpCode, RegisterManager};
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 /// A rust representation of a SLEIGH assembly instruction
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Instruction {
     pub disassembly: Disassembly,
     /// The PCODE semantics of this instruction
@@ -23,24 +21,17 @@ pub struct Instruction {
 
 /// A helper structure allowing displaying an instruction and its semantics
 /// without requiring lots of pcode metadata to be stored in the instruction itself
-pub struct InstructionDisplay<'a, T: RegisterManager> {
+pub struct InstructionDisplay {
     pub disassembly: Disassembly,
-    pub ops: Vec<PcodeOperationDisplay<'a, T>>,
+    pub ops: Vec<PcodeOperation>,
 }
 
 impl Instruction {
     pub fn display<'a, T: RegisterManager>(
         &'a self,
         ctx: &'a T,
-    ) -> Result<InstructionDisplay<T>, JingleSleighError> {
-        let mut ops: Vec<PcodeOperationDisplay<T>> = Vec::with_capacity(self.ops.len());
-        for x in &self.ops {
-            ops.push(x.display(ctx)?)
-        }
-        Ok(InstructionDisplay {
-            disassembly: self.disassembly.clone(),
-            ops,
-        })
+    ) -> Result<InstructionDisplay, JingleSleighError> {
+        todo!()
     }
 
     pub fn next_addr(&self) -> u64 {
@@ -61,25 +52,13 @@ impl Instruction {
     }
 }
 
-impl<'a, T: RegisterManager> Display for InstructionDisplay<'a, T> {
+impl Display for InstructionDisplay {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} {}", self.disassembly.mnemonic, self.disassembly.args)?;
         for x in &self.ops {
             writeln!(f, "{}", x)?;
         }
         Ok(())
-    }
-}
-
-impl From<InstructionFFI> for Instruction {
-    fn from(value: InstructionFFI) -> Self {
-        let ops = value.ops.into_iter().map(PcodeOperation::from).collect();
-        Instruction {
-            disassembly: value.disassembly,
-            ops,
-            length: value.length,
-            address: value.address,
-        }
     }
 }
 

@@ -30,7 +30,7 @@ impl<'ctx> SpaceManager for State<'ctx> {
         self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.jingle.get_all_space_info()
     }
 
@@ -74,7 +74,7 @@ impl<'ctx> State<'ctx> {
 
     pub fn read_varnode<'a>(&'a self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
         let space = self
-            .get_space_info(varnode.space_index)
+            .get_space_info(varnode.space.index)
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
@@ -88,7 +88,7 @@ impl<'ctx> State<'ctx> {
                     varnode.offset as i64,
                     space.index_size_bytes * 8,
                 );
-                let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
+                let arr = self.spaces.get(varnode.space.index).ok_or(UnmodeledSpace)?;
                 arr.read_data(&offset, varnode.size)
             }
         }
@@ -96,7 +96,7 @@ impl<'ctx> State<'ctx> {
 
     pub fn read_varnode_metadata<'a>(&'a self, varnode: &VarNode) -> Result<BV<'ctx>, JingleError> {
         let space = self
-            .get_space_info(varnode.space_index)
+            .get_space_info(varnode.space.index)
             .ok_or(UnmodeledSpace)?;
 
         let offset = BV::from_i64(
@@ -104,7 +104,7 @@ impl<'ctx> State<'ctx> {
             varnode.offset as i64,
             space.index_size_bytes * 8,
         );
-        let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
+        let arr = self.spaces.get(varnode.space.index).ok_or(UnmodeledSpace)?;
         arr.read_metadata(&offset, varnode.size)
     }
 
@@ -113,7 +113,7 @@ impl<'ctx> State<'ctx> {
         indirect: &IndirectVarNode,
     ) -> Result<BV<'ctx>, JingleError> {
         let pointer_space_info = self
-            .get_space_info(indirect.pointer_space_index)
+            .get_space_info(indirect.pointer_space.index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
@@ -122,7 +122,7 @@ impl<'ctx> State<'ctx> {
 
         let space = self
             .spaces
-            .get(indirect.pointer_space_index)
+            .get(indirect.pointer_space.index)
             .ok_or(UnmodeledSpace)?;
         space.read_data(&ptr, indirect.access_size_bytes)
     }
@@ -132,7 +132,7 @@ impl<'ctx> State<'ctx> {
         indirect: &IndirectVarNode,
     ) -> Result<BV<'ctx>, JingleError> {
         let pointer_space_info = self
-            .get_space_info(indirect.pointer_space_index)
+            .get_space_info(indirect.pointer_space.index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
@@ -141,7 +141,7 @@ impl<'ctx> State<'ctx> {
 
         let space = self
             .spaces
-            .get(indirect.pointer_space_index)
+            .get(indirect.pointer_space.index)
             .ok_or(UnmodeledSpace)?;
         space.read_metadata(&ptr, indirect.access_size_bytes)
     }
@@ -171,14 +171,14 @@ impl<'ctx> State<'ctx> {
         }
         let info = self
             .jingle
-            .get_space_info(dest.space_index)
+            .get_space_info(dest.space.index)
             .ok_or(UnmodeledSpace)?;
         match info._type {
             SpaceType::IPTR_CONSTANT => Err(ConstantWrite),
             _ => {
                 let space = self
                     .spaces
-                    .get_mut(dest.space_index)
+                    .get_mut(dest.space.index)
                     .ok_or(UnmodeledSpace)?;
                 space.write_data(
                     &val,
@@ -201,11 +201,11 @@ impl<'ctx> State<'ctx> {
         // to allow flagging userop values for syscalls
         let space = self
             .spaces
-            .get_mut(dest.space_index)
+            .get_mut(dest.space.index)
             .ok_or(UnmodeledSpace)?;
         let info = self
             .jingle
-            .get_space_info(dest.space_index)
+            .get_space_info(dest.space.index)
             .ok_or(UnmodeledSpace)?;
 
         space.write_metadata(
@@ -223,14 +223,14 @@ impl<'ctx> State<'ctx> {
     ) -> Result<(), JingleError> {
         let info = self
             .jingle
-            .get_space_info(dest.pointer_space_index)
+            .get_space_info(dest.pointer_space.index)
             .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index].write_data(&val, &ptr)?;
+        self.spaces[dest.pointer_space.index].write_data(&val, &ptr)?;
         Ok(())
     }
 
@@ -241,14 +241,14 @@ impl<'ctx> State<'ctx> {
     ) -> Result<(), JingleError> {
         let info = self
             .jingle
-            .get_space_info(dest.pointer_space_index)
+            .get_space_info(dest.pointer_space.index)
             .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index].write_metadata(&val, &ptr)?;
+        self.spaces[dest.pointer_space.index].write_metadata(&val, &ptr)?;
         Ok(())
     }
 
@@ -259,7 +259,7 @@ impl<'ctx> State<'ctx> {
         match vn {
             ResolvedVarnode::Direct(d) => self.read_varnode(d),
             ResolvedVarnode::Indirect(indirect) => {
-                let array = self.get_space(indirect.pointer_space_idx)?;
+                let array = self.get_space(indirect.pointer_space.index)?;
                 (0..indirect.access_size_bytes)
                     .map(|i| {
                         array
@@ -299,7 +299,6 @@ impl<'ctx> State<'ctx> {
         let mut terms = vec![];
         for (i, _) in self
             .get_all_space_info()
-            .iter()
             .enumerate()
             .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
         {

@@ -1,6 +1,6 @@
 use crate::pcode::PcodeOperation;
 use crate::RegisterManager;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, LowerHex};
 
 pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
     pub(crate) op: PcodeOperation,
@@ -9,22 +9,33 @@ pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
 
 impl<'a, T: RegisterManager> PcodeOperationDisplay<'a, T> {}
 
-impl<'a, T> Display for PcodeOperationDisplay<'a, T>
-where
-    T: RegisterManager,
-{
+impl Display for PcodeOperation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(o) = self.op.output() {
-            write!(f, "{} = ", o.display(self.ctx)?)?;
+        if let Some(o) = self.output() {
+            write!(f, "{} = ", o)?;
         }
-        write!(f, "{} ", self.op.opcode())?;
+        write!(f, "{} ", self.opcode())?;
         let mut args: Vec<String> = vec![];
-        for x in self.op.inputs() {
-            args.push(format!("{}", x.display(self.ctx)?));
+        for x in self.inputs() {
+            args.push(format!("{}", x));
         }
         write!(f, "{}", args.join(", "))?;
         Ok(())
     }
+}
+
+impl LowerHex for PcodeOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(o) = self.output() {
+            write!(f, "{:x} = ", o)?;
+        }
+        write!(f, "{} ", self.opcode())?;
+        let mut args: Vec<String> = vec![];
+        for x in self.inputs() {
+            args.push(format!("{:x}", x));
+        }
+        write!(f, "{}", args.join(", "))?;
+        Ok(())    }
 }
 
 impl Display for crate::ffi::opcode::bridge::OpCode {

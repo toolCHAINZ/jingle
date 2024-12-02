@@ -2,22 +2,21 @@ use crate::error::JingleError;
 use crate::modeling::branch::BlockEndBehavior::{Fallthrough, UnconditionalBranch};
 use crate::modeling::ModelingContext;
 use crate::sleigh::{GeneralizedVarNode, VarNode};
-use serde::{Deserialize, Serialize};
 use std::ops::Not;
 use z3::ast::{Ast, BV};
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockConditionalBranchInfo {
     pub condition: VarNode,
     pub destination: GeneralizedVarNode,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BranchConstraint {
     pub last: BlockEndBehavior,
     pub conditional_branches: Vec<BlockConditionalBranchInfo>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockEndBehavior {
     Fallthrough(VarNode),
     UnconditionalBranch(GeneralizedVarNode),

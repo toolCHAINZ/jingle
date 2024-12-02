@@ -1,3 +1,6 @@
+use std::hash::{Hash, Hasher};
+use std::ops::Deref;
+use std::rc::Rc;
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::ffi::context_ffi::bridge::AddrSpaceHandle;
 use crate::space::SleighEndianness::{Big, Little};
@@ -42,14 +45,38 @@ pub struct SpaceInfo {
     pub endianness: SleighEndianness,
 }
 
+#[derive(Debug, Clone)]
+pub struct SharedSpaceInfo(Rc<SpaceInfo>);
+
+impl From<Rc<SpaceInfo>> for SharedSpaceInfo {
+    fn from(value: Rc<SpaceInfo>) -> Self {
+        Self(value)
+    }
+}
+impl Deref for SharedSpaceInfo {
+    type Target = Rc<SpaceInfo>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Hash for SharedSpaceInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.index.hash(state);
+    }
+}
+
+impl PartialEq for SharedSpaceInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.index == other.0.index
+    }
+}
+
+impl Eq for SharedSpaceInfo{}
+
 impl SpaceInfo {
     /// Create a varnode of the given offset and size residing in this space.
     pub fn make_varnode(&self, offset: u64, size: usize) -> VarNode {
-        VarNode {
-            space_index: self.index,
-            offset,
-            size,
-        }
+        todo!()
     }
 }
 
@@ -94,23 +121,14 @@ pub trait SpaceManager {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
 
     /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
-    fn get_all_space_info(&self) -> &[SpaceInfo];
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo>;
 
     /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
     fn get_code_space_idx(&self) -> usize;
 
     /// A helper function to generate a [`VarNode`] using the name of a space
     fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
-        for (space_index, space) in self.get_all_space_info().iter().enumerate() {
-            if space.name.eq(name) {
-                return Ok(VarNode {
-                    space_index,
-                    size,
-                    offset,
-                });
-            }
-        }
-        Err(JingleSleighError::InvalidSpaceName)
+        todo!()
     }
 }
 
@@ -135,7 +153,7 @@ impl<T: SpaceManager> SpaceManager for &[T] {
         self[0].get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self[0].get_all_space_info()
     }
 

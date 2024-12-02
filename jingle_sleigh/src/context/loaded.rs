@@ -46,7 +46,8 @@ impl<'a> LoadedSleighContext<'a> {
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
-        let img = Box::pin(ImageFFI::new(img, sleigh_context.get_code_space_idx()));
+        let default_code_space = sleigh_context.spaces[sleigh_context.get_code_space_idx()].clone();
+        let img = Box::pin(ImageFFI::new(img, default_code_space));
         let mut s = Self {
             sleigh: sleigh_context,
             img,
@@ -65,10 +66,11 @@ impl<'a> LoadedSleighContext<'a> {
         let instr = self
             .ctx
             .get_one_instruction(offset)
-            .map(Instruction::from)
+            .map(|i| self.translate_instruction(i))
             .ok()?;
+        let space = self.spaces.get(self.sleigh.get_code_space_idx()).cloned()?;
         let vn = VarNode {
-            space_index: self.sleigh.get_code_space_idx(),
+            space: space.into(),
             size: instr.length,
             offset,
         };
@@ -88,7 +90,7 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Read the byte range specified by the given [`VarNode`] from the configured image provider.
     pub fn read_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
-        if vn.space_index == self.get_code_space_idx() {
+        if vn.space.index == self.get_code_space_idx() {
             self.img.provider.get_bytes(&self.adjust_varnode_vma(vn))
         } else {
             None
@@ -113,7 +115,7 @@ impl<'a> LoadedSleighContext<'a> {
         img: T,
     ) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
-        *img_ref = ImageFFI::new(img, sleigh.get_code_space_idx());
+        *img_ref = ImageFFI::new(img, sleigh.spaces[sleigh.get_code_space_idx()].clone());
         sleigh
             .ctx
             .pin_mut()
@@ -146,7 +148,7 @@ impl<'a> LoadedSleighContext<'a> {
     // todo: properly account for spaces with non-byte-based indexing
     fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
         VarNode {
-            space_index: vn.space_index,
+            space: vn.space.clone(),
             size: vn.size,
             offset: vn.offset.wrapping_sub(self.get_base_address()),
         }
@@ -158,7 +160,7 @@ impl<'a> SpaceManager for LoadedSleighContext<'a> {
         self.sleigh.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.sleigh.get_all_space_info()
     }
 
@@ -186,10 +188,20 @@ mod tests {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
     use crate::PcodeOperation::Branch;
-    use crate::VarNode;
+    use crate::{SharedSpaceInfo, SleighEndianness, SpaceInfo, SpaceType, VarNode};
+    use std::rc::Rc;
 
     #[test]
     fn test_adjust_vma() {
+        let space: SharedSpaceInfo = Rc::new(SpaceInfo {
+            index: 3,
+            index_size_bytes: 4,
+            word_size_bytes: 4,
+            _type: SpaceType::IPTR_PROCESSOR,
+            name: "ram".to_string(),
+            endianness: SleighEndianness::Little,
+        }).into();
+
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
@@ -197,7 +209,7 @@ mod tests {
         let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
         let first = loaded
             .read_bytes(&VarNode {
-                space_index: 3,
+                space: space.clone(),
                 size: 5,
                 offset: 0,
             })
@@ -209,7 +221,7 @@ mod tests {
         assert!(loaded.instruction_at(0).is_none());
         assert_eq!(
             loaded.read_bytes(&VarNode {
-                space_index: 3,
+                space: space.clone(),
                 size: 5,
                 offset: 0
             }),
@@ -217,7 +229,7 @@ mod tests {
         );
         let second = loaded
             .read_bytes(&VarNode {
-                space_index: 3,
+                space: space.clone(),
                 size: 5,
                 offset: 100,
             })
@@ -232,6 +244,14 @@ mod tests {
 
     #[test]
     pub fn relative_addresses() {
+        let space: SharedSpaceInfo = Rc::new(SpaceInfo {
+            index: 3,
+            index_size_bytes: 4,
+            word_size_bytes: 4,
+            _type: SpaceType::IPTR_PROCESSOR,
+            name: "ram".to_string(),
+            endianness: SleighEndianness::Little,
+        }).into();
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
@@ -243,7 +263,7 @@ mod tests {
             instr.ops[0],
             Branch {
                 input: VarNode {
-                    space_index: 3,
+                    space: space.clone(),
                     size: 8,
                     offset: 7
                 }
@@ -255,7 +275,7 @@ mod tests {
             instr2.ops[0],
             Branch {
                 input: VarNode {
-                    space_index: 3,
+                    space: space.clone(),
                     size: 8,
                     offset: 0x107
                 }
