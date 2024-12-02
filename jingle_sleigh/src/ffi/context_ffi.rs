@@ -1,7 +1,7 @@
 // This is necessary due to a change circa rust 1.83.0 that
 // flags the lifetime in ImageFFI as needed for elision.
 // Could probably be fixed with a change in CXX.
-#![allow(clippy::needless-lifetimes)]
+#![allow(clippy::needless_lifetimes)]
 
 use crate::context::image::ImageProvider;
 use crate::ffi::context_ffi::bridge::makeContext;
