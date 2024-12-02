@@ -7,7 +7,7 @@ pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
     pub(crate) ctx: &'a T,
 }
 
-impl< T: RegisterManager> PcodeOperationDisplay<'_, T> {}
+impl<T: RegisterManager> PcodeOperationDisplay<'_, T> {}
 
 impl<T> Display for PcodeOperationDisplay<'_, T>
 where
