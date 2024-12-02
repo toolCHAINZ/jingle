@@ -17,14 +17,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable]
-        os: [ubuntu]
+        rust: [ stable ]
+        os: [ ubuntu ]
     env:
       CXXFLAGS: ${{matrix.flags}}
       RUSTFLAGS: --cfg deny_warnings -Dwarnings
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.rust}}
