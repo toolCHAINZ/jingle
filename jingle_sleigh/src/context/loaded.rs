@@ -4,7 +4,7 @@ use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{
-    Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager,
+    Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceManager,
     VarNode,
 };
 use std::fmt::{Debug, Formatter};
@@ -73,7 +73,7 @@ impl<'a> LoadedSleighContext<'a> {
             .ok()?;
         let space = self.spaces.get(self.sleigh.get_code_space_idx()).cloned()?;
         let vn = VarNode {
-            space: space.into(),
+            space,
             size: instr.length,
             offset,
         };

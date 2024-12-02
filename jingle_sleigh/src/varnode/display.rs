@@ -1,7 +1,6 @@
 use crate::ffi::addrspace::bridge::SpaceType;
-use crate::space::SpaceInfo;
 use crate::{GeneralizedVarNode, IndirectVarNode, VarNode};
-use std::fmt::{Debug, Display, Formatter, LowerHex};
+use std::fmt::{Display, Formatter, LowerHex};
 
 impl Display for VarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

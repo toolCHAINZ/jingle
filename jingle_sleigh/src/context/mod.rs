@@ -88,14 +88,14 @@ impl SleighContext {
             .ok_or(InvalidSpaceName)?
             .clone();
         Ok(VarNode {
-            space: space.into(),
+            space,
             offset,
             size,
         })
     }
     fn translate_varnode(&self, vn_ffi: &VarnodeInfoFFI) -> VarNode {
         VarNode {
-            space: self.spaces[vn_ffi.space.getIndex() as usize].clone().into(),
+            space: self.spaces[vn_ffi.space.getIndex() as usize].clone(),
             offset: vn_ffi.offset,
             size: vn_ffi.size,
         }
@@ -221,9 +221,7 @@ impl SleighContext {
                 let output = self.translate_varnode(&value.output);
                 Load {
                     input: IndirectVarNode {
-                        pointer_space: SharedSpaceInfo::from(
-                            self.spaces[space.getIndex() as usize].clone(),
-                        ),
+                        pointer_space: self.spaces[space.getIndex() as usize].clone(),
                         pointer_location: self.translate_varnode(&value.inputs[1]),
                         access_size_bytes: output.size,
                     },
@@ -239,9 +237,7 @@ impl SleighContext {
                 let input = self.translate_varnode(&value.inputs[2]);
                 Store {
                     output: IndirectVarNode {
-                        pointer_space: SharedSpaceInfo::from(
-                            self.spaces[space.getIndex() as usize].clone(),
-                        ),
+                        pointer_space: self.spaces[space.getIndex() as usize].clone(),
                         pointer_location: self.translate_varnode(&value.inputs[1]),
                         access_size_bytes: input.size,
                     },
@@ -396,7 +392,7 @@ impl SleighContext {
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::{RegisterManager, VarNode};
+    use crate::RegisterManager;
 
     #[test]
     fn get_regs() {

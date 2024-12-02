@@ -8,7 +8,7 @@ use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::{Instruction, SharedSpaceInfo};
-use jingle_sleigh::{SpaceInfo, SpaceManager};
+use jingle_sleigh::SpaceManager;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 

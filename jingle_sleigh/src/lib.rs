@@ -13,7 +13,6 @@ pub use instruction::*;
 pub use pcode::*;
 pub use space::SharedSpaceInfo;
 pub use space::{RegisterManager, SleighEndianness, SpaceInfo, SpaceManager};
-pub use varnode::display::*;
 pub use varnode::{GeneralizedVarNode, IndirectVarNode, VarNode};
 #[cfg(test)]
 mod tests {

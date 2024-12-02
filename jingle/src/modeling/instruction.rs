@@ -9,7 +9,7 @@ use crate::modeling::state::State;
 
 use crate::varnode::ResolvedVarnode;
 use crate::{JingleContext, JingleError};
-use jingle_sleigh::{SpaceInfo, SpaceManager};
+use jingle_sleigh::SpaceManager;
 
 /// A `jingle` model of an individual SLEIGH instruction
 #[derive(Debug, Clone)]

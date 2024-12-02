@@ -1,14 +1,11 @@
 pub mod display;
 
-use crate::error::JingleSleighError;
 
-use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::space::{SharedSpaceInfo, SpaceManager};
-use crate::{RegisterManager, SpaceInfo, SpaceType};
-use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
+use crate::space::SharedSpaceInfo;
+use crate::SpaceType;
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Range;
-use std::rc::Rc;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.

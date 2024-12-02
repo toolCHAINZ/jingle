@@ -1,5 +1,5 @@
 use crate::modeling::State;
-use jingle_sleigh::{RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager, VarNode};
+use jingle_sleigh::{RegisterManager, SharedSpaceInfo, SpaceManager, VarNode};
 use std::ops::Deref;
 use std::rc::Rc;
 use z3::Context;

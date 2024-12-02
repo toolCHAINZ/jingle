@@ -138,7 +138,7 @@ pub trait SpaceManager {
             .ok_or(InvalidSpaceName)?
             .clone();
         Ok(VarNode {
-            space: space.into(),
+            space,
             offset,
             size,
         })

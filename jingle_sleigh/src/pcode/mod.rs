@@ -13,12 +13,9 @@ use crate::pcode::PcodeOperation::{
     PtrAdd, PtrSub, Return, SegmentOp, Store, SubPiece,
 };
 
-use crate::error::JingleSleighError;
-use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
 use crate::varnode::{IndirectVarNode, VarNode};
-use crate::{GeneralizedVarNode, RegisterManager};
-use serde::{Deserialize, Serialize};
+use crate::GeneralizedVarNode;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
