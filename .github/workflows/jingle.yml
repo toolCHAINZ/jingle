@@ -30,4 +30,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.rust}}
-      - run: cargo build --manifest-path jingle_sleigh/Cargo.toml
+      - run: cargo build --all-features --manifest-path jingle_sleigh/Cargo.toml
