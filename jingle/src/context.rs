@@ -1,5 +1,5 @@
 use crate::modeling::State;
-use jingle_sleigh::{RegisterManager, SpaceInfo, SpaceManager, VarNode};
+use jingle_sleigh::{RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager, VarNode};
 use std::ops::Deref;
 use std::rc::Rc;
 use z3::Context;
@@ -7,7 +7,7 @@ use z3::Context;
 #[derive(Clone, Debug)]
 pub struct JingleContextInternal<'ctx> {
     pub z3: &'ctx Context,
-    spaces: Vec<SpaceInfo>,
+    spaces: Vec<SharedSpaceInfo>,
     default_code_space_index: usize,
     registers: Vec<(VarNode, String)>,
 }
@@ -39,11 +39,11 @@ impl<'ctx> JingleContext<'ctx> {
 }
 
 impl<'ctx> SpaceManager for JingleContext<'ctx> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
         self.spaces.get(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator< Item = &SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
         self.spaces.iter()
     }
 

@@ -25,7 +25,7 @@ use std::rc::Rc;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
-    spaces: Vec<Rc<SpaceInfo>>,
+    spaces: Vec<SharedSpaceInfo>,
     language_id: String,
     registers: Vec<(VarNode, String)>,
 }
@@ -37,12 +37,12 @@ impl Debug for SleighContext {
 }
 
 impl SpaceManager for SleighContext {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.spaces.get(idx).map(|a| a.as_ref())
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
+        self.spaces.get(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.spaces.iter().map(|s| s.as_ref())
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
+        self.spaces.iter()
     }
 
     fn get_code_space_idx(&self) -> usize {
@@ -75,7 +75,7 @@ impl RegisterManager for SleighContext {
 }
 
 impl SleighContext {
-    fn varnode(
+    pub fn varnode(
         &self,
         space_name: &str,
         offset: u64,
@@ -110,10 +110,10 @@ impl SleighContext {
         match CTX_BUILD_MUTEX.lock() {
             Ok(make_context) => {
                 let ctx = make_context(path_str).map_err(|e| SleighInitError(e.to_string()))?;
-                let mut spaces: Vec<Rc<SpaceInfo>> =
+                let mut spaces: Vec<SharedSpaceInfo> =
                     Vec::with_capacity(ctx.getNumSpaces() as usize);
                 for idx in 0..ctx.getNumSpaces() {
-                    spaces.push(Rc::new(SpaceInfo::from(ctx.getSpaceByIndex(idx))));
+                    spaces.push(Rc::new(SpaceInfo::from(ctx.getSpaceByIndex(idx))).into());
                 }
                 let mut s = Self {
                     ctx,

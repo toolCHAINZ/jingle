@@ -1,5 +1,5 @@
 use crate::modeling::{ModelingContext, TranslationContext};
-use jingle_sleigh::Instruction;
+use jingle_sleigh::{Instruction, SharedSpaceInfo};
 use jingle_sleigh::PcodeOperation;
 
 use std::collections::HashSet;
@@ -52,11 +52,11 @@ impl<'ctx> ModeledInstruction<'ctx> {
 }
 
 impl<'ctx> SpaceManager for ModeledInstruction<'ctx> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
         self.state.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) ->impl Iterator<Item = &SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
         self.state.get_all_space_info()
     }
 

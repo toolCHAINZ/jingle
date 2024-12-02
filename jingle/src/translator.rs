@@ -1,5 +1,5 @@
 use crate::error::JingleError;
-use jingle_sleigh::{Instruction, RegisterManager, SpaceInfo, VarNode};
+use jingle_sleigh::{Instruction, RegisterManager, SharedSpaceInfo, SpaceInfo, VarNode};
 
 use crate::modeling::ModeledInstruction;
 use crate::JingleContext;
@@ -48,11 +48,11 @@ impl<'ctx> SleighTranslator<'ctx> {
 }
 
 impl<'ctx> SpaceManager for SleighTranslator<'ctx> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
         self.sleigh.get_all_space_info()
     }
 

@@ -70,11 +70,11 @@ pub(crate) struct ImageFFI<'a> {
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(provider: T, space: Rc<SpaceInfo>) -> Self {
+    pub(crate) fn new<T: ImageProvider + 'a>(provider: T, space: SharedSpaceInfo) -> Self {
         Self {
             provider: Box::pin(provider),
             base_offset: 0,
-            space: space.into(),
+            space,
         }
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {

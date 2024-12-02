@@ -1,12 +1,9 @@
 mod display;
 
-use std::fmt::{Debug, Display, Formatter};
-use crate::error::JingleError;
-use crate::error::JingleError::UnmodeledSpace;
-use jingle_sleigh::{RegisterManager, SharedSpaceInfo, SpaceInfo};
+use jingle_sleigh::SharedSpaceInfo;
 use jingle_sleigh::VarNode;
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
-use std::rc::Rc;
 use z3::ast::BV;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -26,11 +23,15 @@ pub enum ResolvedVarnode<'ctx> {
     Indirect(ResolvedIndirectVarNode<'ctx>),
 }
 
-impl<'ctx> Display for ResolvedVarnode<'ctx>{
+impl<'ctx> Display for ResolvedVarnode<'ctx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ResolvedVarnode::Direct(d) => {write!(f, "{}", d)}
-            ResolvedVarnode::Indirect(i) => {write!(f, "{}", i)}
+            ResolvedVarnode::Direct(d) => {
+                write!(f, "{}", d)
+            }
+            ResolvedVarnode::Indirect(i) => {
+                write!(f, "{}", i)
+            }
         }
     }
 }

@@ -3,7 +3,7 @@ use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
-use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
+use crate::{Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -156,11 +156,11 @@ impl<'a> LoadedSleighContext<'a> {
 }
 
 impl<'a> SpaceManager for LoadedSleighContext<'a> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
         self.sleigh.get_all_space_info()
     }
 

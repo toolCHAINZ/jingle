@@ -9,10 +9,7 @@ use crate::error::JingleError::{
 use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
-use jingle_sleigh::{
-    GeneralizedVarNode, IndirectVarNode, RegisterManager, SpaceInfo, SpaceManager, SpaceType,
-    VarNode,
-};
+use jingle_sleigh::{GeneralizedVarNode, IndirectVarNode, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager, SpaceType, VarNode};
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
 
@@ -26,11 +23,11 @@ pub struct State<'ctx> {
 }
 
 impl<'ctx> SpaceManager for State<'ctx> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
         self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
         self.jingle.get_all_space_info()
     }
 

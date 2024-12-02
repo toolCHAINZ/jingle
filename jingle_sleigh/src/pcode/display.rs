@@ -1,14 +1,5 @@
 use crate::pcode::PcodeOperation;
-use crate::RegisterManager;
 use std::fmt::{Display, Formatter, LowerHex};
-
-pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
-    pub(crate) op: PcodeOperation,
-    pub(crate) ctx: &'a T,
-}
-
-impl<'a, T: RegisterManager> PcodeOperationDisplay<'a, T> {}
-
 impl Display for PcodeOperation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(o) = self.output() {

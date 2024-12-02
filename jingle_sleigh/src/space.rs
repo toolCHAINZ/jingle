@@ -8,6 +8,7 @@ use crate::varnode::VarNode;
 use crate::JingleSleighError;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
+use crate::JingleSleighError::InvalidSpaceName;
 
 /// What program-analysis library wouldn't be complete without an enum
 /// for endianness?
@@ -118,17 +119,29 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
 /// As a convenience,
 pub trait SpaceManager {
     /// Retrieve the [`SpaceInfo`] associated with the given index, if it exists
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo>;
 
     /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo>;
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo>;
 
     /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
     fn get_code_space_idx(&self) -> usize;
-
-    /// A helper function to generate a [`VarNode`] using the name of a space
-    fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
-        todo!()
+    fn varnode(
+        &self,
+        space_name: &str,
+        offset: u64,
+        size: usize,
+    ) -> Result<VarNode, JingleSleighError> {
+        let space = self
+            .get_all_space_info()
+            .find(|s| s.name == space_name)
+            .ok_or(InvalidSpaceName)?
+            .clone();
+        Ok(VarNode {
+            space: space.into(),
+            offset,
+            size,
+        })
     }
 }
 
@@ -149,11 +162,11 @@ pub trait RegisterManager: SpaceManager {
 /// `jingle` models traces of code using slices, so it is helpful to implement some of these
 /// traits on slices of types that implement those same traits.
 impl<T: SpaceManager> SpaceManager for &[T] {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+    fn get_space_info(&self, idx: usize) -> Option<&SharedSpaceInfo> {
         self[0].get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SharedSpaceInfo> {
         self[0].get_all_space_info()
     }
 
