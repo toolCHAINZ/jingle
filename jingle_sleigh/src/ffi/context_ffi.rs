@@ -51,6 +51,7 @@ pub(crate) mod bridge {
 
     extern "Rust" {
         include!("jingle_sleigh/src/ffi/instruction.rs.h");
+        #[allow(needless_lifetimes)]
         type ImageFFI<'a>;
         fn load(self: &ImageFFI, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize;
     }
