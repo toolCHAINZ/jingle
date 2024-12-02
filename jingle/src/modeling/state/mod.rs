@@ -25,7 +25,7 @@ pub struct State<'ctx> {
     spaces: Vec<ModeledSpace<'ctx>>,
 }
 
-impl<'ctx> SpaceManager for State<'ctx> {
+impl SpaceManager for State<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.jingle.get_space_info(idx)
     }
@@ -39,7 +39,7 @@ impl<'ctx> SpaceManager for State<'ctx> {
     }
 }
 
-impl<'ctx> RegisterManager for State<'ctx> {
+impl RegisterManager for State<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.jingle.get_register(name)
     }

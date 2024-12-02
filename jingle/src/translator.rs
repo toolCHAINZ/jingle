@@ -47,7 +47,7 @@ impl<'ctx> SleighTranslator<'ctx> {
     }
 }
 
-impl<'ctx> SpaceManager for SleighTranslator<'ctx> {
+impl SpaceManager for SleighTranslator<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
@@ -61,7 +61,7 @@ impl<'ctx> SpaceManager for SleighTranslator<'ctx> {
     }
 }
 
-impl<'ctx> RegisterManager for SleighTranslator<'ctx> {
+impl RegisterManager for SleighTranslator<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.sleigh.get_register(name)
     }
