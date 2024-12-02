@@ -4,8 +4,7 @@ use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
 use crate::{
-    Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceManager,
-    VarNode,
+    Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceManager, VarNode,
 };
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};

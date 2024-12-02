@@ -10,8 +10,8 @@ use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
 use jingle_sleigh::{
-    GeneralizedVarNode, IndirectVarNode, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager,
-    SpaceType, VarNode,
+    GeneralizedVarNode, IndirectVarNode, RegisterManager, SharedSpaceInfo, SpaceManager, SpaceType,
+    VarNode,
 };
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
@@ -277,7 +277,7 @@ impl<'ctx> State<'ctx> {
         self.spaces[self.jingle.get_code_space_idx()].get_space()
     }
 
-    pub fn get_default_code_space_info(&self) -> &SpaceInfo {
+    pub fn get_default_code_space_info(&self) -> &SharedSpaceInfo {
         self.jingle
             .get_space_info(self.jingle.get_code_space_idx())
             .unwrap()

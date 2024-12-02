@@ -2,7 +2,7 @@ use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::pcode::PcodeOperation;
 use crate::JingleSleighError::EmptyInstruction;
-use crate::{OpCode, RegisterManager};
+use crate::OpCode;
 use std::fmt::{Display, Formatter};
 
 /// A rust representation of a SLEIGH assembly instruction
@@ -26,13 +26,6 @@ pub struct InstructionDisplay {
 }
 
 impl Instruction {
-    pub fn display<'a, T: RegisterManager>(
-        &'a self,
-        ctx: &'a T,
-    ) -> Result<InstructionDisplay, JingleSleighError> {
-        todo!()
-    }
-
     pub fn next_addr(&self) -> u64 {
         self.address + self.length as u64
     }

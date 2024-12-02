@@ -1,6 +1,5 @@
 pub mod display;
 
-
 use crate::space::SharedSpaceInfo;
 use crate::SpaceType;
 use std::fmt::Debug;

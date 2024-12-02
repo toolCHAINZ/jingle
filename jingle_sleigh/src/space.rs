@@ -74,10 +74,14 @@ impl PartialEq for SharedSpaceInfo {
 
 impl Eq for SharedSpaceInfo {}
 
-impl SpaceInfo {
+impl SharedSpaceInfo {
     /// Create a varnode of the given offset and size residing in this space.
     pub fn make_varnode(&self, offset: u64, size: usize) -> VarNode {
-        todo!()
+        VarNode {
+            space: self.clone(),
+            offset,
+            size,
+        }
     }
 }
 
