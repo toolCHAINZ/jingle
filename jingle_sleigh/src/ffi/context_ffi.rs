@@ -1,3 +1,8 @@
+// This is necessary due to a change circa rust 1.83.0 that
+// flags the lifetime in ImageFFI as needed for elision.
+// Could probably be fixed with a change in CXX.
+#![allow(needless_lifetimes)]
+
 use crate::context::image::ImageProvider;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
@@ -51,7 +56,6 @@ pub(crate) mod bridge {
 
     extern "Rust" {
         include!("jingle_sleigh/src/ffi/instruction.rs.h");
-        #[allow(needless_lifetimes)]
         type ImageFFI<'a>;
         fn load(self: &ImageFFI, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize;
     }
@@ -109,7 +113,7 @@ impl<'a> ImageFFI<'a> {
     }
 }
 
-unsafe impl<'a> ExternType for ImageFFI<'a> {
+unsafe impl ExternType for ImageFFI<'_> {
     type Id = cxx::type_id!("ImageFFI");
     type Kind = cxx::kind::Opaque;
 }
