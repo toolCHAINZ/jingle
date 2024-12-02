@@ -1,6 +1,6 @@
 use crate::modeling::{ModelingContext, TranslationContext};
-use jingle_sleigh::{Instruction, SharedSpaceInfo};
 use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{Instruction, SharedSpaceInfo};
 
 use std::collections::HashSet;
 

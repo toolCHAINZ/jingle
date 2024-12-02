@@ -81,7 +81,6 @@ pub struct IndirectVarNode {
     pub access_size_bytes: usize,
 }
 
-
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum GeneralizedVarNode {
     Direct(VarNode),
@@ -114,9 +113,9 @@ impl From<IndirectVarNode> for GeneralizedVarNode {
 
 #[cfg(test)]
 mod tests {
+    use crate::space::SharedSpaceInfo;
     use crate::{SleighEndianness, SpaceInfo, SpaceType, VarNode};
     use std::rc::Rc;
-    use crate::space::SharedSpaceInfo;
 
     #[test]
     fn test_overlap() {
@@ -127,7 +126,8 @@ mod tests {
             _type: SpaceType::IPTR_PROCESSOR,
             name: "ram".to_string(),
             endianness: SleighEndianness::Little,
-        }).into();
+        })
+        .into();
 
         let vn1 = VarNode {
             offset: 0,

@@ -9,7 +9,10 @@ use crate::error::JingleError::{
 use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
-use jingle_sleigh::{GeneralizedVarNode, IndirectVarNode, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager, SpaceType, VarNode};
+use jingle_sleigh::{
+    GeneralizedVarNode, IndirectVarNode, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager,
+    SpaceType, VarNode,
+};
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
 

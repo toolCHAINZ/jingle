@@ -3,7 +3,10 @@ use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
-use crate::{Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager, VarNode};
+use crate::{
+    Instruction, JingleSleighError, RegisterManager, SharedSpaceInfo, SpaceInfo, SpaceManager,
+    VarNode,
+};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -200,7 +203,8 @@ mod tests {
             _type: SpaceType::IPTR_PROCESSOR,
             name: "ram".to_string(),
             endianness: SleighEndianness::Little,
-        }).into();
+        })
+        .into();
 
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
@@ -251,7 +255,8 @@ mod tests {
             _type: SpaceType::IPTR_PROCESSOR,
             name: "ram".to_string(),
             endianness: SleighEndianness::Little,
-        }).into();
+        })
+        .into();
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();

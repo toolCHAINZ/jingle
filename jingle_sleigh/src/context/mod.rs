@@ -221,7 +221,9 @@ impl SleighContext {
                 let output = self.translate_varnode(&value.output);
                 Load {
                     input: IndirectVarNode {
-                        pointer_space: SharedSpaceInfo::from(self.spaces[space.getIndex() as usize].clone()),
+                        pointer_space: SharedSpaceInfo::from(
+                            self.spaces[space.getIndex() as usize].clone(),
+                        ),
                         pointer_location: self.translate_varnode(&value.inputs[1]),
                         access_size_bytes: output.size,
                     },
@@ -237,7 +239,9 @@ impl SleighContext {
                 let input = self.translate_varnode(&value.inputs[2]);
                 Store {
                     output: IndirectVarNode {
-                        pointer_space: SharedSpaceInfo::from(self.spaces[space.getIndex() as usize].clone()),
+                        pointer_space: SharedSpaceInfo::from(
+                            self.spaces[space.getIndex() as usize].clone(),
+                        ),
                         pointer_location: self.translate_varnode(&value.inputs[1]),
                         access_size_bytes: input.size,
                     },
@@ -440,7 +444,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.get_register_name(&sleigh.varnode("ram", 4,4).unwrap()),
+            sleigh.get_register_name(&sleigh.varnode("ram", 4, 4).unwrap()),
             None
         );
     }

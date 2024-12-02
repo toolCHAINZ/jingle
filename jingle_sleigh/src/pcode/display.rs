@@ -26,7 +26,8 @@ impl LowerHex for PcodeOperation {
             args.push(format!("{:x}", x));
         }
         write!(f, "{}", args.join(", "))?;
-        Ok(())    }
+        Ok(())
+    }
 }
 
 impl Display for crate::ffi::opcode::bridge::OpCode {

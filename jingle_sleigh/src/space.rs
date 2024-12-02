@@ -1,14 +1,14 @@
-use std::hash::{Hash, Hasher};
-use std::ops::Deref;
-use std::rc::Rc;
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::ffi::context_ffi::bridge::AddrSpaceHandle;
 use crate::space::SleighEndianness::{Big, Little};
 use crate::varnode::VarNode;
 use crate::JingleSleighError;
+use crate::JingleSleighError::InvalidSpaceName;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
-use crate::JingleSleighError::InvalidSpaceName;
+use std::hash::{Hash, Hasher};
+use std::ops::Deref;
+use std::rc::Rc;
 
 /// What program-analysis library wouldn't be complete without an enum
 /// for endianness?
@@ -72,7 +72,7 @@ impl PartialEq for SharedSpaceInfo {
     }
 }
 
-impl Eq for SharedSpaceInfo{}
+impl Eq for SharedSpaceInfo {}
 
 impl SpaceInfo {
     /// Create a varnode of the given offset and size residing in this space.

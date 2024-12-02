@@ -1,13 +1,13 @@
 use crate::context::image::ImageProvider;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
+use crate::space::SharedSpaceInfo;
 use crate::{SpaceInfo, VarNode};
 use bridge::ContextFFI;
 use cxx::{Exception, ExternType, UniquePtr};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
-use crate::space::SharedSpaceInfo;
 
 type ContextGeneratorFp = fn(&str) -> Result<UniquePtr<ContextFFI>, Exception>;
 
