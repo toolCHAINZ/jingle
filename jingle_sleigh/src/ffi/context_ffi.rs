@@ -1,3 +1,8 @@
+// This is necessary due to a change circa rust 1.83.0 that
+// flags the lifetime in ImageFFI as needed for elision.
+// Could probably be fixed with a change in CXX.
+#![allow(clippy::needless_lifetimes)]
+
 use crate::context::image::ImageProvider;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
@@ -108,7 +113,7 @@ impl<'a> ImageFFI<'a> {
     }
 }
 
-unsafe impl<'a> ExternType for ImageFFI<'a> {
+unsafe impl ExternType for ImageFFI<'_> {
     type Id = cxx::type_id!("ImageFFI");
     type Kind = cxx::kind::Opaque;
 }

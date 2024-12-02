@@ -38,7 +38,7 @@ impl<'ctx> JingleContext<'ctx> {
     }
 }
 
-impl<'ctx> SpaceManager for JingleContext<'ctx> {
+impl SpaceManager for JingleContext<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.spaces.get(idx)
     }
@@ -52,7 +52,7 @@ impl<'ctx> SpaceManager for JingleContext<'ctx> {
     }
 }
 
-impl<'ctx> RegisterManager for JingleContext<'ctx> {
+impl RegisterManager for JingleContext<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.registers
             .iter()

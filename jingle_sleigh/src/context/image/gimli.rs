@@ -20,7 +20,7 @@ impl<'a> From<&'a OwnedSection> for ImageSection<'a> {
     }
 }
 
-impl<'a, 'b> TryFrom<Section<'a, 'b>> for OwnedSection {
+impl TryFrom<Section<'_, '_>> for OwnedSection {
     type Error = JingleSleighError;
 
     fn try_from(value: Section) -> Result<Self, Self::Error> {
@@ -91,7 +91,7 @@ impl ImageProvider for OwnedFile {
     }
 }
 
-impl<'a> ImageProvider for File<'a> {
+impl ImageProvider for File<'_> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);

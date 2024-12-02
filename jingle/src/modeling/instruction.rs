@@ -51,7 +51,7 @@ impl<'ctx> ModeledInstruction<'ctx> {
     }
 }
 
-impl<'ctx> SpaceManager for ModeledInstruction<'ctx> {
+impl SpaceManager for ModeledInstruction<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.state.get_space_info(idx)
     }

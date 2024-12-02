@@ -1,63 +1,45 @@
 name: jingle_sleigh
 
+# Stealing the multi-platform CI configuration from
+# https://github.com/dtolnay/cxx/blob/master/.github/workflows/ci.yml
+# for testing build using CXX.
+
 on:
   push:
-    branches:
-      - main
-      - dev
-    paths:
-      - jingle_sleigh/**
-      - Cargo.lock
-      - Cargo.toml
   pull_request:
-    paths:
-      - jingle_sleigh/**
-      - Cargo.lock
-      - Cargo.toml
+  workflow_dispatch:
 
 jobs:
-  jingle_sleigh-build-test:
-    name: Build jingle_sleigh on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable]
+  pre_ci:
+    uses: dtolnay/.github/.github/workflows/pre_ci.yml@master
 
+  build:
+    name: ${{matrix.name || format('Rust {0}', matrix.rust)}}
+    needs: pre_ci
+    if: needs.pre_ci.outputs.continue
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [nightly, stable]
+        os: [ubuntu]
+        include:
+          - name: Cargo on macOS
+            rust: nightly
+            os: macos
+          - name: Cargo on Windows (msvc)
+            rust: nightly-x86_64-pc-windows-msvc
+            os: windows
+            flags: /EHsc
+    env:
+      CXXFLAGS: ${{matrix.flags}}
+      RUSTFLAGS: --cfg deny_warnings -Dwarnings
+    timeout-minutes: 45
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - name: Install Dependencies (Windows Only)
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install -y llvm
-
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-
-      - name: Cache Cargo build
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-jingle_sleigh-${{ hashFiles('jingle_sleigh/**', 'Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-jingle_sleigh-
-
-      - name: Build jingle_sleigh
-        run: cargo build --manifest-path jingle_sleigh/Cargo.toml
-
-#      - name: Test jingle_sleigh
-#        run: cargo test --manifest-path jingle_sleigh/Cargo.toml
+          toolchain: ${{matrix.rust}}
+      - run: cargo build --all-features --manifest-path jingle_sleigh/Cargo.toml
