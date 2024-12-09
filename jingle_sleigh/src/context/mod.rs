@@ -24,7 +24,7 @@ use crate::varnode::display::symbolized::{
 use crate::JingleSleighError::{ImageLoadError, InvalidSpaceName, SleighCompilerMutexError};
 use crate::{IndirectVarNode, Instruction, OpCode, PcodeOperation, SharedSpaceInfo, VarNode};
 use cxx::{SharedPtr, UniquePtr};
-use std::fmt::{Debug, Display, Formatter, LowerHex, UpperHex};
+use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::rc::Rc;
 
@@ -107,7 +107,7 @@ impl SleighContext {
     }
 
     fn apply_symbols_to_varnode(&self, op: &VarNode) -> SymbolizedVarNodeDisplay {
-        if let Some(s) = self.get_register_name(&op) {
+        if let Some(s) = self.get_register_name(op) {
             SymbolizedVarNodeDisplay::Symbol(s.to_string())
         } else {
             SymbolizedVarNodeDisplay::VarNode(op.clone())

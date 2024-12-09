@@ -25,7 +25,7 @@ impl SymbolizedPcodeOperationDisplay<'_, '_> {
         self.operation
             .inputs()
             .iter()
-            .map(|out| self.map_gen(&out))
+            .map(|out| self.map_gen(out))
             .collect()
     }
 }

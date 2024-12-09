@@ -23,7 +23,7 @@ pub enum ResolvedVarnode<'ctx> {
     Indirect(ResolvedIndirectVarNode<'ctx>),
 }
 
-impl<'ctx> Display for ResolvedVarnode<'ctx> {
+impl Display for ResolvedVarnode<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ResolvedVarnode::Direct(d) => {
@@ -36,7 +36,7 @@ impl<'ctx> Display for ResolvedVarnode<'ctx> {
     }
 }
 
-impl<'ctx> Display for ResolvedIndirectVarNode<'ctx> {
+impl Display for ResolvedIndirectVarNode<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
