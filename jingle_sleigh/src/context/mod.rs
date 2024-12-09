@@ -128,7 +128,7 @@ impl SleighContext {
     pub fn apply_symbols_to_operation<'a, 'b>(
         &'a self,
         op: &'b PcodeOperation,
-    ) -> SymbolizedPcodeOperationDisplay<'a,'b> {
+    ) -> SymbolizedPcodeOperationDisplay<'a, 'b> {
         SymbolizedPcodeOperationDisplay {
             operation: op,
             sleigh: self,

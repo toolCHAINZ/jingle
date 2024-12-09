@@ -34,7 +34,6 @@ impl UpperHex for VarNode {
     }
 }
 
-
 impl Display for IndirectVarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -102,5 +101,3 @@ impl UpperHex for GeneralizedVarNode {
         }
     }
 }
-
-

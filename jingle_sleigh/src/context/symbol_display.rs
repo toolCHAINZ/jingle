@@ -22,7 +22,11 @@ impl SymbolizedPcodeOperationDisplay<'_, '_> {
     }
 
     fn inputs(&self) -> Vec<SymbolizedGeneralVarNodeDisplay> {
-        self.operation.inputs().iter().map(|out| self.map_gen(&out)).collect()
+        self.operation
+            .inputs()
+            .iter()
+            .map(|out| self.map_gen(&out))
+            .collect()
     }
 }
 

@@ -140,7 +140,7 @@ fn disassemble(config: &JingleConfig, architecture: String, hex_bytes: String) {
 }
 
 fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) {
-    let (sleigh ,instrs) = get_instructions(config, architecture, hex_bytes);
+    let (sleigh, instrs) = get_instructions(config, architecture, hex_bytes);
     for instr in instrs {
         for x in &instr.ops {
             println!("{:x}", sleigh.apply_symbols_to_operation(x));
@@ -163,9 +163,7 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
             args: "".to_string(),
             mnemonic: "".to_string(),
         },
-        ops: vec![PcodeOperation::Branch {
-            input: dummy_vn,
-        }],
+        ops: vec![PcodeOperation::Branch { input: dummy_vn }],
         length: 1,
     });
 

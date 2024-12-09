@@ -76,18 +76,17 @@ pub enum SymbolizedGeneralVarNodeDisplay {
     Indirect(SymbolizedIndirectVarNodeDisplay),
 }
 
-impl From<SymbolizedVarNodeDisplay> for SymbolizedGeneralVarNodeDisplay{
+impl From<SymbolizedVarNodeDisplay> for SymbolizedGeneralVarNodeDisplay {
     fn from(value: SymbolizedVarNodeDisplay) -> Self {
         Self::Direct(value)
     }
 }
 
-impl From<SymbolizedIndirectVarNodeDisplay> for SymbolizedGeneralVarNodeDisplay{
+impl From<SymbolizedIndirectVarNodeDisplay> for SymbolizedGeneralVarNodeDisplay {
     fn from(value: SymbolizedIndirectVarNodeDisplay) -> Self {
         Self::Indirect(value)
     }
 }
-
 
 impl Display for SymbolizedGeneralVarNodeDisplay {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
