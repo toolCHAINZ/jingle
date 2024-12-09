@@ -2,6 +2,7 @@ mod builder;
 pub mod image;
 mod instruction_iterator;
 pub mod loaded;
+mod symbol_display;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
@@ -13,13 +14,17 @@ pub use builder::SleighContextBuilder;
 use crate::context::builder::language_def::LanguageDefinition;
 use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
+use crate::context::symbol_display::SymbolizedPcodeOperationDisplay;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::ffi::instruction::bridge::{RawPcodeOp, VarnodeInfoFFI};
 use crate::pcode::PcodeOperation::*;
+use crate::varnode::display::symbolized::{
+    SymbolizedIndirectVarNodeDisplay, SymbolizedVarNodeDisplay,
+};
 use crate::JingleSleighError::{ImageLoadError, InvalidSpaceName, SleighCompilerMutexError};
 use crate::{IndirectVarNode, Instruction, OpCode, PcodeOperation, SharedSpaceInfo, VarNode};
 use cxx::{SharedPtr, UniquePtr};
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter, LowerHex, UpperHex};
 use std::path::Path;
 use std::rc::Rc;
 
@@ -98,6 +103,35 @@ impl SleighContext {
             space: self.spaces[vn_ffi.space.getIndex() as usize].clone(),
             offset: vn_ffi.offset,
             size: vn_ffi.size,
+        }
+    }
+
+    fn apply_symbols_to_varnode(&self, op: &VarNode) -> SymbolizedVarNodeDisplay {
+        if let Some(s) = self.get_register_name(&op) {
+            SymbolizedVarNodeDisplay::Symbol(s.to_string())
+        } else {
+            SymbolizedVarNodeDisplay::VarNode(op.clone())
+        }
+    }
+
+    fn apply_symbols_to_indirect_varnode(
+        &self,
+        op: &IndirectVarNode,
+    ) -> SymbolizedIndirectVarNodeDisplay {
+        SymbolizedIndirectVarNodeDisplay {
+            pointer_space: op.pointer_space.clone(),
+            access_size_bytes: op.access_size_bytes,
+            pointer_location: self.apply_symbols_to_varnode(&op.pointer_location),
+        }
+    }
+
+    pub fn apply_symbols_to_operation<'a, 'b>(
+        &'a self,
+        op: &'b PcodeOperation,
+    ) -> SymbolizedPcodeOperationDisplay<'a,'b> {
+        SymbolizedPcodeOperationDisplay {
+            operation: op,
+            sleigh: self,
         }
     }
     pub(crate) fn new<T: AsRef<Path>>(

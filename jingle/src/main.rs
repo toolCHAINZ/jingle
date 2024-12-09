@@ -4,7 +4,7 @@ use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle::JingleContext;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::context::SleighContextBuilder;
-use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
+use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use z3::ast::Ast;
@@ -140,11 +140,10 @@ fn disassemble(config: &JingleConfig, architecture: String, hex_bytes: String) {
 }
 
 fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) {
-    let (sleigh, instrs) = get_instructions(config, architecture, hex_bytes);
+    let (sleigh ,instrs) = get_instructions(config, architecture, hex_bytes);
     for instr in instrs {
-        for x in instr.ops {
-            let x_disp = x.display(&sleigh).unwrap();
-            println!("{}", x_disp)
+        for x in &instr.ops {
+            println!("{:x}", sleigh.apply_symbols_to_operation(x));
         }
     }
 }
@@ -157,6 +156,7 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
     // to enter a block-terminating instruction. Everything with reading blocks needs to be reworked
     // at some point. For now, this lets me not break anything else relying on this behavior while
     // still getting this to work.
+    let dummy_vn = sleigh.varnode("const", 0x1000, 1).unwrap();
     instrs.push(Instruction {
         address: 0,
         disassembly: Disassembly {
@@ -164,11 +164,7 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
             mnemonic: "".to_string(),
         },
         ops: vec![PcodeOperation::Branch {
-            input: VarNode {
-                space_index: 1,
-                offset: 0,
-                size: 1,
-            },
+            input: dummy_vn,
         }],
         length: 1,
     });
