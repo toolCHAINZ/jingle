@@ -36,6 +36,10 @@ impl<'ctx> JingleContext<'ctx> {
     pub fn fresh_state(&self) -> State<'ctx> {
         State::new(self)
     }
+
+    pub fn get_code_space_info(&self) -> &SharedSpaceInfo{
+        &self.spaces[self.default_code_space_index]
+    }
 }
 
 impl SpaceManager for JingleContext<'_> {
