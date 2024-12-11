@@ -26,6 +26,7 @@ fn main() {
 
     let cpp_sources = vec![
         "src/ffi/cpp/zlib/inflate.c",
+        "src/ffi/cpp/zlib/deflate.c",
         "src/ffi/cpp/zlib/zutil.c",
         "src/ffi/cpp/zlib/inftrees.c",
         "src/ffi/cpp/zlib/inffast.c",
@@ -51,8 +52,6 @@ fn main() {
         "src/ffi/cpp/sleigh/xml.cc",
         "src/ffi/cpp/sleigh/filemanage.cc",
         "src/ffi/cpp/sleigh/pcodecompile.cc",
-        "src/ffi/cpp/sleigh/slghscan.cc",
-        "src/ffi/cpp/sleigh/slghparse.cc",
         "src/ffi/cpp/context.cpp",
         "src/ffi/cpp/dummy_load_image.cpp",
         "src/ffi/cpp/rust_load_image.cpp",
