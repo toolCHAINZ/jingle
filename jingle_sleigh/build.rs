@@ -60,6 +60,7 @@ const ZLIB_HEADERS: &[&str] = &[
     "inffixed.h",
     "inflate.h",
     "inftrees.h",
+    "trees.h",
     "zconf.h",
     "zlib.h",
     "zutil.h",
@@ -71,6 +72,7 @@ const ZLIB_SOURCES: &[&str] = &[
     "zutil.c",
     "inftrees.c",
     "inffast.c",
+    "trees.c",
     "adler32.c",
 ];
 
