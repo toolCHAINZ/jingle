@@ -1,10 +1,12 @@
 pub mod display;
+mod pod;
 
 use crate::space::SharedSpaceInfo;
 use crate::SpaceType;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Range;
+use crate::varnode::pod::PodVarNode;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -40,6 +42,9 @@ impl VarNode {
         let self_range = self.offset..(self.offset + self.size as u64);
         let other = other.offset..(other.offset + other.size as u64);
         self_range.start <= other.start && self_range.end >= other.end
+    }
+    pub fn to_pod(&self) -> PodVarNode{
+        self.into()
     }
 }
 
