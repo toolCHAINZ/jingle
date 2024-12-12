@@ -16,7 +16,7 @@ namespace rust {
         } catch (const ghidra::DecoderError &e) {
             fail(e.explain);
         } catch (const std::exception &e) {
-            throw e;
+            fail(e.what());
         }
     }
 }
