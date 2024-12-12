@@ -52,6 +52,7 @@ const SLEIGH_HEADERS: &[&str] = &[
     "types.h",
     "xml.hh",
 ];
+
 const ZLIB_HEADERS: &[&str] = &[
     "deflate.h",
     "gzguts.h",
@@ -59,6 +60,7 @@ const ZLIB_HEADERS: &[&str] = &[
     "inffixed.h",
     "inflate.h",
     "inftrees.h",
+    "zconf.h",
     "zlib.h",
     "zutil.h",
 ];
