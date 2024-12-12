@@ -66,6 +66,7 @@ const ZLIB_HEADERS: &[&str] = &[
 ];
 
 const ZLIB_SOURCES: &[&str] = &[
+    "deflate.c",
     "inflate.c",
     "zutil.c",
     "inftrees.c",
@@ -134,6 +135,7 @@ fn main() {
         .flag_if_supported("-std=c++17")
         .flag_if_supported("-DLOCAL_ZLIB")
         .flag_if_supported("-DNO_GZIP")
+        .flag_if_supported("-Wno-register")
         .flag_if_supported("-w");
 
     if cfg!(windows) {
