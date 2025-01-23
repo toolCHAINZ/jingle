@@ -91,7 +91,10 @@ fn main() -> anyhow::Result<()> {
             architecture,
             hex_bytes,
         } => model(&config, architecture, hex_bytes),
-        Commands::Architectures => Ok(list_architectures(&config)),
+        Commands::Architectures => {
+            list_architectures(&config);
+            Ok(())
+        }
     }
 }
 
