@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hex::decode;
 use jingle::modeling::{ModeledBlock, ModelingContext};
@@ -8,7 +9,7 @@ use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation,
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use z3::ast::Ast;
-use z3::{Config, Context, Solver};
+use z3::{Config, Context as Z3Context, Solver};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {
@@ -73,10 +74,10 @@ enum Commands {
     Architectures,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let params: JingleParams = JingleParams::parse();
     update_config(&params);
-    let config: JingleConfig = confy::load("jingle", None).unwrap();
+    let config: JingleConfig = confy::load("jingle", None)?;
     match params.command {
         Commands::Disassemble {
             architecture,
@@ -90,15 +91,17 @@ fn main() {
             architecture,
             hex_bytes,
         } => model(&config, architecture, hex_bytes),
-        Commands::Architectures => list_architectures(&config),
+        Commands::Architectures => Ok(list_architectures(&config)),
     }
 }
 
 fn update_config(params: &JingleParams) {
     let stored_config: JingleConfig = confy::load("jingle", None).unwrap();
-    let new_config = JingleConfig::from(params);
-    if stored_config != new_config {
-        confy::store("jingle", None, new_config).unwrap()
+    if params.ghidra_path.is_some() {
+        let new_config = JingleConfig::from(params);
+        if stored_config != new_config {
+            confy::store("jingle", None, new_config).unwrap()
+        }
     }
 }
 
@@ -113,13 +116,20 @@ fn get_instructions(
     config: &JingleConfig,
     architecture: String,
     hex_bytes: String,
-) -> (LoadedSleighContext, Vec<Instruction>) {
-    let sleigh_build = config.sleigh_builder().unwrap();
-    let img = decode(hex_bytes).unwrap();
+) -> anyhow::Result<(LoadedSleighContext, Vec<Instruction>)> {
+    let sleigh_build = config.sleigh_builder().context(format!(
+        "Unable to parse selected architecture. \n\
+    This may indicate that your configured Ghidra path is incorrect: {}",
+        config.ghidra_path.display()
+    ))?;
+    let img = decode(hex_bytes)?;
     let max_len = img.len();
     let mut offset = 0;
-    let sleigh = sleigh_build.build(&architecture).unwrap();
-    let sleigh = sleigh.initialize_with_image(img).unwrap();
+    let sleigh = sleigh_build
+        .build(&architecture)
+        .context("Unable to build the selected architecture.\n\
+        This is either a bug in sleigh or the .sinc file for your architecture is malformed.")?;
+    let sleigh = sleigh.initialize_with_image(img)?;
     let mut instrs = vec![];
     while offset < max_len {
         if let Some(instruction) = sleigh.instruction_at(offset as u64) {
@@ -130,29 +140,35 @@ fn get_instructions(
             break;
         }
     }
-    (sleigh, instrs)
+    Ok((sleigh, instrs))
 }
 
-fn disassemble(config: &JingleConfig, architecture: String, hex_bytes: String) {
-    for instr in get_instructions(config, architecture, hex_bytes).1 {
+fn disassemble(
+    config: &JingleConfig,
+    architecture: String,
+    hex_bytes: String,
+) -> anyhow::Result<()> {
+    for instr in get_instructions(config, architecture, hex_bytes)?.1 {
         println!("{}", instr.disassembly)
     }
+    Ok(())
 }
 
-fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) {
-    let (sleigh, instrs) = get_instructions(config, architecture, hex_bytes);
+fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyhow::Result<()> {
+    let (sleigh, instrs) = get_instructions(config, architecture, hex_bytes)?;
     for instr in instrs {
         for x in instr.ops {
-            let x_disp = x.display(&sleigh).unwrap();
+            let x_disp = x.display(&sleigh)?;
             println!("{}", x_disp)
         }
     }
+    Ok(())
 }
 
-fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
-    let z3 = Context::new(&Config::new());
+fn model(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyhow::Result<()> {
+    let z3 = Z3Context::new(&Config::new());
     let solver = Solver::new(&z3);
-    let (sleigh, mut instrs) = get_instructions(config, architecture, hex_bytes);
+    let (sleigh, mut instrs) = get_instructions(config, architecture, hex_bytes)?;
     // todo: this is a disgusting hack to let us read a modeled block without requiring the user
     // to enter a block-terminating instruction. Everything with reading blocks needs to be reworked
     // at some point. For now, this lets me not break anything else relying on this behavior while
@@ -174,8 +190,10 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) {
     });
 
     let jingle_ctx = JingleContext::new(&z3, &sleigh);
-    let block = ModeledBlock::read(&jingle_ctx, instrs.into_iter()).unwrap();
+    let block = ModeledBlock::read(&jingle_ctx, instrs.into_iter())?;
     let final_state = jingle_ctx.fresh_state();
-    solver.assert(&final_state._eq(block.get_final_state()).unwrap().simplify());
-    println!("{}", solver.to_smt2())
+    println!("{}", block.get_final_state().fmt_smt_arrays());
+    solver.assert(&final_state._eq(block.get_final_state())?.simplify());
+    println!("{}", solver.to_smt2());
+    Ok(())
 }

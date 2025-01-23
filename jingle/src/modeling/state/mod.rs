@@ -310,4 +310,12 @@ impl<'ctx> State<'ctx> {
         let eq_terms: Vec<&Bool> = terms.iter().collect();
         Ok(Bool::and(self.jingle.z3, eq_terms.as_slice()))
     }
+    
+    pub fn fmt_smt_arrays(&self)-> String{
+        let mut lines = vec![];
+        for x in &self.spaces {
+            lines.push(x.fmt_smt_array())
+        }
+        lines.join("\n")
+    }
 }
