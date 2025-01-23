@@ -9,7 +9,6 @@ use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use crate::VarNode;
 use bridge::ContextFFI;
 use cxx::{Exception, ExternType, UniquePtr};
-use std::pin::Pin;
 use std::sync::Mutex;
 
 type ContextGeneratorFp = fn(&str) -> Result<UniquePtr<ContextFFI>, Exception>;
@@ -64,7 +63,7 @@ pub(crate) mod bridge {
 
 pub(crate) struct ImageFFI<'a> {
     /// A thing that has bytes at addresses
-    pub(crate) provider: Pin<Box<dyn ImageProvider + 'a>>,
+    pub(crate) provider: Box<dyn ImageProvider + 'a>,
     /// The current virtual base address for the image loaded by this context.
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
@@ -75,7 +74,7 @@ pub(crate) struct ImageFFI<'a> {
 impl<'a> ImageFFI<'a> {
     pub(crate) fn new<T: ImageProvider + 'a>(provider: T, idx: usize) -> Self {
         Self {
-            provider: Box::pin(provider),
+            provider: Box::new(provider),
             base_offset: 0,
             space_index: idx,
         }
