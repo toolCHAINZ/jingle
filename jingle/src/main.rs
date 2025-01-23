@@ -125,10 +125,10 @@ fn get_instructions(
     let img = decode(hex_bytes)?;
     let max_len = img.len();
     let mut offset = 0;
-    let sleigh = sleigh_build
-        .build(&architecture)
-        .context("Unable to build the selected architecture.\n\
-        This is either a bug in sleigh or the .sinc file for your architecture is malformed.")?;
+    let sleigh = sleigh_build.build(&architecture).context(
+        "Unable to build the selected architecture.\n\
+        This is either a bug in sleigh or the .sinc file for your architecture is malformed.",
+    )?;
     let sleigh = sleigh.initialize_with_image(img)?;
     let mut instrs = vec![];
     while offset < max_len {
@@ -192,7 +192,6 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyh
     let jingle_ctx = JingleContext::new(&z3, &sleigh);
     let block = ModeledBlock::read(&jingle_ctx, instrs.into_iter())?;
     let final_state = jingle_ctx.fresh_state();
-    println!("{}", block.get_final_state().fmt_smt_arrays());
     solver.assert(&final_state._eq(block.get_final_state())?.simplify());
     println!("{}", solver.to_smt2());
     Ok(())

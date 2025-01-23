@@ -50,4 +50,3 @@ impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
         self.last().unwrap().get_branch_constraint()
     }
 }
-
