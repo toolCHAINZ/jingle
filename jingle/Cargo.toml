@@ -14,13 +14,21 @@ keywords = ["ghidra", "sleigh", "pcode", "smt"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "jingle"
+required-features = ["bin_features"]
+
 [dependencies]
 jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.1" }
-z3 = { version = "0.12.1" }
+z3 = { git = "https://github.com/prove-rs/z3.rs.git", branch = "master" }
 thiserror = "1.0.58"
 serde = { version = "1.0.197", features = ["derive"] }
 tracing = "0.1.40"
-
+clap = { version = "4.5.14", optional = true, features = ["derive"] }
+confy = { version = "0.6.1" , optional = true}
+hex = { version = "0.4.3" , optional = true}
+anyhow = { version = "1.0.95", optional = true }
 [features]
-elf = ["jingle_sleigh/elf"]
+default = []
+bin_features = ["dep:clap", "dep:confy", "dep:hex", "dep:anyhow"]
 gimli = ["jingle_sleigh/gimli"]

@@ -5,7 +5,7 @@ use thiserror::Error;
 pub enum JingleSleighError {
     /// The sleigh compiler was run against a language definition that had some missing files.
     /// Probably indicates that the path to the language specification was wrong
-    #[error("missing files needed to init sleigh. Could be sla or ldef or pspec")]
+    #[error("Unable to parse sleigh language!")]
     LanguageSpecRead,
     /// A language specification existed, but was unable to be parsed
     #[error("failed to parse sleigh language definition")]
@@ -15,14 +15,10 @@ pub enum JingleSleighError {
     InvalidLanguageId,
     /// Attempted to initialize sleigh but something went wrong
     #[error("Something went wrong putting bytes into sleigh")]
-    SleighInitError,
+    SleighInitError(String),
     /// Unable to load the provided binary image for sleigh
     #[error("Something went wrong putting bytes into sleigh")]
     ImageLoadError,
-    /// Unable to parse the provided elf for sleigh
-    #[cfg(feature = "elf")]
-    #[error("Trouble loading an elf")]
-    ElfLoadError(#[from] elf::ParseError),
     /// Attempted to initialize sleigh with an empty image
     #[error("You didn't provide any bytes to sleigh")]
     NoImageProvided,
@@ -33,6 +29,11 @@ pub enum JingleSleighError {
     /// A [`VarNode`](crate::VarNode) was constructed referencing a non-existent space
     #[error("A varnode was constructed referencing a non-existent space")]
     InvalidSpaceName,
+    /// Attempted to construct an [Instruction](crate::Instruction) from an empty slice of instructions
+    #[error("Attempted to construct an instruction from an empty slice of instructions")]
+    EmptyInstruction,
+    #[error("Failure to acquire mutex to sleigh FFI function")]
+    SleighCompilerMutexError,
 }
 
 impl From<JingleSleighError> for std::fmt::Error {

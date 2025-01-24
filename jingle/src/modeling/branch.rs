@@ -29,13 +29,11 @@ impl BlockEndBehavior {
         ctx: &'a T,
     ) -> Result<BV<'ctx>, JingleError> {
         match self {
-            Fallthrough(f) => Ok(BV::from_u64(ctx.get_z3(), 0, (f.size * 8) as u32)),
+            Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().z3, 0, (f.size * 8) as u32)),
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
-                    GeneralizedVarNode::Direct(d) => {
-                        ctx.get_final_state().read_varnode_metadata(&d)
-                    }
+                    GeneralizedVarNode::Direct(d) => ctx.get_final_state().read_varnode_metadata(d),
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()
@@ -49,13 +47,19 @@ impl BlockEndBehavior {
         ctx: &'a T,
     ) -> Result<BV<'ctx>, JingleError> {
         match self {
-            Fallthrough(f) => Ok(BV::from_u64(ctx.get_z3(), f.offset, (f.size * 8) as u32)),
+            Fallthrough(f) => Ok(BV::from_u64(
+                ctx.get_jingle().z3,
+                f.offset,
+                (f.size * 8) as u32,
+            )),
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
-                    GeneralizedVarNode::Direct(d) => {
-                        Ok(BV::from_u64(ctx.get_z3(), d.offset, (d.size * 8) as u32))
-                    }
+                    GeneralizedVarNode::Direct(d) => Ok(BV::from_u64(
+                        ctx.get_jingle().z3,
+                        d.offset,
+                        (d.size * 8) as u32,
+                    )),
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()
@@ -84,7 +88,7 @@ impl BranchConstraint {
 
     pub fn has_branch(&self) -> bool {
         match self.last {
-            Fallthrough(_) => self.conditional_branches.len() != 0,
+            Fallthrough(_) => !self.conditional_branches.is_empty(),
             UnconditionalBranch(_) => true,
         }
     }
@@ -106,14 +110,14 @@ impl BranchConstraint {
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
                 ._eq(&BV::from_i64(
-                    ctx.get_z3(),
+                    ctx.get_jingle().z3,
                     0,
                     (cond_branch.condition.size * 8) as u32,
                 ))
                 .not();
             let branch_dest = match &cond_branch.destination {
                 GeneralizedVarNode::Direct(d) => {
-                    BV::from_u64(ctx.get_z3(), d.offset, (d.size * 8) as u32)
+                    BV::from_u64(ctx.get_jingle().z3, d.offset, (d.size * 8) as u32)
                 }
                 GeneralizedVarNode::Indirect(a) => ctx.get_final_state().read(a.into())?,
             };
@@ -132,7 +136,7 @@ impl BranchConstraint {
                 .get_final_state()
                 .read_varnode_metadata(&cond_branch.condition)?
                 ._eq(&BV::from_i64(
-                    ctx.get_z3(),
+                    ctx.get_jingle().z3,
                     0,
                     (&cond_branch.condition.size * 8) as u32,
                 ))

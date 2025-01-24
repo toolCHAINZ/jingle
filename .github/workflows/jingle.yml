@@ -1,0 +1,32 @@
+name: jingle
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pre_ci:
+    uses: dtolnay/.github/.github/workflows/pre_ci.yml@master
+
+  build:
+    name: ${{matrix.name || format('Rust {0}', matrix.rust)}}
+    needs: pre_ci
+    if: needs.pre_ci.outputs.continue
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [nightly, beta, stable]
+        os: [ubuntu]
+    env:
+      RUSTFLAGS: --cfg deny_warnings -Dwarnings
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{matrix.rust}}
+      - run: cargo build --all-features --manifest-path jingle_sleigh/Cargo.toml

@@ -7,8 +7,10 @@ use crate::space::SpaceManager;
 pub use crate::varnode::display::{
     GeneralizedVarNodeDisplay, IndirectVarNodeDisplay, VarNodeDisplay,
 };
+use crate::{RawVarNodeDisplay, RegisterManager};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::ops::Range;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -33,14 +35,23 @@ pub struct VarNode {
 }
 
 impl VarNode {
-    pub fn display<T: SpaceManager>(&self, ctx: &T) -> Result<VarNodeDisplay, JingleSleighError> {
-        ctx.get_space_info(self.space_index)
-            .map(|space_info| VarNodeDisplay {
-                size: self.size,
-                offset: self.offset,
-                space_info: space_info.clone(),
-            })
-            .ok_or(JingleSleighError::InvalidSpaceName)
+    pub fn display<T: RegisterManager>(
+        &self,
+        ctx: &T,
+    ) -> Result<VarNodeDisplay, JingleSleighError> {
+        if let Some(name) = ctx.get_register_name(self) {
+            Ok(VarNodeDisplay::Register(name.to_string()))
+        } else {
+            ctx.get_space_info(self.space_index)
+                .map(|space_info| {
+                    VarNodeDisplay::Raw(RawVarNodeDisplay {
+                        size: self.size,
+                        offset: self.offset,
+                        space_info: space_info.clone(),
+                    })
+                })
+                .ok_or(JingleSleighError::InvalidSpaceName)
+        }
     }
 
     pub fn covers(&self, other: &VarNode) -> bool {
@@ -53,6 +64,23 @@ impl VarNode {
     }
 }
 
+impl From<&VarNode> for Range<u64> {
+    fn from(value: &VarNode) -> Self {
+        Range {
+            start: value.offset,
+            end: value.offset + value.size as u64,
+        }
+    }
+}
+
+impl From<&VarNode> for Range<usize> {
+    fn from(value: &VarNode) -> Self {
+        Range {
+            start: value.offset as usize,
+            end: value.offset as usize + value.size,
+        }
+    }
+}
 #[macro_export]
 macro_rules! varnode {
     ($ctx:expr, #$offset:literal:$size:literal) => {
@@ -89,7 +117,7 @@ pub struct IndirectVarNode {
 }
 
 impl IndirectVarNode {
-    pub fn display<T: SpaceManager>(
+    pub fn display<T: RegisterManager>(
         &self,
         ctx: &T,
     ) -> Result<IndirectVarNodeDisplay, JingleSleighError> {
@@ -114,7 +142,7 @@ pub enum GeneralizedVarNode {
 }
 
 impl GeneralizedVarNode {
-    pub fn display<T: SpaceManager>(
+    pub fn display<T: RegisterManager>(
         &self,
         ctx: &T,
     ) -> Result<GeneralizedVarNodeDisplay, JingleSleighError> {
@@ -182,7 +210,7 @@ mod tests {
             space_index: 0,
             size: 4,
         };
-        let tests = vec![
+        let tests = [
             VarNode {
                 offset: 0,
                 space_index: 0,
@@ -214,6 +242,6 @@ mod tests {
                 size: 1,
             },
         ];
-        assert!(tests.iter().all(|v| vn1.covers(&v)))
+        assert!(tests.iter().all(|v| vn1.covers(v)))
     }
 }

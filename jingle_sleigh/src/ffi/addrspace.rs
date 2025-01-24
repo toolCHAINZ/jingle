@@ -1,10 +1,10 @@
 #[cxx::bridge]
 pub(crate) mod bridge {
-    #[rust_name = "SpaceType"]
+    #[cxx_name = "spacetype"]
     #[namespace = "ghidra"]
     #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
     #[repr(u32)]
-    pub enum spacetype {
+    pub enum SpaceType {
         ///< Special space to represent constants
         IPTR_CONSTANT = 0,
         ///< Normal spaces modelled by processor
@@ -37,9 +37,10 @@ pub(crate) mod bridge {
     }
 
     unsafe extern "C++" {
+        include!("jingle_sleigh/src/ffi/cpp/sleigh/space.hh");
         #[namespace = "ghidra"]
-        #[rust_name = "SpaceType"]
-        type spacetype;
+        #[cxx_name = "spacetype"]
+        type SpaceType;
     }
 
     unsafe extern "C++" {

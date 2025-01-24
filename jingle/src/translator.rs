@@ -1,8 +1,9 @@
 use crate::error::JingleError;
-use jingle_sleigh::context::SleighContext;
 use jingle_sleigh::{Instruction, RegisterManager, SpaceInfo, VarNode};
 
 use crate::modeling::ModeledInstruction;
+use crate::JingleContext;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::SpaceManager;
 use z3::Context;
@@ -12,14 +13,15 @@ use z3::Context;
 /// modeling them in one go
 #[derive(Debug, Clone)]
 pub struct SleighTranslator<'ctx> {
-    z3_ctx: &'ctx Context,
-    sleigh: &'ctx SleighContext,
+    jingle: JingleContext<'ctx>,
+    sleigh: &'ctx LoadedSleighContext<'ctx>,
 }
 
 impl<'ctx> SleighTranslator<'ctx> {
     /// Make a new sleigh translator
-    pub fn new(sleigh: &'ctx SleighContext, z3_ctx: &'ctx Context) -> Self {
-        Self { z3_ctx, sleigh }
+    pub fn new(sleigh: &'ctx LoadedSleighContext, z3_ctx: &'ctx Context) -> Self {
+        let jingle = JingleContext::new(z3_ctx, sleigh);
+        Self { jingle, sleigh }
     }
 
     /// Ask sleigh to read one instruction from the given offset and attempt
@@ -31,8 +33,7 @@ impl<'ctx> SleighTranslator<'ctx> {
     ) -> Result<ModeledInstruction<'ctx>, JingleError> {
         let op = self
             .sleigh
-            .read(offset, 1)
-            .next()
+            .instruction_at(offset)
             .ok_or(InstructionDecode)?;
         self.model_instruction(op)
     }
@@ -42,11 +43,11 @@ impl<'ctx> SleighTranslator<'ctx> {
         &self,
         instr: Instruction,
     ) -> Result<ModeledInstruction<'ctx>, JingleError> {
-        ModeledInstruction::new(instr, self.sleigh, self.z3_ctx)
+        ModeledInstruction::new(instr, &self.jingle)
     }
 }
 
-impl<'ctx> SpaceManager for SleighTranslator<'ctx> {
+impl SpaceManager for SleighTranslator<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
@@ -60,12 +61,12 @@ impl<'ctx> SpaceManager for SleighTranslator<'ctx> {
     }
 }
 
-impl<'ctx> RegisterManager for SleighTranslator<'ctx> {
+impl RegisterManager for SleighTranslator<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.sleigh.get_register(name)
     }
 
-    fn get_register_name(&self, location: VarNode) -> Option<&str> {
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
         self.sleigh.get_register_name(location)
     }
 

@@ -1,0 +1,45 @@
+name: jingle_sleigh
+
+# Stealing the multi-platform CI configuration from
+# https://github.com/dtolnay/cxx/blob/master/.github/workflows/ci.yml
+# for testing build using CXX.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pre_ci:
+    uses: dtolnay/.github/.github/workflows/pre_ci.yml@master
+
+  build:
+    name: ${{matrix.name || format('Rust {0}', matrix.rust)}}
+    needs: pre_ci
+    if: needs.pre_ci.outputs.continue
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [nightly, stable]
+        os: [ubuntu]
+        include:
+          - name: Cargo on macOS
+            rust: nightly
+            os: macos
+          - name: Cargo on Windows (msvc)
+            rust: nightly-x86_64-pc-windows-msvc
+            os: windows
+            flags: /EHsc
+    env:
+      CXXFLAGS: ${{matrix.flags}}
+      RUSTFLAGS: --cfg deny_warnings -Dwarnings
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{matrix.rust}}
+      - run: cargo build --all-features --manifest-path jingle_sleigh/Cargo.toml

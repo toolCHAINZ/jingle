@@ -3,7 +3,7 @@ mod display;
 use crate::error::JingleError;
 use crate::error::JingleError::UnmodeledSpace;
 use crate::varnode::display::{ResolvedIndirectVarNodeDisplay, ResolvedVarNodeDisplay};
-use jingle_sleigh::SpaceManager;
+use jingle_sleigh::RegisterManager;
 use jingle_sleigh::VarNode;
 use std::hash::Hash;
 use z3::ast::BV;
@@ -12,6 +12,7 @@ use z3::ast::BV;
 pub struct ResolvedIndirectVarNode<'ctx> {
     pub pointer_space_idx: usize,
     pub pointer: BV<'ctx>,
+    pub pointer_location: VarNode,
     pub access_size_bytes: usize,
 }
 
@@ -24,8 +25,11 @@ pub enum ResolvedVarnode<'ctx> {
     Indirect(ResolvedIndirectVarNode<'ctx>),
 }
 
-impl<'ctx> ResolvedVarnode<'ctx> {
-    pub fn display<T: SpaceManager>(&self, ctx: &T) -> Result<ResolvedVarNodeDisplay, JingleError> {
+impl ResolvedVarnode<'_> {
+    pub fn display<T: RegisterManager>(
+        &self,
+        ctx: &T,
+    ) -> Result<ResolvedVarNodeDisplay, JingleError> {
         match self {
             ResolvedVarnode::Direct(d) => Ok(ResolvedVarNodeDisplay::Direct(d.display(ctx)?)),
             ResolvedVarnode::Indirect(i) => Ok(ResolvedVarNodeDisplay::Indirect(

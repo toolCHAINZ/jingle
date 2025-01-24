@@ -1,22 +1,19 @@
-use crate::context::builder::image::Image;
 use crate::context::builder::language_def::{parse_ldef, LanguageDefinition};
 use crate::context::builder::processor_spec::parse_pspec;
 use crate::context::SleighContext;
 use crate::error::JingleSleighError;
-use crate::error::JingleSleighError::{InvalidLanguageId, LanguageSpecRead, NoImageProvided};
+use crate::error::JingleSleighError::{InvalidLanguageId, LanguageSpecRead};
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{event, instrument, Level};
 
-pub mod image;
 pub(crate) mod language_def;
 pub(crate) mod processor_spec;
 
 #[derive(Debug, Default, Clone)]
 pub struct SleighContextBuilder {
     defs: Vec<(LanguageDefinition, PathBuf)>,
-    image: Option<Image>,
 }
 
 impl SleighContextBuilder {
@@ -28,26 +25,30 @@ impl SleighContextBuilder {
         self.defs.iter().find(|(p, _)| p.id.eq(id))
     }
     #[instrument(skip_all, fields(%id))]
-    pub fn build(mut self, id: &str) -> Result<SleighContext, JingleSleighError> {
-        let image = self.image.take().ok_or(NoImageProvided)?;
+    pub fn build(&self, id: &str) -> Result<SleighContext, JingleSleighError> {
         let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId)?;
-        let sla_path = path.join(&lang.sla_file);
-        let mut context = SleighContext::new(&sla_path, image)?;
+        let mut context = SleighContext::new(lang, path)?;
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);
         let pspec = parse_pspec(&pspec_path)?;
-        for set in pspec.context_data.context_set.sets {
-            context.set_initial_context(&set.name, set.value as u32)
+        if let Some(ctx_sets) = pspec.context_data.and_then(|d| d.context_set) {
+            for set in ctx_sets.sets {
+                // todo: gross hack
+                if set.value.starts_with("0x") {
+                    context.set_initial_context(
+                        &set.name,
+                        u32::from_str_radix(&set.value[2..], 16).unwrap(),
+                    )?;
+                } else {
+                    context.set_initial_context(&set.name, set.value.parse::<u32>().unwrap())?;
+                }
+            }
         }
-
         Ok(context)
     }
     pub fn load_folder<T: AsRef<Path>>(path: T) -> Result<Self, JingleSleighError> {
         let ldef = SleighContextBuilder::_load_folder(path.as_ref())?;
-        Ok(SleighContextBuilder {
-            defs: ldef,
-            image: None,
-        })
+        Ok(SleighContextBuilder { defs: ldef })
     }
 
     fn _load_folder(path: &Path) -> Result<Vec<(LanguageDefinition, PathBuf)>, JingleSleighError> {
@@ -56,11 +57,15 @@ impl SleighContextBuilder {
         if !path.is_dir() {
             return Err(LanguageSpecRead);
         }
-        let ldef_path = find_ldef(&path)?;
-        let defs = parse_ldef(ldef_path.as_path())?;
-        let defs = defs
+        let ldef_paths = find_ldef(&path)?;
+        let defs: Vec<(LanguageDefinition, PathBuf)> = ldef_paths
             .iter()
-            .map(|f| (f.clone(), path.to_path_buf()))
+            .flat_map(|ldef_path| {
+                let defs: Vec<LanguageDefinition> = parse_ldef(ldef_path.as_path()).unwrap();
+                defs.iter()
+                    .map(|f| (f.clone(), path.to_path_buf()))
+                    .collect::<Vec<(LanguageDefinition, PathBuf)>>()
+            })
             .collect();
         Ok(defs)
     }
@@ -78,24 +83,23 @@ impl SleighContextBuilder {
                 defs.extend(d);
             }
         }
-        Ok(SleighContextBuilder { defs, image: None })
-    }
-
-    pub fn set_image(mut self, img: Image) -> Self {
-        self.image = Some(img);
-        self
+        Ok(SleighContextBuilder { defs })
     }
 }
 
-fn find_ldef(path: &Path) -> Result<PathBuf, JingleSleighError> {
+fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
+    let mut ldefs = vec![];
     for entry in (fs::read_dir(path).map_err(|_| LanguageSpecRead)?).flatten() {
         if let Some(e) = entry.path().extension() {
             if e == "ldefs" {
-                return Ok(entry.path().clone());
+                ldefs.push(entry.path().clone());
             }
         }
     }
-    Err(LanguageSpecRead)
+    if ldefs.is_empty() {
+        return Err(LanguageSpecRead);
+    }
+    Ok(ldefs)
 }
 
 #[cfg(test)]

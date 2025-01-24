@@ -121,8 +121,7 @@ pub trait RegisterManager: SpaceManager {
     fn get_register(&self, name: &str) -> Option<VarNode>;
 
     /// Given a [`VarNode`], get the name of the corresponding architectural register, if one exists
-
-    fn get_register_name(&self, location: VarNode) -> Option<&str>;
+    fn get_register_name(&self, location: &VarNode) -> Option<&str>;
 
     /// Get a listing of all register name/[`VarNode`] pairs
     fn get_registers(&self) -> Vec<(VarNode, String)>;

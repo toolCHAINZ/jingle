@@ -3,17 +3,20 @@
 #define JINGLE_EXCEPTION_H
 
 #include "sleigh/error.hh"
+#include "sleigh/xml.hh"
 
 namespace rust {
     namespace behavior {
 
-    template <typename Try, typename Fail>
+        template<typename Try, typename Fail>
         static void trycatch(Try &&func, Fail &&fail) noexcept try {
-          func();
+            func();
         } catch (const ghidra::LowlevelError &e) {
-          fail(e.explain);
+            fail(e.explain);
+        } catch (const ghidra::DecoderError &e) {
+            fail(e.explain);
         } catch (const std::exception &e) {
-          fail(e.what());
+            fail(e.what());
         }
     }
 }

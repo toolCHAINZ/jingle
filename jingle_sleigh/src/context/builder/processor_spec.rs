@@ -9,8 +9,9 @@ use std::path::Path;
 pub struct ContextSet {
     pub name: String,
     #[serde(rename = "val")]
-    pub value: u64,
+    pub value: String,
 }
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename = "context_set")]
 pub struct ContextSetSpace {
@@ -21,7 +22,9 @@ pub struct ContextSetSpace {
 
 #[derive(Debug, Deserialize)]
 pub struct ContextData {
-    pub context_set: ContextSetSpace,
+    pub context_set: Option<ContextSetSpace>,
+    #[allow(unused)]
+    pub tracked_set: Option<ContextSetSpace>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,7 +32,7 @@ pub struct ContextData {
 pub struct ProcessorSpec {
     // TODO: Properties
     // properties: Properties
-    pub context_data: ContextData,
+    pub context_data: Option<ContextData>,
 }
 
 pub(super) fn parse_pspec(path: &Path) -> Result<ProcessorSpec, JingleSleighError> {

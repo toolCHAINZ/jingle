@@ -10,7 +10,6 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use tracing::instrument;
 use z3::ast::{Ast, Bool, BV};
-use z3::Context;
 
 mod block;
 mod branch;
@@ -18,6 +17,7 @@ mod instruction;
 mod slice;
 mod state;
 
+use crate::JingleContext;
 pub use block::ModeledBlock;
 pub use branch::*;
 pub use instruction::ModeledInstruction;
@@ -29,8 +29,8 @@ pub use state::State;
 /// defines several helper functions for building formulae
 /// todo: this should probably be separated out with the extension trait pattern
 pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
-    /// Get a handle to the z3 context associated with this modeling context
-    fn get_z3(&self) -> &'ctx Context;
+    /// Get a handle to the jingle context associated with this modeling context
+    fn get_jingle(&self) -> &JingleContext<'ctx>;
 
     /// Get the address this context is associated with (e.g. for an instruction, it is the address,
     /// for a basic block, it is the address of the first instruction).
@@ -52,9 +52,9 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
     /// from the [State] returned by [get_final_state], as it is guaranteed to have a handle to
     /// all intermediate spaces that may be referenced
     fn get_inputs(&self) -> HashSet<ResolvedVarnode<'ctx>>;
-    /// Get a hashset of the addresses written by this trace. The values returned in this hashset are
-    /// fully modeled: a read from a given varnode will evaluate to its value at the stage in the
-    /// computation that the read was performed. Because of this, these should always be read
+    /// Get a hashset of the addresses written by this trace. The values returned in this hashset
+    /// are fully modeled: a read from a given varnode will evaluate to its value at the stage in
+    /// the computation that the read was performed. Because of this, these should always be read
     /// from the [State] returned by [get_final_state], as it is guaranteed to have a handle to
     /// all intermediate spaces that may be referenced
     fn get_outputs(&self) -> HashSet<ResolvedVarnode<'ctx>>;
@@ -110,7 +110,7 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
         }
         let p_terms: Vec<&Bool> = premise_terms.iter().collect();
 
-        let premise = Bool::and(self.get_z3(), p_terms.as_slice());
+        let premise = Bool::and(self.get_jingle().z3, p_terms.as_slice());
         Ok(premise)
     }
 
@@ -130,11 +130,16 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
             .filter(|v| self.should_varnode_constrain(v))
         {
             let ours = self.get_final_state().read_resolved(vn)?;
-            let other = other.get_final_state().read_resolved(vn)?;
-            output_terms.push(ours._eq(&other).simplify());
+            let other_bv = other.get_final_state().read_resolved(vn)?;
+            output_terms.push(ours._eq(&other_bv).simplify());
+            if let Indirect(a) = vn {
+                let ours = self.get_final_state().read_varnode(&a.pointer_location)?;
+                let other = other.get_final_state().read_varnode(&a.pointer_location)?;
+                output_terms.push(ours._eq(&other).simplify());
+            }
         }
         let imp_terms: Vec<&Bool> = output_terms.iter().collect();
-        let outputs_pairwise_equal = Bool::and(self.get_z3(), imp_terms.as_slice());
+        let outputs_pairwise_equal = Bool::and(self.get_jingle().z3, imp_terms.as_slice());
         Ok(outputs_pairwise_equal)
     }
 
@@ -144,24 +149,11 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
         &self,
         other: &T,
     ) -> Result<Bool<'ctx>, JingleError> {
-        let mut terms = vec![];
-        for (i, _) in self
-            .get_final_state()
-            .get_all_space_info()
-            .iter()
-            .enumerate()
-            .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
-        {
-            let other = other.get_original_state().get_space(i)?;
-            let space = self.get_final_state().get_space(i)?;
-            terms.push(space._eq(other).simplify())
-        }
-        let eq_terms: Vec<&Bool> = terms.iter().collect();
-        Ok(Bool::and(self.get_z3(), eq_terms.as_slice()))
+        self.get_final_state()._eq(other.get_original_state())
     }
 
-    /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same destination
-    /// as [self], given that [self] has branching behavior
+    /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same
+    /// destination as [self], given that [self] has branching behavior
     /// todo: should swap self and other to make this align better with [upholds_postcondition]
     fn branch_comparison<T: ModelingContext<'ctx>>(
         &self,
@@ -180,10 +172,10 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
                 zext_to_match(self_bv_metadata.simplify(), &other_bv_metadata.simplify());
             let other_bv_metadata = zext_to_match(other_bv_metadata, &self_bv_metadata);
             Ok(Some(Bool::and(
-                self.get_z3(),
+                self.get_jingle().z3,
                 &[
-                    &self_bv._eq(&other_bv).simplify(),
-                    &self_bv_metadata._eq(&other_bv_metadata).simplify(),
+                    self_bv._eq(&other_bv).simplify(),
+                    self_bv_metadata._eq(&other_bv_metadata).simplify(),
                 ],
             )))
         }
@@ -192,15 +184,19 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
     /// branch to the given [u64]
     fn can_branch_to_address(&self, addr: u64) -> Result<Bool<'ctx>, JingleError> {
         let branch_constraint = self.get_branch_constraint().build_bv(self)?;
-        let addr_bv = BV::from_i64(self.get_z3(), addr as i64, branch_constraint.get_size());
+        let addr_bv = BV::from_i64(
+            self.get_jingle().z3,
+            addr as i64,
+            branch_constraint.get_size(),
+        );
         Ok(branch_constraint._eq(&addr_bv))
     }
 }
 
 /// This trait is used for types that build modeling contexts. This could maybe be a single
 /// struct instead of a trait.
-/// The helper methods in here allow for parsing pcode operations into z3 formulae, and automatically
-/// tracking the inputs/outputs of each operation and traces composed thereof
+/// The helper methods in here allow for parsing pcode operations into z3 formulae, and
+/// automatically tracking the inputs/outputs of each operation and traces composed thereof
 pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
     /// Adds a [GeneralizedVarNode] to the "input care set" for this operation.
     /// This is usually used for asserting equality of all input varnodes when
@@ -233,6 +229,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                     .clone();
                 self.track_input(&Indirect(ResolvedIndirectVarNode {
                     pointer,
+                    pointer_location: indirect.pointer_location.clone(),
                     access_size_bytes: indirect.access_size_bytes,
                     pointer_space_idx: indirect.pointer_space_index,
                 }));
@@ -255,6 +252,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let pointer = self.read_and_track(indirect.pointer_location.clone().into())?;
                 self.track_output(&Indirect(ResolvedIndirectVarNode {
                     pointer,
+                    pointer_location: indirect.pointer_location.clone(),
                     access_size_bytes: indirect.access_size_bytes,
                     pointer_space_idx: indirect.pointer_space_index,
                 }));
@@ -444,10 +442,10 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 input1,
                 output,
             } => {
-                let bv1 = self.read_and_track(input0.into())?;
+                let mut bv1 = self.read_and_track(input0.into())?;
                 let mut bv2 = self.read_and_track(input1.into())?;
                 match bv1.get_size().cmp(&bv2.get_size()) {
-                    Ordering::Less => bv2 = bv2.extract(bv1.get_size() - 1, 0),
+                    Ordering::Less => bv1 = bv1.zero_ext(bv2.get_size() - bv1.get_size()),
                     Ordering::Greater => bv2 = bv2.zero_ext(bv1.get_size() - bv2.get_size()),
                     _ => {}
                 }
@@ -464,8 +462,8 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, false);
                 let out_bv = carry_bool.ite(
-                    &BV::from_i64(self.get_z3(), 0, 8),
-                    &BV::from_i64(self.get_z3(), 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
                 );
                 self.write(&output.into(), out_bv)
             }
@@ -479,8 +477,8 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, true);
                 let out_bv = carry_bool.ite(
-                    &BV::from_i64(self.get_z3(), 0, 8),
-                    &BV::from_i64(self.get_z3(), 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
                 );
                 self.write(&output.into(), out_bv)
             }
@@ -495,16 +493,16 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 // meaning of "overflow" is in sleigh vs what it means in z3
                 let borrow_bool = in0.bvsub_no_underflow(&in1, true);
                 let out_bv = borrow_bool.ite(
-                    &BV::from_i64(self.get_z3(), 0, 8),
-                    &BV::from_i64(self.get_z3(), 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
                 );
                 self.write(&output.into(), out_bv)
             }
             PcodeOperation::Int2Comp { input, output } => {
                 let in0 = self.read_and_track(input.into())?;
-                let flipped = in0
-                    .bvneg()
-                    .add(BV::from_u64(self.get_z3(), 1, in0.get_size()));
+                let flipped =
+                    in0.bvneg()
+                        .add(BV::from_u64(self.get_jingle().z3, 1, in0.get_size()));
                 self.write(&output.into(), flipped)
             }
             PcodeOperation::IntSignedLess {
@@ -516,8 +514,22 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let in1 = self.read_and_track(input1.into())?;
                 let out_bool = in0.bvslt(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(self.get_z3(), 1, 8),
-                    &BV::from_i64(self.get_z3(), 0, 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
+                );
+                self.write(&output.into(), out_bv)
+            }
+            PcodeOperation::IntSignedLessEqual {
+                input0,
+                input1,
+                output,
+            } => {
+                let in0 = self.read_and_track(input0.into())?;
+                let in1 = self.read_and_track(input1.into())?;
+                let out_bool = in0.bvsle(&in1);
+                let out_bv = out_bool.ite(
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
                 );
                 self.write(&output.into(), out_bv)
             }
@@ -530,8 +542,22 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let in1 = self.read_and_track(input1.into())?;
                 let out_bool = in0.bvult(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(self.get_z3(), 1, 8),
-                    &BV::from_i64(self.get_z3(), 0, 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
+                );
+                self.write(&output.into(), out_bv)
+            }
+            PcodeOperation::IntLessEqual {
+                input0,
+                input1,
+                output,
+            } => {
+                let in0 = self.read_and_track(input0.into())?;
+                let in1 = self.read_and_track(input1.into())?;
+                let out_bool = in0.bvule(&in1);
+                let out_bv = out_bool.ite(
+                    &BV::from_i64(self.get_jingle().z3, 1, 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, 8),
                 );
                 self.write(&output.into(), out_bv)
             }
@@ -545,8 +571,8 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1);
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(self.get_z3(), 1, outsize * 8),
-                    &BV::from_i64(self.get_z3(), 0, outsize * 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, outsize * 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, outsize * 8),
                 );
                 self.write(&output.into(), out_bv)
             }
@@ -560,8 +586,8 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1).not();
                 let out_bv = out_bool.ite(
-                    &BV::from_i64(self.get_z3(), 1, outsize * 8),
-                    &BV::from_i64(self.get_z3(), 0, outsize * 8),
+                    &BV::from_i64(self.get_jingle().z3, 1, outsize * 8),
+                    &BV::from_i64(self.get_jingle().z3, 0, outsize * 8),
                 );
                 self.write(&output.into(), out_bv)
             }
@@ -572,16 +598,16 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0
-                    .bvand(&i1)
-                    .bvand(&BV::from_u64(self.get_z3(), 1, i0.get_size()));
+                let result =
+                    i0.bvand(&i1)
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
                 self.write(&output.into(), result)
             }
             PcodeOperation::BoolNegate { input, output } => {
                 let val = self.read_and_track(input.into())?;
-                let negated = val
-                    .bvneg()
-                    .bvand(&BV::from_u64(self.get_z3(), 1, val.get_size()));
+                let negated =
+                    val.bvneg()
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, val.get_size()));
                 self.write(&output.into(), negated)
             }
             PcodeOperation::BoolOr {
@@ -591,9 +617,9 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0
-                    .bvor(&i1)
-                    .bvand(&BV::from_u64(self.get_z3(), 1, i0.get_size()));
+                let result =
+                    i0.bvor(&i1)
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
                 self.write(&output.into(), result)
             }
             PcodeOperation::BoolXor {
@@ -603,15 +629,15 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0
-                    .bvxor(&i1)
-                    .bvand(&BV::from_u64(self.get_z3(), 1, i0.get_size()));
+                let result =
+                    i0.bvxor(&i1)
+                        .bvand(&BV::from_u64(self.get_jingle().z3, 1, i0.get_size()));
                 self.write(&output.into(), result)
             }
             PcodeOperation::PopCount { input, output } => {
                 let size = output.size as u32;
                 let in0 = self.read_and_track(input.into())?;
-                let mut outbv = BV::from_i64(self.get_z3(), 0, output.size as u32 * 8);
+                let mut outbv = BV::from_i64(self.get_jingle().z3, 0, output.size as u32 * 8);
                 for i in 0..size * 8 {
                     let extract = in0.extract(i, i);
                     let extend = extract.zero_ext((size * 8) - 1);
@@ -659,14 +685,15 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 let output_size = output.size as u32;
                 let size = min(input_size, output_size);
                 let input = bv0.extract((input_low_byte + size) * 8 - 1, input_low_byte * 8);
-                if size < output_size {
-                    self.write(&output.into(), input.zero_ext((output_size - size) * 8))?;
-                } else if output_size < size {
-                    self.write(&output.into(), input.extract(output_size * 8 - 1, 0))?;
-                } else {
-                    self.write(&output.into(), input)?;
+                match size.cmp(&output_size) {
+                    Ordering::Less => {
+                        self.write(&output.into(), input.zero_ext((output_size - size) * 8))
+                    }
+                    Ordering::Greater => {
+                        self.write(&output.into(), input.extract(output_size * 8 - 1, 0))
+                    }
+                    Ordering::Equal => self.write(&output.into(), input),
                 }
-                Ok(())
             }
             PcodeOperation::CallOther { inputs, output } => {
                 let mut hasher = DefaultHasher::new();
@@ -692,7 +719,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 self.get_branch_builder().set_last(&hash_vn.into());
                 if let Some(out) = output {
                     let size = out.size * 8;
-                    let hash_bv = BV::from_u64(self.get_z3(), hash, size as u32);
+                    let hash_bv = BV::from_u64(self.get_jingle().z3, hash, size as u32);
                     let metadata = self
                         .get_final_state()
                         .immediate_metadata_array(true, out.size);

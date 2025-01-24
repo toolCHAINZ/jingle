@@ -4,18 +4,18 @@ use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
+use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
 use jingle_sleigh::Instruction;
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::{SpaceInfo, SpaceManager};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use z3::Context;
 
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
 pub struct ModeledBlock<'ctx> {
-    z3: &'ctx Context,
+    jingle: JingleContext<'ctx>,
     pub instructions: Vec<Instruction>,
     state: State<'ctx>,
     original_state: State<'ctx>,
@@ -24,7 +24,7 @@ pub struct ModeledBlock<'ctx> {
     outputs: HashSet<ResolvedVarnode<'ctx>>,
 }
 
-impl<'ctx> Display for ModeledBlock<'ctx> {
+impl Display for ModeledBlock<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for x in self.instructions.iter() {
             writeln!(f, "{:x} {}", x.address, x.disassembly)?;
@@ -36,11 +36,11 @@ impl<'ctx> Display for ModeledBlock<'ctx> {
 impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
     type Error = JingleError;
     fn try_from(vec: &'ctx [T]) -> Result<Self, Self::Error> {
-        let z3 = vec.first().ok_or(EmptyBlock)?.get_z3();
-        let original_state = State::new(z3, vec[0].get_original_state());
+        let jingle = vec.first().ok_or(EmptyBlock)?.get_jingle();
+        let original_state = State::new(jingle);
         let state = original_state.clone();
         let mut new_block: Self = Self {
-            z3,
+            jingle: jingle.clone(),
             instructions: Default::default(),
             state,
             original_state,
@@ -61,12 +61,11 @@ impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
 }
 
 impl<'ctx> ModeledBlock<'ctx> {
-    pub fn read<T: Iterator<Item = Instruction>, S: SpaceManager>(
-        z3: &'ctx Context,
-        space_manager: &S,
+    pub fn read<T: Iterator<Item = Instruction>>(
+        jingle: &JingleContext<'ctx>,
         instr_iter: T,
     ) -> Result<Self, JingleError> {
-        let original_state = State::new(z3, space_manager);
+        let original_state = State::new(jingle);
         let state = original_state.clone();
 
         let mut block_terminated = false;
@@ -95,7 +94,7 @@ impl<'ctx> ModeledBlock<'ctx> {
         );
 
         let mut model = Self {
-            z3,
+            jingle: jingle.clone(),
             instructions,
             state,
             original_state,
@@ -110,15 +109,20 @@ impl<'ctx> ModeledBlock<'ctx> {
     }
 
     pub fn fresh(&self) -> Result<Self, JingleError> {
-        ModeledBlock::read(self.z3, self, self.instructions.clone().into_iter())
+        ModeledBlock::read(&self.jingle, self.instructions.clone().into_iter())
     }
 
-    pub fn get_address(&self) -> u64 {
+    pub fn get_first_address(&self) -> u64 {
         self.instructions[0].address
+    }
+
+    pub fn get_last_address(&self) -> u64 {
+        let i = self.instructions.last().unwrap();
+        i.address + i.length as u64
     }
 }
 
-impl<'ctx> SpaceManager for ModeledBlock<'ctx> {
+impl SpaceManager for ModeledBlock<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.state.get_space_info(idx)
     }
@@ -132,8 +136,8 @@ impl<'ctx> SpaceManager for ModeledBlock<'ctx> {
 }
 
 impl<'ctx> ModelingContext<'ctx> for ModeledBlock<'ctx> {
-    fn get_z3(&self) -> &'ctx Context {
-        self.z3
+    fn get_jingle(&self) -> &JingleContext<'ctx> {
+        &self.jingle
     }
 
     fn get_address(&self) -> u64 {

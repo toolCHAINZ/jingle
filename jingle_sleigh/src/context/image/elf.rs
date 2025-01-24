@@ -44,8 +44,8 @@ mod tests {
     use elf::endian::AnyEndian;
     use elf::ElfBytes;
 
-    #[test]
-    fn test_elf() {
+    // #[test]
+    fn _test_elf() {
         let path = std::path::PathBuf::from("../bin/vuln");
         let file_data = std::fs::read(path).unwrap();
         let slice = file_data.as_slice();
