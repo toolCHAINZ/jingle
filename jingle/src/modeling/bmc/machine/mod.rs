@@ -42,10 +42,7 @@ impl<'ctx> MachineState<'ctx> {
         self.pc.apply_op(&self.memory, op, self.jingle.z3)
     }
 
-    pub fn apply(
-        &self,
-        op: &PcodeOperation,
-    ) -> Result<Self, JingleError> {
+    pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         Ok(Self {
             jingle: self.jingle.clone(),
             memory: self.memory.apply(op)?,

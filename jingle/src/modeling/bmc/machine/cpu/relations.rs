@@ -19,8 +19,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
             }
             PcodeOperation::CBranch { input0, input1 } => {
                 let fallthrough = self.increment_pcode();
-                let dest =
-                    self.interpret_branch_dest_varnode(input0);
+                let dest = self.interpret_branch_dest_varnode(input0);
                 let take_branch =
                     memory
                         .read(input1)?

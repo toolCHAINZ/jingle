@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter};
+use crate::display::PcodeOperationDisplay;
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
@@ -6,7 +6,7 @@ use crate::pcode::PcodeOperation;
 use crate::JingleSleighError::EmptyInstruction;
 use crate::{OpCode, RegisterManager};
 use serde::{Deserialize, Serialize};
-use crate::display::PcodeOperationDisplay;
+use std::fmt::{Display, Formatter};
 
 /// A rust representation of a SLEIGH assembly instruction
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
