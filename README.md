@@ -30,6 +30,43 @@ related crates:
   expose APIs for constructing or reasoning about control-flow graphs. A more robust analysis
   is forthcoming, depending on my research needs.
 
+## Requirements
+
+### Building
+
+If you're working directly with the `jingle` source distribution,
+you will need to manually download a copy of the `ghidra` source tree
+in order to build `jingle` or `jingle_sleigh`
+
+If you're working with `git`, this can be done using the existing submodule.
+Simply run
+
+```shell
+git submodule init && git submodule update
+```
+
+If you are for some reason using a zipped source distribution,
+then you can run the following:
+
+```shell
+cd jingle_sleigh
+git clone https://github.com/NationalSecurityAgency/ghidra.git
+```
+
+If you are using `jingle` as a cargo `git` or `crates.io` dependency,
+this step is not necessary. `cargo` will handle all this in the `git` case
+and we will vendor the necessary `ghidra` sources into all `crates.io` releases.
+
+### Running
+
+While `jingle` can be configured to work with a single set `sleigh` architecture,
+the default way to use it is to point it to an existing `ghidra` installation.
+[Install ghidra](https://ghidra-sre.org) and, if you are using `jingle` programatically,
+point it at the top level folder of the installation. If you are using the [CLI](./jingle),
+then provide the path to ghidra as an argument in your first run.
+
+The only thing ghidra is used for here is as a standardized folder layout for `sleigh` architectures.
+`jingle` has no ghidra dependency outside of the bundled `sleigh` C++ code.
 ## Usage
 
 In order to use `jingle`, include it in your `Cargo.toml` as usual:

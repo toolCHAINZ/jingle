@@ -25,7 +25,7 @@ pub enum ResolvedVarnode<'ctx> {
     Indirect(ResolvedIndirectVarNode<'ctx>),
 }
 
-impl<'ctx> ResolvedVarnode<'ctx> {
+impl ResolvedVarnode<'_> {
     pub fn display<T: RegisterManager>(
         &self,
         ctx: &T,

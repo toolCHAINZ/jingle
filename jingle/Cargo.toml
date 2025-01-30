@@ -27,7 +27,8 @@ tracing = "0.1.40"
 clap = { version = "4.5.14", optional = true, features = ["derive"] }
 confy = { version = "0.6.1" , optional = true}
 hex = { version = "0.4.3" , optional = true}
+anyhow = { version = "1.0.95", optional = true }
 [features]
 default = []
-bin_features = ["dep:clap", "dep:confy", "dep:hex"]
+bin_features = ["dep:clap", "dep:confy", "dep:hex", "dep:anyhow"]
 gimli = ["jingle_sleigh/gimli"]

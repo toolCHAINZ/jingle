@@ -19,12 +19,12 @@ pub struct LoadedSleighContext<'a> {
     img: Pin<Box<ImageFFI<'a>>>,
 }
 
-impl<'a> Debug for LoadedSleighContext<'a> {
+impl Debug for LoadedSleighContext<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.sleigh.fmt(f)
     }
 }
-impl<'a> Deref for LoadedSleighContext<'a> {
+impl Deref for LoadedSleighContext<'_> {
     type Target = SleighContext;
 
     fn deref(&self) -> &Self::Target {
@@ -32,7 +32,7 @@ impl<'a> Deref for LoadedSleighContext<'a> {
     }
 }
 
-impl<'a> DerefMut for LoadedSleighContext<'a> {
+impl DerefMut for LoadedSleighContext<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.sleigh
     }
@@ -153,7 +153,7 @@ impl<'a> LoadedSleighContext<'a> {
     }
 }
 
-impl<'a> SpaceManager for LoadedSleighContext<'a> {
+impl SpaceManager for LoadedSleighContext<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
@@ -167,7 +167,7 @@ impl<'a> SpaceManager for LoadedSleighContext<'a> {
     }
 }
 
-impl<'a> RegisterManager for LoadedSleighContext<'a> {
+impl RegisterManager for LoadedSleighContext<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.sleigh.get_register(name)
     }

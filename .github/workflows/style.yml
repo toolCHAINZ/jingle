@@ -2,37 +2,35 @@ name: Style
 
 on:
   push:
-    branches:
-      - main
-      - dev
-    paths:
-      - '**/*.rs'
-      - Cargo.toml
-      - Cargo.lock
   pull_request:
-    paths:
-      - '**/*.rs'
-      - Cargo.toml
-      - Cargo.lock
+  workflow_dispatch:
 
 jobs:
-  lint:
-    name: Fmt and Clippy
-    runs-on: ubuntu-latest
+  pre_ci:
+    uses: dtolnay/.github/.github/workflows/pre_ci.yml@master
 
+  build:
+    name: ${{matrix.name || format('Rust {0}', matrix.rust)}}
+    needs: pre_ci
+    if: needs.pre_ci.outputs.continue
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [ stable ]
+        os: [ ubuntu ]
+    env:
+      RUSTFLAGS: --cfg deny_warnings -Dwarnings
+    timeout-minutes: 45
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-          override: true
-
-      - name: Check formatting with cargo fmt
+          toolchain: ${{matrix.rust}}
+          components: clippy, rustfmt
+      - name: cargo fmt
         run: cargo fmt --all -- --check
-
-      - name: Check code with cargo clippy
+      - name: cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings

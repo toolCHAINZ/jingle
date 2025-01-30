@@ -24,7 +24,7 @@ pub struct ModeledBlock<'ctx> {
     outputs: HashSet<ResolvedVarnode<'ctx>>,
 }
 
-impl<'ctx> Display for ModeledBlock<'ctx> {
+impl Display for ModeledBlock<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for x in self.instructions.iter() {
             writeln!(f, "{:x} {}", x.address, x.disassembly)?;
@@ -122,7 +122,7 @@ impl<'ctx> ModeledBlock<'ctx> {
     }
 }
 
-impl<'ctx> SpaceManager for ModeledBlock<'ctx> {
+impl SpaceManager for ModeledBlock<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.state.get_space_info(idx)
     }

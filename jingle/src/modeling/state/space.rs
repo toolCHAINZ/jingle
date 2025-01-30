@@ -2,7 +2,7 @@ use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVa
 use crate::{JingleContext, JingleError};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
-use z3::ast::{Array, BV};
+use z3::ast::{Array, Ast, BV};
 use z3::Sort;
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
@@ -88,6 +88,10 @@ impl<'ctx> ModeledSpace<'ctx> {
         }
         self.metadata = write_to_array::<1>(&self.metadata, val, offset, self.endianness);
         Ok(())
+    }
+
+    pub(crate) fn fmt_smt_array(&self) -> String {
+        format!("{:?}", self.data.simplify())
     }
 }
 

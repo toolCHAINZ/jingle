@@ -26,7 +26,7 @@ impl<'a> SleighContextInstructionIterator<'a> {
     }
 }
 
-impl<'a> Iterator for SleighContextInstructionIterator<'a> {
+impl Iterator for SleighContextInstructionIterator<'_> {
     type Item = Instruction;
 
     fn next(&mut self) -> Option<Self::Item> {

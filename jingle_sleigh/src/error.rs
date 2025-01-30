@@ -5,7 +5,7 @@ use thiserror::Error;
 pub enum JingleSleighError {
     /// The sleigh compiler was run against a language definition that had some missing files.
     /// Probably indicates that the path to the language specification was wrong
-    #[error("missing files needed to init sleigh. Could be sla or ldef or pspec")]
+    #[error("Unable to parse sleigh language!")]
     LanguageSpecRead,
     /// A language specification existed, but was unable to be parsed
     #[error("failed to parse sleigh language definition")]

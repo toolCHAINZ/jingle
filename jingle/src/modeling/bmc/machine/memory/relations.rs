@@ -8,7 +8,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use z3::ast::{Ast, BV};
 
-impl<'ctx> MemoryState<'ctx> {
+impl MemoryState<'_> {
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         let mut final_state = self.clone();
         match &op {

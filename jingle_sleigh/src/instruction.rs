@@ -1,12 +1,12 @@
+use std::fmt::{Display, Formatter};
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
-use crate::pcode::display::PcodeOperationDisplay;
 use crate::pcode::PcodeOperation;
 use crate::JingleSleighError::EmptyInstruction;
 use crate::{OpCode, RegisterManager};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+use crate::display::PcodeOperationDisplay;
 
 /// A rust representation of a SLEIGH assembly instruction
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ impl Instruction {
     pub fn display<'a, T: RegisterManager>(
         &'a self,
         ctx: &'a T,
-    ) -> Result<InstructionDisplay<T>, JingleSleighError> {
+    ) -> Result<InstructionDisplay<'a, T>, JingleSleighError> {
         let mut ops: Vec<PcodeOperationDisplay<T>> = Vec::with_capacity(self.ops.len());
         for x in &self.ops {
             ops.push(x.display(ctx)?)
@@ -61,7 +61,7 @@ impl Instruction {
     }
 }
 
-impl<'a, T: RegisterManager> Display for InstructionDisplay<'a, T> {
+impl<T: RegisterManager> Display for InstructionDisplay<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} {}", self.disassembly.mnemonic, self.disassembly.args)?;
         for x in &self.ops {

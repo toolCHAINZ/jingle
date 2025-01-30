@@ -445,10 +445,10 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
                 input1,
                 output,
             } => {
-                let bv1 = self.read_and_track(input0.into())?;
+                let mut bv1 = self.read_and_track(input0.into())?;
                 let mut bv2 = self.read_and_track(input1.into())?;
                 match bv1.get_size().cmp(&bv2.get_size()) {
-                    Ordering::Less => bv2 = bv2.extract(bv1.get_size() - 1, 0),
+                    Ordering::Less => bv1 = bv1.zero_ext(bv2.get_size() - bv1.get_size()),
                     Ordering::Greater => bv2 = bv2.zero_ext(bv1.get_size() - bv2.get_size()),
                     _ => {}
                 }

@@ -25,7 +25,7 @@ pub struct State<'ctx> {
     spaces: Vec<ModeledSpace<'ctx>>,
 }
 
-impl<'ctx> SpaceManager for State<'ctx> {
+impl SpaceManager for State<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.jingle.get_space_info(idx)
     }
@@ -39,7 +39,7 @@ impl<'ctx> SpaceManager for State<'ctx> {
     }
 }
 
-impl<'ctx> RegisterManager for State<'ctx> {
+impl RegisterManager for State<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
         self.jingle.get_register(name)
     }
@@ -309,5 +309,13 @@ impl<'ctx> State<'ctx> {
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
         Ok(Bool::and(self.jingle.z3, eq_terms.as_slice()))
+    }
+
+    pub fn fmt_smt_arrays(&self) -> String {
+        let mut lines = vec![];
+        for x in &self.spaces {
+            lines.push(x.fmt_smt_array())
+        }
+        lines.join("\n")
     }
 }
