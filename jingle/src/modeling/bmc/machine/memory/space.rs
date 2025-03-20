@@ -2,7 +2,7 @@ use crate::JingleError;
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
-use z3::ast::{Array, BV};
+use z3::ast::{Array, Ast, Bool, BV};
 use z3::{Context, Sort};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
@@ -53,6 +53,17 @@ impl<'ctx> BMCModeledSpace<'ctx> {
         }
         self.data = write_to_array::<8>(&self.data, val, offset, self.endianness);
         Ok(())
+    }
+
+    /// Symbolically equate two spaces. Note that these spaces MUST have the same dimensions.
+    pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
+        self.data._eq(&other.data)
+    }
+
+    pub fn _meta_eq(&self, other: &Self) -> bool {
+        self.word_size_bytes == other.word_size_bytes
+            && self.endianness == other.endianness
+            && self.index_size_bytes == other.index_size_bytes
     }
 }
 

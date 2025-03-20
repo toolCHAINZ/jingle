@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// What program-analysis library wouldn't be complete without an enum
 /// for endianness?
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum SleighEndianness {
     Big,
     Little,
@@ -19,7 +19,7 @@ pub enum SleighEndianness {
 /// This has the advantage of drastically reducing the amount of alloc/drop churn when working with
 /// `jingle` but has a cost: in order to use "nice" things like the names of spaces, you need to have
 /// a way to refer to a [`SpaceInfo`] object.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SpaceInfo {
     /// The name of the space; the name is guaranteed by `SLEIGH` to be unique, so it can be used
     /// as a unique identifier

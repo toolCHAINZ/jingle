@@ -4,7 +4,7 @@ use crate::modeling::bmc::machine::cpu::concrete::{
 use crate::JingleError;
 use jingle_sleigh::VarNode;
 use std::ops::Add;
-use z3::ast::{Ast, BV};
+use z3::ast::{Ast, Bool, BV};
 use z3::Context;
 
 pub type SymbolicPcodeMachineAddress<'ctx> = BV<'ctx>;
@@ -13,7 +13,7 @@ pub type SymbolicPcodeOffset<'ctx> = BV<'ctx>;
 // todo: add PcodeAddressSpace to Concrete and Symbolic addresses?
 // probably necessary for harvard architecture modeling.
 // ALSO: could be useful for callother.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct SymbolicPcodeAddress<'ctx> {
     pub(crate) machine: BV<'ctx>,
     pub(crate) pcode: BV<'ctx>,
@@ -72,5 +72,9 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         let pcode = self.extract_pcode() + offset;
         let machine = self.extract_machine().clone();
         SymbolicPcodeAddress { machine, pcode }
+    }
+
+    pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
+        self.machine._eq(&other.machine) & self.pcode._eq(&other.pcode)
     }
 }

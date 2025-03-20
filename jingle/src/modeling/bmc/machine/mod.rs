@@ -5,6 +5,7 @@ use cpu::concrete::ConcretePcodeAddress;
 use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
+use z3::ast::Bool;
 
 pub(crate) mod cpu;
 pub(crate) mod memory;
@@ -35,10 +36,7 @@ impl<'ctx> MachineState<'ctx> {
         }
     }
 
-    pub fn fresh_for_address(
-        jingle: &BMCJingleContext<'ctx>,
-        addr: ConcretePcodeAddress,
-    ) -> Self {
+    pub fn fresh_for_address(jingle: &BMCJingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),
@@ -59,5 +57,9 @@ impl<'ctx> MachineState<'ctx> {
             memory: self.memory.apply(op)?,
             pc: self.apply_control_flow(op)?,
         })
+    }
+
+    pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
+        self.pc._eq(&other.pc) & self.memory._eq(&other.memory)
     }
 }

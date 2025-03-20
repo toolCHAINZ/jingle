@@ -203,15 +203,16 @@ impl<'ctx> MemoryState<'ctx> {
         }
     }
 
-    pub fn _eq(&self, other: &MemoryState<'ctx>) -> Result<Bool<'ctx>, JingleError> {
+    pub fn _eq(&self, other: &MemoryState<'ctx>) -> Bool<'ctx> {
         let mut terms = vec![];
-        for (i, _) in self.jingle.get_all_space_info().enumerate() {
-            let self_space = self.get_space(i)?;
-            let other_space = other.get_space(i)?;
-            terms.push(self_space._eq(other_space))
+        for (ours, theirs) in self.spaces.iter().zip(&other.spaces) {
+            if !ours._meta_eq(&theirs) {
+                return Bool::from_bool(self.jingle.z3, false);
+            }
+            terms.push(ours._eq(theirs))
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
-        Ok(Bool::and(self.jingle.z3, eq_terms.as_slice()))
+        Bool::and(self.jingle.z3, eq_terms.as_slice())
     }
 
     /// A helper function for Branch and CBranch.
