@@ -23,7 +23,7 @@ impl<'ctx> MachineState<'ctx> {
         }
     }
 
-    pub fn fresh_for_address(
+    pub fn fresh_for_machine_address(
         jingle: &BMCJingleContext<'ctx>,
         machine_addr: PcodeMachineAddress,
     ) -> Self {
@@ -32,6 +32,17 @@ impl<'ctx> MachineState<'ctx> {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),
             pc: pc.symbolize(jingle.z3),
+        }
+    }
+
+    pub fn fresh_for_address(
+        jingle: &BMCJingleContext<'ctx>,
+        addr: ConcretePcodeAddress,
+    ) -> Self {
+        Self {
+            jingle: jingle.clone(),
+            memory: MemoryState::fresh(jingle),
+            pc: addr.symbolize(jingle.z3),
         }
     }
 
