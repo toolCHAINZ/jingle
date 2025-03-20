@@ -2,6 +2,7 @@ pub(crate) mod context;
 pub(crate) mod machine;
 pub(crate) mod pcode_cache;
 
+pub use context::BMCJingleContext;
 pub use machine::memory::space::BMCModeledSpace;
 pub use machine::memory::MemoryState;
 pub use machine::MachineState;
