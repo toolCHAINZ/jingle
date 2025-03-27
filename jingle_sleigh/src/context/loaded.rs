@@ -175,7 +175,7 @@ impl ArchInfoProvider for LoadedSleighContext<'_> {
     }
 
     fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.sleigh.get_registers().map(|(a, b)| (a, b))
+        self.sleigh.get_registers()
     }
 }
 

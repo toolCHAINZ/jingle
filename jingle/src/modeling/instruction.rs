@@ -73,7 +73,7 @@ impl ArchInfoProvider for ModeledInstruction<'_> {
     }
 
     fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.jingle.get_registers().map(|(a, b)| (a, b))
+        self.jingle.get_registers()
     }
 }
 
