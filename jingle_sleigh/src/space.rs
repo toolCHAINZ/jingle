@@ -100,7 +100,7 @@ impl<T: ArchInfoProvider> ArchInfoProvider for &[T] {
         self[0].get_code_space_idx()
     }
 
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self[0].get_register(name)
     }
 
@@ -108,7 +108,7 @@ impl<T: ArchInfoProvider> ArchInfoProvider for &[T] {
         self[0].get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)> {
         self[0].get_registers()
     }
 }
@@ -118,19 +118,19 @@ pub trait ArchInfoProvider {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
 
     /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo>;
+    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo>;
 
     /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
     fn get_code_space_idx(&self) -> usize;
 
     /// Given a register name, get a corresponding [`VarNode`], if one exists
-    fn get_register(&self, name: &str) -> Option<VarNode>;
+    fn get_register(&self, name: &str) -> Option<&VarNode>;
 
     /// Given a [`VarNode`], get the name of the corresponding architectural register, if one exists
     fn get_register_name(&self, location: &VarNode) -> Option<&str>;
 
     /// Get a listing of all register name/[`VarNode`] pairs
-    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)>;
+    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)>;
 
     fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
         for (space_index, space) in self.get_all_space_info().enumerate() {

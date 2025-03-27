@@ -59,7 +59,7 @@ impl ArchInfoProvider for SleighTranslator<'_> {
         self.jingle.get_code_space_idx()
     }
 
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self.jingle.get_register(name)
     }
 
@@ -67,7 +67,7 @@ impl ArchInfoProvider for SleighTranslator<'_> {
         self.jingle.get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
         self.jingle.get_registers()
     }
 }

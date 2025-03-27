@@ -50,11 +50,11 @@ impl ArchInfoProvider for SleighContext {
             .getIndex() as usize
     }
 
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self.registers
             .iter()
             .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn.clone())
+            .map(|(vn, _)| vn)
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
@@ -64,8 +64,8 @@ impl ArchInfoProvider for SleighContext {
             .map(|(_, name)| name.as_str())
     }
 
-    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
-        self.registers.iter()
+    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)> {
+        self.registers.iter().map(|(a,b)| (a,b.as_str()))
     }
 }
 
@@ -154,7 +154,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         for (vn, name) in sleigh.get_registers() {
             let addr = sleigh.get_register(&name);
-            assert_eq!(addr.as_ref(), Some(vn));
+            assert_eq!(addr, Some(vn));
         }
     }
 

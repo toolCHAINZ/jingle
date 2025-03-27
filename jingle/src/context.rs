@@ -24,12 +24,12 @@ impl ArchInfoProvider for JingleContext<'_> {
         self.info.default_code_space
     }
 
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self.info
             .registers
             .iter()
             .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn.clone())
+            .map(|(vn, _)| vn)
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
@@ -40,8 +40,8 @@ impl ArchInfoProvider for JingleContext<'_> {
             .map(|(_, name)| name.as_str())
     }
 
-    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
-        self.info.registers.iter()
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
+        self.info.registers.iter().map(|(a,b)| (a,b.as_str()))
     }
 }
 
@@ -67,7 +67,7 @@ impl<'ctx> JingleContext<'ctx> {
             z3,
             info: CachedArchInfo {
                 spaces: r.get_all_space_info().cloned().collect(),
-                registers: r.get_registers().cloned().collect(),
+                registers: r.get_registers().map(|(a,b)|(a.clone(),b.to_string())).collect(),
                 default_code_space: r.get_code_space_idx(),
             },
         }))
