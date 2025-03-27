@@ -118,6 +118,35 @@ pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
         self.get_final_state()._eq(other.get_original_state())
     }
 
+    /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same
+    /// destination as [self], given that [self] has branching behavior
+    /// todo: should swap self and other to make this align better with [upholds_postcondition]
+    fn branch_comparison<T: ModelingContext<'ctx>>(
+        &self,
+        other: &T,
+    ) -> Result<Option<Bool<'ctx>>, JingleError> {
+        if !self.get_branch_constraint().has_branch() {
+            Ok(None)
+        } else {
+            let self_bv = self.get_branch_constraint().build_bv(self)?;
+            let other_bv = other.get_branch_constraint().build_bv(other)?;
+            let self_bv = zext_to_match(self_bv, &other_bv);
+            let other_bv = zext_to_match(other_bv, &self_bv);
+            let self_bv_metadata = self.get_branch_constraint().build_bv_metadata(self)?;
+            let other_bv_metadata = other.get_branch_constraint().build_bv_metadata(other)?;
+            let self_bv_metadata =
+                zext_to_match(self_bv_metadata.simplify(), &other_bv_metadata.simplify());
+            let other_bv_metadata = zext_to_match(other_bv_metadata, &self_bv_metadata);
+            Ok(Some(Bool::and(
+                self.get_jingle().z3,
+                &[
+                    self_bv._eq(&other_bv).simplify(),
+                    self_bv_metadata._eq(&other_bv_metadata).simplify(),
+                ],
+            )))
+        }
+    }
+
     /// Returns a [Bool] assertion that the given trace's end-branch behavior is able to
     /// branch to the given [u64]
     fn can_branch_to_address(&self, addr: u64) -> Result<Bool<'ctx>, JingleError> {
