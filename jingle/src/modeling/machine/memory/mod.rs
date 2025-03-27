@@ -3,14 +3,13 @@ pub mod space;
 
 use crate::modeling::machine::memory::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
-use crate::{JingleContext, JingleError};
 use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
+use crate::{JingleContext, JingleError};
 use jingle_sleigh::{
-    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType,
-    VarNode,
+    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
 use z3::ast::{Array, Bool, BV};
@@ -207,7 +206,7 @@ impl<'ctx> MemoryState<'ctx> {
     pub fn _eq(&self, other: &MemoryState<'ctx>) -> Bool<'ctx> {
         let mut terms = vec![];
         for (ours, theirs) in self.spaces.iter().zip(&other.spaces) {
-            if !ours._meta_eq(&theirs) {
+            if !ours._meta_eq(theirs) {
                 return Bool::from_bool(self.jingle.z3, false);
             }
             terms.push(ours._eq(theirs))

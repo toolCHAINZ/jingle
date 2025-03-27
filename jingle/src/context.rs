@@ -77,6 +77,9 @@ impl<'ctx> JingleContext<'ctx> {
     }
 
     pub fn with_fresh_z3_context(&self, z3: &'ctx Context) -> Self {
-        Self(Rc::new(JingleContextInternal{z3, info: self.info.clone()}))
+        Self(Rc::new(JingleContextInternal {
+            z3,
+            info: self.info.clone(),
+        }))
     }
 }

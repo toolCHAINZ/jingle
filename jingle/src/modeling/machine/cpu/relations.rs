@@ -1,7 +1,7 @@
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use crate::modeling::machine::memory::MemoryState;
 use crate::JingleError;
-use jingle_sleigh::{PcodeOperation};
+use jingle_sleigh::PcodeOperation;
 use z3::ast::{Ast, BV};
 use z3::Context;
 

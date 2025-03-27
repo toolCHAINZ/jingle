@@ -51,8 +51,8 @@ impl ArchInfoProvider for SleighTranslator<'_> {
         self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
-       self.jingle.get_all_space_info()
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+        self.jingle.get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
@@ -67,7 +67,7 @@ impl ArchInfoProvider for SleighTranslator<'_> {
         self.jingle.get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
         self.jingle.get_registers()
     }
 }

@@ -14,9 +14,9 @@ use z3::ast::{Ast, Bool, BV};
 mod block;
 mod branch;
 mod instruction;
+pub mod machine;
 mod slice;
 mod state;
-pub mod machine;
 
 use crate::JingleContext;
 pub use block::ModeledBlock;
@@ -117,7 +117,6 @@ pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
     ) -> Result<Bool<'ctx>, JingleError> {
         self.get_final_state()._eq(other.get_original_state())
     }
-
 
     /// Returns a [Bool] assertion that the given trace's end-branch behavior is able to
     /// branch to the given [u64]

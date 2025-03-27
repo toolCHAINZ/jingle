@@ -9,7 +9,9 @@ use crate::error::JingleError::{
 use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
-use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode};
+use jingle_sleigh::{
+    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
+};
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
 
@@ -27,7 +29,7 @@ impl ArchInfoProvider for State<'_> {
         self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.jingle.get_all_space_info()
     }
     fn get_code_space_idx(&self) -> usize {
@@ -42,7 +44,7 @@ impl ArchInfoProvider for State<'_> {
         self.jingle.get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
         self.jingle.get_registers()
     }
 }

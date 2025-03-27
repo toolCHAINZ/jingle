@@ -6,9 +6,9 @@ use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
-use jingle_sleigh::{ArchInfoProvider, Instruction, VarNode};
 use jingle_sleigh::PcodeOperation;
-use jingle_sleigh::{SpaceInfo};
+use jingle_sleigh::SpaceInfo;
+use jingle_sleigh::{ArchInfoProvider, Instruction, VarNode};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -127,7 +127,7 @@ impl ArchInfoProvider for ModeledBlock<'_> {
         self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.jingle.get_all_space_info()
     }
 
@@ -143,7 +143,7 @@ impl ArchInfoProvider for ModeledBlock<'_> {
         self.jingle.get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)> {
         self.jingle.get_registers()
     }
 }

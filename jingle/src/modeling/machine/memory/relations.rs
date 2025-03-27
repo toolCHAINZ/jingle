@@ -1,6 +1,6 @@
 use crate::modeling::machine::memory::MemoryState;
 use crate::JingleError;
-use jingle_sleigh::{PcodeOperation};
+use jingle_sleigh::PcodeOperation;
 use std::cmp::{min, Ordering};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
