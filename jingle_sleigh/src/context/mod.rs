@@ -144,7 +144,7 @@ mod test {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let regs: Vec<_> = sleigh.get_registers().collect();
-        assert!(regs.len() > 0)
+        assert!(!regs.is_empty());
     }
 
     #[test]
@@ -153,7 +153,7 @@ mod test {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         for (vn, name) in sleigh.get_registers() {
-            let addr = sleigh.get_register(&name);
+            let addr = sleigh.get_register(name);
             assert_eq!(addr, Some(vn));
         }
     }
