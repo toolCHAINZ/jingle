@@ -155,10 +155,10 @@ impl<'a> LoadedSleighContext<'a> {
 
 impl ArchInfoProvider for LoadedSleighContext<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.sleigh.get_space_info(idx) 
+        self.sleigh.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.sleigh.get_all_space_info()
     }
 
@@ -174,7 +174,7 @@ impl ArchInfoProvider for LoadedSleighContext<'_> {
         self.sleigh.get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)> {
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
         self.sleigh.get_registers().map(|(a, b)| (a, b))
     }
 }

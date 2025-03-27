@@ -64,8 +64,8 @@ impl ArchInfoProvider for SleighContext {
             .map(|(_, name)| name.as_str())
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)> {
-        self.registers.iter().map(|(a,b)| (a,b.as_str()))
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
+        self.registers.iter().map(|(a, b)| (a, b.as_str()))
     }
 }
 
@@ -143,7 +143,7 @@ mod test {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let regs : Vec<_> = sleigh.get_registers().collect();
+        let regs: Vec<_> = sleigh.get_registers().collect();
         assert!(regs.len() > 0)
     }
 

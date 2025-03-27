@@ -18,7 +18,7 @@ use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
 use crate::pcode::display::PcodeOperationDisplay;
 use crate::varnode::{IndirectVarNode, VarNode};
-use crate::{GeneralizedVarNode, ArchInfoProvider};
+use crate::{ArchInfoProvider, GeneralizedVarNode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

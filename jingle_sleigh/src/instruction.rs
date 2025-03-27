@@ -4,7 +4,7 @@ pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
 use crate::JingleSleighError::EmptyInstruction;
-use crate::{OpCode, ArchInfoProvider};
+use crate::{ArchInfoProvider, OpCode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 

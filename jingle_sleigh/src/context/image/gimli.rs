@@ -1,12 +1,12 @@
 use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms};
+use crate::context::loaded::LoadedSleighContext;
+use crate::context::SleighContextBuilder;
 use crate::{JingleSleighError, VarNode};
 use object::{Architecture, Endianness, File, Object, ObjectSection, Section, SectionKind};
 use std::cmp::{max, min};
 use std::fmt::Debug;
 use std::fs;
 use std::path::Path;
-use crate::context::loaded::LoadedSleighContext;
-use crate::context::SleighContextBuilder;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct OwnedSection {
@@ -189,7 +189,10 @@ fn map_sec_kind(kind: &SectionKind) -> Perms {
     }
 }
 
-pub fn load_with_gimli<'a, P: AsRef<Path>, P2: AsRef<Path> + Debug>(p: P, ghidra_path: P2) -> Result<LoadedSleighContext<'a>, JingleSleighError>{
+pub fn load_with_gimli<'a, P: AsRef<Path>, P2: AsRef<Path> + Debug>(
+    p: P,
+    ghidra_path: P2,
+) -> Result<LoadedSleighContext<'a>, JingleSleighError> {
     let data = fs::read(p.as_ref()).map_err(|_| JingleSleighError::ImageLoadError)?;
     let f = object::File::parse(data.as_slice()).map_err(|_| JingleSleighError::ImageLoadError)?;
     let owned = OwnedFile::new(&f)?;
