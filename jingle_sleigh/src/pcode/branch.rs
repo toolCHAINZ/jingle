@@ -1,5 +1,5 @@
 use crate::pcode::branch::PcodeBranchDestination::{
-    Branch, Conditional, IndirectBranch, IndirectCall, Return,
+    Branch, Call, Conditional, IndirectBranch, IndirectCall, Return,
 };
 use crate::{IndirectVarNode, PcodeOperation, VarNode};
 
@@ -10,13 +10,19 @@ pub enum PcodeBranchDestination {
     IndirectBranch(IndirectVarNode),
     IndirectCall(IndirectVarNode),
     Return(IndirectVarNode),
+    // todo: add CallOther?
+}
+
+impl PcodeBranchDestination {
+    pub fn is_indirect(&self) -> bool {
+        matches!(self, IndirectBranch(_) | IndirectCall(_) | Return(_))
+    }
 }
 impl PcodeOperation {
     pub fn branch_destination(&self) -> Option<PcodeBranchDestination> {
         match self {
-            PcodeOperation::Branch { input } | PcodeOperation::Call { input } => {
-                Some(Branch(input.clone()))
-            }
+            PcodeOperation::Branch { input } => Some(Branch(input.clone())),
+            PcodeOperation::Call { input } => Some(Call(input.clone())),
             PcodeOperation::CBranch { input0, .. } => Some(Conditional(input0.clone())),
             PcodeOperation::BranchInd { input } => Some(IndirectBranch(input.clone())),
             PcodeOperation::CallInd { input } => Some(IndirectCall(input.clone())),

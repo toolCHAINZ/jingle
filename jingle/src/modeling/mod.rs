@@ -2,7 +2,7 @@ use crate::error::JingleError;
 
 use crate::varnode::ResolvedVarnode::{Direct, Indirect};
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
-use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SpaceManager, SpaceType};
+use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, PcodeOperation, SpaceType};
 use std::cmp::{min, Ordering};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -14,6 +14,7 @@ use z3::ast::{Ast, Bool, BV};
 mod block;
 mod branch;
 mod instruction;
+pub mod machine;
 mod slice;
 mod state;
 
@@ -28,7 +29,7 @@ pub use state::State;
 /// It enforces that the type has a handle to z3, has a concept of program state, and also
 /// defines several helper functions for building formulae
 /// todo: this should probably be separated out with the extension trait pattern
-pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
+pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
     /// Get a handle to the jingle context associated with this modeling context
     fn get_jingle(&self) -> &JingleContext<'ctx>;
 
@@ -77,41 +78,6 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
                 .unwrap_or(false),
             Indirect(_) => true,
         }
-    }
-
-    /// todo: remove?
-    fn reaches<T: ModelingContext<'ctx>>(&self, spec: &T) -> Result<Bool<'ctx>, JingleError> {
-        let mut premise_terms = vec![];
-        let mut inputs = self.get_inputs();
-        let spec_inputs = spec.get_inputs();
-        inputs.extend(spec_inputs);
-        // for all inputs from both operations
-        for vn in inputs.iter().filter(|v| self.should_varnode_constrain(v)) {
-            let ours = self.get_original_state().read_resolved(vn)?;
-            let other = spec.get_original_state().read_resolved(vn)?;
-            premise_terms.push(ours._eq(&other));
-        }
-
-        // now for all outputs
-        for vn in spec
-            .get_outputs()
-            .iter()
-            .filter(|p| self.should_varnode_constrain(p))
-        {
-            let our_bv = self.get_final_state().read_resolved(vn)?;
-            let other_bv = spec.get_final_state().read_resolved(vn)?;
-            let our_bv_orig = self.get_original_state().read_resolved(vn)?;
-            for i in 0..(our_bv.get_size() / 8) - 1 {
-                let extract1 = our_bv.extract((i + 1) * 8, i * 8);
-                let extract1_orig = our_bv_orig.extract((i + 1) * 8, i * 8);
-                premise_terms.push(extract1._eq(&extract1_orig).not());
-            }
-            premise_terms.push(our_bv._eq(&other_bv));
-        }
-        let p_terms: Vec<&Bool> = premise_terms.iter().collect();
-
-        let premise = Bool::and(self.get_jingle().z3, p_terms.as_slice());
-        Ok(premise)
     }
 
     /// Returns a [Bool] assertion that [self] upholds the postconditions of [other]
@@ -180,6 +146,7 @@ pub trait ModelingContext<'ctx>: SpaceManager + Debug + Sized {
             )))
         }
     }
+
     /// Returns a [Bool] assertion that the given trace's end-branch behavior is able to
     /// branch to the given [u64]
     fn can_branch_to_address(&self, addr: u64) -> Result<Bool<'ctx>, JingleError> {
@@ -746,6 +713,7 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
     }
 }
 
+#[allow(unused)]
 fn zext_to_match<'ctx>(bv1: BV<'ctx>, bv2: &BV<'ctx>) -> BV<'ctx> {
     if bv1.get_size() < bv2.get_size() {
         bv1.zero_ext(bv2.get_size() - bv1.get_size())

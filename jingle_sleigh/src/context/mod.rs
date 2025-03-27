@@ -7,7 +7,7 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
+use crate::space::SpaceInfo;
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
@@ -15,7 +15,7 @@ use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
-use crate::VarNode;
+use crate::{ArchInfoProvider, VarNode};
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
@@ -33,13 +33,13 @@ impl Debug for SleighContext {
     }
 }
 
-impl SpaceManager for SleighContext {
+impl ArchInfoProvider for SleighContext {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.spaces.get(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.spaces.as_slice()
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+        self.spaces.iter()
     }
 
     fn get_code_space_idx(&self) -> usize {
@@ -49,14 +49,12 @@ impl SpaceManager for SleighContext {
             .getDefaultCodeSpace()
             .getIndex() as usize
     }
-}
 
-impl RegisterManager for SleighContext {
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self.registers
             .iter()
             .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn.clone())
+            .map(|(vn, _)| vn)
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
@@ -66,8 +64,8 @@ impl RegisterManager for SleighContext {
             .map(|(_, name)| name.as_str())
     }
 
-    fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.registers.clone()
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
+        self.registers.iter().map(|(a, b)| (a, b.as_str()))
     }
 }
 
@@ -138,14 +136,15 @@ impl SleighContext {
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::{RegisterManager, VarNode};
+    use crate::{ArchInfoProvider, VarNode};
 
     #[test]
     fn get_regs() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        assert_ne!(sleigh.get_registers(), vec![]);
+        let regs: Vec<_> = sleigh.get_registers().collect();
+        assert!(!regs.is_empty());
     }
 
     #[test]
@@ -154,7 +153,7 @@ mod test {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         for (vn, name) in sleigh.get_registers() {
-            let addr = sleigh.get_register(&name);
+            let addr = sleigh.get_register(name);
             assert_eq!(addr, Some(vn));
         }
     }

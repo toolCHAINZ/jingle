@@ -3,7 +3,7 @@ use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::JingleSleighError::ImageLoadError;
-use crate::{Instruction, JingleSleighError, RegisterManager, SpaceInfo, SpaceManager, VarNode};
+use crate::{ArchInfoProvider, Instruction, JingleSleighError, SpaceInfo, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -153,22 +153,20 @@ impl<'a> LoadedSleighContext<'a> {
     }
 }
 
-impl SpaceManager for LoadedSleighContext<'_> {
+impl ArchInfoProvider for LoadedSleighContext<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.sleigh.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.sleigh.get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
         self.sleigh.get_code_space_idx()
     }
-}
 
-impl RegisterManager for LoadedSleighContext<'_> {
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self.sleigh.get_register(name)
     }
 
@@ -176,7 +174,7 @@ impl RegisterManager for LoadedSleighContext<'_> {
         self.sleigh.get_register_name(location)
     }
 
-    fn get_registers(&self) -> Vec<(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
         self.sleigh.get_registers()
     }
 }

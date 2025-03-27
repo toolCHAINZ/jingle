@@ -10,8 +10,7 @@ use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
 use jingle_sleigh::{
-    GeneralizedVarNode, IndirectVarNode, RegisterManager, SpaceInfo, SpaceManager, SpaceType,
-    VarNode,
+    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
 use z3::ast::{Array, Ast, Bool, BV};
@@ -25,22 +24,19 @@ pub struct State<'ctx> {
     spaces: Vec<ModeledSpace<'ctx>>,
 }
 
-impl SpaceManager for State<'_> {
+impl ArchInfoProvider for State<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.jingle.get_all_space_info()
     }
-
     fn get_code_space_idx(&self) -> usize {
         self.jingle.get_code_space_idx()
     }
-}
 
-impl RegisterManager for State<'_> {
-    fn get_register(&self, name: &str) -> Option<VarNode> {
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
         self.jingle.get_register(name)
     }
 
@@ -48,7 +44,7 @@ impl RegisterManager for State<'_> {
         self.jingle.get_register_name(location)
     }
 
-    fn get_registers(&self) -> Vec<(VarNode, String)> {
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
         self.jingle.get_registers()
     }
 }
@@ -299,7 +295,6 @@ impl<'ctx> State<'ctx> {
         let mut terms = vec![];
         for (i, _) in self
             .get_all_space_info()
-            .iter()
             .enumerate()
             .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
         {

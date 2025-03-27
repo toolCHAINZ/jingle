@@ -1,17 +1,15 @@
 use crate::pcode::PcodeOperation;
-use crate::RegisterManager;
+use crate::ArchInfoProvider;
 use std::fmt::{Display, Formatter};
 
-pub struct PcodeOperationDisplay<'a, T: RegisterManager> {
+pub struct PcodeOperationDisplay<'a, T: ArchInfoProvider> {
     pub(crate) op: PcodeOperation,
     pub(crate) ctx: &'a T,
 }
 
-impl<T: RegisterManager> PcodeOperationDisplay<'_, T> {}
-
 impl<T> Display for PcodeOperationDisplay<'_, T>
 where
-    T: RegisterManager,
+    T: ArchInfoProvider,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(o) = self.op.output() {
