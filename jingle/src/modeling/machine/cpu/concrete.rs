@@ -1,4 +1,4 @@
-use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
+use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::VarNode;
 use std::fmt::{Display, Formatter, LowerHex};
 use z3::ast::BV;

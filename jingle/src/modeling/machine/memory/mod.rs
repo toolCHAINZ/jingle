@@ -1,32 +1,31 @@
 mod relations;
 pub mod space;
 
-use crate::modeling::bmc::context::BMCJingleContext;
-use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
+use crate::modeling::machine::memory::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
-use crate::JingleError;
+use crate::{JingleContext, JingleError};
 use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
 use jingle_sleigh::{
-    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceManager, SpaceType,
+    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType,
     VarNode,
 };
 use std::ops::Add;
-use z3::ast::{Array, Ast, Bool, BV};
+use z3::ast::{Array, Bool, BV};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
 /// on an initial state
 #[derive(Clone, Debug)]
 pub struct MemoryState<'ctx> {
-    jingle: BMCJingleContext<'ctx>,
+    jingle: JingleContext<'ctx>,
     spaces: Vec<BMCModeledSpace<'ctx>>,
 }
 
 impl<'ctx> MemoryState<'ctx> {
-    pub fn fresh(jingle: &BMCJingleContext<'ctx>) -> Self {
+    pub fn fresh(jingle: &JingleContext<'ctx>) -> Self {
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
@@ -82,6 +81,7 @@ impl<'ctx> MemoryState<'ctx> {
         space.read(&ptr, indirect.access_size_bytes)
     }
 
+    #[allow(unused)]
     fn read_varnode_metadata_indirect(
         &self,
         indirect: &IndirectVarNode,
@@ -166,6 +166,7 @@ impl<'ctx> MemoryState<'ctx> {
         Ok(self)
     }
 
+    #[allow(unused)]
     fn write_varnode_metadata_indirect(
         &mut self,
         dest: &IndirectVarNode,

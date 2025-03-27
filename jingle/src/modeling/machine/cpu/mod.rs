@@ -2,13 +2,10 @@ pub mod concrete;
 mod relations;
 pub mod symbolic;
 
-use jingle_sleigh::SpaceManager;
-use std::ops::{Add, Deref};
-use z3::ast::Ast;
 #[cfg(test)]
 mod tests {
-    use crate::modeling::bmc::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
-    use crate::modeling::bmc::machine::cpu::symbolic::SymbolicPcodeAddress;
+    use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
+    use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
     use z3::ast::BV;
     use z3::{Config, Context};
 

@@ -18,7 +18,7 @@ use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
 use crate::pcode::display::PcodeOperationDisplay;
 use crate::varnode::{IndirectVarNode, VarNode};
-use crate::{GeneralizedVarNode, RegisterManager};
+use crate::{GeneralizedVarNode, ArchInfoProvider};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -391,7 +391,7 @@ impl PcodeOperation {
         !matches!(self, Return { .. } | Branch { .. } | BranchInd { .. })
     }
 
-    pub fn display<'a, T: RegisterManager>(
+    pub fn display<'a, T: ArchInfoProvider>(
         &self,
         ctx: &'a T,
     ) -> Result<PcodeOperationDisplay<'a, T>, JingleSleighError> {

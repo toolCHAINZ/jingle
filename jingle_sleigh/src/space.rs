@@ -85,61 +85,31 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
     }
 }
 
-/// This trait describes structures that hold all the data necessary to generate [`VarNode`] expressions.
-/// This requires being able to return a handle to the space associated with a given index, get
-/// what `SLEIGH` marks as the "default code space", and get a listing of all spaces.
-/// As a convenience,
-pub trait SpaceManager {
-    /// Retrieve the [`SpaceInfo`] associated with the given index, if it exists
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
-
-    /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
-    fn get_all_space_info(&self) -> &[SpaceInfo];
-
-    /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
-    fn get_code_space_idx(&self) -> usize;
-
-    /// A helper function to generate a [`VarNode`] using the name of a space
-    fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
-        for (space_index, space) in self.get_all_space_info().iter().enumerate() {
-            if space.name.eq(name) {
-                return Ok(VarNode {
-                    space_index,
-                    size,
-                    offset,
-                });
-            }
-        }
-        Err(JingleSleighError::InvalidSpaceName)
-    }
-}
-
-/// This trait indicates that the implementing type holds associations between architectural register
-/// names and [`VarNode`]s.
-pub trait RegisterManager: SpaceManager {
-    /// Given a register name, get a corresponding [`VarNode`], if one exists
-    fn get_register(&self, name: &str) -> Option<VarNode>;
-
-    /// Given a [`VarNode`], get the name of the corresponding architectural register, if one exists
-    fn get_register_name(&self, location: &VarNode) -> Option<&str>;
-
-    /// Get a listing of all register name/[`VarNode`] pairs
-    fn get_registers(&self) -> Vec<(VarNode, String)>;
-}
-
 /// `jingle` models traces of code using slices, so it is helpful to implement some of these
 /// traits on slices of types that implement those same traits.
-impl<T: SpaceManager> SpaceManager for &[T] {
+impl<T: ArchInfoProvider> ArchInfoProvider for &[T] {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self[0].get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
+    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
         self[0].get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
         self[0].get_code_space_idx()
+    }
+
+    fn get_register(&self, name: &str) -> Option<VarNode> {
+        self[0].get_register(name)
+    }
+
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
+        self[0].get_register_name(location)
+    }
+
+    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+        self[0].get_registers()
     }
 }
 
@@ -161,4 +131,17 @@ pub trait ArchInfoProvider {
 
     /// Get a listing of all register name/[`VarNode`] pairs
     fn get_registers(&self) -> impl Iterator<Item = &(VarNode, String)>;
+
+    fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
+        for (space_index, space) in self.get_all_space_info().enumerate() {
+            if space.name.eq(name) {
+                return Ok(VarNode {
+                    space_index,
+                    size,
+                    offset,
+                });
+            }
+        }
+        Err(JingleSleighError::InvalidSpaceName)
+    }
 }

@@ -3,11 +3,10 @@ pub mod display;
 use crate::error::JingleSleighError;
 
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::space::SpaceManager;
 pub use crate::varnode::display::{
     GeneralizedVarNodeDisplay, IndirectVarNodeDisplay, VarNodeDisplay,
 };
-use crate::{RawVarNodeDisplay, RegisterManager};
+use crate::{ArchInfoProvider, RawVarNodeDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Range;
@@ -24,7 +23,7 @@ use std::ops::Range;
 /// architecture-defined register name.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct VarNode {
-    /// The index at which the relevant space can be found in a [`SpaceManager`]
+    /// The index at which the relevant space can be found in a [`ArchInfoProvider`]
     pub space_index: usize,
     /// The offset into the given space
     pub offset: u64,
@@ -42,7 +41,7 @@ impl VarNode {
     pub fn is_const(&self) -> bool {
         self.space_index == Self::CONST_SPACE_INDEX
     }
-    pub fn display<T: RegisterManager>(
+    pub fn display<T: ArchInfoProvider>(
         &self,
         ctx: &T,
     ) -> Result<VarNodeDisplay, JingleSleighError> {
@@ -98,13 +97,13 @@ macro_rules! varnode {
     };
 }
 
-pub fn create_varnode<T: SpaceManager>(
+pub fn create_varnode<T: ArchInfoProvider>(
     ctx: &T,
     name: &str,
     offset: u64,
     size: usize,
 ) -> Result<VarNode, JingleSleighError> {
-    for (space_index, space) in ctx.get_all_space_info().iter().enumerate() {
+    for (space_index, space) in ctx.get_all_space_info().enumerate() {
         if space.name.eq(name) {
             return Ok(VarNode {
                 space_index,
@@ -124,7 +123,7 @@ pub struct IndirectVarNode {
 }
 
 impl IndirectVarNode {
-    pub fn display<T: RegisterManager>(
+    pub fn display<T: ArchInfoProvider>(
         &self,
         ctx: &T,
     ) -> Result<IndirectVarNodeDisplay, JingleSleighError> {
@@ -149,7 +148,7 @@ pub enum GeneralizedVarNode {
 }
 
 impl GeneralizedVarNode {
-    pub fn display<T: RegisterManager>(
+    pub fn display<T: ArchInfoProvider>(
         &self,
         ctx: &T,
     ) -> Result<GeneralizedVarNodeDisplay, JingleSleighError> {

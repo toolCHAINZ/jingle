@@ -7,7 +7,7 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::space::{RegisterManager, SpaceInfo, SpaceManager};
+use crate::space::SpaceInfo;
 pub use builder::SleighContextBuilder;
 
 use crate::context::builder::language_def::LanguageDefinition;
@@ -30,44 +30,6 @@ pub struct SleighContext {
 impl Debug for SleighContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Sleigh {{arch: {}}}", self.language_id)
-    }
-}
-
-impl SpaceManager for SleighContext {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.spaces.get(idx)
-    }
-
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.spaces.as_slice()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self.ctx
-            .getSpaceByIndex(0)
-            .getManager()
-            .getDefaultCodeSpace()
-            .getIndex() as usize
-    }
-}
-
-impl RegisterManager for SleighContext {
-    fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.registers
-            .iter()
-            .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn.clone())
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.registers
-            .iter()
-            .find(|(vn, _)| vn == location)
-            .map(|(_, name)| name.as_str())
-    }
-
-    fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.registers.clone()
     }
 }
 
@@ -174,14 +136,15 @@ impl SleighContext {
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::{RegisterManager, VarNode};
+    use crate::{ArchInfoProvider, VarNode};
 
     #[test]
     fn get_regs() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        assert_ne!(sleigh.get_registers(), vec![]);
+        let regs : Vec<_> = sleigh.get_registers().collect();
+        assert!(regs.len() > 0)
     }
 
     #[test]
@@ -191,7 +154,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         for (vn, name) in sleigh.get_registers() {
             let addr = sleigh.get_register(&name);
-            assert_eq!(addr, Some(vn));
+            assert_eq!(addr.as_ref(), Some(vn));
         }
     }
 

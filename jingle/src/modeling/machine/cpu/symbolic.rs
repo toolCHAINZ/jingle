@@ -1,9 +1,8 @@
-use crate::modeling::bmc::machine::cpu::concrete::{
+use crate::modeling::machine::cpu::concrete::{
     ConcretePcodeAddress, PcodeMachineAddress, PcodeOffset,
 };
 use crate::JingleError;
 use jingle_sleigh::VarNode;
-use std::ops::Add;
 use z3::ast::{Ast, Bool, BV};
 use z3::Context;
 

@@ -1,22 +1,21 @@
-use crate::modeling::bmc::context::BMCJingleContext;
-use crate::modeling::bmc::machine::memory::MemoryState;
-use crate::JingleError;
+use crate::modeling::machine::memory::MemoryState;
+use crate::{JingleContext, JingleError};
 use cpu::concrete::ConcretePcodeAddress;
 use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use z3::ast::Bool;
 
-pub(crate) mod cpu;
-pub(crate) mod memory;
+pub mod cpu;
+pub mod memory;
 pub struct MachineState<'ctx> {
-    jingle: BMCJingleContext<'ctx>,
+    jingle: JingleContext<'ctx>,
     memory: MemoryState<'ctx>,
     pc: SymbolicPcodeAddress<'ctx>,
 }
 
 impl<'ctx> MachineState<'ctx> {
-    pub fn fresh(jingle: &BMCJingleContext<'ctx>) -> Self {
+    pub fn fresh(jingle: &JingleContext<'ctx>) -> Self {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),
@@ -25,7 +24,7 @@ impl<'ctx> MachineState<'ctx> {
     }
 
     pub fn fresh_for_machine_address(
-        jingle: &BMCJingleContext<'ctx>,
+        jingle: &JingleContext<'ctx>,
         machine_addr: PcodeMachineAddress,
     ) -> Self {
         let pc = ConcretePcodeAddress::from(machine_addr);
@@ -36,7 +35,7 @@ impl<'ctx> MachineState<'ctx> {
         }
     }
 
-    pub fn fresh_for_address(jingle: &BMCJingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
+    pub fn fresh_for_address(jingle: &JingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),

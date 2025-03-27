@@ -4,7 +4,7 @@ pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
 use crate::JingleSleighError::EmptyInstruction;
-use crate::{OpCode, RegisterManager};
+use crate::{OpCode, ArchInfoProvider};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -23,13 +23,13 @@ pub struct Instruction {
 
 /// A helper structure allowing displaying an instruction and its semantics
 /// without requiring lots of pcode metadata to be stored in the instruction itself
-pub struct InstructionDisplay<'a, T: RegisterManager> {
+pub struct InstructionDisplay<'a, T: ArchInfoProvider> {
     pub disassembly: Disassembly,
     pub ops: Vec<PcodeOperationDisplay<'a, T>>,
 }
 
 impl Instruction {
-    pub fn display<'a, T: RegisterManager>(
+    pub fn display<'a, T: ArchInfoProvider>(
         &'a self,
         ctx: &'a T,
     ) -> Result<InstructionDisplay<'a, T>, JingleSleighError> {
@@ -61,7 +61,7 @@ impl Instruction {
     }
 }
 
-impl<T: RegisterManager> Display for InstructionDisplay<'_, T> {
+impl<T: ArchInfoProvider> Display for InstructionDisplay<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} {}", self.disassembly.mnemonic, self.disassembly.args)?;
         for x in &self.ops {

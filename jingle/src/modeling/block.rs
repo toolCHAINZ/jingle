@@ -6,9 +6,9 @@ use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
 use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
-use jingle_sleigh::Instruction;
+use jingle_sleigh::{ArchInfoProvider, Instruction, VarNode};
 use jingle_sleigh::PcodeOperation;
-use jingle_sleigh::{SpaceInfo, SpaceManager};
+use jingle_sleigh::{SpaceInfo};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -122,16 +122,29 @@ impl<'ctx> ModeledBlock<'ctx> {
     }
 }
 
-impl SpaceManager for ModeledBlock<'_> {
+impl ArchInfoProvider for ModeledBlock<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.state.get_space_info(idx)
+        self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.state.get_all_space_info()
+    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+        self.jingle.get_all_space_info()
     }
+
     fn get_code_space_idx(&self) -> usize {
-        self.state.get_code_space_idx()
+        self.jingle.get_code_space_idx()
+    }
+
+    fn get_register(&self, name: &str) -> Option<VarNode> {
+        self.jingle.get_register(name)
+    }
+
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
+        self.jingle.get_register_name(location)
+    }
+
+    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+        self.jingle.get_registers()
     }
 }
 

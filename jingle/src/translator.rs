@@ -1,11 +1,10 @@
 use crate::error::JingleError;
-use jingle_sleigh::{Instruction, RegisterManager, SpaceInfo, VarNode};
+use jingle_sleigh::{ArchInfoProvider, Instruction, SpaceInfo, VarNode};
 
 use crate::modeling::ModeledInstruction;
 use crate::JingleContext;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
-use jingle_sleigh::SpaceManager;
 use z3::Context;
 
 /// This type wraps z3 and a sleigh context and allows for both modeling instructions that
@@ -47,30 +46,28 @@ impl<'ctx> SleighTranslator<'ctx> {
     }
 }
 
-impl SpaceManager for SleighTranslator<'_> {
+impl ArchInfoProvider for SleighTranslator<'_> {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.sleigh.get_space_info(idx)
+        self.jingle.get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> &[SpaceInfo] {
-        self.sleigh.get_all_space_info()
+    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+       self.jingle.get_all_space_info()
     }
 
     fn get_code_space_idx(&self) -> usize {
-        self.sleigh.get_code_space_idx()
+        self.jingle.get_code_space_idx()
     }
-}
 
-impl RegisterManager for SleighTranslator<'_> {
     fn get_register(&self, name: &str) -> Option<VarNode> {
-        self.sleigh.get_register(name)
+        self.jingle.get_register(name)
     }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.sleigh.get_register_name(location)
+        self.jingle.get_register_name(location)
     }
 
-    fn get_registers(&self) -> Vec<(VarNode, String)> {
-        self.sleigh.get_registers()
+    fn get_registers(&self) -> impl Iterator<Item=&(VarNode, String)> {
+        self.jingle.get_registers()
     }
 }

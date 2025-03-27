@@ -109,7 +109,7 @@ fn write_to_array<'ctx, const W: u32>(
 
 #[cfg(test)]
 mod tests {
-    use crate::modeling::bmc::machine::memory::space::BMCModeledSpace;
+    use crate::modeling::machine::memory::space::BMCModeledSpace;
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
