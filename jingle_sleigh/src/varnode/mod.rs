@@ -118,6 +118,7 @@ pub fn create_varnode<T: ArchInfoProvider>(
     Err(JingleSleighError::InvalidSpaceName)
 }
 
+#[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct IndirectVarNode {
     pub pointer_space_index: usize,
