@@ -12,6 +12,7 @@ use std::pin::Pin;
 /// In addition to the methods in [SleighContext], is able to
 /// query bytes for address ranges from its source image, as well
 /// as ISA instructions (and associated `p-code`).
+
 pub struct LoadedSleighContext<'a> {
     /// A handle to `sleigh`. By construction, this context is initialized with an image
     sleigh: SleighContext,

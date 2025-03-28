@@ -18,7 +18,7 @@ pub enum JingleSleighError {
     #[error("that's not a valid language id")]
     InvalidLanguageId,
     /// Attempted to initialize sleigh but something went wrong
-    #[error("Something went wrong putting bytes into sleigh")]
+    #[error("Something went wrong putting bytes into sleigh: {0}")]
     SleighInitError(String),
     /// Unable to load the provided binary image for sleigh
     #[error("Something went wrong putting bytes into sleigh")]
