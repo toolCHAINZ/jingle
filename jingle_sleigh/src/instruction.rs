@@ -7,12 +7,10 @@ use crate::JingleSleighError::EmptyInstruction;
 use crate::{ArchInfoProvider, OpCode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-#[cfg(feature = "pyo3")]
-use pyo3::pyclass;
+
 
 /// A rust representation of a SLEIGH assembly instruction
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "pyo3", pyclass)]
 pub struct Instruction {
     pub disassembly: Disassembly,
     /// The PCODE semantics of this instruction
