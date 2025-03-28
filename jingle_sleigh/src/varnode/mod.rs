@@ -10,6 +10,8 @@ use crate::{ArchInfoProvider, RawVarNodeDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Range;
+#[cfg(feature = "pyo3")]
+use pyo3::pyclass;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -22,6 +24,7 @@ use std::ops::Range;
 /// For registers, we will (soon! (TM)) perform a register lookup and instead show the pretty
 /// architecture-defined register name.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "pyo3", pyclass)]
 pub struct VarNode {
     /// The index at which the relevant space can be found in a [`ArchInfoProvider`]
     pub space_index: usize,
