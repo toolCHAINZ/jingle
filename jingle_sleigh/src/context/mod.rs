@@ -19,7 +19,9 @@ use crate::{ArchInfoProvider, VarNode};
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use pyo3::pyclass;
 
+#[cfg_attr(feature="pyo3", pyclass(unsendable))]
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
     spaces: Vec<SpaceInfo>,

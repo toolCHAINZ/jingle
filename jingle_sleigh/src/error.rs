@@ -1,3 +1,7 @@
+#[cfg(feature = "pyo3")]
+use pyo3::exceptions::{PyRuntimeError};
+#[cfg(feature = "pyo3")]
+use pyo3::PyErr;
 use thiserror::Error;
 
 /// An error (usually from across the FFI boundary) in something involving sleigh
@@ -39,5 +43,12 @@ pub enum JingleSleighError {
 impl From<JingleSleighError> for std::fmt::Error {
     fn from(_value: JingleSleighError) -> Self {
         std::fmt::Error
+    }
+}
+
+#[cfg(feature="pyo3")]
+impl From<JingleSleighError> for PyErr {
+    fn from(value: JingleSleighError) -> Self {
+        PyRuntimeError::new_err(value.to_string())
     }
 }
