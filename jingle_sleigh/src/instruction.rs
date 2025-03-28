@@ -8,6 +8,7 @@ use crate::{ArchInfoProvider, OpCode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
+
 /// A rust representation of a SLEIGH assembly instruction
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Instruction {
