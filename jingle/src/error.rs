@@ -23,14 +23,20 @@ pub enum JingleError {
     ZeroSizedVarnode,
     #[error("Cannot write values into constant space.")]
     ConstantWrite,
-    #[error("Attempt to read an indirect value from the constant space. While this can be modeled, \
-    it's almost definitely unintended.")]
+    #[error(
+        "Attempt to read an indirect value from the constant space. While this can be modeled, \
+    it's almost definitely unintended."
+    )]
     IndirectConstantRead,
-    #[error("Attempted to perform a write of a bitvector to a VarNode with leftover space. This is \
-    a sleigh bug.")]
+    #[error(
+        "Attempted to perform a write of a bitvector to a VarNode with leftover space. This is \
+    a sleigh bug."
+    )]
     MismatchedWordSize,
-    #[error("Attempted to perform a write to a space using the wrong size of address. This is a \
-    sleigh bug.")]
+    #[error(
+        "Attempted to perform a write to a space using the wrong size of address. This is a \
+    sleigh bug."
+    )]
     MismatchedAddressSize,
     #[error("Jingle does not yet model this instruction")]
     UnmodeledInstruction(Box<PcodeOperation>),
