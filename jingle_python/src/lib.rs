@@ -17,7 +17,7 @@ use z3::Context;
 use z3_sys::Z3_context;
 
 thread_local! {
-    pub static CONTEXT: RefCell<Z3_context> = RefCell::new(std::ptr::null_mut());
+    pub static CONTEXT: RefCell<Z3_context> = const { RefCell::new(std::ptr::null_mut()) };
 }
 
 thread_local! {
@@ -49,7 +49,7 @@ fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::sleigh_context::{create_sleigh_context, LoadedSleighContextWrapper};
+    use crate::sleigh_context::create_sleigh_context;
 
     #[test]
     fn ctx() {

@@ -19,11 +19,11 @@ impl PythonState {
         })
     }
 
-    pub fn varnode(&self, varnode: &VarNode) -> PyResult<PyObject> {
+    pub fn varnode(&self, varnode: &VarNode) -> PyResult<Py<PyAny>> {
         adapt_bv(self.state.read_varnode(varnode)?)
     }
 
-    pub fn register(&self, name: &str) -> PyResult<PyObject> {
+    pub fn register(&self, name: &str) -> PyResult<Py<PyAny>> {
         let vn = self
             .state
             .get_register(name)
@@ -31,7 +31,7 @@ impl PythonState {
         adapt_bv(self.state.read_varnode(vn)?)
     }
 
-    pub fn ram(&self, offset: u64, length: usize) -> PyResult<PyObject> {
+    pub fn ram(&self, offset: u64, length: usize) -> PyResult<Py<PyAny>> {
         adapt_bv(self.state.read_varnode(&VarNode {
             offset,
             size: length,
