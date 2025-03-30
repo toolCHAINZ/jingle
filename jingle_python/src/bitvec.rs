@@ -1,6 +1,6 @@
 use pyo3::prelude::PyAnyMethods;
 use pyo3::types::PyModule;
-use pyo3::{Bound, IntoPy, IntoPyObject, IntoPyObjectExt, Py, PyAny, PyObject, PyResult, Python};
+use pyo3::{IntoPyObject, IntoPyObjectExt, Py, PyAny, PyResult, Python};
 use z3::ast::{Ast, BV};
 
 pub fn adapt_bv(bv: BV) -> PyResult<Py<PyAny>> {
