@@ -39,10 +39,8 @@ impl ArchInfoProvider for &PythonInstruction {
     }
 
     fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.registers
-            .iter()
-            .find(|a| a.1 == name)
-            .map(|a| &a.0)    }
+        self.registers.iter().find(|a| a.1 == name).map(|a| &a.0)
+    }
 
     fn get_register_name(&self, location: &VarNode) -> Option<&str> {
         self.registers

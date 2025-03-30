@@ -1,6 +1,7 @@
 mod instruction;
 mod jingle_context;
 mod sleigh_context;
+mod state;
 
 use crate::instruction::PythonInstruction;
 use crate::sleigh_context::LoadedSleighContextWrapper;

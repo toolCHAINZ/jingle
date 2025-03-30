@@ -1,7 +1,6 @@
 use std::process::Command;
 
 fn main() {
-
     // Run the Python script to get the venv's lib directory
     let output = Command::new("python")
         .arg("find_path.py") // Assuming the script is named find_venv_lib.py

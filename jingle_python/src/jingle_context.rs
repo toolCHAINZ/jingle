@@ -22,7 +22,7 @@ impl PythonJingleContext {
                 .extract()?;
             println!("z3_ptr: {:x}", z3_ptr);
             let raw_ctx: Z3_context = z3_ptr as Z3_context;
-            let ctx = context_switcheroo( raw_ctx );
+            let ctx = context_switcheroo(raw_ctx);
             let ctx = JingleContext::new(ctx, i);
             ctx.fresh_state();
             Ok(PythonJingleContext { context: ctx })
