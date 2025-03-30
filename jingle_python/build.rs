@@ -1,13 +1,20 @@
+use std::process::Command;
 
 fn main() {
-    let var = std::env::var("Z3_PYTHON_LIB").unwrap_or_else(|_| "/Users/maroed/RustroverProjects/jingle/jingle_python/.venv/lib/python3.13/site-packages/z3/lib/".to_string());
+
+    // Run the Python script to get the venv's lib directory
+    let output = Command::new("python")
+        .arg("find_path.py") // Assuming the script is named find_venv_lib.py
+        .output()
+        .expect("Failed to execute Python script");
+
+    if !output.status.success() {
+        panic!("Python script failed: {:?}", output);
+    }
+
+    let venv_lib = String::from_utf8_lossy(&output.stdout).trim().to_string();
     // Get the directory where Python's Z3 library is located
-    let z3_python_lib = std::path::Path::new(&var);
-
-    // Set the environment variable for Rust to use the same library
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:libdir={}", z3_python_lib.display());
-
+    let z3_python_lib = std::path::Path::new(&venv_lib).join("z3").join("lib");
     // Optionally, set the rpath for dynamic libraries
     println!("cargo:rustc-link-search=native={}", z3_python_lib.display());
 }
