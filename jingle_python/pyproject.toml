@@ -12,7 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "maturin>=1.8.3",
+    "z3-solver==4.12.4.0",
 ]
 [tool.maturin]
 features = ["pyo3/extension-module"]

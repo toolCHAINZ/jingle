@@ -1,9 +1,8 @@
-use std::os::unix::raw::off_t;
 use jingle::sleigh::context::image::gimli::load_with_gimli;
 use jingle::sleigh::context::loaded::LoadedSleighContext;
-use jingle::sleigh::Instruction;
 use pyo3::{pyclass, pyfunction, pymethods, PyResult};
 use crate::instruction::PythonInstruction;
+use crate::jingle_context::PythonJingleContext;
 
 #[pyfunction]
 pub fn create_sleigh_context(
@@ -33,5 +32,9 @@ impl LoadedSleighContextWrapper {
     #[getter]
     pub fn get_base_address(&mut self) -> u64 {
         self.context.get_base_address()
+    }
+    
+    pub fn make_jingle_context(&self) -> PyResult<PythonJingleContext> {
+        PythonJingleContext::make_jingle_context(&self.context)
     }
 }
