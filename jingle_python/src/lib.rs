@@ -2,6 +2,7 @@ mod instruction;
 mod jingle_context;
 mod sleigh_context;
 mod state;
+mod bitvec;
 
 use crate::instruction::PythonInstruction;
 use crate::sleigh_context::LoadedSleighContextWrapper;
@@ -13,6 +14,7 @@ use std::ffi::CString;
 use std::mem;
 use z3::Context;
 use z3_sys::Z3_context;
+use crate::state::PythonState;
 
 thread_local! {
     pub static CONTEXT: RefCell<Z3_context> = RefCell::new(std::ptr::null_mut());
@@ -40,6 +42,7 @@ fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PcodeOperation>()?;
     m.add_class::<PythonInstruction>()?;
     m.add_class::<LoadedSleighContextWrapper>()?;
+    m.add_class::<PythonState>()?;
     m.add_function(wrap_pyfunction!(create_sleigh_context, m)?)?;
     Ok(())
 }

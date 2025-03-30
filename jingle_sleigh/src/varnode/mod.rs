@@ -7,11 +7,12 @@ pub use crate::varnode::display::{
     GeneralizedVarNodeDisplay, IndirectVarNodeDisplay, VarNodeDisplay,
 };
 use crate::{ArchInfoProvider, RawVarNodeDisplay};
+#[cfg(feature = "pyo3")]
+use pyo3::pyclass;
+use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Range;
-#[cfg(feature = "pyo3")]
-use pyo3::pyclass;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -34,6 +35,19 @@ pub struct VarNode {
     ///
     /// todo: double-check the sleigh spec and see whether this is always bytes or if it is space word size
     pub size: usize,
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl VarNode {
+    #[new]
+    pub fn new(space_index: usize, offset: u64, size: usize) -> Self {
+        Self {
+            space_index,
+            offset,
+            size,
+        }
+    }
 }
 
 impl VarNode {

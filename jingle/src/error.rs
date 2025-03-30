@@ -1,3 +1,7 @@
+#[cfg(feature = "pyo3")]
+use pyo3::exceptions::PyRuntimeError;
+#[cfg(feature = "pyo3")]
+use pyo3::PyErr;
 use jingle_sleigh::{JingleSleighError, PcodeOperation};
 use thiserror::Error;
 
@@ -27,4 +31,11 @@ pub enum JingleError {
     MismatchedAddressSize,
     #[error("Jingle does not yet model this instruction")]
     UnmodeledInstruction(Box<PcodeOperation>),
+}
+
+#[cfg(feature = "pyo3")]
+impl From<JingleError> for PyErr {
+    fn from(value: JingleError) -> Self {
+        PyRuntimeError::new_err(value.to_string())
+    }
 }

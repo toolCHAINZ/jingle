@@ -7,7 +7,7 @@ use z3_sys::Z3_context;
 #[pyclass(unsendable)]
 pub struct PythonJingleContext {
     #[allow(unused)]
-    context: JingleContext<'static>,
+    pub context: JingleContext<'static>,
 }
 
 impl PythonJingleContext {
