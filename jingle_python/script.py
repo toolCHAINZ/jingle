@@ -4,4 +4,4 @@ sleigh = create_sleigh_context("/Users/maroed/RustroverProjects/code_reuse_synth
 j = sleigh.make_jingle_context()
 state = State(j)
 
-print(state.register("RAX") == state.ram(0x8000_0000, 8))
+print(state.ram(0,30))

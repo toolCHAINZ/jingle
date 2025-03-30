@@ -1,5 +1,5 @@
 #[cfg(feature = "pyo3")]
-use pyo3::exceptions::{PyRuntimeError};
+use pyo3::exceptions::PyRuntimeError;
 #[cfg(feature = "pyo3")]
 use pyo3::PyErr;
 use thiserror::Error;
@@ -46,7 +46,7 @@ impl From<JingleSleighError> for std::fmt::Error {
     }
 }
 
-#[cfg(feature="pyo3")]
+#[cfg(feature = "pyo3")]
 impl From<JingleSleighError> for PyErr {
     fn from(value: JingleSleighError) -> Self {
         PyRuntimeError::new_err(value.to_string())

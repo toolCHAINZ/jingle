@@ -1,11 +1,12 @@
+mod bitvec;
 mod instruction;
 mod jingle_context;
 mod sleigh_context;
 mod state;
-mod bitvec;
 
 use crate::instruction::PythonInstruction;
 use crate::sleigh_context::LoadedSleighContextWrapper;
+use crate::state::PythonState;
 use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
 use pyo3::prelude::*;
 use sleigh_context::create_sleigh_context;
@@ -14,7 +15,6 @@ use std::ffi::CString;
 use std::mem;
 use z3::Context;
 use z3_sys::Z3_context;
-use crate::state::PythonState;
 
 thread_local! {
     pub static CONTEXT: RefCell<Z3_context> = RefCell::new(std::ptr::null_mut());

@@ -19,10 +19,10 @@ pub use crate::ffi::opcode::OpCode;
 use crate::pcode::display::PcodeOperationDisplay;
 use crate::varnode::{IndirectVarNode, VarNode};
 use crate::{ArchInfoProvider, GeneralizedVarNode};
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
