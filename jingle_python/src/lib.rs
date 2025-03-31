@@ -1,6 +1,8 @@
 mod bitvec;
 mod instruction;
 mod jingle_context;
+mod modeled_block;
+mod modeled_instruction;
 mod sleigh_context;
 mod state;
 

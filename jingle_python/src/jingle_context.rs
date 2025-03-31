@@ -1,8 +1,7 @@
 use crate::context_switcheroo;
-use crate::state::PythonState;
-use jingle::modeling::{ModeledInstruction, ModelingContext};
+use crate::modeled_block::PythonModeledBlock;
+use crate::modeled_instruction::PythonModeledInstruction;
 use jingle::sleigh::context::loaded::LoadedSleighContext;
-use jingle::sleigh::Instruction;
 use jingle::sleigh::JingleSleighError::InstructionDecode;
 use jingle::JingleContext;
 use pyo3::prelude::*;
@@ -48,37 +47,8 @@ impl PythonJingleContext {
             .ok_or(InstructionDecode)?;
         PythonModeledInstruction::new(instr, &self.jingle)
     }
-}
 
-#[pyclass(unsendable)]
-pub struct PythonModeledInstruction {
-    instr: ModeledInstruction<'static>,
-}
-
-impl PythonModeledInstruction {
-    pub fn new(
-        instr: Instruction,
-        jingle: &JingleContext<'static>,
-    ) -> PyResult<PythonModeledInstruction> {
-        Ok(Self {
-            instr: ModeledInstruction::new(instr, jingle)?,
-        })
-    }
-}
-
-#[pymethods]
-impl PythonModeledInstruction {
-    #[getter]
-    pub fn original_state(&self) -> PythonState {
-        PythonState {
-            state: self.instr.get_original_state().clone(),
-        }
-    }
-
-    #[getter]
-    pub fn final_state(&self) -> PythonState {
-        PythonState {
-            state: self.instr.get_final_state().clone(),
-        }
+    pub fn model_block_at(&self, offset: u64, max_instrs: usize) -> PyResult<PythonModeledBlock> {
+        PythonModeledBlock::new(&self.jingle, self.sleigh.read(offset, max_instrs))
     }
 }
