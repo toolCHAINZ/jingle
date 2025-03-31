@@ -27,10 +27,7 @@ thread_local! {
 }
 pub fn context_switcheroo(z3: Z3_context) -> &'static Context {
     CONTEXT.replace(z3);
-    CTX_REF.with(|ctx| {
-        println!("{:p}", *ctx);
-        dbg!(*ctx)
-    })
+    CTX_REF.with(|ctx| *ctx)
 }
 
 /// A Python module implemented in Rust.

@@ -16,7 +16,6 @@ use z3::Sort;
 pub(crate) struct ModeledSpace<'ctx> {
     endianness: SleighEndianness,
     data: Array<'ctx>,
-    #[allow(unused)]
     metadata: Array<'ctx>,
     space_info: SpaceInfo,
 }
@@ -25,10 +24,7 @@ impl<'ctx> ModeledSpace<'ctx> {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
     pub(crate) fn new(jingle: &JingleContext<'ctx>, space_info: &SpaceInfo) -> Self {
         let domain = Sort::bitvector(jingle.z3, space_info.index_size_bytes * 8);
-        dbg!(&domain);
         let range = Sort::bitvector(jingle.z3, space_info.word_size_bytes * 8);
-        dbg!(&jingle.z3);
-        dbg!(&range);
         Self {
             endianness: space_info.endianness,
             data: Array::fresh_const(jingle.z3, &space_info.name, &domain, &range),

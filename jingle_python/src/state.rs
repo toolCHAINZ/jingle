@@ -15,7 +15,7 @@ impl PythonState {
     #[new]
     pub fn new(j: PyRef<PythonJingleContext>) -> PyResult<PythonState> {
         Ok(PythonState {
-            state: State::new(&j.context),
+            state: State::new(&j.jingle),
         })
     }
 

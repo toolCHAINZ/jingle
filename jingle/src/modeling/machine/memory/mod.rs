@@ -80,7 +80,7 @@ impl<'ctx> MemoryState<'ctx> {
         space.read(&ptr, indirect.access_size_bytes)
     }
 
-    #[allow(unused)]
+    #[expect(unused)]
     fn read_varnode_metadata_indirect(
         &self,
         indirect: &IndirectVarNode,
@@ -165,7 +165,7 @@ impl<'ctx> MemoryState<'ctx> {
         Ok(self)
     }
 
-    #[allow(unused)]
+    #[expect(unused)]
     fn write_varnode_metadata_indirect(
         &mut self,
         dest: &IndirectVarNode,

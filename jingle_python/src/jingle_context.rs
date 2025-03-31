@@ -1,17 +1,23 @@
 use crate::context_switcheroo;
-use jingle::sleigh::ArchInfoProvider;
+use jingle::modeling::ModeledInstruction;
+use jingle::sleigh::context::loaded::LoadedSleighContext;
+use jingle::sleigh::JingleSleighError::InstructionDecode;
+use jingle::sleigh::{Instruction};
 use jingle::JingleContext;
 use pyo3::prelude::*;
+use std::rc::Rc;
 use z3_sys::Z3_context;
 
 #[pyclass(unsendable)]
 pub struct PythonJingleContext {
-    #[allow(unused)]
-    pub context: JingleContext<'static>,
+    pub jingle: JingleContext<'static>,
+    pub sleigh: Rc<LoadedSleighContext<'static>>,
 }
 
 impl PythonJingleContext {
-    pub fn make_jingle_context<T: ArchInfoProvider>(i: &T) -> PyResult<PythonJingleContext> {
+    pub fn make_jingle_context(
+        sleigh: Rc<LoadedSleighContext<'static>>,
+    ) -> PyResult<PythonJingleContext> {
         Python::with_gil(|py| {
             let z3_mod = PyModule::import(py, "z3")?;
             let global_ctx = z3_mod.getattr("main_ctx")?.call0()?;
@@ -20,12 +26,39 @@ impl PythonJingleContext {
                 .call0()?
                 .getattr("value")?
                 .extract()?;
-            println!("z3_ptr: {:x}", z3_ptr);
             let raw_ctx: Z3_context = z3_ptr as Z3_context;
             let ctx = context_switcheroo(raw_ctx);
-            let ctx = JingleContext::new(ctx, i);
+            let ctx = JingleContext::new(ctx, sleigh.as_ref());
             ctx.fresh_state();
-            Ok(PythonJingleContext { context: ctx })
+            Ok(PythonJingleContext {
+                jingle: ctx,
+                sleigh,
+            })
+        })
+    }
+
+    pub fn model_instruction_at(&self, offset: u64) -> PyResult<PythonModeledInstruction> {
+        let instr = self
+            .sleigh
+            .instruction_at(offset)
+            .ok_or(InstructionDecode)?;
+        PythonModeledInstruction::new(instr, &self.jingle)
+    }
+}
+
+#[pyclass(unsendable)]
+pub struct PythonModeledInstruction {
+    #[expect(unused)]
+    instr: ModeledInstruction<'static>,
+}
+
+impl PythonModeledInstruction {
+    pub fn new(
+        instr: Instruction,
+        jingle: &JingleContext<'static>,
+    ) -> PyResult<PythonModeledInstruction> {
+        Ok(Self {
+            instr: ModeledInstruction::new(instr, jingle)?,
         })
     }
 }
