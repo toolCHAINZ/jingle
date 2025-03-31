@@ -5,6 +5,7 @@ mod modeled_block;
 mod modeled_instruction;
 mod sleigh_context;
 mod state;
+mod varode_iterator;
 
 use crate::instruction::PythonInstruction;
 use crate::sleigh_context::LoadedSleighContextWrapper;

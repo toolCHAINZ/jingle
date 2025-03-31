@@ -4,6 +4,6 @@ sleigh = create_sleigh_context("/Users/maroed/RustroverProjects/code_reuse_synth
 
 
 jingle = sleigh.make_jingle_context()
-model = jingle.model_block_at(0xa840, 5)
-print(z3.simplify(model.original_state.register("RAX")))
-print(z3.simplify(model.final_state.register("RAX")))
+model = jingle.model_block_at(0xa860, 9)
+for output in model.get_input_bvs():
+    print(z3.simplify(output))
