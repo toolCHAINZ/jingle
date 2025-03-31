@@ -1,9 +1,9 @@
 use crate::state::PythonState;
+use crate::varode_iterator::VarNodeIterator;
 use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle::sleigh::Instruction;
 use jingle::JingleContext;
 use pyo3::{pyclass, pymethods, PyResult};
-use crate::varode_iterator::VarNodeIterator;
 
 #[pyclass(unsendable)]
 pub struct PythonModeledBlock {
@@ -36,7 +36,6 @@ impl PythonModeledBlock {
             state: self.instr.get_final_state().clone(),
         }
     }
-
 
     pub fn get_input_bvs(&self) -> VarNodeIterator {
         VarNodeIterator::new(

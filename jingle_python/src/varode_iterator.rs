@@ -1,7 +1,7 @@
+use crate::bitvec::adapt_bv;
 use jingle::modeling::State;
 use jingle::varnode::ResolvedVarnode;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
-use crate::bitvec::adapt_bv;
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {
@@ -10,8 +10,14 @@ pub struct VarNodeIterator {
 }
 
 impl VarNodeIterator {
-    pub fn new<T: Iterator<Item = ResolvedVarnode<'static>> + 'static>(state: State<'static>, t: T) -> Self {
-        Self { state, vn: Box::new(t) }
+    pub fn new<T: Iterator<Item = ResolvedVarnode<'static>> + 'static>(
+        state: State<'static>,
+        t: T,
+    ) -> Self {
+        Self {
+            state,
+            vn: Box::new(t),
+        }
     }
 }
 #[pymethods]
