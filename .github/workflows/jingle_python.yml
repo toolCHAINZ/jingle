@@ -21,7 +21,7 @@ jobs:
   linux:
     defaults:
       run:
-        working-directory: ./jingle_python
+        working-directory: jingle_python
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -59,7 +59,7 @@ jobs:
   musllinux:
     defaults:
       run:
-        working-directory: ./jingle_python
+        working-directory: jingle_python
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -93,7 +93,7 @@ jobs:
   windows:
     defaults:
       run:
-        working-directory: ./jingle_python
+        working-directory: jingle_python
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -123,7 +123,7 @@ jobs:
   macos:
     defaults:
       run:
-        working-directory: ./jingle_python
+        working-directory: jingle_python
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -152,7 +152,7 @@ jobs:
   sdist:
     defaults:
       run:
-        working-directory: ./jingle_python
+        working-directory: jingle_python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -170,7 +170,7 @@ jobs:
   release:
     defaults:
       run:
-        working-directory: ./jingle_python
+        working-directory: jingle_python
     name: Release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
