@@ -1,8 +1,9 @@
 use crate::context_switcheroo;
-use jingle::modeling::ModeledInstruction;
+use crate::state::PythonState;
+use jingle::modeling::{ModeledInstruction, ModelingContext};
 use jingle::sleigh::context::loaded::LoadedSleighContext;
+use jingle::sleigh::Instruction;
 use jingle::sleigh::JingleSleighError::InstructionDecode;
-use jingle::sleigh::{Instruction};
 use jingle::JingleContext;
 use pyo3::prelude::*;
 use std::rc::Rc;
@@ -36,7 +37,10 @@ impl PythonJingleContext {
             })
         })
     }
+}
 
+#[pymethods]
+impl PythonJingleContext {
     pub fn model_instruction_at(&self, offset: u64) -> PyResult<PythonModeledInstruction> {
         let instr = self
             .sleigh
@@ -48,7 +52,6 @@ impl PythonJingleContext {
 
 #[pyclass(unsendable)]
 pub struct PythonModeledInstruction {
-    #[expect(unused)]
     instr: ModeledInstruction<'static>,
 }
 
@@ -60,5 +63,22 @@ impl PythonModeledInstruction {
         Ok(Self {
             instr: ModeledInstruction::new(instr, jingle)?,
         })
+    }
+}
+
+#[pymethods]
+impl PythonModeledInstruction {
+    #[getter]
+    pub fn original_state(&self) -> PythonState {
+        PythonState {
+            state: self.instr.get_original_state().clone(),
+        }
+    }
+
+    #[getter]
+    pub fn final_state(&self) -> PythonState {
+        PythonState {
+            state: self.instr.get_final_state().clone(),
+        }
     }
 }

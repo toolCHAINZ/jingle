@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 
 #[pyclass(unsendable, name = "State")]
 pub struct PythonState {
-    state: State<'static>,
+    pub state: State<'static>,
 }
 
 #[pymethods]
