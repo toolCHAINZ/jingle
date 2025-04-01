@@ -46,7 +46,7 @@ def install_z3_latest():
     assets = data.get("assets", [])
     tarball_url = None
     for asset in assets:
-        if "x64-linux" in asset["name"] and asset["name"].endswith(".tar.gz"):
+        if "x64-glibc" in asset["name"] and asset["name"].endswith(".tar.gz"):
             tarball_url = asset["browser_download_url"]
             break
 
