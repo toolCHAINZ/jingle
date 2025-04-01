@@ -42,9 +42,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-      - name: Install clang
+      - name: Install libclang
         run: |
-          sudo apt update && sudo apt install clang -y
+          sudo apt update && sudo apt install libclang -y
       - name: Install dependencies via pip (PEP 517)
         working-directory: jingle_python
         run: |
