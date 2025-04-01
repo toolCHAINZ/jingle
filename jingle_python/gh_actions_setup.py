@@ -74,7 +74,7 @@ def install_z3_latest():
         # Install to /usr/local
         print("Installing headers and shared libraries to /usr/local...")
         subprocess.run(['mkdir', '-p', '/usr/local/include/z3'], check=True)
-        subprocess.run(['cp', '-r', include_dir + '/', '/usr/local/include/z3'], check=True)
+        subprocess.run(['cp', '-r', include_dir + '/', '/usr/local/include/'], check=True)
         subprocess.run(['cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
 
         # Refresh the linker cache
