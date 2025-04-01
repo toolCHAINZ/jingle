@@ -41,7 +41,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
-          manylinux: 2014/2_17
+          manylinux: manylinux2014
           before-script-linux: |
             dnf install -y clang-libs clang || sudo apt install -y llvm-dev libclang-dev clang
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
