@@ -41,8 +41,8 @@ jobs:
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
           before-script-linux: |
-            sudo apt-get update
-            sudo apt-get install -y libclang-dev libz3-dev
+            apt update
+            apt install -y libclang-dev libz3-dev
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
