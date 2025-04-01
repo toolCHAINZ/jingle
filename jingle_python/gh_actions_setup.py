@@ -15,7 +15,7 @@ def is_command_available(cmd):
 def install_with_yum():
     print("Detected yum. Installing clang...")
     try:
-        subprocess.run(['sudo', 'yum', 'install', '-y', 'clang'], check=True)
+        subprocess.run(['yum', 'install', '-y', 'clang'], check=True)
         print("clang installed successfully.")
     except subprocess.CalledProcessError:
         print("Failed to install clang using yum.")
@@ -30,8 +30,8 @@ def install_with_yum():
 def install_with_apt():
     print("Detected apt. Installing llvm-dev, libclang-dev, clang, and z3...")
     try:
-        subprocess.run(['sudo', 'apt', 'update'], check=True)
-        subprocess.run(['sudo', 'apt', 'install', '-y', 'llvm-dev', 'libclang-dev', 'clang', "libz3-dev"], check=True)
+        subprocess.run(['apt', 'update'], check=True)
+        subprocess.run(['apt', 'install', '-y', 'llvm-dev', 'libclang-dev', 'clang', "libz3-dev"], check=True)
         print("Packages installed successfully via apt.")
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.")
@@ -73,11 +73,11 @@ def install_z3_latest():
 
         # Install to /usr/local
         print("Installing headers and shared libraries to /usr/local...")
-        subprocess.run(['sudo', 'cp', '-r', include_dir, '/usr/local/include/z3'], check=True)
-        subprocess.run(['sudo', 'cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
+        subprocess.run(['cp', '-r', include_dir, '/usr/local/include/z3'], check=True)
+        subprocess.run(['cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
 
         # Refresh the linker cache
-        subprocess.run(['sudo', 'ldconfig'], check=True)
+        subprocess.run(['ldconfig'], check=True)
 
     print("Z3 installed successfully.")
 
