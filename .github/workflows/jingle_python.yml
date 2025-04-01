@@ -38,6 +38,9 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update && sudo apt install -y libclang-dev libz3-dev libstdc++-11-dev g++-multilib
+          if [[ "${{ matrix.platform.target }}" == "aarch64" ]]; then
+            sudo apt install -y aarch64-linux-gnu-g++
+          fi
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
