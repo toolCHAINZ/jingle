@@ -42,6 +42,11 @@ jobs:
         if: startsWith(matrix.platform.target, 'aarch64')
         run: |
           sudo apt install -y g++-aarch64-linux-gnu
+      - name: Set up cross-compilation toolchain
+        if: startsWith(matrix.platform.target, 'aarch64')
+        run: |
+          export CC=aarch64-linux-gnu-gcc
+          export CXX=aarch64-linux-gnu-g++
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
