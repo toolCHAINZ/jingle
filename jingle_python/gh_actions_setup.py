@@ -33,7 +33,7 @@ def install_with_apt():
     print("Detected apt. Installing llvm-dev, libclang-dev, and clang...", file=sys.stderr)
     try:
         subprocess.run(['apt', 'update'], check=True)
-        subprocess.run(['apt', 'install', '-y', 'llvm-dev', 'libclang-dev', 'clang'], check=True)
+        subprocess.run(['apt', 'install', '-y', 'build-essential', 'libc6-dev'], check=True)
         print("Packages installed successfully via apt.", file=sys.stderr)
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
