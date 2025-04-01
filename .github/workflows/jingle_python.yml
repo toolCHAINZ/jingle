@@ -49,6 +49,8 @@ jobs:
           pip install .
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          LIBCLANG_PATH: /usr/lib/llvm-12/lib/
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
