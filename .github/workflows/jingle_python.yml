@@ -34,20 +34,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y llvm libclang-dev clang build-essential libc6-dev libz3-dev
-      - name: Set Path
-        run: |
-          export LIBCLANG_PATH=$(llvm-config --libdir)
-          echo "LIBCLANG_PATH=$LIBCLANG_PATH" >> $GITHUB_ENV
-      - name: Install dependencies via pip (PEP 517)
-        working-directory: jingle_python
-        run: |
-          python -m pip install --upgrade pip
-          pip install .
+          sudo apt-get install -y libclang-dev libz3-dev
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
