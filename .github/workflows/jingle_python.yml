@@ -37,11 +37,7 @@ jobs:
           python-version: 3.x
       - name: Install dependencies
         run: |
-          sudo apt update && sudo apt install -y libclang-dev libz3-dev libstdc++-11-dev g++-multilib
-      - name: Install dependencies (ARM only)
-        if: startsWith(matrix.platform.target, 'aarch64')
-        run: |
-          sudo apt install -y aarch64-linux-gnu-g++
+          sudo apt update && sudo apt install -y libclang-dev libz3-dev libstdc++-11-dev g++-multilib aarch64-linux-gnu-g++
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
