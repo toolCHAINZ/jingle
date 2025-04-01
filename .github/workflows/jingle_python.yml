@@ -44,7 +44,7 @@ jobs:
           python-version: 3.x
       - name: Install libclang
         run: |
-          sudo apt update && sudo apt install libclang -y
+          sudo apt update && sudo apt install libclang-dev -y
       - name: Install dependencies via pip (PEP 517)
         working-directory: jingle_python
         run: |
