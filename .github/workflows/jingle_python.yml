@@ -39,9 +39,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang build-essential libc6-dev libz3-dev
-      - name: Verify libclang-dev installation
-        run: |
-          find /usr/lib | grep clang
+      - name: Set Path
+        run: echo "LIBCLANG_PATH=/usr/lib/llvm-14/lib" >> $GITHUB_ENV
       - name: Install dependencies via pip (PEP 517)
         working-directory: jingle_python
         run: |
@@ -49,8 +48,6 @@ jobs:
           pip install .
       - name: Build wheels
         uses: PyO3/maturin-action@v1
-        env:
-          LIBCLANG_PATH: /usr/lib/llvm-14/lib/
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
