@@ -41,7 +41,7 @@ jobs:
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
           before-script-linux: |
-            yum install llvm-toolset
+            yum install llvm-toolset-13.0
             source /opt/rh/llvm-toolset/enable
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
