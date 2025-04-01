@@ -41,8 +41,8 @@ jobs:
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
           before-script-linux: |
-            yum install -y llvm-toolset-7-clang
-            source /opt/rh/llvm-toolset-7/enable
+            dnf install llvm-toolset
+            source /opt/rh/llvm-toolset/enable
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
       - name: Upload wheels
