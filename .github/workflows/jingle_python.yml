@@ -75,6 +75,10 @@ jobs:
       - name: Install Z3 using Chocolatey
         run: |
           choco install z3
+      - name: Set Z3 environment variables
+        run: |
+          echo ::set-env name=Z3_INCLUDE_PATH::C:\tools\z3\include
+          echo ::set-env name=Z3_LIB_PATH::C:\tools\z3\lib
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
