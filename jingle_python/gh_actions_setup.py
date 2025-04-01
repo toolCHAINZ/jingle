@@ -7,7 +7,7 @@ import os
 import tempfile
 import urllib.request
 import json
-import tarfile
+import zipfile
 
 def is_command_available(cmd):
     return shutil.which(cmd) is not None
@@ -42,25 +42,25 @@ def install_z3_latest():
     with urllib.request.urlopen(api_url) as response:
         data = json.loads(response.read().decode())
 
-    # Look for a Linux x64 tarball
+    # Look for a Linux x64-glibc zip archive
     assets = data.get("assets", [])
-    tarball_url = None
+    zip_url = None
     for asset in assets:
-        if "x64-glibc" in asset["name"] and asset["name"].endswith(".tar.gz"):
-            tarball_url = asset["browser_download_url"]
+        if "x64-glibc" in asset["name"] and asset["name"].endswith(".zip"):
+            zip_url = asset["browser_download_url"]
             break
 
-    if not tarball_url:
-        raise Exception("Could not find a suitable Linux x64 Z3 tarball.")
+    if not zip_url:
+        raise Exception("Could not find a suitable Linux x64-glibc Z3 zip archive.")
 
-    print(f"Downloading: {tarball_url}")
+    print(f"Downloading: {zip_url}")
     with tempfile.TemporaryDirectory() as tmpdir:
-        tar_path = os.path.join(tmpdir, "z3.tar.gz")
-        urllib.request.urlretrieve(tarball_url, tar_path)
+        zip_path = os.path.join(tmpdir, "z3.zip")
+        urllib.request.urlretrieve(zip_url, zip_path)
 
-        print("Extracting tarball...")
-        with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=tmpdir)
+        print("Extracting zip archive...")
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(tmpdir)
 
         # Find the extracted directory
         extracted_dirs = [d for d in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir, d))]
@@ -69,11 +69,12 @@ def install_z3_latest():
         z3_dir = os.path.join(tmpdir, extracted_dirs[0])
 
         include_dir = os.path.join(z3_dir, "include")
-        lib_dir = os.path.join(z3_dir, "bin")  # Z3 often puts .so files in 'bin'
+        lib_dir = os.path.join(z3_dir, "bin")  # Z3 typically puts .so in bin
 
         # Install to /usr/local
         print("Installing headers and shared libraries to /usr/local...")
-        subprocess.run(['cp', '-r', include_dir, '/usr/local/include/z3'], check=True)
+        subprocess.run(['mkdir', '-p', '/usr/local/include/z3'], check=True)
+        subprocess.run(['cp', '-r', include_dir + '/', '/usr/local/include/z3'], check=True)
         subprocess.run(['cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
 
         # Refresh the linker cache
