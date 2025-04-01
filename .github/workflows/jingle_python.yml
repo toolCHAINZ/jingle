@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang build-essential libc6-dev
+          sudo apt-get install -y libclang-dev clang build-essential libc6-dev libz3-dev
       - name: Verify libclang-dev installation
         run: |
           dpkg -l | grep libclang
