@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo apt update && sudo apt install -y libclang-dev libz3-dev libstdc++-11-dev g++-multilib
       - name: Install dependencies (ARM only)
-        if: ${{ startsWith(matrix.platform.target, 'aarch64') }}
+        if: startsWith(matrix.platform.target, 'aarch64')
         run: |
           sudo apt install -y aarch64-linux-gnu-g++
       - name: Build wheels
