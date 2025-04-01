@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies (ARM only)
         if: startsWith(matrix.platform.target, 'aarch64')
         run: |
-          sudo apt install -y aarch64-linux-gnu-g++
+          sudo apt install -y g++-aarch64-linux-gnu
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
