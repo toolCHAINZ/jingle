@@ -79,11 +79,11 @@ def install_z3_latest():
 
         print("Installing headers and libraries to /usr/local...", file=sys.stderr)
         subprocess.run(['mkdir', '-p', '/usr/local/include/z3'], check=True)
-        subprocess.run(['cp', include_dir + '/*.h', '/usr/local/include/z3/'], check=True)
+        subprocess.run(['cp', '-r', include_dir + '/*', '/usr/local/include/z3'], check=True)
         subprocess.run(['cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
         subprocess.run(['ldconfig'], check=True)
 
-        z3_header_path = '/usr/local/include/z3/z3.h'
+        z3_header_path = '/usr/local/include/z3/include/z3.h'
         if os.path.exists(z3_header_path):
             write_env_file(z3_header_path)
         else:
