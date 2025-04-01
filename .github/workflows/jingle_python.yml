@@ -27,7 +27,6 @@ jobs:
             target: x86_64
           - runner: ubuntu-22.04
             target: x86
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,12 +39,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang build-essential libc6-dev
-
-      - name: Set LIBCLANG_PATH
-        run: |
-          export LIBCLANG_PATH=$(find /usr -name 'libclang.so*' | head -n 1)
-          echo "LIBCLANG_PATH=$LIBCLANG_PATH" >> $GITHUB_ENV
-
       - name: Verify libclang-dev installation
         run: |
           dpkg -l | grep libclang
@@ -81,6 +74,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      - name: Install Z3 using Chocolatey
+        run: |
+          choco install z3
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
