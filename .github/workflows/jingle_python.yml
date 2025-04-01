@@ -36,7 +36,7 @@ jobs:
           python-version: 3.x
       - name: Install dependencies
         run: |
-          sudo apt update && sudo apt install -y libclang-dev libz3-dev libstdc++-dev
+          sudo apt update && sudo apt install -y libclang-dev libz3-dev libstdc++-11-dev
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
