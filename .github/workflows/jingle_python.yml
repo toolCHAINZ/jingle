@@ -83,7 +83,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v3
         with:
           arch: ${{ matrix.platform.arch }}
-          distro: ubuntu20.04
+          distro: buster
           githubToken: ${{ github.token }}
           run: |
             set -eux
