@@ -66,7 +66,7 @@ def find_z3_ld_path():
     z3_lib_dir = os.path.join(site_packages_dir, "z3", "lib")
 
     # Check if the z3.h file exists in the expected location
-    z3_lib_path = os.path.join(z3_lib_dir, "z3.so")
+    z3_lib_path = os.path.join(z3_lib_dir, "libz3.so")
     if os.path.exists(z3_lib_path):
         return z3_lib_dir
     else:
