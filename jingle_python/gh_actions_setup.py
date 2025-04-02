@@ -12,19 +12,19 @@ def is_command_available(cmd):
     return shutil.which(cmd) is not None
 
 def install_with_yum():
-    print("Detected yum. Installing clang and python3-pip...", file=sys.stderr)
+    print("Detected yum. Installing clang, python3-pip, and setuptools...", file=sys.stderr)
     try:
-        subprocess.run(['yum', 'install', '-y', 'clang', 'python3-pip'], check=True)
-        print("clang and pip installed successfully.", file=sys.stderr)
+        subprocess.run(['yum', 'install', '-y', 'clang', 'python3-pip', 'python3-setuptools'], check=True)
+        print("clang, pip, and setuptools installed successfully.", file=sys.stderr)
     except subprocess.CalledProcessError:
-        print("Failed to install clang or pip using yum.", file=sys.stderr)
+        print("Failed to install clang, pip, or setuptools using yum.", file=sys.stderr)
         return
 
 def install_with_apt():
-    print("Detected apt. Installing llvm-dev, libclang-dev, clang, and python3-pip...", file=sys.stderr)
+    print("Detected apt. Installing llvm-dev, libclang-dev, clang, python3-pip, and setuptools...", file=sys.stderr)
     try:
         subprocess.run(['apt', 'update'], check=True)
-        subprocess.run(['apt', 'install', '-y', 'build-essential', 'libc6-dev', 'gcc-multilib', 'python3-pip'], check=True)
+        subprocess.run(['apt', 'install', '-y', 'build-essential', 'libc6-dev', 'gcc-multilib', 'python3-pip', 'python3-setuptools'], check=True)
         print("Packages installed successfully via apt.", file=sys.stderr)
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
@@ -51,7 +51,7 @@ def install_z3_with_pip():
     print("Installing Z3 from PyPI via pip...", file=sys.stderr)
 
     # Install the `z3-solver` package directly from PyPI
-    subprocess.run([sys.executable, "-m", "pip", "install", "z3-solver"], check=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "setuptools", "z3-solver"], check=True)
     print("Z3 installed successfully using pip.", file=sys.stderr)
 
 def main():
