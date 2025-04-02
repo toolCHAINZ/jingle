@@ -41,7 +41,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
-          manylinux: auto
+          manylinux: manylinux2_28
           before-script-linux: |
             curl -LsSf https://astral.sh/uv/install.sh | sh
             uv venv
