@@ -45,7 +45,7 @@ def install_uv():
 def find_z3_header_path():
     """Find the z3.h header file and return its path."""
     site_packages_dir = site.getsitepackages()[0]
-    z3_include_dir = os.path.join(site_packages_dir, "z3", "include", "z3")
+    z3_include_dir = os.path.join(site_packages_dir, "z3", "include")
 
     # Check if the z3.h file exists in the expected location
     z3_header_path = os.path.join(z3_include_dir, "z3.h")
