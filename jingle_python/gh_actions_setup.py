@@ -32,11 +32,13 @@ def install_with_apt():
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
 
-def write_env_file():
-    print(f"\n✅ Z3 installed successfully via Python wheel.")
-    print(f"💾 Environment variable written to `{ENV_FILE}`.")
-    print(f"👉 To load it into your shell, run:\n")
-    print(f"    source ./load-z3-env.sh\n")
+def write_env_file(z3_header_path, z3_lib_path):
+    with open(ENV_FILE, "w") as f:
+        f.write(f"export Z3_SYS_Z3_HEADER={z3_header_path}\n")
+        f.write(f"export LD_LIBRARY_PATH={z3_lib_path}\n")
+    print(f"\n✅ Z3 environment variables written to `{ENV_FILE}`.")
+    print(f"👉 To load them into your shell, run:\n")
+    print(f"    source ./{ENV_FILE}\n")
 
 def install_z3_wheel(target_platform):
     print(f"Fetching and installing Z3 Python wheel for target platform '{target_platform}'...", file=sys.stderr)
@@ -70,8 +72,16 @@ def install_z3_wheel(target_platform):
     print(f"Downloading wheel from {wheel_url}...", file=sys.stderr)
     subprocess.run([sys.executable, "-m", "pip", "install", wheel_url], check=True)
 
-    # Set environment variables (optional if needed for your setup)
-    write_env_file()
+    # After installation, we'll look for the z3 header and library locations
+    # This can be adjusted to wherever the files get installed by pip,
+    # but typically these will be within site-packages
+    import site
+    site_packages_path = site.getsitepackages()[0]  # Get the site-packages directory
+    z3_header_path = os.path.join(site_packages_path, "z3", "include", "z3.h")
+    z3_lib_path = os.path.join(site_packages_path, "z3", "lib")
+
+    # Write the paths to the environment file
+    write_env_file(z3_header_path, z3_lib_path)
 
 def main():
     parser = argparse.ArgumentParser(description="Install Z3 Python wheel for a target platform.")
