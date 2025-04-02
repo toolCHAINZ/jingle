@@ -32,9 +32,10 @@ def install_with_apt():
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
 
-def write_env_file(header_path):
+def write_env_file(header_path, lib_path):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
+        f.write(f"export LD_LIBRARY_PATH={lib_path}:$LD_LIBRARY_PATH\n")
     print(f"\n✅ Z3 installed successfully.")
     print(f"💾 Environment variable written to `{ENV_FILE}`.")
     print(f"👉 To load it into your shell, run:\n")
@@ -80,8 +81,9 @@ def install_z3_latest():
         subprocess.run(['ldconfig'], check=True)
 
         z3_header_path = '/usr/local/include/z3/include/z3.h'
-        if os.path.exists(z3_header_path):
-            write_env_file(z3_header_path)
+        z3_lib_path = '/usr/local/lib/'
+        if os.path.exists(z3_header_path) and os.path.exists(z3_lib_path):
+            write_env_file(z3_header_path, z3_lib_path)
         else:
             print("⚠️ Warning: z3.h not found at expected path.", file=sys.stderr)
 
