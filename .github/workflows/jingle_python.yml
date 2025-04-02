@@ -88,7 +88,7 @@ jobs:
 
             # Install dependencies
             apt update
-            apt install -y curl build-essential python3 python3-pip python3-venv
+            apt install -y curl build-essential python3 python3-pip python3-venv libclang-dev llvm-dev clang
 
             # Install Rust
             curl https://sh.rustup.rs -sSf | sh -s -- -y
