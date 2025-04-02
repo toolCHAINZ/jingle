@@ -37,6 +37,7 @@ def write_env_file(z3_header_path, z3_lib_path):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={z3_header_path}\n")
         f.write(f"export LD_LIBRARY_PATH={z3_lib_path}")
+        f.write(f"export Z3_PATH={z3_lib_path}/libz3.so")
         f.write(f"export RUSTFLAGS='-L native={z3_lib_path}'")
     print(f"\n✅ Z3 environment variables written to `{ENV_FILE}`.")
     print(f"👉 To load them into your shell, run:\n")
