@@ -36,6 +36,7 @@ def install_with_apt():
 def write_env_file(header_path):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
+        f.write(f"export LD_LIBRARY_PATH=/usr/local/lib\n")
     print(f"\n✅ Z3 installed successfully.")
     print(f"💾 Environment variable written to `{ENV_FILE}`.")
     print(f"👉 To load it into your shell, run:\n")
