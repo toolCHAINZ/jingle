@@ -76,6 +76,7 @@ def install_z3_latest():
         subprocess.run(['mkdir', '-p', '/usr/local/include/z3'], check=True)
         subprocess.run(['cp', '-r', include_dir + '/', '/usr/local/include/z3'], check=True)
         subprocess.run(['cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
+        subprocess.run(['ls', '/usr/local/lib'], check=True)
         subprocess.run(['ldconfig'], check=True)
 
         z3_header_path = '/usr/local/include/z3/include/z3.h'
