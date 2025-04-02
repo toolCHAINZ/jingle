@@ -43,6 +43,10 @@ jobs:
           working-directory: jingle_python
           manylinux: manylinux2_28
           before-script-linux: |
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            uv venv
+            source .venv/bin/activate
+            uv install z3-solver
             python3 gh_actions_setup.py
             uname -a
             if [ -f .z3env ]; then

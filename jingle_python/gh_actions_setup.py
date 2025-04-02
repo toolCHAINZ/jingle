@@ -45,6 +45,7 @@ def install_uv():
 def find_z3_header_path():
     """Find the z3.h header file and return its path."""
     site_packages_dir = site.getsitepackages()[0]
+    print(site.getsitepackages())
     z3_include_dir = os.path.join(site_packages_dir, "z3", "include")
 
     # Check if the z3.h file exists in the expected location
@@ -75,20 +76,19 @@ def install_z3_with_uv():
 
 def main():
     # Ensure uv is installed
-    if not is_command_available('uv'):
-        install_uv()
+    #if not is_command_available('uv'):
+    #    install_uv()
 
     # Check if we have a package manager and install necessary tools
     if is_command_available('yum'):
         install_with_yum()
-        install_z3_with_uv()
     elif is_command_available('apt'):
         install_with_apt()
-        install_z3_with_uv()
     else:
         print("❌ Neither yum nor apt found on this system.", file=sys.stderr)
         sys.exit(1)
 
+    #install_z3_with_uv()
     # Find the Z3 header path and set the environment variable
     z3_header_path = find_z3_header_path()
     write_env_file(z3_header_path)
