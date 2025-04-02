@@ -81,7 +81,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v3
         with:
           arch: ${{ matrix.platform.arch }}
-          distro: buster
+          distro: ubuntu20.04
           githubToken: ${{ github.token }}
           run: |
             set -eux
@@ -99,7 +99,7 @@ jobs:
             pip3 install maturin
 
             # Build the wheel
-            maturin build --release --out dist --find-interpreter --manylinux 2_28
+            maturin build --release --out dist --find-interpreter --manylinux 2_35
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
