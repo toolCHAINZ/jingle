@@ -43,7 +43,10 @@ jobs:
           working-directory: jingle_python
           manylinux: manylinux2_28
           before-script-linux: |
-            python3 gh_actions_setup.py ${{ matrix.platform.target }}
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            uv venv
+            source .venv/bin/activate
+            python3 gh_actions_setup.py 
             if [ -f .z3env ]; then
                 # shellcheck disable=SC1091
                 . .z3env
