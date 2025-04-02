@@ -96,10 +96,10 @@ jobs:
             source "$HOME/.cargo/env"
 
             # Install Maturin
-            pip3 install maturin
+            pip3 install maturin[patchelf]
 
             # Build the wheel
-            maturin build --release --out dist --find-interpreter --manylinux 2_35
+            maturin build --release --out dist --find-interpreter --manylinux 2_31
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
