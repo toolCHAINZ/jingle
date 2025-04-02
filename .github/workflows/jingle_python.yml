@@ -80,7 +80,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Run on ARM using run-on-arch-action
-        uses: uraimo/run-on-arch-action@v2
+        uses: uraimo/run-on-arch-action@v3
         with:
           arch: ${{ matrix.platform.arch }}
           distro: ubuntu22.04
