@@ -33,7 +33,9 @@ def install_uv():
     # Install uv using curl
     print("Installing uv using curl...", file=sys.stderr)
     try:
-        subprocess.run(['curl', '-LsSf', 'https://astral.sh/uv/install.sh', '|', 'sh'], check=True)
+        subprocess.run(['curl', '-LsSf', 'https://astral.sh/uv/install.sh'], check=True)
+        subprocess.run(['chmod', '+x' 'install.sh'], check=True)
+        subprocess.run(['install.sh'], check=True)
         print("uv installed successfully.", file=sys.stderr)
     except subprocess.CalledProcessError:
         print("Failed to install uv.", file=sys.stderr)
