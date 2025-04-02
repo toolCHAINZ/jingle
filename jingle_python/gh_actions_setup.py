@@ -5,6 +5,7 @@ import subprocess
 import sys
 import os
 import platform
+import site
 
 ENV_FILE = ".z3env"
 
@@ -41,6 +42,19 @@ def install_uv():
         print("Failed to install uv.", file=sys.stderr)
         sys.exit(1)
 
+def find_z3_header_path():
+    """Find the z3.h header file and return its path."""
+    site_packages_dir = site.getsitepackages()[0]
+    z3_include_dir = os.path.join(site_packages_dir, "z3-solver", "include", "z3")
+
+    # Check if the z3.h file exists in the expected location
+    z3_header_path = os.path.join(z3_include_dir, "z3.h")
+    if os.path.exists(z3_header_path):
+        return z3_header_path
+    else:
+        print(f"❌ Could not find z3.h at expected path: {z3_header_path}", file=sys.stderr)
+        sys.exit(1)
+
 def write_env_file(header_path):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
@@ -71,6 +85,10 @@ def main():
     else:
         print("❌ Neither yum nor apt found on this system.", file=sys.stderr)
         sys.exit(1)
+
+    # Find the Z3 header path and set the environment variable
+    z3_header_path = find_z3_header_path()
+    write_env_file(z3_header_path)
 
 if __name__ == "__main__":
     main()
