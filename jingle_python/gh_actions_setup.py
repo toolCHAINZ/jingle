@@ -59,9 +59,24 @@ def find_z3_header_path():
         print(f"❌ Could not find z3.h at expected path: {z3_header_path}", file=sys.stderr)
         sys.exit(1)
 
-def write_env_file(header_path):
+def find_z3_ld_path():
+    """Find the z3.h header file and return its path."""
+    site_packages_dir = site.getsitepackages()[0]
+    print(site.getsitepackages())
+    z3_lib_dir = os.path.join(site_packages_dir, "z3", "lib")
+
+    # Check if the z3.h file exists in the expected location
+    z3_lib_path = os.path.join(z3_lib_dir, "z3.so")
+    if os.path.exists(z3_lib_path):
+        return z3_lib_dir
+    else:
+        subprocess.call(["ls", z3_lib_dir])
+        print(f"❌ Could not find z3.so at expected path: {z3_lib_path}", file=sys.stderr)
+        sys.exit(1)
+def write_env_file(header_path, ldpath):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
+        f.write(f"export LD_LIBRARY_PATH={ldpath}\n")
     print(f"\n✅ Z3 installed successfully.")
     print(f"💾 Environment variable written to `{ENV_FILE}`.")
     print(f"👉 To load it into your shell, run:\n")
@@ -91,7 +106,8 @@ def main():
     #install_z3_with_uv()
     # Find the Z3 header path and set the environment variable
     z3_header_path = find_z3_header_path()
-    write_env_file(z3_header_path)
+    ld_path = find_z3_ld_path()
+    write_env_file(z3_header_path,ld_path)
 
 if __name__ == "__main__":
     main()
