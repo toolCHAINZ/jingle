@@ -76,7 +76,7 @@ def find_z3_ld_path():
 def write_env_file(header_path, ldpath):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
-        f.write(f"export LD_LIBRARY_PATH={ldpath}\n")
+        f.write(f"export LD_LIBRARY_PATH={ldpath}:$LD_LIBRARY_PATH\n")
     print(f"\n✅ Z3 installed successfully.")
     print(f"💾 Environment variable written to `{ENV_FILE}`.")
     print(f"👉 To load it into your shell, run:\n")
@@ -107,7 +107,7 @@ def main():
     # Find the Z3 header path and set the environment variable
     z3_header_path = find_z3_header_path()
     ld_path = find_z3_ld_path()
-    write_env_file(z3_header_path,ld_path)
+    write_env_file(z3_header_path, ld_path)
 
 if __name__ == "__main__":
     main()
