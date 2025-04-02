@@ -53,8 +53,10 @@ def install_z3_wheel(target_platform):
     # Define wheel file prefix based on target platform
     if target_platform == 'x86_64':  # x64 architecture
         wheel_arch_prefix = "manylinux_2_17_x86_64.manylinux2014_x86_64"
+        plat = "x86_64-unknown-linux-gnu"
     elif target_platform == 'aarch64':  # ARM64 architecture
         wheel_arch_prefix = "manylinux_2_34_aarch64"
+        plat = "aarch64-unknown-linux-gnu"
     else:
         raise Exception(f"Unsupported target platform: {target_platform}")
 
@@ -70,7 +72,7 @@ def install_z3_wheel(target_platform):
 
     # Download and install the wheel using pip
     print(f"Downloading wheel from {wheel_url}...", file=sys.stderr)
-    subprocess.run(["uv", "pip", "install", wheel_url], check=True)
+    subprocess.run(["uv", "pip", "install", wheel_url, "--python-platform", plat], check=True)
 
     # After installation, we'll look for the z3 header and library locations
     # This can be adjusted to wherever the files get installed by pip,
