@@ -70,7 +70,7 @@ def install_z3_wheel(target_platform):
 
     # Download and install the wheel using pip
     print(f"Downloading wheel from {wheel_url}...", file=sys.stderr)
-    subprocess.run([sys.executable, "-m", "pip", "install", wheel_url], check=True)
+    subprocess.run(["uv", "pip", "install", wheel_url], check=True)
 
     # After installation, we'll look for the z3 header and library locations
     # This can be adjusted to wherever the files get installed by pip,
