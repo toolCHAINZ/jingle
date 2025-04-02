@@ -12,6 +12,6 @@ fn main() {
     } else {
         let venv_lib = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let z3_python_lib = std::path::Path::new(&venv_lib).join("z3").join("lib");
-        //println!("cargo:rustc-link-search=native={}", z3_python_lib.display());
+        println!("cargo:rustc-link-search=native={}", z3_python_lib.display());
     }
 }

@@ -8,6 +8,7 @@ import tempfile
 import urllib.request
 import json
 import zipfile
+import platform
 
 ENV_FILE = ".z3env"
 
@@ -32,10 +33,9 @@ def install_with_apt():
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
 
-def write_env_file(header_path, lib_path):
+def write_env_file(header_path):
     with open(ENV_FILE, "w") as f:
         f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
-        f.write(f"export LD_LIBRARY_PATH={lib_path}\n")
     print(f"\n✅ Z3 installed successfully.")
     print(f"💾 Environment variable written to `{ENV_FILE}`.")
     print(f"👉 To load it into your shell, run:\n")
@@ -48,14 +48,28 @@ def install_z3_latest():
         data = json.loads(response.read().decode())
 
     assets = data.get("assets", [])
+
+    # Detect the current architecture
+    arch = platform.machine()
+    print(f"Detected architecture: {arch}")
+
+    # Select appropriate artifact based on architecture
+    if arch == 'x86_64':  # x64 architecture
+        artifact_name = "x64-glibc"
+    elif arch == 'aarch64':  # ARM64 architecture
+        artifact_name = "arm64-glibc"
+    else:
+        raise Exception(f"Unsupported architecture: {arch}")
+
+    # Find the correct zip URL based on architecture
     zip_url = None
     for asset in assets:
-        if "x64-glibc" in asset["name"] and asset["name"].endswith(".zip"):
+        if artifact_name in asset["name"] and asset["name"].endswith(".zip"):
             zip_url = asset["browser_download_url"]
             break
 
     if not zip_url:
-        raise Exception("Could not find a suitable Linux x64-glibc Z3 zip archive.")
+        raise Exception(f"Could not find a suitable {artifact_name} Z3 zip archive.")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "z3.zip")
@@ -81,9 +95,8 @@ def install_z3_latest():
         subprocess.run(['ldconfig'], check=True)
 
         z3_header_path = '/usr/local/include/z3/include/z3.h'
-        z3_lib_path = '/usr/local/lib/'
-        if os.path.exists(z3_header_path) and os.path.exists(z3_lib_path):
-            write_env_file(z3_header_path, z3_lib_path)
+        if os.path.exists(z3_header_path):
+            write_env_file(z3_header_path)
         else:
             print("⚠️ Warning: z3.h not found at expected path.", file=sys.stderr)
 
