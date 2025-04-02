@@ -43,7 +43,6 @@ jobs:
           working-directory: jingle_python
           manylinux: manylinux2_28
           before-script-linux: |
-            python3 -m pip install .
             python3 gh_actions_setup.py
             if [ -f .z3env ]; then
                 # shellcheck disable=SC1091

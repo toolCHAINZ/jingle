@@ -23,17 +23,11 @@ def install_with_yum():
         print("Failed to install clang using yum.", file=sys.stderr)
         return
 
-    print("Fetching and installing Z3 from GitHub...", file=sys.stderr)
-    try:
-        install_z3_latest()
-    except Exception as e:
-        print(f"Failed to install Z3: {e}", file=sys.stderr)
-
 def install_with_apt():
     print("Detected apt. Installing llvm-dev, libclang-dev, and clang...", file=sys.stderr)
     try:
         subprocess.run(['apt', 'update'], check=True)
-        subprocess.run(['apt', 'install', '-y', 'build-essential', 'libc6-dev', 'gcc-multilib', "libz3-dev", "z3"], check=True)
+        subprocess.run(['apt', 'install', '-y', 'build-essential', 'libc6-dev', 'gcc-multilib'], check=True)
         print("Packages installed successfully via apt.", file=sys.stderr)
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
@@ -47,6 +41,7 @@ def write_env_file(header_path):
     print(f"    source ./load-z3-env.sh\n")
 
 def install_z3_latest():
+    print("Fetching and installing Z3 from GitHub...", file=sys.stderr)
     api_url = "https://api.github.com/repos/Z3Prover/z3/releases/latest"
     with urllib.request.urlopen(api_url) as response:
         data = json.loads(response.read().decode())
@@ -92,8 +87,10 @@ def install_z3_latest():
 def main():
     if is_command_available('yum'):
         install_with_yum()
+        install_z3_latest()
     elif is_command_available('apt'):
         install_with_apt()
+        install_z3_latest()
     else:
         print("❌ Neither yum nor apt found on this system.", file=sys.stderr)
         sys.exit(1)
