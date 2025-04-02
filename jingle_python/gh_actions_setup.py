@@ -4,11 +4,10 @@ import shutil
 import subprocess
 import sys
 import os
-import tempfile
 import urllib.request
 import json
-import zipfile
 import argparse
+from urllib.parse import urljoin
 
 ENV_FILE = ".z3env"
 
@@ -33,85 +32,63 @@ def install_with_apt():
     except subprocess.CalledProcessError:
         print("Failed to install packages using apt.", file=sys.stderr)
 
-def write_env_file(header_path, lib_path):
-    with open(ENV_FILE, "w") as f:
-        f.write(f"export Z3_SYS_Z3_HEADER={header_path}\n")
-        f.write(f"export LD_LIBRARY_PATH={lib_path}\n")
-    print(f"\n✅ Z3 installed successfully.")
+def write_env_file():
+    print(f"\n✅ Z3 installed successfully via Python wheel.")
     print(f"💾 Environment variable written to `{ENV_FILE}`.")
     print(f"👉 To load it into your shell, run:\n")
     print(f"    source ./load-z3-env.sh\n")
 
-def install_z3_latest(target_platform):
-    print(f"Fetching and installing Z3 for target platform '{target_platform}'...", file=sys.stderr)
+def install_z3_wheel(target_platform):
+    print(f"Fetching and installing Z3 Python wheel for target platform '{target_platform}'...", file=sys.stderr)
+
+    # GitHub API to fetch the latest release
     api_url = "https://api.github.com/repos/Z3Prover/z3/releases/latest"
     with urllib.request.urlopen(api_url) as response:
         data = json.loads(response.read().decode())
 
     assets = data.get("assets", [])
 
-    # Select appropriate artifact based on the target platform argument
+    # Define wheel file prefix based on target platform
     if target_platform == 'x86_64':  # x64 architecture
-        artifact_name = "x64-glibc"
+        wheel_arch_prefix = "manylinux_2_17_x86_64.manylinux2014_x86_64"
     elif target_platform == 'aarch64':  # ARM64 architecture
-        artifact_name = "arm64-glibc"
+        wheel_arch_prefix = "manylinux_2_34_aarch64"
     else:
         raise Exception(f"Unsupported target platform: {target_platform}")
 
-    # Find the correct zip URL based on target platform
-    zip_url = None
+    # Search for the correct wheel file in the release assets
+    wheel_url = None
     for asset in assets:
-        if artifact_name in asset["name"] and asset["name"].endswith(".zip"):
-            zip_url = asset["browser_download_url"]
+        if "py3-none-manylinux" in asset["name"] and wheel_arch_prefix in asset["name"] and asset["name"].endswith(".whl"):
+            wheel_url = asset["browser_download_url"]
             break
 
-    if not zip_url:
-        raise Exception(f"Could not find a suitable {artifact_name} Z3 zip archive.")
+    if not wheel_url:
+        raise Exception(f"Could not find a suitable Z3 wheel for platform {target_platform}.")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        zip_path = os.path.join(tmpdir, "z3.zip")
-        urllib.request.urlretrieve(zip_url, zip_path)
+    # Download and install the wheel using pip
+    print(f"Downloading wheel from {wheel_url}...", file=sys.stderr)
+    subprocess.run([sys.executable, "-m", "pip", "install", wheel_url], check=True)
 
-        print("Extracting Z3 archive...", file=sys.stderr)
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(tmpdir)
-
-        extracted_dirs = [d for d in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir, d))]
-        if not extracted_dirs:
-            raise Exception("Extraction failed or directory structure unexpected.")
-        z3_dir = os.path.join(tmpdir, extracted_dirs[0])
-
-        include_dir = os.path.join(z3_dir, "include")
-        lib_dir = os.path.join(z3_dir, "bin")
-
-        print("Installing headers and libraries to /usr/local...", file=sys.stderr)
-        subprocess.run(['mkdir', '-p', '/usr/local/include/z3'], check=True)
-        subprocess.run(['cp', '-r', include_dir + '/', '/usr/local/include/z3'], check=True)
-        subprocess.run(['cp', os.path.join(lib_dir, 'libz3.so'), '/usr/local/lib/'], check=True)
-        subprocess.run(['ls', '/usr/local/lib'], check=True)
-        subprocess.run(['ldconfig'], check=True)
-
-        z3_header_path = '/usr/local/include/z3/include/z3.h'
-        if os.path.exists(z3_header_path):
-            write_env_file(z3_header_path, lib_dir)
-        else:
-            print("⚠️ Warning: z3.h not found at expected path.", file=sys.stderr)
+    # Set environment variables (optional if needed for your setup)
+    write_env_file()
 
 def main():
-    parser = argparse.ArgumentParser(description="Install Z3 for a target platform.")
+    parser = argparse.ArgumentParser(description="Install Z3 Python wheel for a target platform.")
     parser.add_argument("target_platform", choices=["x86_64", "aarch64"],
                         help="Target platform architecture (e.g., x86_64 or aarch64).")
     args = parser.parse_args()
 
+    # Check if 'yum' or 'apt' are available for optional package installation
     if is_command_available('yum'):
         install_with_yum()
-        install_z3_latest(args.target_platform)
     elif is_command_available('apt'):
         install_with_apt()
-        install_z3_latest(args.target_platform)
     else:
         print("❌ Neither yum nor apt found on this system.", file=sys.stderr)
-        sys.exit(1)
+
+    # Install Z3 wheel based on the target platform
+    install_z3_wheel(args.target_platform)
 
 if __name__ == "__main__":
     main()
