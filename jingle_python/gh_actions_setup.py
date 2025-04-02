@@ -53,7 +53,7 @@ def install_z3_with_uv():
     print("Installing Z3 from the UV repository via uv...", file=sys.stderr)
 
     # Install the `z3-solver` package directly using uv
-    subprocess.run([sys.executable, "-m", "uv", "install", "z3-solver"], check=True)
+    subprocess.run(["uv", "pip", "install", "z3-solver"], check=True)
     print("Z3 installed successfully using uv.", file=sys.stderr)
 
 def main():
