@@ -52,6 +52,9 @@ def find_z3_header_path():
     if os.path.exists(z3_header_path):
         return z3_header_path
     else:
+        subprocess(["ls", site_packages_dir])
+        subprocess(["ls", os.path.join(site_packages_dir, "z3")])
+        subprocess(["ls", z3_include_dir])
         print(f"❌ Could not find z3.h at expected path: {z3_header_path}", file=sys.stderr)
         sys.exit(1)
 
