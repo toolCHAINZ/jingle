@@ -62,54 +62,54 @@ jobs:
           name: wheels-linux-${{ matrix.platform.target }}
           path: jingle_python/dist
 
-  #  build-arm-wheels:
-  #    name: Build wheel on ${{ matrix.platform.name }}
-  #    runs-on: ubuntu-latest
-  #
-  #    strategy:
-  #      matrix:
-  #        platform:
-  #          - name: arm64
-  #            arch: aarch64
-  #
-  #    steps:
-  #      - name: Checkout code
-  #        uses: actions/checkout@v4
-  #        with:
-  #          submodules: true
-  #
-  #      - name: Set up QEMU
-  #        uses: docker/setup-qemu-action@v3
-  #
-  #      - name: Run on ARM using run-on-arch-action
-  #        uses: uraimo/run-on-arch-action@v3
-  #        with:
-  #          arch: ${{ matrix.platform.arch }}
-  #          distro: ubuntu20.04
-  #          githubToken: ${{ github.token }}
-  #          run: |
-  #            set -eux
-  #            cd jingle_python
-  #
-  #            # Install dependencies
-  #            apt update
-  #            apt install -y curl build-essential python3 python3-pip python3-venv libclang-dev llvm-dev clang libz3-dev
-  #
-  #            # Install Rust
-  #            curl https://sh.rustup.rs -sSf | sh -s -- -y
-  #            source "$HOME/.cargo/env"
-  #
-  #            # Install Maturin
-  #            pip3 install maturin[patchelf]
-  #
-  #            # Build the wheel
-  #            maturin build --release --out dist --find-interpreter --manylinux 2_31
-  #
-  #      - name: Upload wheels
-  #        uses: actions/upload-artifact@v4
-  #        with:
-  #          name: wheels-linux-${{ matrix.platform.arch }}
-  #          path: jingle_python/dist
+  build-arm-wheels:
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    name: Build wheel on ${{ matrix.platform.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - name: arm64
+            arch: aarch64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Run on ARM using run-on-arch-action
+        uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: ${{ matrix.platform.arch }}
+          distro: ubuntu20.04
+          githubToken: ${{ github.token }}
+          run: |
+            set -eux
+            cd jingle_python
+
+            # Install dependencies
+            apt update
+            apt install -y curl build-essential python3 python3-pip python3-venv libclang-dev llvm-dev clang libz3-dev
+
+            # Install Rust
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            source "$HOME/.cargo/env"
+
+            # Install Maturin
+            pip3 install maturin[patchelf]
+
+            # Build the wheel
+            maturin build --release --out dist --find-interpreter --manylinux 2_31
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.platform.arch }}
+          path: jingle_python/dist
 
   #  windows:
   #    runs-on: ${{ matrix.platform.runner }}
