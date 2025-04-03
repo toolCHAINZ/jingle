@@ -8,7 +8,7 @@ fn main() {
         .expect("Failed to execute Python script");
 
     if !output.status.success() {
-        println!("cargo:warning=Could not find python's z3, this wheel is unlikely to work.");
+        panic!("cargo:warning=Could not find python's z3, this wheel is unlikely to work.");
     } else {
         let venv_lib = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let z3_python_lib = std::path::Path::new(&venv_lib).join("z3").join("lib");
