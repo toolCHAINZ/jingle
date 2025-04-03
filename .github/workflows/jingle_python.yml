@@ -166,8 +166,8 @@ jobs:
           source .venv/bin/activate
           uv sync
           ls $(python find_venv_library_path.py)
-          ls $(python find_venv_library_path.py)/lib
-          ls $(python find_venv_library_path.py)/include
+          ls $(python find_venv_library_path.py)/z3/lib
+          ls $(python find_venv_library_path.py)/z3/include
           uv build --out-dir dist
       - name: Upload wheels
         uses: actions/upload-artifact@v4
