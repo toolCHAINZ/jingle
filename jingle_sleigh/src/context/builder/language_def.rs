@@ -12,7 +12,7 @@ pub enum SleighEndian {
     Big,
 }
 
-#[allow(unused)]
+#[expect(unused)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct Compiler {
     pub name: String,
@@ -20,14 +20,14 @@ pub struct Compiler {
     pub id: String,
 }
 
-#[allow(unused)]
+#[expect(unused)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct ExternalName {
     pub tool: String,
     pub name: String,
 }
 
-#[allow(unused)]
+#[expect(unused)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct LanguageDefinition {
     pub processor: String,

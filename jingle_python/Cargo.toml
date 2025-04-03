@@ -1,0 +1,16 @@
+[package]
+name = "jingle_python"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "jingle"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.24.0"
+jingle = {path = "../jingle", features = ["pyo3", "gimli"]}
+z3 = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
+z3-sys = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
+

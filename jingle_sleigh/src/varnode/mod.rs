@@ -7,6 +7,9 @@ pub use crate::varnode::display::{
     GeneralizedVarNodeDisplay, IndirectVarNodeDisplay, VarNodeDisplay,
 };
 use crate::{ArchInfoProvider, RawVarNodeDisplay};
+#[cfg(feature = "pyo3")]
+use pyo3::pyclass;
+use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Range;
@@ -22,6 +25,7 @@ use std::ops::Range;
 /// For registers, we will (soon! (TM)) perform a register lookup and instead show the pretty
 /// architecture-defined register name.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "pyo3", pyclass)]
 pub struct VarNode {
     /// The index at which the relevant space can be found in a [`ArchInfoProvider`]
     pub space_index: usize,
@@ -31,6 +35,19 @@ pub struct VarNode {
     ///
     /// todo: double-check the sleigh spec and see whether this is always bytes or if it is space word size
     pub size: usize,
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl VarNode {
+    #[new]
+    pub fn new(space_index: usize, offset: u64, size: usize) -> Self {
+        Self {
+            space_index,
+            offset,
+            size,
+        }
+    }
 }
 
 impl VarNode {
@@ -115,6 +132,7 @@ pub fn create_varnode<T: ArchInfoProvider>(
     Err(JingleSleighError::InvalidSpaceName)
 }
 
+#[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct IndirectVarNode {
     pub pointer_space_index: usize,

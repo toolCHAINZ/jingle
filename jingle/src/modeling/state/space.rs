@@ -16,7 +16,6 @@ use z3::Sort;
 pub(crate) struct ModeledSpace<'ctx> {
     endianness: SleighEndianness,
     data: Array<'ctx>,
-    #[allow(unused)]
     metadata: Array<'ctx>,
     space_info: SpaceInfo,
 }

@@ -713,7 +713,6 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
     }
 }
 
-#[allow(unused)]
 fn zext_to_match<'ctx>(bv1: BV<'ctx>, bv2: &BV<'ctx>) -> BV<'ctx> {
     if bv1.get_size() < bv2.get_size() {
         bv1.zero_ext(bv2.get_size() - bv1.get_size())

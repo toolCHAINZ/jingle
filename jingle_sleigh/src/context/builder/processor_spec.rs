@@ -11,7 +11,7 @@ pub struct ContextSet {
     #[serde(rename = "val")]
     pub value: String,
 }
-#[allow(unused)]
+#[expect(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename = "context_set")]
 pub struct ContextSetSpace {
@@ -23,7 +23,7 @@ pub struct ContextSetSpace {
 #[derive(Debug, Deserialize)]
 pub struct ContextData {
     pub context_set: Option<ContextSetSpace>,
-    #[allow(unused)]
+    #[expect(unused)]
     pub tracked_set: Option<ContextSetSpace>,
 }
 

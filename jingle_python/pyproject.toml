@@ -1,0 +1,21 @@
+[build-system]
+requires = [
+  "maturin>=1.8,<2.0",
+  "z3-solver==4.12.4.0",
+]
+build-backend = "maturin"
+
+[project]
+name = "jingle"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = [
+    "z3-solver==4.12.4.0",
+]
+[tool.maturin]
+features = ["pyo3/extension-module"]

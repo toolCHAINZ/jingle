@@ -2,6 +2,7 @@ mod builder;
 pub mod image;
 mod instruction_iterator;
 pub mod loaded;
+mod python;
 
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
