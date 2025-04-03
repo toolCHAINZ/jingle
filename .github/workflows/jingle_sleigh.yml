@@ -13,6 +13,8 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'jingle_sleigh'
   workflow_dispatch:
 
 jobs:

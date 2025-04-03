@@ -23,7 +23,7 @@ pub(crate) struct ModeledSpace<'ctx> {
 impl<'ctx> ModeledSpace<'ctx> {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
     pub(crate) fn new(jingle: &JingleContext<'ctx>, space_info: &SpaceInfo) -> Self {
-        let domain = dbg!(Sort::bitvector(jingle.z3, space_info.index_size_bytes * 8));
+        let domain = Sort::bitvector(jingle.z3, space_info.index_size_bytes * 8);
         let range = Sort::bitvector(jingle.z3, space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
