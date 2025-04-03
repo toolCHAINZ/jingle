@@ -164,10 +164,10 @@ jobs:
           cd jingle_python
           uv venv
           source .venv/bin/activate
+          uv sync
           ls $(python find_venv_library_path.py)
           ls $(python find_venv_library_path.py)/lib
           ls $(python find_venv_library_path.py)/include
-          uv sync
           uv build --out-dir dist
       - name: Upload wheels
         uses: actions/upload-artifact@v4
