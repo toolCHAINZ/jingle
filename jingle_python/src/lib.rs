@@ -20,7 +20,9 @@ use z3::Context;
 use z3_sys::Z3_context;
 
 thread_local! {
-    pub static CONTEXT: RefCell<Z3_context> = const { RefCell::new(std::ptr::null_mut()) };
+    pub static CONTEXT: RefCell<Context> = const {
+        RefCell::new(Context{z3_ctx: std::ptr::null_mut()})
+    };
 }
 
 thread_local! {
@@ -29,7 +31,7 @@ thread_local! {
     });
 }
 pub fn context_switcheroo(z3: Z3_context) -> &'static Context {
-    CONTEXT.replace(z3);
+    CONTEXT.replace(Context { z3_ctx: z3 });
     CTX_REF.with(|ctx| *ctx)
 }
 
