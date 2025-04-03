@@ -164,9 +164,9 @@ jobs:
           cd jingle_python
           uv venv
           source .venv/bin/activate
-          ls ${python find_venv_library_path.py}
-          ls ${python find_venv_library_path.py}/lib
-          ls ${python find_venv_library_path.py}/include
+          ls $(python find_venv_library_path.py)
+          ls $(python find_venv_library_path.py)/lib
+          ls $(python find_venv_library_path.py)/include
           uv sync
           uv build --out-dir dist
       - name: Upload wheels
