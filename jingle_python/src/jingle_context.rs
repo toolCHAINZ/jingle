@@ -20,15 +20,17 @@ impl PythonJingleContext {
     ) -> PyResult<PythonJingleContext> {
         Python::with_gil(|py| {
             let z3_mod = PyModule::import(py, "z3")?;
+            eprintln!("Import z3");
             let global_ctx = z3_mod.getattr("main_ctx")?.call0()?;
-            let z3_ptr: usize = global_ctx
+            eprintln!("global ctx");
+            let z3_ptr: usize = dbg!(global_ctx
                 .getattr("ref")?
                 .call0()?
                 .getattr("value")?
-                .extract()?;
-            let raw_ctx: Z3_context = z3_ptr as Z3_context;
-            let ctx = context_switcheroo(raw_ctx);
-            let ctx = JingleContext::new(ctx, sleigh.as_ref());
+                .extract()?);
+            let raw_ctx: Z3_context = dbg!(z3_ptr as Z3_context);
+            let ctx = dbg!(context_switcheroo(raw_ctx));
+            let ctx = dbg!(JingleContext::new(ctx, sleigh.as_ref()));
             ctx.fresh_state();
             Ok(PythonJingleContext {
                 jingle: ctx,
