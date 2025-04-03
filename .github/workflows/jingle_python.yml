@@ -56,7 +56,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.platform.target }}
-          path: dist
+          path: jingle_python/dist
 
 #  build-arm-wheels:
 #    name: Build wheel on ${{ matrix.platform.name }}
@@ -142,7 +142,7 @@ jobs:
   #        uses: actions/upload-artifact@v4
   #        with:
   #          name: wheels-windows-${{ matrix.platform.target }}
-  #          path: dist
+  #          path: jingle_python/dist
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
@@ -173,7 +173,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.platform.target }}
-          path: dist
+          path: jingle_python/dist
 
   sdist:
     runs-on: ubuntu-latest
@@ -191,7 +191,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-sdist
-          path: dist
+          path: jingle_python/dist
 
   release:
     name: Release
