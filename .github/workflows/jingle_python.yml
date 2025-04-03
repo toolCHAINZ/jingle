@@ -162,6 +162,8 @@ jobs:
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           cd jingle_python
+          uv venv
+          source .venv/bin/activate
           uv sync
           uv build --out-dir dist
       - name: Upload wheels
