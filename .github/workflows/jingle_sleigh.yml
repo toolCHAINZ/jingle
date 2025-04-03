@@ -18,7 +18,6 @@ on:
 jobs:
   build:
     name: ${{matrix.name || format('Rust {0}', matrix.rust)}}
-    if: needs.pre_ci.outputs.continue
     runs-on: ${{matrix.os}}-latest
     strategy:
       fail-fast: false
