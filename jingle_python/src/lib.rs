@@ -16,12 +16,13 @@ use sleigh_context::create_sleigh_context;
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::mem;
+use std::mem::ManuallyDrop;
 use z3::Context;
 use z3_sys::Z3_context;
 
 thread_local! {
-    pub static CONTEXT: RefCell<Context> = const {
-        RefCell::new(Context{z3_ctx: std::ptr::null_mut()})
+    pub static CONTEXT: RefCell<ManuallyDrop<Context>> = const {
+        RefCell::new(ManuallyDrop::new(Context{z3_ctx: std::ptr::null_mut()}))
     };
 }
 
@@ -31,7 +32,7 @@ thread_local! {
     });
 }
 pub fn context_switcheroo(z3: Z3_context) -> &'static Context {
-    CONTEXT.replace(Context { z3_ctx: z3 });
+    CONTEXT.replace(ManuallyDrop::new(Context { z3_ctx: z3 }));
     CTX_REF.with(|ctx| *ctx)
 }
 
