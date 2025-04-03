@@ -16,6 +16,8 @@ on:
       - opened
       - synchronize
       - reopened
+    paths:
+      - 'jingle_python'
   workflow_dispatch:
 
 permissions:

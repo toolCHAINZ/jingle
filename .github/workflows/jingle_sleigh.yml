@@ -7,7 +7,7 @@ name: jingle_sleigh
 on:
   push:
     branches:
-      - main
+      - '*'
     tags:
       - '*'
   pull_request:
@@ -15,8 +15,6 @@ on:
       - opened
       - synchronize
       - reopened
-    paths:
-      - 'jingle_sleigh'
   workflow_dispatch:
 
 jobs:
