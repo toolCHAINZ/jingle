@@ -8,14 +8,12 @@ name: jingle_python
 on:
   push:
     branches:
-      - '*'
+      - main
     tags:
       - '*'
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

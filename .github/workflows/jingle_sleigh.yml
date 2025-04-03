@@ -7,14 +7,12 @@ name: jingle_sleigh
 on:
   push:
     branches:
-      - '*'
+      - main
     tags:
       - '*'
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
