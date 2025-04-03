@@ -164,7 +164,7 @@ jobs:
           cd jingle_python
           uv venv
           source .venv/bin/activate
-          uv sync
+          uv sync --no-install-project
           ls $(python find_venv_library_path.py)
           ls $(python find_venv_library_path.py)/z3/lib
           ls $(python find_venv_library_path.py)/z3/include
