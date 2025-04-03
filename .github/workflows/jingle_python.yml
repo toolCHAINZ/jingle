@@ -165,9 +165,7 @@ jobs:
       - name: "Initialize python z3"
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv venv
-          source .venv/bin/activate
-          uv sync
+          uv sync --directory jingle_python
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
