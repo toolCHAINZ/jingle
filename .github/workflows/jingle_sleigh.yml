@@ -11,6 +11,12 @@ on:
     tags:
       - '*'
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'jingle_sleigh'
   workflow_dispatch:
 
 jobs:
