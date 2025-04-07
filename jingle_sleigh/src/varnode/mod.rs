@@ -9,6 +9,7 @@ pub use crate::varnode::display::{
 use crate::{ArchInfoProvider, RawVarNodeDisplay};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
+#[cfg(feature = "pyo3")]
 use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
