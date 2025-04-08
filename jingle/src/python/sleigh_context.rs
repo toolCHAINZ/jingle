@@ -1,10 +1,10 @@
-use crate::instruction::PythonInstruction;
-use crate::jingle_context::PythonJingleContext;
-use jingle::sleigh::context::image::gimli::load_with_gimli;
-use jingle::sleigh::context::loaded::LoadedSleighContext;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::{pyclass, pyfunction, pymethods, PyResult};
 use std::rc::Rc;
+use jingle_sleigh::context::image::gimli::load_with_gimli;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
+use crate::python::instruction::PythonInstruction;
+use crate::python::jingle_context::PythonJingleContext;
 
 #[pyfunction]
 pub fn create_sleigh_context(

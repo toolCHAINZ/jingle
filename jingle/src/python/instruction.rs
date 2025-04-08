@@ -1,5 +1,5 @@
-use jingle::sleigh::context::loaded::LoadedSleighContext;
-use jingle::sleigh::{ArchInfoProvider, Instruction, PcodeOperation, SpaceInfo, VarNode};
+use crate::sleigh::context::loaded::LoadedSleighContext;
+use crate::sleigh::{ArchInfoProvider, Instruction, PcodeOperation, SpaceInfo, VarNode};
 use pyo3::{pyclass, pymethods};
 use std::fmt::{Display, Formatter};
 
