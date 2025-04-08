@@ -9,7 +9,7 @@ name = "jingle"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.24.0"
+pyo3 = "0.24"
 jingle = {path = "../jingle", features = ["pyo3", "gimli"]}
 z3 = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
 z3-sys = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
