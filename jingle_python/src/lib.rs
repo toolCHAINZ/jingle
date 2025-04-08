@@ -8,19 +8,19 @@ pub mod state;
 pub mod varode_iterator;
 
 use crate::instruction::PythonInstruction;
+use crate::modeled_block::PythonModeledBlock;
+use crate::modeled_instruction::PythonModeledInstruction;
 use crate::sleigh_context::LoadedSleighContextWrapper;
 use crate::state::PythonState;
 use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
 use pyo3::prelude::*;
-use sleigh_context::{create_sleigh_context, create_jingle_context};
+use sleigh_context::{create_jingle_context, create_sleigh_context};
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::mem;
 use std::mem::ManuallyDrop;
 use z3::Context;
 use z3_sys::Z3_context;
-use crate::modeled_block::PythonModeledBlock;
-use crate::modeled_instruction::PythonModeledInstruction;
 
 thread_local! {
     pub static CONTEXT: RefCell<ManuallyDrop<Context>> = const {

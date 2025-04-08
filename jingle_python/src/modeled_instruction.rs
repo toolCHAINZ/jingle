@@ -52,14 +52,14 @@ impl PythonModeledInstruction {
             .instr
             .get_outputs()
             .into_iter()
-            .filter(|o| self.instr.should_varnode_constrain(o)).collect();
+            .filter(|o| self.instr.should_varnode_constrain(o))
+            .collect();
         VarNodeIterator::new(
             // intentional: that AST has the input in it too
             self.instr.get_final_state().clone(),
             filtered.into_iter(),
         )
     }
-
 
     /// A list of the output varnodes to the instruction, filtering
     /// for only those representing actual locations in processor memory:
@@ -69,7 +69,8 @@ impl PythonModeledInstruction {
             .instr
             .get_outputs()
             .into_iter()
-            .filter(|o| self.instr.should_varnode_constrain(o)).collect();
+            .filter(|o| self.instr.should_varnode_constrain(o))
+            .collect();
         VarNodeIterator::new(
             // intentional: that AST has the input in it too
             self.instr.get_final_state().clone(),
