@@ -1,8 +1,7 @@
-
-use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
 use crate::modeling::State;
 use crate::python::bitvec::adapt_bv;
 use crate::varnode::ResolvedVarnode;
+use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {

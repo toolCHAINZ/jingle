@@ -1,9 +1,9 @@
-use std::cell::RefCell;
-use std::mem;
-use std::mem::ManuallyDrop;
 use pyo3::prelude::PyAnyMethods;
 use pyo3::types::PyModule;
 use pyo3::{IntoPyObject, IntoPyObjectExt, Py, PyAny, PyResult, Python};
+use std::cell::RefCell;
+use std::mem;
+use std::mem::ManuallyDrop;
 use z3::ast::{Ast, BV};
 use z3::Context;
 use z3_sys::Z3_context;

@@ -1,10 +1,9 @@
-
-use pyo3::{pyclass, pymethods, PyResult};
-use jingle_sleigh::Instruction;
-use crate::JingleContext;
 use crate::modeling::{ModeledInstruction, ModelingContext};
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
+use crate::JingleContext;
+use jingle_sleigh::Instruction;
+use pyo3::{pyclass, pymethods, PyResult};
 
 #[pyclass(unsendable)]
 /// A symbolic model of a "simple" SLEIGH instruction,

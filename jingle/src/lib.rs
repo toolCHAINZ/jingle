@@ -1,10 +1,10 @@
 mod context;
 mod error;
 pub mod modeling;
-mod translator;
-pub mod varnode;
 #[cfg(feature = "pyo3")]
 pub mod python;
+mod translator;
+pub mod varnode;
 
 pub use jingle_sleigh as sleigh;
 

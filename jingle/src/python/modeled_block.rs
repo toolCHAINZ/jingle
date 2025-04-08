@@ -1,9 +1,9 @@
-use pyo3::{pyclass, pymethods, PyResult};
-use crate::sleigh::Instruction;
-use crate::JingleContext;
 use crate::modeling::{ModeledBlock, ModelingContext};
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
+use crate::sleigh::Instruction;
+use crate::JingleContext;
+use pyo3::{pyclass, pymethods, PyResult};
 
 #[pyclass(unsendable)]
 pub struct PythonModeledBlock {

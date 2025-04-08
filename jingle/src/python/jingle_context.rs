@@ -1,13 +1,12 @@
-
-use pyo3::prelude::*;
-use std::rc::Rc;
-use z3_sys::Z3_context;
-use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::JingleSleighError::InstructionDecode;
-use crate::JingleContext;
 use crate::python::bitvec::context_switcheroo;
 use crate::python::modeled_block::PythonModeledBlock;
 use crate::python::modeled_instruction::PythonModeledInstruction;
+use crate::JingleContext;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
+use jingle_sleigh::JingleSleighError::InstructionDecode;
+use pyo3::prelude::*;
+use std::rc::Rc;
+use z3_sys::Z3_context;
 
 #[pyclass(unsendable)]
 pub struct PythonJingleContext {
