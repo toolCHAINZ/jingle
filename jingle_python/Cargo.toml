@@ -8,10 +8,11 @@ edition = "2021"
 name = "jingle"
 crate-type = ["cdylib", "rlib"]
 
+[features]
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 pyo3 = "0.24"
 jingle = {path = "../jingle", features = ["pyo3", "gimli"]}
 z3 = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
 z3-sys = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
-
