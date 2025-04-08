@@ -19,7 +19,7 @@ name = "jingle"
 required-features = ["bin_features"]
 
 [dependencies]
-jingle_sleigh = { path = "../jingle_sleigh", version = "0.2.0" }
+jingle_sleigh = { path = "../jingle_sleigh", version = "0.2.1" }
 z3 = { git = "https://github.com/toolCHAINZ/z3.rs.git", branch = "patch-1" }
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }

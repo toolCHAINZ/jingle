@@ -12,13 +12,15 @@ use crate::sleigh_context::LoadedSleighContextWrapper;
 use crate::state::PythonState;
 use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
 use pyo3::prelude::*;
-use sleigh_context::create_sleigh_context;
+use sleigh_context::{create_sleigh_context, create_jingle_context};
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::mem;
 use std::mem::ManuallyDrop;
 use z3::Context;
 use z3_sys::Z3_context;
+use crate::modeled_block::PythonModeledBlock;
+use crate::modeled_instruction::PythonModeledInstruction;
 
 thread_local! {
     pub static CONTEXT: RefCell<ManuallyDrop<Context>> = const {
@@ -46,7 +48,10 @@ fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PythonInstruction>()?;
     m.add_class::<LoadedSleighContextWrapper>()?;
     m.add_class::<PythonState>()?;
+    m.add_class::<PythonModeledInstruction>()?;
+    m.add_class::<PythonModeledBlock>()?;
     m.add_function(wrap_pyfunction!(create_sleigh_context, m)?)?;
+    m.add_function(wrap_pyfunction!(create_jingle_context, m)?)?;
     Ok(())
 }
 

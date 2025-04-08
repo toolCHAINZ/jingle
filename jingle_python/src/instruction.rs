@@ -1,9 +1,10 @@
 use jingle::sleigh::context::loaded::LoadedSleighContext;
-use jingle::sleigh::{ArchInfoProvider, Instruction, SpaceInfo, VarNode};
+use jingle::sleigh::{ArchInfoProvider, Instruction, PcodeOperation, SpaceInfo, VarNode};
 use pyo3::{pyclass, pymethods};
 use std::fmt::{Display, Formatter};
 
-#[pyclass(str)]
+#[pyclass(str, name = "Instruction")]
+/// An assembly instruction parsed by SLEIGH
 pub struct PythonInstruction {
     instruction: Instruction,
     registers: Vec<(VarNode, String)>,
@@ -69,5 +70,9 @@ impl PythonInstruction {
             "{} {}",
             self.instruction.disassembly.mnemonic, self.instruction.disassembly.args
         )
+    }
+
+    fn pcode(&self) -> Vec<PcodeOperation> {
+        self.instruction.ops.clone()
     }
 }
