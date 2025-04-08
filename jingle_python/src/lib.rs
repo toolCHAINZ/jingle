@@ -1,18 +1,20 @@
-mod bitvec;
-mod instruction;
-mod jingle_context;
-mod modeled_block;
-mod modeled_instruction;
-mod sleigh_context;
-mod state;
-mod varode_iterator;
+pub mod bitvec;
+pub mod instruction;
+pub mod jingle_context;
+pub mod modeled_block;
+pub mod modeled_instruction;
+pub mod sleigh_context;
+pub mod state;
+pub mod varode_iterator;
 
 use crate::instruction::PythonInstruction;
+use crate::modeled_block::PythonModeledBlock;
+use crate::modeled_instruction::PythonModeledInstruction;
 use crate::sleigh_context::LoadedSleighContextWrapper;
 use crate::state::PythonState;
 use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
 use pyo3::prelude::*;
-use sleigh_context::create_sleigh_context;
+use sleigh_context::{create_jingle_context, create_sleigh_context};
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::mem;
@@ -46,7 +48,10 @@ fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PythonInstruction>()?;
     m.add_class::<LoadedSleighContextWrapper>()?;
     m.add_class::<PythonState>()?;
+    m.add_class::<PythonModeledInstruction>()?;
+    m.add_class::<PythonModeledBlock>()?;
     m.add_function(wrap_pyfunction!(create_sleigh_context, m)?)?;
+    m.add_function(wrap_pyfunction!(create_jingle_context, m)?)?;
     Ok(())
 }
 

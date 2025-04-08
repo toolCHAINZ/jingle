@@ -6,6 +6,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
 #[pyclass(unsendable, name = "State")]
+/// A symbolic p-code state
 pub struct PythonState {
     pub state: State<'static>,
 }
@@ -13,16 +14,19 @@ pub struct PythonState {
 #[pymethods]
 impl PythonState {
     #[new]
+    /// Creates a "fresh" state for a given sleigh configuration
     pub fn new(j: PyRef<PythonJingleContext>) -> PyResult<PythonState> {
         Ok(PythonState {
             state: State::new(&j.jingle),
         })
     }
 
+    /// Read a varnode from the symbolic state
     pub fn varnode(&self, varnode: &VarNode) -> PyResult<Py<PyAny>> {
         adapt_bv(self.state.read_varnode(varnode)?)
     }
 
+    /// Convenience function to read a named register from the symbolic state
     pub fn register(&self, name: &str) -> PyResult<Py<PyAny>> {
         let vn = self
             .state
@@ -31,6 +35,7 @@ impl PythonState {
         adapt_bv(self.state.read_varnode(vn)?)
     }
 
+    /// Convenience function to read a slice from the symbolic  state of the default "code space"
     pub fn ram(&self, offset: u64, length: usize) -> PyResult<Py<PyAny>> {
         adapt_bv(self.state.read_varnode(&VarNode {
             offset,

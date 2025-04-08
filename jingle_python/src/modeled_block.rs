@@ -24,6 +24,8 @@ impl PythonModeledBlock {
 #[pymethods]
 impl PythonModeledBlock {
     #[getter]
+    /// The symbolic state before the block
+    /// is executed
     pub fn original_state(&self) -> PythonState {
         PythonState {
             state: self.instr.get_original_state().clone(),
@@ -31,25 +33,44 @@ impl PythonModeledBlock {
     }
 
     #[getter]
+    /// The symbolic state after the block is executed
     pub fn final_state(&self) -> PythonState {
         PythonState {
             state: self.instr.get_final_state().clone(),
         }
     }
 
+    /// A list of the input varnodes to the block, filtering
+    /// for only those representing actual locations in processor memory:
+    /// constants and "internal" varnodes are filtered out
     pub fn get_input_bvs(&self) -> VarNodeIterator {
+        let filtered: Vec<_> = self
+            .instr
+            .get_outputs()
+            .into_iter()
+            .filter(|o| self.instr.should_varnode_constrain(o))
+            .collect();
         VarNodeIterator::new(
             // intentional: that AST has the input in it too
             self.instr.get_final_state().clone(),
-            self.instr.get_inputs().clone().into_iter(),
+            filtered.into_iter(),
         )
     }
 
+    /// A list of the output varnodes to the block, filtering
+    /// for only those representing actual locations in processor memory:
+    /// "internal" varnodes are filtered out
     pub fn get_output_bvs(&self) -> VarNodeIterator {
+        let filtered: Vec<_> = self
+            .instr
+            .get_outputs()
+            .into_iter()
+            .filter(|o| self.instr.should_varnode_constrain(o))
+            .collect();
         VarNodeIterator::new(
             // intentional: that AST has the input in it too
             self.instr.get_final_state().clone(),
-            self.instr.get_outputs().clone().into_iter(),
+            filtered.into_iter(),
         )
     }
 }

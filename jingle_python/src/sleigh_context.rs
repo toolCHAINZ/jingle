@@ -15,6 +15,12 @@ pub fn create_sleigh_context(
     Ok(LoadedSleighContextWrapper { context })
 }
 
+#[pyfunction]
+pub fn create_jingle_context(binary_path: &str, ghidra: &str) -> PyResult<PythonJingleContext> {
+    let context = Rc::new(load_with_gimli(binary_path, ghidra)?);
+    PythonJingleContext::make_jingle_context(context)
+}
+
 #[pyclass(unsendable, name = "SleighContext")]
 pub struct LoadedSleighContextWrapper {
     context: Rc<LoadedSleighContext<'static>>,
