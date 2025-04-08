@@ -1,8 +1,8 @@
-use crate::state::PythonState;
-use crate::varode_iterator::VarNodeIterator;
-use jingle::modeling::{ModeledInstruction, ModelingContext};
-use jingle::sleigh::Instruction;
-use jingle::JingleContext;
+use crate::modeling::{ModeledInstruction, ModelingContext};
+use crate::python::state::PythonState;
+use crate::python::varode_iterator::VarNodeIterator;
+use crate::JingleContext;
+use jingle_sleigh::Instruction;
 use pyo3::{pyclass, pymethods, PyResult};
 
 #[pyclass(unsendable)]

@@ -1,6 +1,6 @@
-use crate::bitvec::adapt_bv;
-use jingle::modeling::State;
-use jingle::varnode::ResolvedVarnode;
+use crate::modeling::State;
+use crate::python::bitvec::adapt_bv;
+use crate::varnode::ResolvedVarnode;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
 
 #[pyclass(unsendable)]

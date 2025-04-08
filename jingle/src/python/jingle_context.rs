@@ -1,9 +1,9 @@
-use crate::context_switcheroo;
-use crate::modeled_block::PythonModeledBlock;
-use crate::modeled_instruction::PythonModeledInstruction;
-use jingle::sleigh::context::loaded::LoadedSleighContext;
-use jingle::sleigh::JingleSleighError::InstructionDecode;
-use jingle::JingleContext;
+use crate::python::bitvec::context_switcheroo;
+use crate::python::modeled_block::PythonModeledBlock;
+use crate::python::modeled_instruction::PythonModeledInstruction;
+use crate::JingleContext;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
+use jingle_sleigh::JingleSleighError::InstructionDecode;
 use pyo3::prelude::*;
 use std::rc::Rc;
 use z3_sys::Z3_context;

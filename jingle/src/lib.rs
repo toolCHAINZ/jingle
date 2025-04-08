@@ -1,6 +1,8 @@
 mod context;
 mod error;
 pub mod modeling;
+#[cfg(feature = "pyo3")]
+pub mod python;
 mod translator;
 pub mod varnode;
 

@@ -1,7 +1,7 @@
-use crate::bitvec::adapt_bv;
-use crate::jingle_context::PythonJingleContext;
-use jingle::modeling::State;
-use jingle::sleigh::{ArchInfoProvider, VarNode};
+use crate::modeling::State;
+use crate::python::bitvec::adapt_bv;
+use crate::python::jingle_context::PythonJingleContext;
+use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
