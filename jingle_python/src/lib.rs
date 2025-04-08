@@ -1,13 +1,12 @@
-
-use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
-use pyo3::prelude::*;
-use std::ffi::CString;
 use ::jingle::python::instruction::PythonInstruction;
 use ::jingle::python::modeled_block::PythonModeledBlock;
 use ::jingle::python::modeled_instruction::PythonModeledInstruction;
 use ::jingle::python::sleigh_context::LoadedSleighContextWrapper;
+use ::jingle::python::sleigh_context::{create_jingle_context, create_sleigh_context};
 use ::jingle::python::state::PythonState;
-use ::jingle::python::sleigh_context::{create_sleigh_context, create_jingle_context};
+use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
+use pyo3::prelude::*;
+use std::ffi::CString;
 /// A Python module implemented in Rust.
 #[pymodule]
 fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
