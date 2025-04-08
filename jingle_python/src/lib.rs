@@ -7,6 +7,7 @@ use ::jingle::python::state::PythonState;
 use ::jingle::sleigh::{IndirectVarNode, PcodeOperation, VarNode};
 use pyo3::prelude::*;
 use std::ffi::CString;
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
