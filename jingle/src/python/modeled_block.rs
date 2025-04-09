@@ -7,7 +7,7 @@ use pyo3::{pyclass, pymethods, PyResult};
 
 #[pyclass(unsendable)]
 pub struct PythonModeledBlock {
-    instr: ModeledBlock<'static>,
+    pub instr: ModeledBlock<'static>,
 }
 
 impl PythonModeledBlock {
