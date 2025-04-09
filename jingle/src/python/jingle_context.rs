@@ -1,4 +1,4 @@
-use crate::python::bitvec::context_switcheroo;
+use crate::python::bitvec::get_python_z3;
 use crate::python::modeled_block::PythonModeledBlock;
 use crate::python::modeled_instruction::PythonModeledInstruction;
 use crate::JingleContext;
@@ -6,7 +6,6 @@ use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use pyo3::prelude::*;
 use std::rc::Rc;
-use z3_sys::Z3_context;
 
 #[pyclass(unsendable)]
 pub struct PythonJingleContext {
@@ -18,22 +17,12 @@ impl PythonJingleContext {
     pub fn make_jingle_context(
         sleigh: Rc<LoadedSleighContext<'static>>,
     ) -> PyResult<PythonJingleContext> {
-        Python::with_gil(|py| {
-            let z3_mod = PyModule::import(py, "z3")?;
-            let global_ctx = z3_mod.getattr("main_ctx")?.call0()?;
-            let z3_ptr: usize = global_ctx
-                .getattr("ref")?
-                .call0()?
-                .getattr("value")?
-                .extract()?;
-            let raw_ctx: Z3_context = z3_ptr as Z3_context;
-            let ctx = context_switcheroo(raw_ctx);
-            let ctx = JingleContext::new(ctx, sleigh.as_ref());
-            ctx.fresh_state();
-            Ok(PythonJingleContext {
-                jingle: ctx,
-                sleigh,
-            })
+        let ctx = get_python_z3()?;
+        let ctx = JingleContext::new(ctx, sleigh.as_ref());
+        ctx.fresh_state();
+        Ok(PythonJingleContext {
+            jingle: ctx,
+            sleigh,
         })
     }
 }
