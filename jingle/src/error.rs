@@ -1,8 +1,8 @@
 use jingle_sleigh::{JingleSleighError, PcodeOperation};
 #[cfg(feature = "pyo3")]
-use pyo3::exceptions::PyRuntimeError;
-#[cfg(feature = "pyo3")]
 use pyo3::PyErr;
+#[cfg(feature = "pyo3")]
+use pyo3::exceptions::PyRuntimeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

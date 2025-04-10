@@ -3,13 +3,13 @@ use crate::error::JingleError;
 use crate::varnode::ResolvedVarnode::{Direct, Indirect};
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, PcodeOperation, SpaceType};
-use std::cmp::{min, Ordering};
+use std::cmp::{Ordering, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use tracing::instrument;
-use z3::ast::{Ast, Bool, BV};
+use z3::ast::{Ast, BV, Bool};
 
 mod block;
 mod branch;
@@ -182,7 +182,10 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
     fn get_branch_builder(&mut self) -> &mut BranchConstraint;
 
     /// A helper function to both read and track an input [VarNode].
-    fn read_and_track<'a>(&'a mut self, gen_varnode: GeneralizedVarNode) -> Result<BV<'ctx>, JingleError> {
+    fn read_and_track<'a>(
+        &'a mut self,
+        gen_varnode: GeneralizedVarNode,
+    ) -> Result<BV<'ctx>, JingleError> {
         match gen_varnode {
             GeneralizedVarNode::Direct(d) => {
                 self.track_input(&Direct(d.clone()));

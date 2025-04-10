@@ -1,8 +1,8 @@
+use crate::JingleSleighError::ImageLoadError;
+use crate::context::SleighContext;
 use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
-use crate::context::SleighContext;
 use crate::ffi::context_ffi::ImageFFI;
-use crate::JingleSleighError::ImageLoadError;
 use crate::{ArchInfoProvider, Instruction, JingleSleighError, SpaceInfo, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
@@ -181,10 +181,10 @@ impl ArchInfoProvider for LoadedSleighContext<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::context::SleighContextBuilder;
-    use crate::tests::SLEIGH_ARCH;
     use crate::PcodeOperation::Branch;
     use crate::VarNode;
+    use crate::context::SleighContextBuilder;
+    use crate::tests::SLEIGH_ARCH;
 
     #[test]
     fn test_adjust_vma() {

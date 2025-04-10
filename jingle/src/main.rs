@@ -1,10 +1,10 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hex::decode;
-use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle::JingleContext;
-use jingle_sleigh::context::loaded::LoadedSleighContext;
+use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle_sleigh::context::SleighContextBuilder;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

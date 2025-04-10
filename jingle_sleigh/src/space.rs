@@ -1,8 +1,8 @@
+use crate::JingleSleighError;
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::ffi::context_ffi::bridge::AddrSpaceHandle;
 use crate::space::SleighEndianness::{Big, Little};
 use crate::varnode::VarNode;
-use crate::JingleSleighError;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
 
