@@ -107,10 +107,10 @@ impl From<&VarNode> for Range<usize> {
 }
 #[macro_export]
 macro_rules! varnode {
-    ($ctx:expr, #$offset:literal:$size:literal) => {
+    ($ctx:expr_2021, #$offset:literal:$size:literal) => {
         $ctx.varnode("const", $offset, $size)
     };
-    ($ctx:expr, $space:literal[$offset:expr]:$size:literal) => {
+    ($ctx:expr_2021, $space:literal[$offset:expr_2021]:$size:literal) => {
         $ctx.varnode($space, $offset, $size)
     };
 }
