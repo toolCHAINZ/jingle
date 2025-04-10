@@ -182,8 +182,8 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
     fn get_branch_builder(&mut self) -> &mut BranchConstraint;
 
     /// A helper function to both read and track an input [VarNode].
-    fn read_and_track<'a>(&'a mut self, gen: GeneralizedVarNode) -> Result<BV<'ctx>, JingleError> {
-        match gen {
+    fn read_and_track<'a>(&'a mut self, gen_varnode: GeneralizedVarNode) -> Result<BV<'ctx>, JingleError> {
+        match gen_varnode {
             GeneralizedVarNode::Direct(d) => {
                 self.track_input(&Direct(d.clone()));
                 self.get_final_state().read_varnode(&d)
@@ -207,10 +207,10 @@ pub(crate) trait TranslationContext<'ctx>: ModelingContext<'ctx> {
 
     fn write<'a, 'b: 'ctx>(
         &'a mut self,
-        gen: &GeneralizedVarNode,
+        r#gen: &GeneralizedVarNode,
         val: BV<'b>,
     ) -> Result<(), JingleError> {
-        match gen {
+        match r#gen {
             GeneralizedVarNode::Direct(d) => {
                 self.track_output(&Direct(d.clone()));
                 self.get_final_state_mut().write_varnode(d, val)?;
