@@ -1,4 +1,3 @@
-use std::path::Iter;
 use jingle_sleigh::GeneralizedVarNodeDisplay;
 use pyo3::{pyclass, pymethods, PyRef, PyRefMut};
 
