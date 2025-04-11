@@ -1,6 +1,5 @@
-
-use pyo3::{pyclass, pymethods, PyRef, PyRefMut};
 use jingle_sleigh::GeneralizedVarNodeDisplay;
+use pyo3::{pyclass, pymethods, PyRef, PyRefMut};
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {
@@ -8,12 +7,8 @@ pub struct VarNodeIterator {
 }
 
 impl VarNodeIterator {
-    pub fn new<T: Iterator<Item = GeneralizedVarNodeDisplay> + 'static>(
-        t: T,
-    ) -> Self {
-        Self {
-            vn: Box::new(t),
-        }
+    pub fn new<T: Iterator<Item = GeneralizedVarNodeDisplay> + 'static>(t: T) -> Self {
+        Self { vn: Box::new(t) }
     }
 }
 #[pymethods]

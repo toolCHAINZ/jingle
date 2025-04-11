@@ -2,7 +2,7 @@ use crate::modeling::{ModeledBlock, ModelingContext};
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
 use crate::sleigh::Instruction;
-use crate::{JingleContext};
+use crate::JingleContext;
 use jingle_sleigh::GeneralizedVarNodeDisplay;
 use pyo3::{pyclass, pymethods, PyResult};
 
@@ -48,13 +48,12 @@ impl PythonModeledBlock {
         let filtered: Result<Vec<GeneralizedVarNodeDisplay>, _> = self
             .instr
             .instructions
-            .clone().into_iter()
+            .clone()
+            .into_iter()
             .flat_map(|i| i.ops)
             .flat_map(|op| op.inputs())
             .into_iter()
-            .map(|g| {
-                g.display(self.instr.get_final_state())
-            })
+            .map(|g| g.display(self.instr.get_final_state()))
             .collect();
         let filtered = filtered?;
         Ok(VarNodeIterator::new(filtered.into_iter()))
@@ -67,13 +66,12 @@ impl PythonModeledBlock {
         let filtered: Result<Vec<GeneralizedVarNodeDisplay>, _> = self
             .instr
             .instructions
-            .clone().into_iter()
+            .clone()
+            .into_iter()
             .flat_map(|i| i.ops)
             .flat_map(|op| op.output())
             .into_iter()
-            .map(|g| {
-                g.display(self.instr.get_final_state())
-            })
+            .map(|g| g.display(self.instr.get_final_state()))
             .collect();
         let filtered = filtered?;
         Ok(VarNodeIterator::new(filtered.into_iter()))

@@ -48,12 +48,13 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
     pub fn get_input_bvs(&self) -> PyResult<VarNodeIterator> {
-        let filtered: Result<Vec<_>,_> = self
+        let filtered: Result<Vec<_>, _> = self
             .instr
             .instr
             .clone()
             .ops
-            .into_iter().flat_map(|op| op.inputs())
+            .into_iter()
+            .flat_map(|op| op.inputs())
             .into_iter()
             .map(|g| g.display(self.instr.get_final_state()))
             .collect();
@@ -65,17 +66,17 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
     pub fn get_output_bvs(&self) -> PyResult<VarNodeIterator> {
-        let filtered: Result<Vec<_>,_> = self
+        let filtered: Result<Vec<_>, _> = self
             .instr
             .instr
             .clone()
             .ops
-            .into_iter().flat_map(|op| op.output())
+            .into_iter()
+            .flat_map(|op| op.output())
             .into_iter()
             .map(|g| g.display(self.instr.get_final_state()))
             .collect();
         let filtered = filtered?;
         Ok(VarNodeIterator::new(filtered.into_iter()))
-
     }
 }
