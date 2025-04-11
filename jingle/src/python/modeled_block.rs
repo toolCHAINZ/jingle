@@ -52,7 +52,6 @@ impl PythonModeledBlock {
             .into_iter()
             .flat_map(|i| i.ops)
             .flat_map(|op| op.inputs())
-            .into_iter()
             .map(|g| g.display(self.instr.get_final_state()))
             .collect();
         let filtered = filtered?;
@@ -70,7 +69,6 @@ impl PythonModeledBlock {
             .into_iter()
             .flat_map(|i| i.ops)
             .flat_map(|op| op.output())
-            .into_iter()
             .map(|g| g.display(self.instr.get_final_state()))
             .collect();
         let filtered = filtered?;
