@@ -1,3 +1,4 @@
+use std::path::Iter;
 use jingle_sleigh::GeneralizedVarNodeDisplay;
 use pyo3::{pyclass, pymethods, PyRef, PyRefMut};
 
@@ -19,5 +20,13 @@ impl VarNodeIterator {
 
     pub fn __next__(mut slf: PyRefMut<Self>) -> Option<GeneralizedVarNodeDisplay> {
         slf.vn.next()
+    }
+}
+
+impl Iterator for VarNodeIterator {
+    type Item = GeneralizedVarNodeDisplay;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.vn.next()
     }
 }
