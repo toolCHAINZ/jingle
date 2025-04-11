@@ -1,5 +1,5 @@
 use crate::modeling::State;
-use crate::python::bitvec::adapt_bv;
+use crate::python::z3::ast::TryIntoPythonZ3;
 use crate::varnode::ResolvedVarnode;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
 
@@ -29,7 +29,7 @@ impl VarNodeIterator {
     pub fn __next__(mut slf: PyRefMut<Self>) -> Option<Py<PyAny>> {
         let vn = slf.vn.next()?;
         let vn = slf.state.read_resolved(&vn).ok()?;
-        let bv = adapt_bv(vn).ok()?;
+        let bv = vn.try_into_python().ok()?;
         Some(bv)
     }
 }
