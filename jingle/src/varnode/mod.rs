@@ -1,4 +1,4 @@
-mod display;
+pub mod display;
 
 use crate::error::JingleError;
 use crate::error::JingleError::UnmodeledSpace;
@@ -24,23 +24,41 @@ pub enum ResolvedVarnode<'ctx> {
     Indirect(ResolvedIndirectVarNode<'ctx>),
 }
 
-impl ResolvedVarnode<'_> {
+impl<'a> ResolvedVarnode<'a> {
     pub fn display<T: ArchInfoProvider>(
         &self,
         ctx: &T,
-    ) -> Result<ResolvedVarNodeDisplay, JingleError> {
+    ) -> Result<ResolvedVarNodeDisplay<'a>, JingleError> {
         match self {
             ResolvedVarnode::Direct(d) => Ok(ResolvedVarNodeDisplay::Direct(d.display(ctx)?)),
             ResolvedVarnode::Indirect(i) => Ok(ResolvedVarNodeDisplay::Indirect(
                 ResolvedIndirectVarNodeDisplay {
-                    pointer_space_name: ctx
+                    pointer_space_info: ctx
                         .get_space_info(i.pointer_space_idx)
-                        .map(|o| o.name.clone())
+                        .cloned()
                         .ok_or(UnmodeledSpace)?,
                     pointer: i.pointer.clone(),
                     access_size_bytes: i.access_size_bytes,
+                    pointer_location: i.pointer_location.clone(),
                 },
             )),
         }
+    }
+}
+
+impl<'a> From<&ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a> {
+    fn from(value: &ResolvedIndirectVarNodeDisplay<'a>) -> Self {
+        ResolvedIndirectVarNode {
+            pointer: value.pointer.clone(),
+            access_size_bytes: value.access_size_bytes,
+            pointer_space_idx: value.pointer_space_info.index,
+            pointer_location: value.pointer_location.clone(),
+        }
+    }
+}
+
+impl<'a> From<ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a> {
+    fn from(value: ResolvedIndirectVarNodeDisplay<'a>) -> Self {
+        ResolvedIndirectVarNode::from(&value)
     }
 }

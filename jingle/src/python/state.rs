@@ -1,7 +1,9 @@
 use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
+use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::z3::ast::TryIntoPythonZ3;
-use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNodeDisplay, VarNode};
+use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
+use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -22,8 +24,15 @@ impl PythonState {
     }
 
     /// Read a varnode from the symbolic state
-    pub fn varnode(&self, varnode: &GeneralizedVarNodeDisplay) -> PyResult<Py<PyAny>> {
-        self.state.read(varnode.clone().into())?.try_into_python()
+    pub fn varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
+        match varnode {
+            PythonResolvedVarNode::Direct(a) => self.state.read_varnode(&VarNode::from(a.clone())),
+            PythonResolvedVarNode::Indirect(a) => {
+                let ind = ResolvedIndirectVarNode::from(&a.inner);
+                self.state.read_resolved(&ResolvedVarnode::Indirect(ind))
+            }
+        }?
+        .try_into_python()
     }
 
     /// Convenience function to read a named register from the symbolic state

@@ -1,13 +1,13 @@
-use jingle_sleigh::GeneralizedVarNodeDisplay;
+use crate::python::resolved_varnode::PythonResolvedVarNode;
 use pyo3::{pyclass, pymethods, PyRef, PyRefMut};
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {
-    vn: Box<dyn Iterator<Item = GeneralizedVarNodeDisplay>>,
+    vn: Box<dyn Iterator<Item = PythonResolvedVarNode>>,
 }
 
 impl VarNodeIterator {
-    pub fn new<T: Iterator<Item = GeneralizedVarNodeDisplay> + 'static>(t: T) -> Self {
+    pub fn new<T: Iterator<Item = PythonResolvedVarNode> + 'static>(t: T) -> Self {
         Self { vn: Box::new(t) }
     }
 }
@@ -17,13 +17,13 @@ impl VarNodeIterator {
         slf
     }
 
-    pub fn __next__(mut slf: PyRefMut<Self>) -> Option<GeneralizedVarNodeDisplay> {
+    pub fn __next__(mut slf: PyRefMut<Self>) -> Option<PythonResolvedVarNode> {
         slf.vn.next()
     }
 }
 
 impl Iterator for VarNodeIterator {
-    type Item = GeneralizedVarNodeDisplay;
+    type Item = PythonResolvedVarNode;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.vn.next()

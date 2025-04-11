@@ -1,4 +1,5 @@
 use crate::modeling::{ModeledInstruction, ModelingContext};
+use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
 use crate::JingleContext;
@@ -48,16 +49,14 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
     pub fn get_input_vns(&self) -> PyResult<VarNodeIterator> {
-        let filtered: Result<Vec<_>, _> = self
+        let s = self.instr.get_original_state().clone();
+        let filtered: Result<Vec<PythonResolvedVarNode>, _> = self
             .instr
-            .instr
-            .clone()
-            .ops
+            .get_inputs()
             .into_iter()
-            .flat_map(|op| op.inputs())
-            .map(|g| g.display(self.instr.get_final_state()))
+            .map(|g| g.display(&s).map(PythonResolvedVarNode::from))
             .collect();
-        let filtered = filtered?;
+        let filtered = filtered?.into_iter();
         Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 
@@ -65,16 +64,14 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
     pub fn get_output_vns(&self) -> PyResult<VarNodeIterator> {
-        let filtered: Result<Vec<_>, _> = self
+        let s = self.instr.get_final_state().clone();
+        let filtered: Result<Vec<PythonResolvedVarNode>, _> = self
             .instr
-            .instr
-            .clone()
-            .ops
+            .get_outputs()
             .into_iter()
-            .flat_map(|op| op.output())
-            .map(|g| g.display(self.instr.get_final_state()))
+            .map(|g| g.display(&s).map(PythonResolvedVarNode::from))
             .collect();
-        let filtered = filtered?;
+        let filtered = filtered?.into_iter();
         Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 }

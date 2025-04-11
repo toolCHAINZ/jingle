@@ -1,9 +1,9 @@
 use crate::modeling::{ModeledBlock, ModelingContext};
+use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
 use crate::sleigh::Instruction;
 use crate::JingleContext;
-use jingle_sleigh::GeneralizedVarNodeDisplay;
 use pyo3::{pyclass, pymethods, PyResult};
 
 #[pyclass(unsendable)]
@@ -45,16 +45,14 @@ impl PythonModeledBlock {
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
     pub fn get_input_vns(&self) -> PyResult<VarNodeIterator> {
-        let filtered: Result<Vec<GeneralizedVarNodeDisplay>, _> = self
+        let s = self.instr.get_original_state().clone();
+        let filtered: Result<Vec<PythonResolvedVarNode>, _> = self
             .instr
-            .instructions
-            .clone()
+            .get_inputs()
             .into_iter()
-            .flat_map(|i| i.ops)
-            .flat_map(|op| op.inputs())
-            .map(|g| g.display(self.instr.get_final_state()))
+            .map(|g| g.display(&s).map(PythonResolvedVarNode::from))
             .collect();
-        let filtered = filtered?;
+        let filtered = filtered?.into_iter();
         Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 
@@ -62,16 +60,14 @@ impl PythonModeledBlock {
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
     pub fn get_output_vns(&self) -> PyResult<VarNodeIterator> {
-        let filtered: Result<Vec<GeneralizedVarNodeDisplay>, _> = self
+        let s = self.instr.get_final_state().clone();
+        let filtered: Result<Vec<PythonResolvedVarNode>, _> = self
             .instr
-            .instructions
-            .clone()
+            .get_outputs()
             .into_iter()
-            .flat_map(|i| i.ops)
-            .flat_map(|op| op.output())
-            .map(|g| g.display(self.instr.get_final_state()))
+            .map(|g| g.display(&s).map(PythonResolvedVarNode::from))
             .collect();
-        let filtered = filtered?;
+        let filtered = filtered?.into_iter();
         Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 }
