@@ -1,9 +1,9 @@
 use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
+use crate::python::z3::ast::TryIntoPythonZ3;
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use crate::python::z3::ast::TryIntoPythonZ3;
 
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
@@ -37,10 +37,12 @@ impl PythonState {
 
     /// Convenience function to read a slice from the symbolic  state of the default "code space"
     pub fn ram(&self, offset: u64, length: usize) -> PyResult<Py<PyAny>> {
-        self.state.read_varnode(&VarNode {
-            offset,
-            size: length,
-            space_index: self.state.get_code_space_idx(),
-        })?.try_into_python()
+        self.state
+            .read_varnode(&VarNode {
+                offset,
+                size: length,
+                space_index: self.state.get_code_space_idx(),
+            })?
+            .try_into_python()
     }
 }

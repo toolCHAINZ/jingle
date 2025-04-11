@@ -1,7 +1,7 @@
 use crate::modeling::State;
+use crate::python::z3::ast::TryIntoPythonZ3;
 use crate::varnode::ResolvedVarnode;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
-use crate::python::z3::ast::TryIntoPythonZ3;
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {
