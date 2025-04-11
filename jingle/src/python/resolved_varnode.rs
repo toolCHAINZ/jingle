@@ -1,7 +1,7 @@
 use crate::varnode::display::{ResolvedIndirectVarNodeDisplay, ResolvedVarNodeDisplay};
 use jingle_sleigh::VarNodeDisplay;
 use pyo3::pyclass;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 #[pyclass(unsendable, str)]

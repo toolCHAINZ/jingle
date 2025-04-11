@@ -17,7 +17,7 @@ pub enum ResolvedVarNodeDisplay<'ctx> {
     Indirect(ResolvedIndirectVarNodeDisplay<'ctx>),
 }
 
-impl<'ctx> Display for ResolvedIndirectVarNodeDisplay<'ctx> {
+impl Display for ResolvedIndirectVarNodeDisplay<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
