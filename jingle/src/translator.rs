@@ -1,10 +1,10 @@
 use crate::error::JingleError;
 use jingle_sleigh::{ArchInfoProvider, Instruction, SpaceInfo, VarNode};
 
-use crate::modeling::ModeledInstruction;
 use crate::JingleContext;
-use jingle_sleigh::context::loaded::LoadedSleighContext;
+use crate::modeling::ModeledInstruction;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
 use z3::Context;
 
 /// This type wraps z3 and a sleigh context and allows for both modeling instructions that

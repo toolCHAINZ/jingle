@@ -1,12 +1,12 @@
-use crate::context::builder::language_def::{parse_ldef, LanguageDefinition};
-use crate::context::builder::processor_spec::parse_pspec;
 use crate::context::SleighContext;
+use crate::context::builder::language_def::{LanguageDefinition, parse_ldef};
+use crate::context::builder::processor_spec::parse_pspec;
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{InvalidLanguageId, LanguageSpecRead};
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::{event, instrument, Level};
+use tracing::{Level, event, instrument};
 
 pub(crate) mod language_def;
 pub(crate) mod processor_spec;
@@ -105,7 +105,7 @@ fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
 #[cfg(test)]
 mod tests {
     use crate::context::builder::processor_spec::parse_pspec;
-    use crate::context::builder::{parse_ldef, SleighContextBuilder};
+    use crate::context::builder::{SleighContextBuilder, parse_ldef};
 
     use crate::tests::SLEIGH_ARCH;
     use std::path::Path;

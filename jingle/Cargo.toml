@@ -1,14 +1,14 @@
 [package]
 name = "jingle"
 version = "0.2.1"
-edition = "2021"
+edition = "2024"
 description = "SMT Modeling for Ghidra's PCODE"
 homepage = "https://github.com/toolCHAINZ/jingle"
 repository = "https://github.com/toolCHAINZ/jingle"
 readme = "README.md"
 license = "MIT"
 authors = ["toolCHAINZ"]
-rust-version = "1.77.0"
+rust-version = "1.85.0"
 categories = ["mathematics"]
 keywords = ["ghidra", "sleigh", "pcode", "smt"]
 

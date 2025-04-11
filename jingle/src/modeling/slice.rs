@@ -1,6 +1,6 @@
+use crate::JingleContext;
 use crate::modeling::{BranchConstraint, ModelingContext, State};
 use crate::varnode::ResolvedVarnode;
-use crate::JingleContext;
 use jingle_sleigh::PcodeOperation;
 use std::collections::HashSet;
 

@@ -1,12 +1,12 @@
 // This is necessary due to a change circa rust 1.83.0 that
 // flags the lifetime in ImageFFI as needed for elision.
 // Could probably be fixed with a change in CXX.
-#![allow(clippy::needless_lifetimes)]
+#![expect(clippy::needless_lifetimes)]
 
+use crate::VarNode;
 use crate::context::image::ImageProvider;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::VarNode;
 use bridge::ContextFFI;
 use cxx::{Exception, ExternType, UniquePtr};
 use std::sync::Mutex;

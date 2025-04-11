@@ -1,7 +1,7 @@
-use crate::modeling::machine::memory::MemoryState;
 use crate::JingleError;
+use crate::modeling::machine::memory::MemoryState;
 use jingle_sleigh::PcodeOperation;
-use std::cmp::{min, Ordering};
+use std::cmp::{Ordering, min};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use z3::ast::{Ast, BV};

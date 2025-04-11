@@ -1,6 +1,6 @@
+use crate::context::SleighContextBuilder;
 use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms};
 use crate::context::loaded::LoadedSleighContext;
-use crate::context::SleighContextBuilder;
 use crate::{JingleSleighError, VarNode};
 use object::{Architecture, Endianness, File, Object, ObjectSection, Section, SectionKind};
 use std::cmp::{max, min};

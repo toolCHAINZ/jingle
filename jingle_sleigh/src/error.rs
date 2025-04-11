@@ -1,7 +1,7 @@
 #[cfg(feature = "pyo3")]
-use pyo3::exceptions::PyRuntimeError;
-#[cfg(feature = "pyo3")]
 use pyo3::PyErr;
+#[cfg(feature = "pyo3")]
+use pyo3::exceptions::PyRuntimeError;
 use thiserror::Error;
 
 /// An error (usually from across the FFI boundary) in something involving sleigh

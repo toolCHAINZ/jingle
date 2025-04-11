@@ -1,6 +1,6 @@
 use crate::error::JingleError;
-use crate::modeling::branch::BlockEndBehavior::{Fallthrough, UnconditionalBranch};
 use crate::modeling::ModelingContext;
+use crate::modeling::branch::BlockEndBehavior::{Fallthrough, UnconditionalBranch};
 use crate::sleigh::{GeneralizedVarNode, VarNode};
 use serde::{Deserialize, Serialize};
 use std::ops::Not;

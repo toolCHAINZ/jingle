@@ -1,5 +1,5 @@
-use crate::context::SleighContext;
 use crate::Instruction;
+use crate::context::SleighContext;
 
 pub struct SleighContextInstructionIterator<'a> {
     sleigh: &'a SleighContext,

@@ -1,8 +1,8 @@
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::VarNode;
 use std::fmt::{Display, Formatter, LowerHex};
-use z3::ast::BV;
 use z3::Context;
+use z3::ast::BV;
 
 pub type PcodeMachineAddress = u64;
 pub type PcodeOffset = u8;

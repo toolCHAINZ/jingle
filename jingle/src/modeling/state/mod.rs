@@ -6,14 +6,14 @@ use crate::error::JingleError::{
     ZeroSizedVarnode,
 };
 
+use crate::JingleContext;
 use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
-use crate::JingleContext;
 use jingle_sleigh::{
     ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
-use z3::ast::{Array, Ast, Bool, BV};
+use z3::ast::{Array, Ast, BV, Bool};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
