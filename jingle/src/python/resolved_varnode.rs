@@ -4,7 +4,7 @@ use pyo3::pyclass;
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
-#[pyclass(unsendable)]
+#[pyclass(unsendable, str)]
 pub struct PythonResolvedIndirectVarNode {
     pub inner: ResolvedIndirectVarNodeDisplay<'static>,
 }
@@ -16,7 +16,7 @@ impl Display for PythonResolvedIndirectVarNode {
 }
 
 #[derive(Clone)]
-#[pyclass(unsendable)]
+#[pyclass(unsendable, str)]
 pub enum PythonResolvedVarNode {
     Direct(VarNodeDisplay),
     Indirect(PythonResolvedIndirectVarNode),
