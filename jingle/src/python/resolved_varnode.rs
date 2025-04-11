@@ -11,7 +11,7 @@ pub struct PythonResolvedIndirectVarNode {
 
 impl Display for PythonResolvedIndirectVarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.inner.fmt(f)
+        std::fmt::Display::fmt(&self.inner, f)
     }
 }
 

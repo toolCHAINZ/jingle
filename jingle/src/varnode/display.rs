@@ -17,19 +17,23 @@ pub enum ResolvedVarNodeDisplay<'ctx> {
     Indirect(ResolvedIndirectVarNodeDisplay<'ctx>),
 }
 
+impl<'ctx> Display for ResolvedIndirectVarNodeDisplay<'ctx> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}[{}]:{}",
+            self.pointer_space_info.name,
+            self.pointer.simplify(),
+            self.access_size_bytes
+        )
+    }
+}
+
 impl Display for ResolvedVarNodeDisplay<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ResolvedVarNodeDisplay::Direct(d) => d.fmt(f),
-            ResolvedVarNodeDisplay::Indirect(i) => {
-                write!(
-                    f,
-                    "{}[{}]:{}",
-                    i.pointer_space_info.name,
-                    i.pointer.simplify(),
-                    i.access_size_bytes
-                )
-            }
+            ResolvedVarNodeDisplay::Indirect(i) => i.fmt(f),
         }
     }
 }
