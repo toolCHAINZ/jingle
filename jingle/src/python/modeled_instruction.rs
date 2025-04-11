@@ -47,34 +47,34 @@ impl PythonModeledInstruction {
     /// A list of the input varnodes to the instruction, filtering
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
-    pub fn get_input_bvs(&self) -> VarNodeIterator {
-        let filtered: Vec<_> = self
+    pub fn get_input_bvs(&self) -> PyResult<VarNodeIterator> {
+        let filtered: Result<Vec<_>, _> = self
             .instr
-            .get_outputs()
+            .instr
+            .clone()
+            .ops
             .into_iter()
-            .filter(|o| self.instr.should_varnode_constrain(o))
+            .flat_map(|op| op.inputs())
+            .map(|g| g.display(self.instr.get_final_state()))
             .collect();
-        VarNodeIterator::new(
-            // intentional: that AST has the input in it too
-            self.instr.get_final_state().clone(),
-            filtered.into_iter(),
-        )
+        let filtered = filtered?;
+        Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 
     /// A list of the output varnodes to the instruction, filtering
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
-    pub fn get_output_bvs(&self) -> VarNodeIterator {
-        let filtered: Vec<_> = self
+    pub fn get_output_bvs(&self) -> PyResult<VarNodeIterator> {
+        let filtered: Result<Vec<_>, _> = self
             .instr
-            .get_outputs()
+            .instr
+            .clone()
+            .ops
             .into_iter()
-            .filter(|o| self.instr.should_varnode_constrain(o))
+            .flat_map(|op| op.output())
+            .map(|g| g.display(self.instr.get_final_state()))
             .collect();
-        VarNodeIterator::new(
-            // intentional: that AST has the input in it too
-            self.instr.get_final_state().clone(),
-            filtered.into_iter(),
-        )
+        let filtered = filtered?;
+        Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 }
