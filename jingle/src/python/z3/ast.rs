@@ -1,5 +1,4 @@
 use pyo3::{Py, PyAny, PyResult};
-use std::convert::TryFrom;
 pub trait TryFromPythonZ3 : Sized{
     fn try_from_python(py: Py<PyAny>) -> PyResult<Self>;
 }
