@@ -44,7 +44,7 @@ impl PythonModeledBlock {
     /// A list of the input varnodes to the block, filtering
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
-    pub fn get_input_bvs(&self) -> PyResult<VarNodeIterator> {
+    pub fn get_input_vns(&self) -> PyResult<VarNodeIterator> {
         let filtered: Result<Vec<GeneralizedVarNodeDisplay>, _> = self
             .instr
             .instructions
@@ -61,7 +61,7 @@ impl PythonModeledBlock {
     /// A list of the output varnodes to the block, filtering
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
-    pub fn get_output_bvs(&self) -> PyResult<VarNodeIterator> {
+    pub fn get_output_vns(&self) -> PyResult<VarNodeIterator> {
         let filtered: Result<Vec<GeneralizedVarNodeDisplay>, _> = self
             .instr
             .instructions
