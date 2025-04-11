@@ -1,9 +1,9 @@
 use crate::modeling::State;
-use crate::python::bitvec::adapt_bv;
 use crate::python::jingle_context::PythonJingleContext;
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use crate::python::z3::ast::TryIntoPythonZ3;
 
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
@@ -23,7 +23,7 @@ impl PythonState {
 
     /// Read a varnode from the symbolic state
     pub fn varnode(&self, varnode: &VarNode) -> PyResult<Py<PyAny>> {
-        adapt_bv(self.state.read_varnode(varnode)?)
+        self.state.read_varnode(varnode)?.try_into_python()
     }
 
     /// Convenience function to read a named register from the symbolic state
@@ -32,15 +32,15 @@ impl PythonState {
             .state
             .get_register(name)
             .ok_or(PyRuntimeError::new_err("Queried nonexistent register"))?;
-        adapt_bv(self.state.read_varnode(vn)?)
+        self.state.read_varnode(vn)?.try_into_python()
     }
 
     /// Convenience function to read a slice from the symbolic  state of the default "code space"
     pub fn ram(&self, offset: u64, length: usize) -> PyResult<Py<PyAny>> {
-        adapt_bv(self.state.read_varnode(&VarNode {
+        self.state.read_varnode(&VarNode {
             offset,
             size: length,
             space_index: self.state.get_code_space_idx(),
-        })?)
+        })?.try_into_python()
     }
 }
