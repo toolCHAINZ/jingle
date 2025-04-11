@@ -1,21 +1,17 @@
-use crate::modeling::State;
-use crate::python::z3::ast::TryIntoPythonZ3;
-use crate::varnode::ResolvedVarnode;
-use pyo3::{pyclass, pymethods, Py, PyAny, PyRef, PyRefMut};
+
+use pyo3::{pyclass, pymethods, PyRef, PyRefMut};
+use jingle_sleigh::GeneralizedVarNodeDisplay;
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {
-    state: State<'static>,
-    vn: Box<dyn Iterator<Item = ResolvedVarnode<'static>>>,
+    vn: Box<dyn Iterator<Item = GeneralizedVarNodeDisplay>>,
 }
 
 impl VarNodeIterator {
-    pub fn new<T: Iterator<Item = ResolvedVarnode<'static>> + 'static>(
-        state: State<'static>,
+    pub fn new<T: Iterator<Item = GeneralizedVarNodeDisplay> + 'static>(
         t: T,
     ) -> Self {
         Self {
-            state,
             vn: Box::new(t),
         }
     }
@@ -26,10 +22,7 @@ impl VarNodeIterator {
         slf
     }
 
-    pub fn __next__(mut slf: PyRefMut<Self>) -> Option<Py<PyAny>> {
-        let vn = slf.vn.next()?;
-        let vn = slf.state.read_resolved(&vn).ok()?;
-        let bv = vn.try_into_python().ok()?;
-        Some(bv)
+    pub fn __next__(mut slf: PyRefMut<Self>) -> Option<GeneralizedVarNodeDisplay> {
+        slf.vn.next()
     }
 }
