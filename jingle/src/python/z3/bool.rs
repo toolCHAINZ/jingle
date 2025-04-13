@@ -3,10 +3,11 @@ use crate::python::z3::get_python_z3;
 use pyo3::prelude::PyAnyMethods;
 use pyo3::types::PyModule;
 use pyo3::{IntoPyObject, IntoPyObjectExt, Py, PyAny, PyResult, Python};
-use z3::ast::{Ast, Bool, BV};
+use z3::Context;
+use z3::ast::{Ast, Bool};
 use z3_sys::Z3_ast;
 
-impl TryIntoPythonZ3 for Bool<'static> {
+impl<'ctx> TryIntoPythonZ3 for Bool<'ctx> {
     fn try_into_python(self) -> PyResult<Py<PyAny>> {
         Python::with_gil(|py: Python| {
             let z3 = get_python_z3()?;
@@ -24,16 +25,17 @@ impl TryIntoPythonZ3 for Bool<'static> {
     }
 }
 
-impl TryFromPythonZ3 for Bool<'static> {
-    fn try_from_python(py_bv: Py<PyAny>) -> PyResult<Self> {
+impl<'ctx> TryFromPythonZ3<'ctx> for Bool<'ctx> {
+    fn try_from_python(py_bv: Py<PyAny>, ctx: &'ctx Context) -> PyResult<Self> {
         Python::with_gil(|py| {
             let z3 = get_python_z3()?;
-
             let ast = py_bv.getattr(py, "ast")?;
             let ast = ast.getattr(py, "value")?;
             let ast: usize = ast.extract(py)?;
             let ast = ast as Z3_ast;
-            unsafe { Ok(Bool::wrap(z3, ast)) }
+            let b = unsafe { Bool::wrap(z3, ast) };
+            b.translate(ctx);
+            Ok(b)
         })
     }
 }

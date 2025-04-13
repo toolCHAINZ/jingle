@@ -1,6 +1,8 @@
 use pyo3::{Py, PyAny, PyResult};
-pub trait TryFromPythonZ3: Sized {
-    fn try_from_python(py: Py<PyAny>) -> PyResult<Self>;
+use z3::Context;
+
+pub trait TryFromPythonZ3<'ctx>: Sized {
+    fn try_from_python(py: Py<PyAny>, ctx: &'ctx Context) -> PyResult<Self>;
 }
 
 pub trait TryIntoPythonZ3: Sized {
