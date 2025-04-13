@@ -11,7 +11,9 @@ impl<'ctx> TryIntoPythonZ3 for Bool<'ctx> {
     fn try_into_python(mut self) -> PyResult<Py<PyAny>> {
         Python::with_gil(|py: Python| {
             let z3 = get_python_z3()?;
-            self = self.translate(z3);
+            if z3 != self.get_ctx() {
+                self = self.translate(z3);
+            }
             let z3_mod = PyModule::import(py, "z3")?;
             let ref_class = z3_mod.getattr("BoolRef")?.into_pyobject(py)?;
             let ctypes = PyModule::import(py, "ctypes")?;
@@ -34,7 +36,9 @@ impl<'ctx> TryFromPythonZ3<'ctx> for Bool<'ctx> {
             let ast: usize = ast.extract(py)?;
             let ast = ast as Z3_ast;
             let mut b = unsafe { Bool::wrap(z3, ast) };
-            b = b.translate(ctx);
+            if b.get_ctx() != ctx {
+                b = b.translate(ctx);
+            }
             Ok(b)
         })
     }
