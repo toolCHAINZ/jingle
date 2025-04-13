@@ -1,6 +1,5 @@
-use crate::modeling::State;
-use crate::varnode::ResolvedVarnode;
-use pyo3::{Py, PyAny, PyRef, PyRefMut, pyclass, pymethods};
+use crate::python::resolved_varnode::PythonResolvedVarNode;
+use pyo3::{PyRef, PyRefMut, pyclass, pymethods};
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {

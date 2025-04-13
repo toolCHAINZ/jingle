@@ -1,7 +1,7 @@
 use crate::python::z3::ast::TryIntoPythonZ3;
 use crate::varnode::display::{ResolvedIndirectVarNodeDisplay, ResolvedVarNodeDisplay};
 use jingle_sleigh::VarNodeDisplay;
-use pyo3::{pyclass, pymethods, Py, PyAny, PyResult};
+use pyo3::{Py, PyAny, PyResult, pyclass, pymethods};
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
