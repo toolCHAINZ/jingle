@@ -1,23 +1,15 @@
 use crate::modeling::State;
-use crate::python::bitvec::adapt_bv;
 use crate::varnode::ResolvedVarnode;
 use pyo3::{Py, PyAny, PyRef, PyRefMut, pyclass, pymethods};
 
 #[pyclass(unsendable)]
 pub struct VarNodeIterator {
-    state: State<'static>,
-    vn: Box<dyn Iterator<Item = ResolvedVarnode<'static>>>,
+    vn: Box<dyn Iterator<Item = PythonResolvedVarNode>>,
 }
 
 impl VarNodeIterator {
-    pub fn new<T: Iterator<Item = ResolvedVarnode<'static>> + 'static>(
-        state: State<'static>,
-        t: T,
-    ) -> Self {
-        Self {
-            state,
-            vn: Box::new(t),
-        }
+    pub fn new<T: Iterator<Item = PythonResolvedVarNode> + 'static>(t: T) -> Self {
+        Self { vn: Box::new(t) }
     }
 }
 #[pymethods]
@@ -26,10 +18,15 @@ impl VarNodeIterator {
         slf
     }
 
-    pub fn __next__(mut slf: PyRefMut<Self>) -> Option<Py<PyAny>> {
-        let vn = slf.vn.next()?;
-        let vn = slf.state.read_resolved(&vn).ok()?;
-        let bv = adapt_bv(vn).ok()?;
-        Some(bv)
+    pub fn __next__(mut slf: PyRefMut<Self>) -> Option<PythonResolvedVarNode> {
+        slf.vn.next()
+    }
+}
+
+impl Iterator for VarNodeIterator {
+    type Item = PythonResolvedVarNode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.vn.next()
     }
 }

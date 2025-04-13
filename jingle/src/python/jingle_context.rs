@@ -1,7 +1,7 @@
 use crate::JingleContext;
-use crate::python::bitvec::get_python_z3;
 use crate::python::modeled_block::PythonModeledBlock;
 use crate::python::modeled_instruction::PythonModeledInstruction;
+use crate::python::z3::get_python_z3;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use pyo3::prelude::*;

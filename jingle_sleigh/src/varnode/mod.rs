@@ -64,7 +64,7 @@ impl VarNode {
         ctx: &T,
     ) -> Result<VarNodeDisplay, JingleSleighError> {
         if let Some(name) = ctx.get_register_name(self) {
-            Ok(VarNodeDisplay::Register(name.to_string()))
+            Ok(VarNodeDisplay::Register(name.to_string(), self.clone()))
         } else {
             ctx.get_space_info(self.space_index)
                 .map(|space_info| {
@@ -152,7 +152,7 @@ impl IndirectVarNode {
             .ok_or(JingleSleighError::InvalidSpaceName);
         pointer_location.and_then(|pointer_loc| {
             pointer_space_name.map(|space| IndirectVarNodeDisplay {
-                pointer_space_name: space.name.clone(),
+                pointer_space_info: space.clone(),
                 pointer_location: pointer_loc,
                 access_size_bytes: self.access_size_bytes,
             })
