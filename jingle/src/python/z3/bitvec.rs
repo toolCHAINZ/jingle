@@ -8,10 +8,10 @@ use z3::Context;
 use z3_sys::Z3_ast;
 
 impl<'ctx> TryIntoPythonZ3 for BV<'ctx> {
-    fn try_into_python(self) -> PyResult<Py<PyAny>> {
+    fn try_into_python(mut self) -> PyResult<Py<PyAny>> {
         Python::with_gil(|py: Python| {
             let z3 = get_python_z3()?;
-            self.translate(z3);
+            self = self.translate(z3);
             let z3_mod = PyModule::import(py, "z3")?;
             let ref_class = z3_mod.getattr("BitVecRef")?.into_pyobject(py)?;
             let ctypes = PyModule::import(py, "ctypes")?;
@@ -33,8 +33,8 @@ impl<'ctx> TryFromPythonZ3<'ctx> for BV<'ctx> {
             let ast = ast.getattr(py, "value")?;
             let ast: usize = ast.extract(py)?;
             let ast = ast as Z3_ast;
-            let bv = unsafe { BV::wrap(z3, ast) };
-            bv.translate(ctx);
+            let mut bv = unsafe { BV::wrap(z3, ast) };
+            bv = bv.translate(ctx);
             Ok(bv)
         })
     }
