@@ -1,5 +1,5 @@
-use crate::pcode::PcodeOperation;
 use crate::ArchInfoProvider;
+use crate::pcode::PcodeOperation;
 use std::fmt::{Display, Formatter};
 
 pub struct PcodeOperationDisplay<'a, T: ArchInfoProvider> {

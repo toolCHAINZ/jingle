@@ -1,10 +1,10 @@
+use crate::JingleError;
 use crate::modeling::machine::cpu::concrete::{
     ConcretePcodeAddress, PcodeMachineAddress, PcodeOffset,
 };
-use crate::JingleError;
 use jingle_sleigh::VarNode;
-use z3::ast::{Ast, Bool, BV};
 use z3::Context;
+use z3::ast::{Ast, BV, Bool};
 
 pub type SymbolicPcodeMachineAddress<'ctx> = BV<'ctx>;
 pub type SymbolicPcodeOffset<'ctx> = BV<'ctx>;

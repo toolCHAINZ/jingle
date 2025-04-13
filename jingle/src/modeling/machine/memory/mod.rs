@@ -1,18 +1,18 @@
 mod relations;
 pub mod space;
 
-use crate::modeling::machine::memory::space::BMCModeledSpace;
-use crate::varnode::ResolvedVarnode;
 use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
+use crate::modeling::machine::memory::space::BMCModeledSpace;
+use crate::varnode::ResolvedVarnode;
 use crate::{JingleContext, JingleError};
 use jingle_sleigh::{
     ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
-use z3::ast::{Array, Bool, BV};
+use z3::ast::{Array, BV, Bool};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -102,8 +102,8 @@ impl<'ctx> MemoryState<'ctx> {
     }
 
     pub fn read<T: Into<GeneralizedVarNode>>(&self, vn: T) -> Result<BV<'ctx>, JingleError> {
-        let gen: GeneralizedVarNode = vn.into();
-        match gen {
+        let gen_varnode: GeneralizedVarNode = vn.into();
+        match gen_varnode {
             GeneralizedVarNode::Direct(d) => self.read_varnode(&d),
             GeneralizedVarNode::Indirect(i) => self.read_varnode_indirect(&i),
         }
@@ -114,8 +114,8 @@ impl<'ctx> MemoryState<'ctx> {
         dest: T,
         val: BV<'ctx>,
     ) -> Result<Self, JingleError> {
-        let gen: GeneralizedVarNode = dest.into();
-        match gen {
+        let gen_varnode: GeneralizedVarNode = dest.into();
+        match gen_varnode {
             GeneralizedVarNode::Direct(d) => self.write_varnode(&d, val),
             GeneralizedVarNode::Indirect(i) => self.write_varnode_indirect(&i, val),
         }

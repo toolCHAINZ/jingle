@@ -2,7 +2,7 @@ use crate::JingleError;
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
-use z3::ast::{Array, Ast, Bool, BV};
+use z3::ast::{Array, Ast, BV, Bool};
 use z3::{Context, Sort};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single

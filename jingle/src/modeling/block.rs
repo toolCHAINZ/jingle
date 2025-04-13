@@ -1,11 +1,11 @@
+use crate::JingleContext;
+use crate::JingleError::EmptyBlock;
 use crate::error::JingleError;
 use crate::error::JingleError::DisassemblyLengthBound;
 use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
-use crate::JingleContext;
-use crate::JingleError::EmptyBlock;
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::SpaceInfo;
 use jingle_sleigh::{ArchInfoProvider, Instruction, VarNode};

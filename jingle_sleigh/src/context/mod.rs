@@ -11,11 +11,11 @@ use crate::ffi::context_ffi::bridge::ContextFFI;
 use crate::space::SpaceInfo;
 pub use builder::SleighContextBuilder;
 
+use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::context::builder::language_def::LanguageDefinition;
 use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
-use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::{ArchInfoProvider, VarNode};
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
