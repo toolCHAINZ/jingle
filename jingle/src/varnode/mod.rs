@@ -62,3 +62,9 @@ impl<'a> From<ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a
         ResolvedIndirectVarNode::from(&value)
     }
 }
+
+impl From<VarNode> for ResolvedVarnode<'_>{
+    fn from(value: VarNode) -> Self {
+        Self::Direct(value)
+    }
+}

@@ -9,12 +9,14 @@ use z3_sys::Z3_ast;
 impl TryIntoPythonZ3 for Bool<'static> {
     fn try_into_python(self) -> PyResult<Py<PyAny>> {
         Python::with_gil(|py: Python| {
+            let z3 = get_python_z3()?;
+            self.translate(z3);
             let z3_mod = PyModule::import(py, "z3")?;
             let ref_class = z3_mod.getattr("BoolRef")?.into_pyobject(py)?;
             let ctypes = PyModule::import(py, "ctypes")?;
             let ptr_type = ctypes.getattr("c_void_p")?;
-            let args = self.get_z3_ast() as usize;
-            let ptr = ptr_type.call1((args,))?;
+            let ast = self.get_z3_ast() as usize;
+            let ptr = ptr_type.call1((ast,))?;
 
             let a = ref_class.call1((ptr,))?.into_py_any(py)?;
             Ok(a)
