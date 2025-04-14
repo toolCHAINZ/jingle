@@ -2,8 +2,8 @@ use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVa
 use crate::{JingleContext, JingleError};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
-use z3::Sort;
 use z3::ast::{Array, Ast, BV};
+use z3::{Context, Sort};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -91,6 +91,17 @@ impl<'ctx> ModeledSpace<'ctx> {
 
     pub(crate) fn fmt_smt_array(&self) -> String {
         format!("{:?}", self.data.simplify())
+    }
+
+    pub fn translate<'a>(&self, ctx: &'a Context) -> ModeledSpace<'a> {
+        unsafe {
+            std::mem::transmute(ModeledSpace {
+                space_info: self.space_info.clone(),
+                endianness: self.endianness.clone(),
+                data: self.data.translate(ctx),
+                metadata: self.metadata.translate(ctx),
+            })
+        
     }
 }
 

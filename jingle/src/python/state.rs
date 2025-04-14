@@ -2,6 +2,7 @@ use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::z3::ast::TryIntoPythonZ3;
+use crate::python::z3::get_python_z3;
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
@@ -10,7 +11,7 @@ use pyo3::prelude::*;
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
 pub struct PythonState {
-    pub state: State<'static>,
+    state: State<'static>,
 }
 
 #[pymethods]
@@ -53,5 +54,16 @@ impl PythonState {
                 space_index: self.state.get_code_space_idx(),
             })?
             .try_into_python()
+    }
+}
+
+impl<'ctx> TryFrom<State<'ctx>> for PythonState {
+    type Error = PyErr;
+    fn try_from(value: State<'ctx>) -> Result<Self, PyErr> {
+        let z3 = get_python_z3()?;
+        let value = value.translate(z3);
+        Ok(PythonState {
+            state: value,
+        })
     }
 }
