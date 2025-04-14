@@ -27,18 +27,15 @@ impl PythonModeledBlock {
     #[getter]
     /// The symbolic state before the block
     /// is executed
-    pub fn original_state(&self) -> PythonState {
-        PythonState {
-            state: self.instr.get_original_state().clone(),
-        }
+    pub fn original_state(&self) -> PyResult<PythonState> {
+        PythonState::try_from(self.instr.get_original_state().clone())
     }
 
     #[getter]
     /// The symbolic state after the block is executed
-    pub fn final_state(&self) -> PythonState {
-        PythonState {
-            state: self.instr.get_final_state().clone(),
-        }
+    pub fn final_state(&self) -> PyResult<PythonState> {
+        PythonState::try_from(self.instr.get_final_state().clone())
+
     }
 
     /// A list of the input varnodes to the block, filtering
