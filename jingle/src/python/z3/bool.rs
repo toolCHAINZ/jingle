@@ -9,11 +9,11 @@ use z3_sys::Z3_ast;
 
 impl<'ctx> TryIntoPythonZ3 for Bool<'ctx> {
     fn try_into_python(mut self) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py: Python| {
             let z3 = get_python_z3()?;
             if z3 != self.get_ctx() {
                 self = self.translate(z3);
             }
+        Python::with_gil(|py: Python| {
             let z3_mod = PyModule::import(py, "z3")?;
             let ref_class = z3_mod.getattr("BoolRef")?.into_pyobject(py)?;
             let ctypes = PyModule::import(py, "ctypes")?;
