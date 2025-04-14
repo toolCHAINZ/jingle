@@ -101,7 +101,7 @@ impl<'ctx> ModeledSpace<'ctx> {
                 data: self.data.translate(ctx),
                 metadata: self.metadata.translate(ctx),
             })
-        
+        }
     }
 }
 
