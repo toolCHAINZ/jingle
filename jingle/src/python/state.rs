@@ -14,6 +14,12 @@ pub struct PythonState {
     state: State<'static>,
 }
 
+impl PythonState {
+    pub fn state(&self) -> &State<'static> {
+        &self.state
+    }
+}
+
 #[pymethods]
 impl PythonState {
     #[new]
