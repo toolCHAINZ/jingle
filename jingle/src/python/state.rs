@@ -2,7 +2,6 @@ use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::z3::ast::TryIntoPythonZ3;
-use crate::python::z3::get_python_z3;
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
@@ -65,8 +64,6 @@ impl PythonState {
 
 impl From<State<'static>> for PythonState {
     fn from(value: State<'static>) -> Self {
-        PythonState {
-            state: value,
-        }
+        PythonState { state: value }
     }
 }

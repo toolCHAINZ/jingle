@@ -35,7 +35,6 @@ impl PythonModeledBlock {
     /// The symbolic state after the block is executed
     pub fn final_state(&self) -> PythonState {
         PythonState::from(self.instr.get_final_state().clone())
-
     }
 
     /// A list of the input varnodes to the block, filtering

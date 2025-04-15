@@ -54,7 +54,7 @@ pub struct JingleContextInternal<'ctx> {
 #[derive(Clone, Debug)]
 pub struct JingleContext<'ctx>(Rc<JingleContextInternal<'ctx>>);
 
-impl<'ctx> JingleContext<'ctx> {
+impl JingleContext<'_> {
     pub(crate) fn translate<'a>(&self, ctx: &'a Context) -> JingleContext<'a> {
         JingleContext(Rc::new(JingleContextInternal {
             z3: ctx,

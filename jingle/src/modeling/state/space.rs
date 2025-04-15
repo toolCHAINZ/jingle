@@ -97,7 +97,7 @@ impl<'ctx> ModeledSpace<'ctx> {
         unsafe {
             std::mem::transmute(ModeledSpace {
                 space_info: self.space_info.clone(),
-                endianness: self.endianness.clone(),
+                endianness: self.endianness,
                 data: self.data.translate(ctx),
                 metadata: self.metadata.translate(ctx),
             })
