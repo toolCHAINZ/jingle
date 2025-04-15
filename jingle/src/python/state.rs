@@ -63,13 +63,10 @@ impl PythonState {
     }
 }
 
-impl<'ctx> TryFrom<State<'ctx>> for PythonState {
-    type Error = PyErr;
-    fn try_from(value: State<'ctx>) -> Result<Self, PyErr> {
-        let z3 = get_python_z3()?;
-        let value = value.translate(z3);
-        Ok(PythonState {
+impl From<State<'static>> for PythonState {
+    fn from(value: State<'static>) -> Self {
+        PythonState {
             state: value,
-        })
+        }
     }
 }
