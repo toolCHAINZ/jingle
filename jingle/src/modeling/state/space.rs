@@ -93,7 +93,11 @@ impl<'ctx> ModeledSpace<'ctx> {
         format!("{:?}", self.data.simplify())
     }
 
-    pub fn translate<'a>(&self, ctx: &'a Context) -> ModeledSpace<'a> {
+    pub(crate) fn translate<'a>(&self, ctx: &'a Context) -> ModeledSpace<'a> {
+        // This transmute is in place because the z3 translate function
+        // seems to incorrectly enforce that the lifetime of the destination
+        // context is equal to the original one. Marking this
+        // method as pub(crate) for now until I have more clarity
         unsafe {
             std::mem::transmute(ModeledSpace {
                 space_info: self.space_info.clone(),
