@@ -315,7 +315,8 @@ impl<'ctx> State<'ctx> {
         lines.join("\n")
     }
 
-    pub fn translate<'a>(&self, ctx: &'a Context) -> State<'a> {
+    #[expect(unused)]
+    pub(crate) fn translate<'a>(&self, ctx: &'a Context) -> State<'a> {
         State {
             spaces: self.spaces.iter().map(|s| s.translate(ctx)).collect(),
             jingle: self.jingle.translate(ctx),
