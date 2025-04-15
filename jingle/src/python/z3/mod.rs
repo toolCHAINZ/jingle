@@ -8,6 +8,7 @@ use z3_sys::Z3_context;
 
 pub mod ast;
 pub mod bitvec;
+pub mod bool;
 
 thread_local! {
     pub static CONTEXT: RefCell<ManuallyDrop<Context>> = const {
