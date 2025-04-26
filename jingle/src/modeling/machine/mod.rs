@@ -8,6 +8,8 @@ use z3::ast::Bool;
 
 pub mod cpu;
 pub mod memory;
+
+#[derive(Debug, Clone)]
 pub struct MachineState<'ctx> {
     jingle: JingleContext<'ctx>,
     memory: MemoryState<'ctx>,
@@ -60,5 +62,13 @@ impl<'ctx> MachineState<'ctx> {
 
     pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
         self.pc._eq(&other.pc) & self.memory._eq(&other.memory)
+    }
+    
+    pub fn pc(&self) -> &SymbolicPcodeAddress<'ctx> {
+        &self.pc
+    }
+    
+    pub fn memory(&self) -> &MemoryState<'ctx> {
+        &self.memory
     }
 }

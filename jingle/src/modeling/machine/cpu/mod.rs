@@ -1,6 +1,7 @@
 pub mod concrete;
 mod relations;
 pub mod symbolic;
+mod concretization;
 
 #[cfg(test)]
 mod tests {
@@ -17,8 +18,8 @@ mod tests {
         };
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
-        let new_concrete = symbolized.concretize().unwrap();
-        assert_eq!(addr, new_concrete)
+        let new_concrete: Vec<_> = symbolized.concretize().collect();
+        assert_eq!(addr, new_concrete[0])
     }
 
     #[test]
@@ -29,16 +30,18 @@ mod tests {
         };
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
+        let new_concrete: Vec<_> = symbolized.concretize().collect();
         assert_eq!(
-            symbolized.concretize().unwrap(),
+            new_concrete[0],
             ConcretePcodeAddress {
                 machine: 0,
                 pcode: 0
             }
         );
         let plus_1 = symbolized.increment_pcode();
+        let new_concrete: Vec<_> = plus_1.concretize().collect();
         assert_eq!(
-            plus_1.concretize().unwrap(),
+            new_concrete[0],
             ConcretePcodeAddress {
                 machine: 0,
                 pcode: 1
@@ -50,8 +53,9 @@ mod tests {
         }
         .symbolize(&z3);
         let plus_1 = symbolized.increment_pcode();
+        let new_concrete: Vec<_> = plus_1.concretize().collect();
         assert_eq!(
-            plus_1.concretize().unwrap(),
+            new_concrete[0],
             ConcretePcodeAddress {
                 machine: 0,
                 pcode: 0
@@ -66,8 +70,9 @@ mod tests {
         let wrong = BV::from_u64(&z3, 0xdeadbeef, 65);
 
         let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &addr).unwrap();
+        let concrete: Vec<_> = sym.concretize().collect();
         assert_eq!(
-            sym.concretize().unwrap(),
+            concrete[0],
             ConcretePcodeAddress {
                 machine: 0xdeadbeef,
                 pcode: 0

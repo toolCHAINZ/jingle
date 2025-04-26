@@ -2,8 +2,9 @@ use crate::JingleError;
 use crate::modeling::machine::cpu::concrete::{
     ConcretePcodeAddress, PcodeMachineAddress, PcodeOffset,
 };
+use crate::modeling::machine::cpu::concretization::SymbolicAddressConcretization;
 use jingle_sleigh::VarNode;
-use z3::Context;
+use z3::{Context, Solver};
 use z3::ast::{Ast, BV, Bool};
 
 pub type SymbolicPcodeMachineAddress<'ctx> = BV<'ctx>;
@@ -12,7 +13,7 @@ pub type SymbolicPcodeOffset<'ctx> = BV<'ctx>;
 // todo: add PcodeAddressSpace to Concrete and Symbolic addresses?
 // probably necessary for harvard architecture modeling.
 // ALSO: could be useful for callother.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SymbolicPcodeAddress<'ctx> {
     pub(crate) machine: BV<'ctx>,
     pub(crate) pcode: BV<'ctx>,
@@ -47,16 +48,12 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
     fn extract_machine(&self) -> &BV<'ctx> {
         &self.machine
     }
-    pub fn concretize(&self) -> Option<ConcretePcodeAddress> {
-        let pcode_offset = self.extract_pcode().simplify();
-        let machine_addr = self.extract_machine().simplify();
-        pcode_offset
-            .as_u64()
-            .zip(machine_addr.as_u64())
-            .map(|(p, m)| ConcretePcodeAddress {
-                machine: m,
-                pcode: p as PcodeOffset,
-            })
+    pub fn concretize(&self) -> SymbolicAddressConcretization<'ctx> {
+        SymbolicAddressConcretization::new(self)
+    }
+
+    pub fn concretize_with_solver(&self, s: &Solver<'ctx>) -> SymbolicAddressConcretization<'ctx> {
+        SymbolicAddressConcretization::new_with_solver(s, self)
     }
     pub fn interpret_branch_dest_varnode(&self, vn: &VarNode) -> Self {
         match vn.is_const() {
