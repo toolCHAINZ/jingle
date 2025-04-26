@@ -1,6 +1,6 @@
 use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
-use z3::ast::{Ast};
+use z3::ast::Ast;
 use z3::{SatResult, Solver};
 
 pub struct SymbolicAddressConcretization<'ctx> {

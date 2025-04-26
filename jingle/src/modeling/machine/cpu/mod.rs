@@ -1,7 +1,7 @@
 pub mod concrete;
+mod concretization;
 mod relations;
 pub mod symbolic;
-mod concretization;
 
 #[cfg(test)]
 mod tests {

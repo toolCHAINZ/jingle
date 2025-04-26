@@ -4,8 +4,8 @@ use crate::modeling::machine::cpu::concrete::{
 };
 use crate::modeling::machine::cpu::concretization::SymbolicAddressConcretization;
 use jingle_sleigh::VarNode;
-use z3::{Context, Solver};
 use z3::ast::{Ast, BV, Bool};
+use z3::{Context, Solver};
 
 pub type SymbolicPcodeMachineAddress<'ctx> = BV<'ctx>;
 pub type SymbolicPcodeOffset<'ctx> = BV<'ctx>;
