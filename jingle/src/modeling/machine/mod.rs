@@ -9,7 +9,7 @@ use z3::ast::Bool;
 pub mod cpu;
 pub mod memory;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MachineState<'ctx> {
     jingle: JingleContext<'ctx>,
     memory: MemoryState<'ctx>,

@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use z3::Context;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CachedArchInfo {
     registers: Vec<(VarNode, String)>,
     spaces: Vec<SpaceInfo>,
@@ -45,13 +45,13 @@ impl ArchInfoProvider for JingleContext<'_> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JingleContextInternal<'ctx> {
     pub z3: &'ctx Context,
     pub info: CachedArchInfo,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JingleContext<'ctx>(Rc<JingleContextInternal<'ctx>>);
 
 impl JingleContext<'_> {

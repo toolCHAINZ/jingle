@@ -12,7 +12,7 @@ use z3::{Context, Sort};
 /// metadata has a single-bit bitvector as its word type, and it is only used for tracking whether
 /// a given value originated from a CALLOTHER operation. This is necessary for distinguishing
 /// between normal indirect jumps and some syscalls
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BMCModeledSpace<'ctx> {
     data: Array<'ctx>,
     word_size_bytes: u32,

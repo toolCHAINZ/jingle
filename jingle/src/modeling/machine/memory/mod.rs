@@ -17,7 +17,7 @@ use z3::ast::{Array, BV, Bool};
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
 /// on an initial state
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MemoryState<'ctx> {
     jingle: JingleContext<'ctx>,
     spaces: Vec<BMCModeledSpace<'ctx>>,

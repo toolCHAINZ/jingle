@@ -13,7 +13,7 @@ pub type SymbolicPcodeOffset<'ctx> = BV<'ctx>;
 // todo: add PcodeAddressSpace to Concrete and Symbolic addresses?
 // probably necessary for harvard architecture modeling.
 // ALSO: could be useful for callother.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolicPcodeAddress<'ctx> {
     pub(crate) machine: BV<'ctx>,
     pub(crate) pcode: BV<'ctx>,
