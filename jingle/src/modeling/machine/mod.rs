@@ -11,7 +11,7 @@ pub mod memory;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MachineState<'ctx> {
-    jingle: JingleContext<'ctx>,
+    pub jingle: JingleContext<'ctx>,
     memory: MemoryState<'ctx>,
     pc: SymbolicPcodeAddress<'ctx>,
 }
