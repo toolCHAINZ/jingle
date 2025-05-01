@@ -205,7 +205,7 @@ impl<'ctx> MemoryState<'ctx> {
 
     pub fn _eq(&self, other: &MemoryState<'ctx>) -> Bool<'ctx> {
         let mut terms = vec![];
-        for (ours, theirs) in self.spaces.iter().zip(&other.spaces) {
+        for (ours, theirs) in self.spaces.iter().zip(&other.spaces).skip(1) {
             if !ours._meta_eq(theirs) {
                 return Bool::from_bool(self.jingle.z3, false);
             }
