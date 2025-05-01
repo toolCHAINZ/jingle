@@ -17,8 +17,8 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
                 Ok(self.interpret_branch_dest_varnode(input))
             }
             PcodeOperation::CBranch { input0, input1 } => {
-                let fallthrough = self.increment_pcode();
-                let dest = self.interpret_branch_dest_varnode(input0);
+                let fallthrough = self.increment_pcode().simplify();
+                let dest = self.interpret_branch_dest_varnode(input0).simplify();
                 let take_branch =
                     memory
                         .read(input1)?
@@ -33,7 +33,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
                 let dest = memory.read(input)?;
                 SymbolicPcodeAddress::try_from_symbolic_dest(z3, &dest)
             }
-            _ => Ok(self.increment_pcode()),
+            _ => Ok(self.increment_pcode().simplify()),
         }
     }
 }

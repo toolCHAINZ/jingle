@@ -55,6 +55,11 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
     pub fn concretize_with_solver(&self, s: &Solver<'ctx>) -> SymbolicAddressConcretization<'ctx> {
         SymbolicAddressConcretization::new_with_solver(s, self)
     }
+
+    pub fn concretize_with_assertions<T: Iterator<Item=Bool<'ctx>>>(&self, s: T) -> SymbolicAddressConcretization<'ctx> {
+        SymbolicAddressConcretization::new_with_assertions(s, self)
+    }
+
     pub fn interpret_branch_dest_varnode(&self, vn: &VarNode) -> Self {
         match vn.is_const() {
             true => self.add_pcode_offset(vn.offset),
@@ -72,5 +77,11 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
 
     pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
         self.machine._eq(&other.machine) & self.pcode._eq(&other.pcode)
+    }
+
+    pub fn simplify(&self) -> Self {
+        let machine = self.machine.simplify();
+        let pcode = self.pcode.simplify();
+        SymbolicPcodeAddress { machine, pcode }
     }
 }
