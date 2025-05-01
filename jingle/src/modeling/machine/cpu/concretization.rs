@@ -1,3 +1,4 @@
+use std::fs;
 use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use z3::ast::{Ast, Bool};
@@ -58,7 +59,8 @@ impl Iterator for SymbolicAddressConcretization<'_> {
                 None
             }
             SatResult::Sat => {
-                println!("{}", t.elapsed().unwrap().as_millis());
+                let elapsed = t.elapsed().unwrap().as_nanos();
+                fs::write(format!("formula/test_{elapsed}.smt"), s.to_smt2()).unwrap();
                 let model = s.get_model()?;
                 let pcode = model.eval(&self.addr.pcode, true)?.as_u64()?;
                 let machine = model.eval(&self.addr.machine, true)?.as_u64()?;
