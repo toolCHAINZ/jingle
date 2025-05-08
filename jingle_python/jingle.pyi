@@ -73,7 +73,7 @@ class JingleContext:
 
 class SleighContext:
     """
-    Represents a Sleigh contextin python.
+    Represents a Sleigh context in python.
     """
     base_address: int
     def instruction_at(self, offset: int) -> Optional[Instruction]: ...
