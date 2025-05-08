@@ -7,15 +7,6 @@ use pyo3::{PyResult, pyclass, pyfunction, pymethods};
 use std::rc::Rc;
 
 #[pyfunction]
-pub fn create_sleigh_context(
-    binary_path: &str,
-    ghidra: &str,
-) -> PyResult<LoadedSleighContextWrapper> {
-    let context = Rc::new(load_with_gimli(binary_path, ghidra)?);
-    Ok(LoadedSleighContextWrapper { context })
-}
-
-#[pyfunction]
 pub fn create_jingle_context(binary_path: &str, ghidra: &str) -> PyResult<PythonJingleContext> {
     let context = Rc::new(load_with_gimli(binary_path, ghidra)?);
     PythonJingleContext::make_jingle_context(context)
@@ -28,6 +19,12 @@ pub struct LoadedSleighContextWrapper {
 
 #[pymethods]
 impl LoadedSleighContextWrapper {
+    #[new]
+    pub fn new(binary_path: &str, ghidra: &str) -> PyResult<Self> {
+        let context = Rc::new(load_with_gimli(binary_path, ghidra)?);
+        Ok(LoadedSleighContextWrapper { context })
+    }
+    
     pub fn instruction_at(&self, offset: u64) -> Option<PythonInstruction> {
         PythonInstruction::read_from_ctx(&self.context, offset)
     }

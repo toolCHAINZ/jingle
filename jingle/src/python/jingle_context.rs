@@ -6,6 +6,7 @@ use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use pyo3::prelude::*;
 use std::rc::Rc;
+use jingle_sleigh::context::image::gimli::load_with_gimli;
 
 #[pyclass(unsendable, name="JingleContext")]
 pub struct PythonJingleContext {
@@ -29,6 +30,13 @@ impl PythonJingleContext {
 
 #[pymethods]
 impl PythonJingleContext {
+    
+    #[new]
+    pub fn new(binary_path: &str, ghidra: &str) -> PyResult<Self> {
+        let context = Rc::new(load_with_gimli(binary_path, ghidra)?);
+        PythonJingleContext::make_jingle_context(context)
+
+    }
     pub fn model_instruction_at(&self, offset: u64) -> PyResult<PythonModeledInstruction> {
         let instr = self
             .sleigh
