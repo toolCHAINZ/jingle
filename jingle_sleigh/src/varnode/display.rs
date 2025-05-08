@@ -2,7 +2,7 @@ use crate::ffi::addrspace::bridge::SpaceType;
 use crate::space::SpaceInfo;
 use crate::{GeneralizedVarNode, IndirectVarNode, VarNode};
 #[cfg(feature = "pyo3")]
-use pyo3::{pyclass};
+use pyo3::pyclass;
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Debug)]

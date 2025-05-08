@@ -6,7 +6,7 @@ use crate::python::varode_iterator::VarNodeIterator;
 use jingle_sleigh::Instruction;
 use pyo3::{PyResult, pyclass, pymethods};
 
-#[pyclass(unsendable, name="ModeledInstruction")]
+#[pyclass(unsendable, name = "ModeledInstruction")]
 /// A symbolic model of a "simple" SLEIGH instruction,
 /// where a "simple" instruction is one that performs only
 /// INT-interpreted data transfer operations and contains no

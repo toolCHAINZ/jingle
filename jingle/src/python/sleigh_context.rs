@@ -18,7 +18,7 @@ impl LoadedSleighContextWrapper {
         let context = Rc::new(load_with_gimli(binary_path, ghidra)?);
         Ok(LoadedSleighContextWrapper { context })
     }
-    
+
     pub fn instruction_at(&self, offset: u64) -> Option<PythonInstruction> {
         PythonInstruction::read_from_ctx(&self.context, offset)
     }

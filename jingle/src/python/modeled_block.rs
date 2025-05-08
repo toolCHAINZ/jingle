@@ -6,7 +6,7 @@ use crate::python::varode_iterator::VarNodeIterator;
 use crate::sleigh::Instruction;
 use pyo3::{PyResult, pyclass, pymethods};
 
-#[pyclass(unsendable, name="ModeledBlock")]
+#[pyclass(unsendable, name = "ModeledBlock")]
 pub struct PythonModeledBlock {
     pub instr: ModeledBlock<'static>,
 }
