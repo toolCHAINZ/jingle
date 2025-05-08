@@ -2,7 +2,7 @@ use crate::ffi::addrspace::bridge::SpaceType;
 use crate::space::SpaceInfo;
 use crate::{GeneralizedVarNode, IndirectVarNode, VarNode};
 #[cfg(feature = "pyo3")]
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass};
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Debug)]
@@ -20,24 +20,13 @@ pub struct RawVarNodeDisplay {
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "pyo3", pyclass(str))]
 pub struct IndirectVarNodeDisplay {
     pub pointer_space_info: SpaceInfo,
     pub pointer_location: VarNodeDisplay,
     pub access_size_bytes: usize,
 }
 
-#[pymethods]
-#[cfg(feature = "pyo3")]
-impl IndirectVarNodeDisplay {
-    #[getter]
-    fn pointer(&self) -> VarNodeDisplay {
-        self.pointer_location.clone()
-    }
-}
-
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "pyo3", pyclass(str))]
 pub enum GeneralizedVarNodeDisplay {
     Direct(VarNodeDisplay),
     Indirect(IndirectVarNodeDisplay),

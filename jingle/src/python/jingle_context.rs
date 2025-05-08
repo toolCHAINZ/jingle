@@ -7,7 +7,7 @@ use jingle_sleigh::context::loaded::LoadedSleighContext;
 use pyo3::prelude::*;
 use std::rc::Rc;
 
-#[pyclass(unsendable)]
+#[pyclass(unsendable, name="JingleContext")]
 pub struct PythonJingleContext {
     pub jingle: JingleContext<'static>,
     pub sleigh: Rc<LoadedSleighContext<'static>>,
