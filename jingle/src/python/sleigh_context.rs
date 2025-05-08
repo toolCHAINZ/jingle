@@ -3,7 +3,7 @@ use crate::python::jingle_context::PythonJingleContext;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use pyo3::exceptions::PyRuntimeError;
-use pyo3::{PyResult, pyclass, pyfunction, pymethods};
+use pyo3::{PyResult, pyclass, pymethods};
 use std::rc::Rc;
 
 #[pyclass(unsendable, name = "SleighContext")]
