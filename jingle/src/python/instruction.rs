@@ -13,6 +13,17 @@ pub struct PythonInstruction {
 }
 
 impl PythonInstruction {
+    pub fn new<T: ArchInfoProvider>(instruction: &Instruction, ctx: &T) -> Self {
+        Self {
+            instruction: instruction.clone(),
+            space_names: ctx.get_all_space_info().cloned().collect(),
+            registers: ctx
+                .get_registers()
+                .map(|(a, b)| (a.clone(), b.to_string()))
+                .collect(),
+            default_code_space: ctx.get_code_space_idx(),
+        }
+    }
     pub fn read_from_ctx(ctx: &LoadedSleighContext, offset: u64) -> Option<Self> {
         ctx.instruction_at(offset).map(|i| PythonInstruction {
             instruction: i,
