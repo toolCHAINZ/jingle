@@ -1,5 +1,6 @@
 use crate::JingleContext;
 use crate::modeling::{ModeledBlock, ModelingContext};
+use crate::python::instruction::PythonInstruction;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
@@ -24,6 +25,15 @@ impl PythonModeledBlock {
 
 #[pymethods]
 impl PythonModeledBlock {
+    #[getter]
+    pub fn instructions(&self) -> Vec<PythonInstruction> {
+        self.instr
+            .instructions
+            .iter()
+            .map(|i| PythonInstruction::new(i, self.instr.get_jingle()))
+            .collect()
+    }
+
     #[getter]
     /// The symbolic state before the block
     /// is executed
