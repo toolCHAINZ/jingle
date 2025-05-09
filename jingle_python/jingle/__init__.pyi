@@ -62,6 +62,7 @@ class ModeledInstruction:
     def get_output_vns(self) -> Iterable[ResolvedVarNode]: ...
 
 class ModeledBlock:
+    instructions: list[Instruction]
     original_state: State
     final_state: State
     def get_input_vns(self) -> Iterable[ResolvedVarNode]: ...
