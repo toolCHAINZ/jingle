@@ -12,7 +12,7 @@ use jingle_sleigh::{
     ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
-use z3::ast::{Array, BV, Bool};
+use z3::ast::{Array, BV, Bool, Ast};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -225,6 +225,8 @@ impl<'ctx> MemoryState<'ctx> {
     /// This function accepts the destination varnode of a jump and will conditionally reset the
     /// `unique` space iff the jump is NOT p-code-relative.
     fn conditional_clear_internal_space(&mut self, vn: &VarNode) {
+        // todo! this is incorrect; the clearing needs to be tied to just the path where
+        // the branch is taken
         if let Some(a) = self.jingle.get_space_info(vn.space_index) {
             // if this is a branch outside the machine instruction
             if a._type != SpaceType::IPTR_CONSTANT {

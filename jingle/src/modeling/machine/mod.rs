@@ -1,3 +1,4 @@
+use crate::modeling::concretize::{ConcretizationIterator, Concretize};
 use crate::modeling::machine::memory::MemoryState;
 use crate::{JingleContext, JingleError};
 use cpu::concrete::ConcretePcodeAddress;
@@ -45,6 +46,14 @@ impl<'ctx> MachineState<'ctx> {
         }
     }
 
+    pub fn concretize_with_assertions<T: Concretize<'ctx>, I: Iterator<Item = Bool<'ctx>>>(
+        &self,
+        t: &T,
+        a: I,
+    ) -> ConcretizationIterator<'ctx, T> {
+        ConcretizationIterator::new_with_assertions(a, &t)
+    }
+
     fn apply_control_flow(
         &self,
         op: &PcodeOperation,
@@ -71,4 +80,9 @@ impl<'ctx> MachineState<'ctx> {
     pub fn memory(&self) -> &MemoryState<'ctx> {
         &self.memory
     }
+}
+
+pub struct MachineModel<'ctx> {
+    assertions: Vec<Bool<'ctx>>,
+    state: MachineState<'ctx>,
 }

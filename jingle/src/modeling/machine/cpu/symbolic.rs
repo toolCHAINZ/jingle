@@ -1,8 +1,8 @@
 use crate::JingleError;
+use crate::modeling::concretize::ConcretizationIterator;
 use crate::modeling::machine::cpu::concrete::{
     ConcretePcodeAddress, PcodeMachineAddress, PcodeOffset,
 };
-use crate::modeling::machine::cpu::concretization::SymbolicAddressConcretization;
 use jingle_sleigh::VarNode;
 use z3::ast::{Ast, BV, Bool};
 use z3::{Context, Solver};
@@ -48,16 +48,12 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
     fn extract_machine(&self) -> &BV<'ctx> {
         &self.machine
     }
-    pub fn concretize(&self) -> SymbolicAddressConcretization<'ctx> {
-        SymbolicAddressConcretization::new(self)
-    }
 
-    pub fn concretize_with_solver(&self, s: &Solver<'ctx>) -> SymbolicAddressConcretization<'ctx> {
-        SymbolicAddressConcretization::new_with_solver(s, self)
-    }
-
-    pub fn concretize_with_assertions<T: Iterator<Item=Bool<'ctx>>>(&self, s: T) -> SymbolicAddressConcretization<'ctx> {
-        SymbolicAddressConcretization::new_with_assertions(s, self)
+    pub fn concretize_with_assertions<T: Iterator<Item = Bool<'ctx>>>(
+        &self,
+        s: T,
+    ) -> ConcretizationIterator<'ctx, Self> {
+        ConcretizationIterator::new_with_assertions(s, self)
     }
 
     pub fn interpret_branch_dest_varnode(&self, vn: &VarNode) -> Self {
@@ -88,7 +84,10 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
     pub fn as_concrete(&self) -> Option<ConcretePcodeAddress> {
         if let Some(machine) = self.machine.simplify().as_u64() {
             if let Some(pcode) = self.pcode.simplify().as_u64() {
-                return Some(ConcretePcodeAddress{machine, pcode: pcode as PcodeOffset})
+                return Some(ConcretePcodeAddress {
+                    machine,
+                    pcode: pcode as PcodeOffset,
+                });
             }
         }
         None
