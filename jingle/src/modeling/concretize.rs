@@ -1,16 +1,16 @@
+use crate::modeling::tactics::TacticSolver;
 use std::fs;
 use std::time::SystemTime;
 use z3::ast::{Ast, BV, Bool};
 use z3::{Context, Model, SatResult};
-use crate::modeling::tactics::TacticSolver;
 
 /// Implemented by types that represent expressions
 /// that can be interpreted in terms of a symbolic state
 pub trait Concretize<'ctx>: Clone {
     type Concretized;
-    
+
     fn ctx(&self) -> &'ctx Context;
-    
+
     fn eval(&self, model: &Model<'ctx>, model_completion: bool) -> Option<Self::Concretized>;
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool<'ctx>;
@@ -55,11 +55,8 @@ pub struct ConcretizationIterator<'ctx, T: Concretize<'ctx>> {
     assertions: Vec<Bool<'ctx>>,
 }
 
-impl<'ctx, T: Concretize<'ctx>> ConcretizationIterator<'ctx, T>{
-    pub fn new_with_assertions<I: Iterator<Item = Bool<'ctx>>>(
-        assertions: I,
-        val: &T,
-    ) -> Self {
+impl<'ctx, T: Concretize<'ctx>> ConcretizationIterator<'ctx, T> {
+    pub fn new_with_assertions<I: Iterator<Item = Bool<'ctx>>>(assertions: I, val: &T) -> Self {
         Self {
             assertions: assertions.collect(),
             val: val.clone(),
@@ -100,5 +97,6 @@ impl<'ctx, T: Concretize<'ctx>> Iterator for ConcretizationIterator<'ctx, T> {
                 self.assertions.push(diff);
                 Some(concrete)
             }
-        }    }
+        }
+    }
 }

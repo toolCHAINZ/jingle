@@ -40,8 +40,6 @@ impl<'ctx> Clone for TacticSolver<'ctx> {
     }
 }
 
-
-
 /// This tactic has been written with the goal of reducing the solve times
 /// of the sorts of formulas we produce. Speedups of up to 100x have been observed
 /// using it.
