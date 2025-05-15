@@ -2,8 +2,6 @@ use std::fs;
 use std::time::SystemTime;
 use z3::ast::{Ast, BV, Bool};
 use z3::{Context, Model, SatResult};
-use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
-use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use crate::modeling::tactics::TacticSolver;
 
 /// Implemented by types that represent expressions

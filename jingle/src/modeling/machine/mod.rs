@@ -81,8 +81,3 @@ impl<'ctx> MachineState<'ctx> {
         &self.memory
     }
 }
-
-pub struct MachineModel<'ctx> {
-    assertions: Vec<Bool<'ctx>>,
-    state: MachineState<'ctx>,
-}

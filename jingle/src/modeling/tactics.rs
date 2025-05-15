@@ -54,7 +54,7 @@ fn default_tactic(ctx: &Context) -> Tactic {
         ($name:literal) => {
             Tactic::new(ctx, $name)
         };
-    };
+    }
     let simplify = tactic!("simplify");
     let solve_eqs = tactic!("solve-eqs");
     let rep = Tactic::repeat(ctx, &simplify.and_then(&solve_eqs), u32::MAX);
@@ -62,16 +62,4 @@ fn default_tactic(ctx: &Context) -> Tactic {
     let ackermannize_bv = tactic!("ackermannize_bv");
     let t = rep.and_then(&bvarray2uf).and_then(&ackermannize_bv);
     t
-}
-
-fn default_solver(ctx: &Context) -> TacticSolver {
-    default_tactic(ctx).solver().into()
-}
-
-fn clone_with_tactic<'ctx>(s: &Solver<'ctx>) -> TacticSolver<'ctx> {
-    let new = default_solver(s.get_context());
-    for x in s.get_assertions() {
-        new.assert(&x)
-    }
-    new
 }
