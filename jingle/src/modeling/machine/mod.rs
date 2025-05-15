@@ -51,7 +51,7 @@ impl<'ctx> MachineState<'ctx> {
         t: &T,
         a: I,
     ) -> ConcretizationIterator<'ctx, T> {
-        ConcretizationIterator::new_with_assertions(a, &t)
+        ConcretizationIterator::new_with_assertions(a, t)
     }
 
     fn apply_control_flow(

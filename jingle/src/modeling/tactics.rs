@@ -11,7 +11,7 @@ impl<'ctx> Deref for TacticSolver<'ctx> {
     }
 }
 
-impl<'ctx> DerefMut for TacticSolver<'ctx> {
+impl DerefMut for TacticSolver<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -30,7 +30,7 @@ impl<'ctx> TacticSolver<'ctx> {
     }
 }
 
-impl<'ctx> Clone for TacticSolver<'ctx> {
+impl Clone for TacticSolver<'_> {
     fn clone(&self) -> Self {
         let new = default_tactic(self.0.get_context()).solver();
         for x in &self.get_assertions() {
