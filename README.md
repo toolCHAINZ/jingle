@@ -84,7 +84,7 @@ the latest commit SHA on `main` or a tag.
 
 `jingle` was developed in support of our research paper _Synthesis of Code-Reuse Attacks from `p-code` Programs_.
 You can find the author accepted manuscript [here](https://ora.ox.ac.uk/objects/uuid:906d32ca-407c-4cab-beab-b90200f81d65).
-This work has been accepted to Usenix Security 2025.
+This work has been accepted to [Usenix Security 2025](https://www.usenix.org/conference/usenixsecurity25/presentation/denhoed).
 
 You can cite this work with the following BibTex:
 
