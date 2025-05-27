@@ -58,6 +58,9 @@ fn default_tactic(ctx: &Context) -> Tactic {
     let rep = Tactic::repeat(ctx, &simplify.and_then(&solve_eqs), u32::MAX);
     let bvarray2uf = tactic!("bvarray2uf");
     let ackermannize_bv = tactic!("ackermannize_bv");
-    let t = rep.and_then(&bvarray2uf).and_then(&ackermannize_bv);
-    t
+    let smt = tactic!("smt");
+
+    rep.and_then(&bvarray2uf)
+        .and_then(&ackermannize_bv)
+        .and_then(&smt)
 }

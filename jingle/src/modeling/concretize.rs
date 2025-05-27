@@ -29,7 +29,7 @@ impl<'ctx> Concretize<'ctx> for BV<'ctx> {
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool<'ctx> {
         let ctr = BV::from_u64(self.ctx(), *c, self.get_size());
-        self._eq(&ctr).not()
+        dbg!(self._eq(&ctr).not())
     }
 }
 

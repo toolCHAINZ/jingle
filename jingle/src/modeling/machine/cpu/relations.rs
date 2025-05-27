@@ -23,6 +23,7 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
                     .read(input1)?
                     .extract(0, 0)
                     ._eq(&BV::from_u64(z3, 1, 1));
+                dbg!(take_branch.simplify());
                 let machine = take_branch.ite(&dest.machine, &fallthrough.machine);
                 let pcode = take_branch.ite(&dest.pcode, &fallthrough.pcode);
                 Ok(SymbolicPcodeAddress { machine, pcode })

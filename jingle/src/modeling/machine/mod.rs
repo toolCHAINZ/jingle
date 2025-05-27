@@ -5,7 +5,7 @@ use cpu::concrete::ConcretePcodeAddress;
 use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
-use z3::ast::Bool;
+use z3::ast::{Ast, Bool};
 
 pub mod cpu;
 pub mod memory;
@@ -70,7 +70,8 @@ impl<'ctx> MachineState<'ctx> {
     }
 
     pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
-        self.pc._eq(&other.pc) & self.memory._eq(&other.memory)
+        let machine_eq = self.pc.machine._eq(&other.pc.machine);
+        self.pc._eq(&other.pc) & self.memory._eq(&other.memory, &machine_eq)
     }
 
     pub fn pc(&self) -> &SymbolicPcodeAddress<'ctx> {
