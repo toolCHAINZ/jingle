@@ -18,7 +18,7 @@ mod instruction;
 pub mod machine;
 mod slice;
 mod state;
-mod tactics;
+pub mod tactics;
 
 use crate::JingleContext;
 pub use block::ModeledBlock;

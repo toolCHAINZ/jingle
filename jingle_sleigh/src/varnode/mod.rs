@@ -12,7 +12,7 @@ use pyo3::pyclass;
 #[cfg(feature = "pyo3")]
 use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter, LowerHex, write};
 use std::ops::Range;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
@@ -105,6 +105,23 @@ impl From<&VarNode> for Range<usize> {
         }
     }
 }
+
+impl Display for VarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}[{}]:{}", self.space_index, self.offset, self.size)
+    }
+}
+
+impl LowerHex for VarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:x}[{:x}]:{:x}",
+            self.space_index, self.offset, self.size
+        )
+    }
+}
+
 #[macro_export]
 macro_rules! varnode {
     ($ctx:expr_2021, #$offset:literal:$size:literal) => {
@@ -157,6 +174,26 @@ impl IndirectVarNode {
                 access_size_bytes: self.access_size_bytes,
             })
         })
+    }
+}
+
+impl Display for IndirectVarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "*{}[ {} ]:{}",
+            self.pointer_space_index, self.pointer_location, self.access_size_bytes
+        )
+    }
+}
+
+impl LowerHex for IndirectVarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "*{:x}[ {:x} ]:{:x}",
+            self.pointer_space_index, self.pointer_location, self.access_size_bytes
+        )
     }
 }
 
@@ -224,6 +261,31 @@ impl From<&VarnodeInfoFFI> for VarNode {
     }
 }
 
+impl Display for GeneralizedVarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeneralizedVarNode::Direct(v) => {
+                write!(f, "{}", v)
+            }
+            GeneralizedVarNode::Indirect(indirect) => {
+                write!(f, "{}", indirect)
+            }
+        }
+    }
+}
+
+impl LowerHex for GeneralizedVarNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeneralizedVarNode::Direct(v) => {
+                write!(f, "{:x}", v)
+            }
+            GeneralizedVarNode::Indirect(indirect) => {
+                write!(f, "{:x}", indirect)
+            }
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use crate::VarNode;
