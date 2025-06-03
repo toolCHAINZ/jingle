@@ -33,7 +33,7 @@ impl<'ctx> MachineState<'ctx> {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
             jingle: jingle.clone(),
-            memory: MemoryState::fresh(jingle),
+            memory: MemoryState::fresh_for_address(jingle, machine_addr.into()),
             pc: pc.symbolize(jingle.z3),
         }
     }
@@ -41,7 +41,7 @@ impl<'ctx> MachineState<'ctx> {
     pub fn fresh_for_address(jingle: &JingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
         Self {
             jingle: jingle.clone(),
-            memory: MemoryState::fresh(jingle),
+            memory: MemoryState::fresh_for_address(jingle, addr),
             pc: addr.symbolize(jingle.z3),
         }
     }

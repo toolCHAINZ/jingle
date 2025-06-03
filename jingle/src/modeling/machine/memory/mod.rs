@@ -13,6 +13,7 @@ use jingle_sleigh::{
 };
 use std::ops::Add;
 use z3::ast::{Array, BV, Bool};
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -29,6 +30,15 @@ impl<'ctx> MemoryState<'ctx> {
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
             .map(|s| BMCModeledSpace::new(jingle.z3, s))
+            .collect();
+        Self { jingle, spaces }
+    }
+
+    pub fn fresh_for_address(jingle: &JingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
+        let jingle = jingle.clone();
+        let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
+            .get_all_space_info()
+            .map(|s| BMCModeledSpace::new_for_address(jingle.z3, s, addr))
             .collect();
         Self { jingle, spaces }
     }

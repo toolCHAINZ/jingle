@@ -4,6 +4,7 @@ use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::ops::Add;
 use z3::ast::{Array, Ast, BV, Bool};
 use z3::{Context, Sort};
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -29,6 +30,18 @@ impl<'ctx> BMCModeledSpace<'ctx> {
         Self {
             endianness: space_info.endianness,
             data: Array::fresh_const(z3, &space_info.name, &domain, &range),
+            word_size_bytes: space_info.word_size_bytes,
+            index_size_bytes: space_info.index_size_bytes,
+            _type: space_info._type,
+        }
+    }
+
+    pub fn new_for_address(z3: &'ctx Context, space_info: &SpaceInfo, addr: ConcretePcodeAddress) -> Self {
+        let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
+        Self {
+            endianness: space_info.endianness,
+            data: Array::fresh_const(z3, &format!("{}_{:x}_{:x}", &space_info.name, addr.machine, addr.pcode), &domain, &range),
             word_size_bytes: space_info.word_size_bytes,
             index_size_bytes: space_info.index_size_bytes,
             _type: space_info._type,
