@@ -86,6 +86,25 @@ impl VarNode {
         let other = other.offset..(other.offset + other.size as u64);
         self_range.start <= other.start && self_range.end >= other.end
     }
+
+    pub fn overlaps(&self, other: &VarNode) -> bool {
+        if self.space_index != other.space_index {
+            return false;
+        }
+        let self_range = self.offset..(self.offset + self.size as u64);
+        let other = other.offset..(other.offset + other.size as u64);
+        let left = self_range.start <= other.start && self_range.end >= other.start;
+        let right = other.start <= self_range.start && other.end >= self_range.start;
+        left || right
+    }
+
+    pub fn min(&self) -> u64{
+        self.offset
+    }
+
+    pub fn max(&self) -> u64{
+        self.offset + self.size as u64
+    }
 }
 
 impl From<&VarNode> for Range<u64> {
