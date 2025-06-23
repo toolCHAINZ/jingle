@@ -1,6 +1,4 @@
 use crate::modeling::tactics::TacticSolver;
-use std::fs;
-use std::time::SystemTime;
 use z3::ast::{Ast, BV, Bool};
 use z3::{Context, Model, SatResult};
 
@@ -79,7 +77,6 @@ impl<'ctx, T: Concretize<'ctx>> Iterator for ConcretizationIterator<'ctx, T> {
         for x in &self.assertions {
             s.assert(x);
         }
-        let t = SystemTime::now();
         match s.check() {
             SatResult::Unsat => None,
             SatResult::Unknown => None,
