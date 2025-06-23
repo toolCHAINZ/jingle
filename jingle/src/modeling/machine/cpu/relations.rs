@@ -19,10 +19,10 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
             PcodeOperation::CBranch { input0, input1 } => {
                 let fallthrough = self.increment_pcode();
                 let dest = self.interpret_branch_dest_varnode(input0);
-                let take_branch =
-                    memory
-                        .read(input1)?
-                        ._eq(&BV::from_u64(z3, 1, (input1.size * 8) as u32));
+                let take_branch = memory
+                    .read(input1)?
+                    .extract(0, 0)
+                    ._eq(&BV::from_u64(z3, 1, 1));
                 let machine = take_branch.ite(&dest.machine, &fallthrough.machine);
                 let pcode = take_branch.ite(&dest.pcode, &fallthrough.pcode);
                 Ok(SymbolicPcodeAddress { machine, pcode })

@@ -91,7 +91,7 @@ impl ImageProvider for OwnedFile {
         })
     }
 
-    fn get_section_info(&self) -> ImageSectionIterator {
+    fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections.iter().map(ImageSection::from))
     }
 }
@@ -132,7 +132,7 @@ impl ImageProvider for File<'_> {
         })
     }
 
-    fn get_section_info(&self) -> ImageSectionIterator {
+    fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections().filter_map(|s| {
             if let Ok(data) = s.data() {
                 Some(ImageSection {

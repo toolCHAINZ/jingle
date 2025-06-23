@@ -7,6 +7,7 @@ pub mod symbolic;
 mod tests {
     use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
     use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
+    use std::iter::empty;
     use z3::ast::BV;
     use z3::{Config, Context};
 
@@ -18,7 +19,7 @@ mod tests {
         };
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
-        let new_concrete: Vec<_> = symbolized.concretize().collect();
+        let new_concrete: Vec<_> = symbolized.concretize_with_assertions(empty()).collect();
         assert_eq!(addr, new_concrete[0])
     }
 
@@ -30,7 +31,7 @@ mod tests {
         };
         let z3 = Context::new(&Config::new());
         let symbolized = addr.symbolize(&z3);
-        let new_concrete: Vec<_> = symbolized.concretize().collect();
+        let new_concrete: Vec<_> = symbolized.concretize_with_assertions(empty()).collect();
         assert_eq!(
             new_concrete[0],
             ConcretePcodeAddress {
@@ -39,7 +40,7 @@ mod tests {
             }
         );
         let plus_1 = symbolized.increment_pcode();
-        let new_concrete: Vec<_> = plus_1.concretize().collect();
+        let new_concrete: Vec<_> = plus_1.concretize_with_assertions(empty()).collect();
         assert_eq!(
             new_concrete[0],
             ConcretePcodeAddress {
@@ -53,7 +54,7 @@ mod tests {
         }
         .symbolize(&z3);
         let plus_1 = symbolized.increment_pcode();
-        let new_concrete: Vec<_> = plus_1.concretize().collect();
+        let new_concrete: Vec<_> = plus_1.concretize_with_assertions(empty()).collect();
         assert_eq!(
             new_concrete[0],
             ConcretePcodeAddress {
@@ -70,7 +71,7 @@ mod tests {
         let wrong = BV::from_u64(&z3, 0xdeadbeef, 65);
 
         let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &addr).unwrap();
-        let concrete: Vec<_> = sym.concretize().collect();
+        let concrete: Vec<_> = sym.concretize_with_assertions(empty()).collect();
         assert_eq!(
             concrete[0],
             ConcretePcodeAddress {

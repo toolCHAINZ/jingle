@@ -22,7 +22,7 @@ use crate::{ArchInfoProvider, GeneralizedVarNode};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter, LowerHex};
 
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -984,5 +984,27 @@ impl From<&PcodeOperation> for OpCode {
             PopCount { .. } => OpCode::CPUI_POPCOUNT,
             LzCount { .. } => OpCode::CPUI_LZCOUNT,
         }
+    }
+}
+
+impl Display for PcodeOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(out) = self.output() {
+            write!(f, "{out} = ")?;
+        }
+        write!(f, "{} ", self.opcode())?;
+        let i: Vec<_> = self.inputs().iter().map(|ff| format!("{ff}")).collect();
+        write!(f, "{}", i.join(", "))
+    }
+}
+
+impl LowerHex for PcodeOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(out) = self.output() {
+            write!(f, "{out:x} = ")?;
+        }
+        write!(f, "{} ", self.opcode())?;
+        let i: Vec<_> = self.inputs().iter().map(|ff| format!("{ff:x}")).collect();
+        write!(f, "{}", i.join(", "))
     }
 }

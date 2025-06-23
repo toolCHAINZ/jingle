@@ -5,6 +5,7 @@ use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use crate::modeling::machine::memory::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::{JingleContext, JingleError};
@@ -29,6 +30,15 @@ impl<'ctx> MemoryState<'ctx> {
         let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
             .get_all_space_info()
             .map(|s| BMCModeledSpace::new(jingle.z3, s))
+            .collect();
+        Self { jingle, spaces }
+    }
+
+    pub fn fresh_for_address(jingle: &JingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
+        let jingle = jingle.clone();
+        let spaces: Vec<BMCModeledSpace<'ctx>> = jingle
+            .get_all_space_info()
+            .map(|s| BMCModeledSpace::new_for_address(jingle.z3, s, addr))
             .collect();
         Self { jingle, spaces }
     }
@@ -203,51 +213,26 @@ impl<'ctx> MemoryState<'ctx> {
         }
     }
 
-    pub fn _eq(&self, other: &MemoryState<'ctx>) -> Bool<'ctx> {
+    pub fn _eq(&self, other: &MemoryState<'ctx>, machine_eq: &Bool<'ctx>) -> Bool<'ctx> {
         let mut terms = vec![];
-        for (ours, theirs) in self.spaces.iter().zip(&other.spaces) {
+        // skipping one space because the CONST space is ALWAYS first and we don't need
+        // to encode equality of CONST
+        for (ours, theirs) in self.spaces.iter().zip(&other.spaces).skip(1) {
             if !ours._meta_eq(theirs) {
                 return Bool::from_bool(self.jingle.z3, false);
             }
-            terms.push(ours._eq(theirs))
+            // If we're dealing with an internal space
+            if ours.get_type() == SpaceType::IPTR_INTERNAL {
+                // then if both spaces have the same symbolic machine address, they are equal
+                // this expresses the "resetting" of the internal space between different
+                // machine instructions
+                terms.push(machine_eq.implies(&ours._eq(theirs)))
+            } else {
+                // otherwise, we simply assert that the spaces are equal
+                terms.push(ours._eq(theirs))
+            }
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
         Bool::and(self.jingle.z3, eq_terms.as_slice())
-    }
-
-    /// A helper function for Branch and CBranch.
-    ///
-    /// These two opcodes are able to perform p-code-relative branching, in which a
-    /// CONSTANT branch target varnode is used to indicate a jump within p-code in the same
-    /// machine instruction. In these cases, we DO want to enforce state constraints on the `unique`
-    /// space.
-    ///
-    /// This function accepts the destination varnode of a jump and will conditionally reset the
-    /// `unique` space iff the jump is NOT p-code-relative.
-    fn conditional_clear_internal_space(&mut self, vn: &VarNode) {
-        if let Some(a) = self.jingle.get_space_info(vn.space_index) {
-            // if this is a branch outside the machine instruction
-            if a._type != SpaceType::IPTR_CONSTANT {
-                // then reset the internal space
-                self.clear_internal_space()
-            }
-        }
-    }
-
-    /// Sets the 'internal' space to be a new [BMCModeledSpace].
-    ///
-    /// The `unique` space contains 'scratch' data used to express the functionality of a machine
-    /// instruction. It is purely a construction of the p-code encoding and is assumed to be unique
-    /// to each machine instruction.
-    ///
-    /// Therefore, if modeling a jump to another instruction, it is necessary to replace this space
-    /// with a fresh space, to prevent constraining its contents across machine instruction boundaries.
-    pub fn clear_internal_space(&mut self) {
-        for x in self.jingle.get_all_space_info() {
-            let idx = x.index;
-            if x._type == SpaceType::IPTR_INTERNAL {
-                self.spaces[idx] = BMCModeledSpace::new(self.jingle.z3, x);
-            }
-        }
     }
 }

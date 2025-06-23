@@ -10,7 +10,7 @@ pub trait ImageProvider {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
     fn has_full_range(&self, vn: &VarNode) -> bool;
-    fn get_section_info(&self) -> ImageSectionIterator;
+    fn get_section_info(&self) -> ImageSectionIterator<'_>;
 
     fn get_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
         let mut vec = vec![0u8; vn.size];
@@ -66,7 +66,7 @@ impl ImageProvider for &[u8] {
         vn_range.start < self.len() && vn_range.end <= self.len()
     }
 
-    fn get_section_info(&self) -> ImageSectionIterator {
+    fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
             base_address: 0,
@@ -88,7 +88,7 @@ impl ImageProvider for Vec<u8> {
         self.as_slice().has_full_range(vn)
     }
 
-    fn get_section_info(&self) -> ImageSectionIterator {
+    fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
             base_address: 0,
@@ -110,7 +110,7 @@ impl<T: ImageProvider> ImageProvider for &T {
         (*self).has_full_range(vn)
     }
 
-    fn get_section_info(&self) -> ImageSectionIterator {
+    fn get_section_info(&self) -> ImageSectionIterator<'_> {
         (*self).get_section_info()
     }
 }

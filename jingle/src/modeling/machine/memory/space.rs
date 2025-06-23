@@ -1,6 +1,7 @@
 use crate::JingleError;
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
-use jingle_sleigh::{SleighEndianness, SpaceInfo};
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::ops::Add;
 use z3::ast::{Array, Ast, BV, Bool};
 use z3::{Context, Sort};
@@ -18,6 +19,7 @@ pub struct BMCModeledSpace<'ctx> {
     word_size_bytes: u32,
     index_size_bytes: u32,
     endianness: SleighEndianness,
+    _type: SpaceType,
 }
 
 impl<'ctx> BMCModeledSpace<'ctx> {
@@ -30,9 +32,34 @@ impl<'ctx> BMCModeledSpace<'ctx> {
             data: Array::fresh_const(z3, &space_info.name, &domain, &range),
             word_size_bytes: space_info.word_size_bytes,
             index_size_bytes: space_info.index_size_bytes,
+            _type: space_info._type,
         }
     }
 
+    pub fn new_for_address(
+        z3: &'ctx Context,
+        space_info: &SpaceInfo,
+        addr: ConcretePcodeAddress,
+    ) -> Self {
+        let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
+        Self {
+            endianness: space_info.endianness,
+            data: Array::fresh_const(
+                z3,
+                &format!("{}_{:x}_{:x}", &space_info.name, addr.machine, addr.pcode),
+                &domain,
+                &range,
+            ),
+            word_size_bytes: space_info.word_size_bytes,
+            index_size_bytes: space_info.index_size_bytes,
+            _type: space_info._type,
+        }
+    }
+
+    pub fn get_type(&self) -> SpaceType {
+        self._type
+    }
     /// Get the z3 Array for this space
     pub fn get_space(&self) -> &Array<'ctx> {
         &self.data
@@ -64,6 +91,7 @@ impl<'ctx> BMCModeledSpace<'ctx> {
         self.word_size_bytes == other.word_size_bytes
             && self.endianness == other.endianness
             && self.index_size_bytes == other.index_size_bytes
+            && self._type == other._type
     }
 }
 
@@ -114,7 +142,7 @@ mod tests {
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
 
-    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace {
+    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace<'_> {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),

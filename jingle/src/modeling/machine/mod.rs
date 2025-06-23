@@ -1,10 +1,11 @@
+use crate::modeling::concretize::{ConcretizationIterator, Concretize};
 use crate::modeling::machine::memory::MemoryState;
 use crate::{JingleContext, JingleError};
 use cpu::concrete::ConcretePcodeAddress;
 use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
-use z3::ast::Bool;
+use z3::ast::{Ast, Bool};
 
 pub mod cpu;
 pub mod memory;
@@ -32,7 +33,7 @@ impl<'ctx> MachineState<'ctx> {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
             jingle: jingle.clone(),
-            memory: MemoryState::fresh(jingle),
+            memory: MemoryState::fresh_for_address(jingle, machine_addr.into()),
             pc: pc.symbolize(jingle.z3),
         }
     }
@@ -40,9 +41,17 @@ impl<'ctx> MachineState<'ctx> {
     pub fn fresh_for_address(jingle: &JingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
         Self {
             jingle: jingle.clone(),
-            memory: MemoryState::fresh(jingle),
+            memory: MemoryState::fresh_for_address(jingle, addr),
             pc: addr.symbolize(jingle.z3),
         }
+    }
+
+    pub fn concretize_with_assertions<T: Concretize<'ctx>, I: Iterator<Item = Bool<'ctx>>>(
+        &self,
+        t: &T,
+        a: I,
+    ) -> ConcretizationIterator<'ctx, T> {
+        ConcretizationIterator::new_with_assertions(a, t)
     }
 
     fn apply_control_flow(
@@ -61,7 +70,8 @@ impl<'ctx> MachineState<'ctx> {
     }
 
     pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
-        self.pc._eq(&other.pc) & self.memory._eq(&other.memory)
+        let machine_eq = self.pc.machine._eq(&other.pc.machine);
+        self.pc._eq(&other.pc) & self.memory._eq(&other.memory, &machine_eq)
     }
 
     pub fn pc(&self) -> &SymbolicPcodeAddress<'ctx> {

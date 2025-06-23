@@ -1,50 +1,26 @@
+use crate::modeling::concretize::Concretize;
 use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
-use z3::ast::Ast;
-use z3::{SatResult, Solver};
+use z3::ast::{Ast, Bool};
+use z3::{Context, Model};
 
-pub struct SymbolicAddressConcretization<'ctx> {
-    solver: Solver<'ctx>,
-    addr: SymbolicPcodeAddress<'ctx>,
-}
+impl<'ctx> Concretize<'ctx> for SymbolicPcodeAddress<'ctx> {
+    type Concretized = ConcretePcodeAddress;
 
-impl<'ctx> SymbolicAddressConcretization<'ctx> {
-    pub fn new_with_solver(solver: &Solver<'ctx>, addr: &SymbolicPcodeAddress<'ctx>) -> Self {
-        Self {
-            solver: solver.clone(),
-            addr: addr.clone(),
-        }
+    fn ctx(&self) -> &'ctx Context {
+        self.machine.get_ctx()
     }
 
-    pub fn new(addr: &SymbolicPcodeAddress<'ctx>) -> Self {
-        Self {
-            solver: Solver::new(addr.pcode.get_ctx()),
-            addr: addr.clone(),
-        }
+    fn eval(&self, model: &Model<'ctx>, model_completion: bool) -> Option<Self::Concretized> {
+        let machine = model.eval(&self.machine, model_completion)?.as_u64()?;
+        let pcode = model.eval(&self.pcode, model_completion)?.as_u64()?;
+        Some(ConcretePcodeAddress {
+            machine,
+            pcode: pcode as PcodeOffset,
+        })
     }
-}
-impl Iterator for SymbolicAddressConcretization<'_> {
-    type Item = ConcretePcodeAddress;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.solver.check() {
-            SatResult::Unsat => None,
-            SatResult::Unknown => None,
-            SatResult::Sat => {
-                let model = self.solver.get_model()?;
-                let pcode = model.eval(&self.addr.pcode, true)?.as_u64()?;
-                let machine = model.eval(&self.addr.machine, true)?.as_u64()?;
-                let concrete = ConcretePcodeAddress {
-                    pcode: pcode as PcodeOffset,
-                    machine,
-                };
-                let diff_pcode = self
-                    .addr
-                    ._eq(&concrete.symbolize(self.solver.get_context()))
-                    .not();
-                self.solver.assert(&diff_pcode);
-                Some(concrete)
-            }
-        }
+    fn make_counterexample(&self, c: &Self::Concretized) -> Bool<'ctx> {
+        self._eq(&c.symbolize(self.ctx())).not()
     }
 }

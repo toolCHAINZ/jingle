@@ -111,7 +111,7 @@ fn update_config(params: &JingleParams) {
 fn list_architectures(config: &JingleConfig) {
     let sleigh = config.sleigh_builder().unwrap();
     for language_id in sleigh.get_language_ids() {
-        println!("{}", language_id)
+        println!("{language_id}")
     }
 }
 
@@ -119,7 +119,7 @@ fn get_instructions(
     config: &JingleConfig,
     architecture: String,
     hex_bytes: String,
-) -> anyhow::Result<(LoadedSleighContext, Vec<Instruction>)> {
+) -> anyhow::Result<(LoadedSleighContext<'_>, Vec<Instruction>)> {
     let sleigh_build = config.sleigh_builder().context(format!(
         "Unable to parse selected architecture. \n\
     This may indicate that your configured Ghidra path is incorrect: {}",
@@ -162,7 +162,7 @@ fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyho
     for instr in instrs {
         for x in instr.ops {
             let x_disp = x.display(&sleigh)?;
-            println!("{}", x_disp)
+            println!("{x_disp}")
         }
     }
     Ok(())

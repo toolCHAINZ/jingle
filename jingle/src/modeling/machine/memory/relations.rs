@@ -8,7 +8,7 @@ use z3::ast::{Ast, BV};
 
 impl MemoryState<'_> {
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
-        let mut final_state = self.clone();
+        let final_state = self.clone();
         match &op {
             PcodeOperation::Copy { input, output } => {
                 let val = self.read(input)?;
@@ -429,21 +429,12 @@ impl MemoryState<'_> {
                     Ok(final_state)
                 }
             }
-            PcodeOperation::Branch { input } => {
-                final_state.conditional_clear_internal_space(input);
-                Ok(final_state)
-            }
-            PcodeOperation::CBranch { input0, .. } => {
-                final_state.conditional_clear_internal_space(input0);
-                Ok(final_state)
-            }
+            PcodeOperation::Branch { .. } => Ok(final_state),
+            PcodeOperation::CBranch { .. } => Ok(final_state),
             PcodeOperation::BranchInd { .. }
             | PcodeOperation::Call { .. }
             | PcodeOperation::CallInd { .. }
-            | PcodeOperation::Return { .. } => {
-                final_state.clear_internal_space();
-                Ok(final_state)
-            }
+            | PcodeOperation::Return { .. } => Ok(final_state),
             v => Err(JingleError::UnmodeledInstruction(Box::new((*v).clone()))),
         }
     }

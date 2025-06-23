@@ -13,10 +13,12 @@ use z3::ast::{Ast, BV, Bool};
 
 mod block;
 mod branch;
+mod concretize;
 mod instruction;
 pub mod machine;
 mod slice;
 mod state;
+pub mod tactics;
 
 use crate::JingleContext;
 pub use block::ModeledBlock;
