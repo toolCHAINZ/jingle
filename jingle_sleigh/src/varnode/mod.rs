@@ -12,7 +12,7 @@ use pyo3::pyclass;
 #[cfg(feature = "pyo3")]
 use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display, Formatter, LowerHex, write};
+use std::fmt::{Debug, Display, Formatter, LowerHex};
 use std::ops::Range;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in

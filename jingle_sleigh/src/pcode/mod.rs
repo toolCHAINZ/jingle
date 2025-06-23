@@ -22,7 +22,7 @@ use crate::{ArchInfoProvider, GeneralizedVarNode};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display, Formatter, LowerHex, format};
+use std::fmt::{Debug, Display, Formatter, LowerHex};
 
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
