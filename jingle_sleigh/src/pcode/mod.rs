@@ -990,10 +990,10 @@ impl From<&PcodeOperation> for OpCode {
 impl Display for PcodeOperation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(out) = self.output() {
-            write!(f, "{} = ", out)?;
+            write!(f, "{out} = ")?;
         }
         write!(f, "{} ", self.opcode())?;
-        let i: Vec<_> = self.inputs().iter().map(|ff| format!("{}", ff)).collect();
+        let i: Vec<_> = self.inputs().iter().map(|ff| format!("{ff}")).collect();
         write!(f, "{}", i.join(", "))
     }
 }
@@ -1001,10 +1001,10 @@ impl Display for PcodeOperation {
 impl LowerHex for PcodeOperation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(out) = self.output() {
-            write!(f, "{:x} = ", out)?;
+            write!(f, "{out:x} = ")?;
         }
         write!(f, "{} ", self.opcode())?;
-        let i: Vec<_> = self.inputs().iter().map(|ff| format!("{:x}", ff)).collect();
+        let i: Vec<_> = self.inputs().iter().map(|ff| format!("{ff:x}")).collect();
         write!(f, "{}", i.join(", "))
     }
 }

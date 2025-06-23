@@ -47,7 +47,7 @@ impl Clone for TacticSolver<'_> {
 /// The rationale behind it is that we first simplify and eliminate variables, before eliminating
 /// array expressions (in favor of UFs), and then eliminate UFs with ackermann reduction. The result
 /// is an (often much simpler) pure bitvector problem allowing z3 to use a specialized solver.
-fn default_tactic(ctx: &Context) -> Tactic {
+fn default_tactic(ctx: &Context) -> Tactic<'_> {
     macro_rules! tactic {
         ($name:literal) => {
             Tactic::new(ctx, $name)

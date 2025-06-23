@@ -284,10 +284,10 @@ impl Display for GeneralizedVarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             GeneralizedVarNode::Direct(v) => {
-                write!(f, "{}", v)
+                write!(f, "{v}")
             }
             GeneralizedVarNode::Indirect(indirect) => {
-                write!(f, "{}", indirect)
+                write!(f, "{indirect}")
             }
         }
     }
@@ -297,10 +297,10 @@ impl LowerHex for GeneralizedVarNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             GeneralizedVarNode::Direct(v) => {
-                write!(f, "{:x}", v)
+                write!(f, "{v:x}")
             }
             GeneralizedVarNode::Indirect(indirect) => {
-                write!(f, "{:x}", indirect)
+                write!(f, "{indirect:x}")
             }
         }
     }

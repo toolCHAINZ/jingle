@@ -49,10 +49,10 @@ impl Display for VarNodeDisplay {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             VarNodeDisplay::Raw(r) => {
-                write!(f, "{}", r)
+                write!(f, "{r}")
             }
             VarNodeDisplay::Register(a, ..) => {
-                write!(f, "{}", a)
+                write!(f, "{a}")
             }
         }
     }

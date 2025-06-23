@@ -27,7 +27,7 @@ where
 
 impl Display for crate::ffi::opcode::bridge::OpCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let d = format!("{:?}", self);
+        let d = format!("{self:?}");
         write!(f, "{}", &d[5..])
     }
 }

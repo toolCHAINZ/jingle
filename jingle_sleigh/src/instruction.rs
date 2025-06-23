@@ -65,7 +65,7 @@ impl<T: ArchInfoProvider> Display for InstructionDisplay<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} {}", self.disassembly.mnemonic, self.disassembly.args)?;
         for x in &self.ops {
-            writeln!(f, "\t{}", x)?;
+            writeln!(f, "\t{x}")?;
         }
         Ok(())
     }

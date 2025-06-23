@@ -82,7 +82,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// Read an iterator of at most `max_instrs` [`Instruction`]s from `offset` in the default code
     /// space.
     /// todo: consider using a varnode instead of a raw offset
-    pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator {
+    pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator<'_> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, false)
     }
 
@@ -102,7 +102,7 @@ impl<'a> LoadedSleighContext<'a> {
         &self,
         offset: u64,
         max_instrs: usize,
-    ) -> SleighContextInstructionIterator {
+    ) -> SleighContextInstructionIterator<'_> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, true)
     }
 
@@ -122,7 +122,7 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     /// Returns an iterator of entries describing the sections of the configured image provider.
-    pub fn get_sections(&self) -> impl Iterator<Item = ImageSection> {
+    pub fn get_sections(&self) -> impl Iterator<Item = ImageSection<'_>> {
         self.img.provider.get_section_info().map(|mut s| {
             s.base_address += self.get_base_address() as usize;
             s

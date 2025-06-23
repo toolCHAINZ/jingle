@@ -142,7 +142,7 @@ mod tests {
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
 
-    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace {
+    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace<'_> {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),
