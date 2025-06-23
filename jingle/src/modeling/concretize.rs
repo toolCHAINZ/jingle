@@ -83,14 +83,9 @@ impl<'ctx, T: Concretize<'ctx>> Iterator for ConcretizationIterator<'ctx, T> {
         match s.check() {
             SatResult::Unsat => None,
             SatResult::Unknown => {
-                let elapsed = t.elapsed().unwrap().as_nanos();
-                fs::write(format!("formula/fail_{elapsed}.smt"), s.to_smt2()).unwrap();
-
                 None
             }
             SatResult::Sat => {
-                let elapsed = t.elapsed().unwrap().as_nanos();
-                fs::write(format!("formula/test_{elapsed}.smt"), s.to_smt2()).unwrap();
                 let model = s.get_model()?;
                 let concrete = self.val.eval(&model, true)?;
                 let diff = self.val.make_counterexample(&concrete);

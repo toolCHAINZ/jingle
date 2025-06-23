@@ -21,19 +21,3 @@ fn jingle(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PythonModeledBlock>()?;
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use jingle::python::sleigh_context::LoadedSleighContextWrapper;
-
-    #[test]
-    fn ctx() {
-        pyo3::prepare_freethreaded_python();
-        let ctx = LoadedSleighContextWrapper::new(
-            "/Users/maroed/RustroverProjects/code_reuse_synthesis_artifacts/crackers/libz.so.1",
-            "/Applications/ghidra",
-        )
-        .unwrap();
-        ctx.make_jingle_context().unwrap();
-    }
-}
