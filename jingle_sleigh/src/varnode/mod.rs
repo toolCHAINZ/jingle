@@ -98,11 +98,11 @@ impl VarNode {
         left || right
     }
 
-    pub fn min(&self) -> u64{
+    pub fn min(&self) -> u64 {
         self.offset
     }
 
-    pub fn max(&self) -> u64{
+    pub fn max(&self) -> u64 {
         self.offset + self.size as u64
     }
 }

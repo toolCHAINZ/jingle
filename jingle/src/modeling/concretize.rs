@@ -82,9 +82,7 @@ impl<'ctx, T: Concretize<'ctx>> Iterator for ConcretizationIterator<'ctx, T> {
         let t = SystemTime::now();
         match s.check() {
             SatResult::Unsat => None,
-            SatResult::Unknown => {
-                None
-            }
+            SatResult::Unknown => None,
             SatResult::Sat => {
                 let model = s.get_model()?;
                 let concrete = self.val.eval(&model, true)?;

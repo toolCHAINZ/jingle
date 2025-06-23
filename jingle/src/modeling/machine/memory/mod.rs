@@ -5,6 +5,7 @@ use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use crate::modeling::machine::memory::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use crate::{JingleContext, JingleError};
@@ -13,7 +14,6 @@ use jingle_sleigh::{
 };
 use std::ops::Add;
 use z3::ast::{Array, BV, Bool};
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
