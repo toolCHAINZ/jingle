@@ -1,7 +1,7 @@
+pub mod analysis;
 mod context;
 mod error;
 pub mod modeling;
-pub mod analysis;
 #[cfg(feature = "pyo3")]
 pub mod python;
 mod translator;

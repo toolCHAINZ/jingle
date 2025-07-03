@@ -1,7 +1,7 @@
+use jingle_sleigh::VarNode;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Range;
-use jingle_sleigh::VarNode;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct VarNodeSpaceSet {
@@ -225,9 +225,9 @@ impl PartialOrd for VarNodeSet {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::Ordering;
-    use crate::sleigh::VarNode;
     use crate::analysis::varnode::VarNodeSet;
+    use crate::sleigh::VarNode;
+    use std::cmp::Ordering;
 
     #[test]
     fn test_single_insert() {
@@ -525,23 +525,44 @@ mod tests {
     fn test_union_basic() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 4 };
-        let vn2 = VarNode { space_index: 0, offset: 4, size: 4 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 4,
+            size: 4,
+        };
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.union(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
-        assert_eq!(items, vec![
-            VarNode { space_index: 0, offset: 0, size: 8 }
-        ]);
+        assert_eq!(
+            items,
+            vec![VarNode {
+                space_index: 0,
+                offset: 0,
+                size: 8
+            }]
+        );
     }
 
     #[test]
     fn test_union_disjoint_spaces() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 4 };
-        let vn2 = VarNode { space_index: 1, offset: 0, size: 4 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            space_index: 1,
+            offset: 0,
+            size: 4,
+        };
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.union(&set2);
@@ -554,24 +575,51 @@ mod tests {
     fn test_subtract_partial_overlap() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 8 };
-        let vn2 = VarNode { space_index: 0, offset: 2, size: 4 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 8,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 2,
+            size: 4,
+        };
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.subtract(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
-        assert_eq!(items, vec![
-            VarNode { space_index: 0, offset: 0, size: 2 },
-            VarNode { space_index: 0, offset: 6, size: 2 }
-        ]);
+        assert_eq!(
+            items,
+            vec![
+                VarNode {
+                    space_index: 0,
+                    offset: 0,
+                    size: 2
+                },
+                VarNode {
+                    space_index: 0,
+                    offset: 6,
+                    size: 2
+                }
+            ]
+        );
     }
 
     #[test]
     fn test_subtract_full_overlap() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 4 };
-        let vn2 = VarNode { space_index: 0, offset: 0, size: 4 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.subtract(&set2);
@@ -582,8 +630,16 @@ mod tests {
     fn test_subtract_disjoint() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 4 };
-        let vn2 = VarNode { space_index: 0, offset: 8, size: 4 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 8,
+            size: 4,
+        };
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.subtract(&set2);
@@ -594,7 +650,11 @@ mod tests {
     #[test]
     fn test_covers_empty_set() {
         let set = VarNodeSet::default();
-        let vn = VarNode { space_index: 0, offset: 0, size: 4 };
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
         assert!(!set.covers(&vn));
     }
 
@@ -607,26 +667,53 @@ mod tests {
     #[test]
     fn test_insert_and_subtract_adjacent() {
         let mut set = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 4 };
-        let vn2 = VarNode { space_index: 0, offset: 4, size: 4 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 4,
+            size: 4,
+        };
         set.insert(&vn1);
         set.insert(&vn2);
         let mut set2 = VarNodeSet::default();
-        let vn3 = VarNode { space_index: 0, offset: 2, size: 4 };
+        let vn3 = VarNode {
+            space_index: 0,
+            offset: 2,
+            size: 4,
+        };
         set2.insert(&vn3);
         set.subtract(&set2);
         let items = set.varnodes().collect::<Vec<_>>();
-        assert_eq!(items, vec![
-            VarNode { space_index: 0, offset: 0, size: 2 },
-            VarNode { space_index: 0, offset: 6, size: 2 }
-        ]);
+        assert_eq!(
+            items,
+            vec![
+                VarNode {
+                    space_index: 0,
+                    offset: 0,
+                    size: 2
+                },
+                VarNode {
+                    space_index: 0,
+                    offset: 6,
+                    size: 2
+                }
+            ]
+        );
     }
 
     #[test]
     fn test_union_with_empty() {
         let mut set1 = VarNodeSet::default();
         let set2 = VarNodeSet::default();
-        let vn = VarNode { space_index: 0, offset: 0, size: 4 };
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
         set1.insert(&vn);
         set1.union(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
@@ -637,7 +724,11 @@ mod tests {
     fn test_subtract_empty() {
         let mut set1 = VarNodeSet::default();
         let set2 = VarNodeSet::default();
-        let vn = VarNode { space_index: 0, offset: 0, size: 4 };
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 4,
+        };
         set1.insert(&vn);
         set1.subtract(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
@@ -647,9 +738,21 @@ mod tests {
     #[test]
     fn test_insert_multiple_nonoverlapping() {
         let mut set = VarNodeSet::default();
-        let vn1 = VarNode { space_index: 0, offset: 0, size: 2 };
-        let vn2 = VarNode { space_index: 0, offset: 4, size: 2 };
-        let vn3 = VarNode { space_index: 0, offset: 8, size: 2 };
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0,
+            size: 2,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 4,
+            size: 2,
+        };
+        let vn3 = VarNode {
+            space_index: 0,
+            offset: 8,
+            size: 2,
+        };
         set.insert(&vn1);
         set.insert(&vn2);
         set.insert(&vn3);
