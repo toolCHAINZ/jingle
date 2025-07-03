@@ -1,3 +1,4 @@
+pub mod analysis;
 mod context;
 mod error;
 pub mod modeling;
