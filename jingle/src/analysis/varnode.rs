@@ -113,9 +113,9 @@ impl PartialOrd for VarNodeSpaceSet {
         if all_covered && other_covered {
             Some(Ordering::Equal)
         } else if all_covered {
-            Some(Ordering::Less)
-        } else if other_covered {
             Some(Ordering::Greater)
+        } else if other_covered {
+            Some(Ordering::Less)
         } else {
             None
         }
@@ -275,15 +275,15 @@ mod tests {
             size: 1,
         };
         set2.insert(&vn2);
-        assert_eq!(set.partial_cmp(&set2), Some(Ordering::Less));
+        assert!(set > set2);
         set2.insert(&vn);
-        assert_eq!(set.partial_cmp(&set2), Some(Ordering::Equal));
+        assert!(set == set2);
         set2.insert(&VarNode {
             space_index: 0,
             offset: 80,
             size: 4,
         });
-        assert_eq!(set.partial_cmp(&set2), Some(Ordering::Greater));
+        assert!(set < set2);
         set.insert(&VarNode {
             space_index: 1,
             offset: 80,
