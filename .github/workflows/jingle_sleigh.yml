@@ -41,6 +41,33 @@ jobs:
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@master
+        id: toolchain
         with:
           toolchain: ${{matrix.rust}}
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-${{ steps.toolchain.outputs.cachekey }}-
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo git index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-${{ steps.toolchain.outputs.cachekey }}-
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-target-${{ steps.toolchain.outputs.cachekey }}-
+            ${{ runner.os }}-target-
       - run: cargo build --all-features --manifest-path jingle_sleigh/Cargo.toml
