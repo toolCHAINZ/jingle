@@ -6,8 +6,6 @@ permissions:
 
 on:
   push:
-    branches:
-      - main
 
 jobs:
   # todo: re-enable when able to push to crates.io
