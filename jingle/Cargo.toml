@@ -1,6 +1,6 @@
 [package]
 name = "jingle"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "SMT Modeling for Ghidra's PCODE"
 homepage = "https://github.com/toolCHAINZ/jingle"
@@ -19,7 +19,7 @@ name = "jingle"
 required-features = ["bin_features"]
 
 [dependencies]
-jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.1" }
+jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.2" }
 z3 = { git = "https://github.com/prove-rs/z3.rs.git", branch = "master" }
 z3-sys = { git = "https://github.com/prove-rs/z3.rs.git", branch = "master", optional = true }
 thiserror = "2.0"
