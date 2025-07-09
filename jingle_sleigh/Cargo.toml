@@ -1,6 +1,6 @@
 [package]
 name = "jingle_sleigh"
-version = "0.2.1"
+version = "0.1.1"
 edition = "2024"
 description = "An FFI layer for Ghidra's SLEIGH"
 homepage = "https://github.com/toolCHAINZ/jingle"
@@ -13,6 +13,8 @@ categories = ["api-bindings"]
 keywords = ["ghidra", "sleigh", "pcode"]
 include = [
     "Cargo.toml",
+    "README.md",
+    "LICENSE",
     "SLEIGH_LICENSE",
     "build.rs",
     "src/**/*.*"
