@@ -51,6 +51,8 @@ jobs:
           token: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Pre-build jingle_sleigh # prebuild step doesn't work during publish?
+        run: cargo build --manifest-path jingle_sleigh/Cargo.toml
       - name: Run release-plz
         uses: release-plz/action@v0.5
         with:
