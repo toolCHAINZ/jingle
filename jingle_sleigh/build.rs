@@ -188,8 +188,13 @@ fn copy_cpp_sources<T: AsRef<Path>, E: AsRef<Path>>(
     }
 }
 
+fn crate_root() -> PathBuf {
+    // The directory containing build.rs
+    PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+}
+
 fn ffi_rs_path() -> PathBuf {
-    let mut p = PathBuf::new();
+    let mut p = crate_root();
     p.push("src");
     p.push("ffi");
     p
@@ -214,7 +219,7 @@ fn zlib_path() -> PathBuf {
 }
 
 fn submod_path() -> PathBuf {
-    let mut p = PathBuf::new();
+    let mut p = crate_root();
     p.push("ghidra");
     p
 }
