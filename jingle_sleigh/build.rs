@@ -96,6 +96,8 @@ const RUST_FFI_BRIDGES: &[&str] = &[
 
 fn main() {
     // Ensure the working directory is the crate root for all relative paths
+    // We have to use relative paths because something in cxx_build is breaking
+    // if we use absolute; maybe this can be configured but doing this for now
     std::env::set_current_dir(std::env::var("CARGO_MANIFEST_DIR").unwrap()).unwrap();
 
     if cfg!(target_os = "macos") {
@@ -199,13 +201,8 @@ fn copy_cpp_sources<T: AsRef<Path>, E: AsRef<Path>>(
     }
 }
 
-fn crate_root() -> PathBuf {
-    // The directory containing build.rs
-    PathBuf::new()
-}
-
 fn ffi_rs_path() -> PathBuf {
-    let mut p = crate_root();
+    let mut p = PathBuf::new();
     p.push("src");
     p.push("ffi");
     p
@@ -230,7 +227,7 @@ fn zlib_path() -> PathBuf {
 }
 
 fn submod_path() -> PathBuf {
-    let mut p = crate_root();
+    let mut p = PathBuf::new();
     p.push("ghidra");
     p
 }
