@@ -195,7 +195,6 @@ fn crate_root() -> PathBuf {
 
 fn ffi_rs_path() -> PathBuf {
     let mut p = crate_root();
-    p.push("jingle_sleigh");
     p.push("src");
     p.push("ffi");
     p
