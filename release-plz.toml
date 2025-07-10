@@ -1,0 +1,20 @@
+[workspace]
+allow_dirty = true # allow updating repositories with uncommitted changes
+pr_branch_prefix = "release-plz-" # PR branch prefix
+pr_labels = ["release"] # add the `release` label to the release Pull Request
+publish_allow_dirty = true # add `--allow-dirty` to `cargo publish`
+
+[[package]] # the double square brackets define a TOML table array
+name = "jingle_python"
+publish = false # disable `cargo publish` for `package_a`
+git_release_enable = false
+git_tag_enable = false
+
+[[package]]
+name = "jingle"
+version_group = "jingle"
+
+[[package]]
+name = "jingle_sleigh"
+version_group = "jingle"
+
