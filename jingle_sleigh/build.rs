@@ -95,6 +95,11 @@ const RUST_FFI_BRIDGES: &[&str] = &[
 ];
 
 fn main() {
+    // Ensure the working directory is the crate root for all relative paths
+    // We have to use relative paths because something in cxx_build is breaking
+    // if we use absolute; maybe this can be configured but doing this for now
+    std::env::set_current_dir(std::env::var("CARGO_MANIFEST_DIR").unwrap()).unwrap();
+
     if cfg!(target_os = "macos") {
         println!("cargo::rustc-link-search=/opt/homebrew/lib")
     }
@@ -127,13 +132,12 @@ fn main() {
 
     let sleigh_sources: Vec<PathBuf> = SLEIGH_SOURCES.iter().map(map_path(sleigh_path)).collect();
     let zlib_sources: Vec<PathBuf> = ZLIB_SOURCES.iter().map(map_path(zlib_path)).collect();
-
     // This assumes all your C++ bindings are in lib
     let mut bridge = cxx_build::bridges(&rust_bridges);
     bridge
-        .files(jingle_cpp_sources)
-        .files(sleigh_sources)
-        .files(zlib_sources)
+        .files(&jingle_cpp_sources)
+        .files(&sleigh_sources)
+        .files(&zlib_sources)
         .flag_if_supported("-std=c++17")
         .flag_if_supported("-DLOCAL_ZLIB")
         .flag_if_supported("-DNO_GZIP")
@@ -146,9 +150,18 @@ fn main() {
     bridge.compile("jingle_sleigh");
 
     println!("cargo::rerun-if-changed=src/ffi/cpp/");
-    for src in rust_bridges {
-        println!("cargo::rerun-if-changed={}", src.to_str().unwrap());
+    macro_rules! rerun_for_files {
+        ($files:expr) => {
+            for file in $files {
+                println!("cargo::rerun-if-changed={}", file.to_str().unwrap());
+            }
+        };
     }
+
+    rerun_for_files!(rust_bridges);
+    rerun_for_files!(sleigh_sources);
+    rerun_for_files!(jingle_cpp_sources);
+    rerun_for_files!(zlib_sources);
 }
 
 fn copy_sources() {
