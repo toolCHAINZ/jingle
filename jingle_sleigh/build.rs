@@ -201,7 +201,7 @@ fn copy_cpp_sources<T: AsRef<Path>, E: AsRef<Path>>(
 
 fn crate_root() -> PathBuf {
     // The directory containing build.rs
-    PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+    PathBuf::new()
 }
 
 fn ffi_rs_path() -> PathBuf {
