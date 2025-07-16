@@ -20,8 +20,8 @@ required-features = ["bin_features"]
 
 [dependencies]
 jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.2" }
-z3 = "0.13.0"
-z3-sys = { version = "0.9.0", optional = true }
+z3 = "0.13"
+z3-sys = { version = "0.9", optional = true }
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"

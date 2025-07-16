@@ -6,21 +6,18 @@ use serde::{Deserialize, Serialize};
 use std::ops::Not;
 use z3::ast::{Ast, BV};
 
-#[deprecated]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockConditionalBranchInfo {
     pub condition: VarNode,
     pub destination: GeneralizedVarNode,
 }
 
-#[deprecated]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BranchConstraint {
     pub last: BlockEndBehavior,
     pub conditional_branches: Vec<BlockConditionalBranchInfo>,
 }
 
-#[deprecated]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BlockEndBehavior {
     Fallthrough(VarNode),
