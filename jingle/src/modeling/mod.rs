@@ -134,9 +134,9 @@ pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
         } else {
             if !self.get_branch_constraint().conditional_branches.is_empty()
                 || !other
-                .get_branch_constraint()
-                .conditional_branches
-                .is_empty()
+                    .get_branch_constraint()
+                    .conditional_branches
+                    .is_empty()
             {
                 return Ok(Some(Bool::from_bool(self.get_jingle().z3, false)));
             }
