@@ -9,12 +9,3 @@ name = "jingle_python"
 publish = false # disable `cargo publish` for `package_a`
 git_release_enable = false
 git_tag_enable = false
-
-[[package]]
-name = "jingle"
-version_group = "jingle"
-
-[[package]]
-name = "jingle_sleigh"
-version_group = "jingle"
-
