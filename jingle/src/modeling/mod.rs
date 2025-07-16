@@ -123,6 +123,8 @@ pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
     /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same
     /// destination as [self], given that [self] has branching behavior
     /// todo: should swap self and other to make this align better with [upholds_postcondition]
+    #[deprecated]
+    #[expect(deprecated)]
     fn branch_comparison<T: ModelingContext<'ctx>>(
         &self,
         other: &T,
@@ -130,6 +132,14 @@ pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
         if !self.get_branch_constraint().has_branch() {
             Ok(None)
         } else {
+            if !self.get_branch_constraint().conditional_branches.is_empty()
+                || !other
+                .get_branch_constraint()
+                .conditional_branches
+                .is_empty()
+            {
+                return Ok(Some(Bool::from_bool(self.get_jingle().z3, false)));
+            }
             let self_bv = self.get_branch_constraint().build_bv(self)?;
             let other_bv = other.get_branch_constraint().build_bv(other)?;
             let self_bv = zext_to_match(self_bv, &other_bv);
@@ -151,6 +161,7 @@ pub trait ModelingContext<'ctx>: ArchInfoProvider + Debug + Sized {
 
     /// Returns a [Bool] assertion that the given trace's end-branch behavior is able to
     /// branch to the given [u64]
+    #[expect(deprecated)]
     fn can_branch_to_address(&self, addr: u64) -> Result<Bool<'ctx>, JingleError> {
         let branch_constraint = self.get_branch_constraint().build_bv(self)?;
         let addr_bv = BV::from_i64(
