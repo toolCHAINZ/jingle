@@ -24,6 +24,7 @@ pub enum BlockEndBehavior {
     UnconditionalBranch(GeneralizedVarNode),
 }
 
+#[deprecated]
 impl BlockEndBehavior {
     pub fn read_dest_metadata<'ctx, 'a, T: ModelingContext<'ctx>>(
         &self,
@@ -72,6 +73,7 @@ impl BlockEndBehavior {
     }
 }
 
+#[expect(deprecated)]
 impl BranchConstraint {
     pub fn new(last: &VarNode) -> Self {
         Self {
@@ -101,6 +103,7 @@ impl BranchConstraint {
         self.last = UnconditionalBranch(new_last.clone())
     }
 
+    #[deprecated]
     pub fn build_bv<'ctx, 'a, T: ModelingContext<'ctx>>(
         &self,
         ctx: &'a T,
@@ -127,6 +130,7 @@ impl BranchConstraint {
         Ok(dest_bv)
     }
 
+    #[deprecated]
     pub fn build_bv_metadata<'ctx, 'a, T: ModelingContext<'ctx>>(
         &self,
         ctx: &'a T,
