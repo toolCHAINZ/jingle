@@ -74,7 +74,6 @@ impl BlockEndBehavior {
 }
 
 #[expect(deprecated)]
-
 impl BranchConstraint {
     pub fn new(last: &VarNode) -> Self {
         Self {
