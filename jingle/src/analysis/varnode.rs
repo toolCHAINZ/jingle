@@ -31,7 +31,7 @@ impl VarNodeSpaceSet {
         other
             .vn_starts
             .iter()
-            .map(|a| (*a.0..*a.1))
+            .map(|a| *a.0..*a.1)
             .for_each(|other_range| {
                 for x in self.get_overlaps(&other_range) {
                     let start = x.start.max(other_range.start);
@@ -102,7 +102,7 @@ impl VarNodeSpaceSet {
             .filter(|&(_start, &end)| end >= vn.start)
             .map(|(_a, b)| *b)
             .unwrap_or(vn.end);
-        self.vn_starts.range(first..last).map(|(a, b)| (*a..*b))
+        self.vn_starts.range(first..last).map(|(a, b)| *a..*b)
     }
 }
 
