@@ -5,18 +5,22 @@ use crate::sleigh::{GeneralizedVarNode, VarNode};
 use serde::{Deserialize, Serialize};
 use std::ops::Not;
 use z3::ast::{Ast, BV};
+
+#[deprecated]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockConditionalBranchInfo {
     pub condition: VarNode,
     pub destination: GeneralizedVarNode,
 }
 
+#[deprecated]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BranchConstraint {
     pub last: BlockEndBehavior,
     pub conditional_branches: Vec<BlockConditionalBranchInfo>,
 }
 
+#[deprecated]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BlockEndBehavior {
     Fallthrough(VarNode),
@@ -134,7 +138,7 @@ impl BranchConstraint {
         for cond_branch in self.conditional_branches.iter().rev() {
             let condition_bv = ctx
                 .get_final_state()
-                .read_varnode_metadata(&cond_branch.condition)?
+                .read_varnode(&cond_branch.condition)?
                 ._eq(&BV::from_i64(
                     ctx.get_jingle().z3,
                     0,
