@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.1.2...jingle-v0.1.3) - 2025-07-16
+
+### Fixed
+
+- conditional branch metadata bv size ([#70](https://github.com/toolCHAINZ/jingle/pull/70))
+
 ## [0.1.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.1.1...jingle-v0.1.2) - 2025-07-10
 
 ### Other
