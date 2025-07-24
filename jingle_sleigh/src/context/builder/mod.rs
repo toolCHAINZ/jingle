@@ -1,5 +1,5 @@
 use crate::context::SleighContext;
-use crate::context::builder::language_def::{LanguageDefinition, parse_ldef};
+use crate::context::builder::language_def::{Language, parse_ldef};
 use crate::context::builder::processor_spec::parse_pspec;
 use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{InvalidLanguageId, LanguageSpecRead};
@@ -13,7 +13,7 @@ pub(crate) mod processor_spec;
 
 #[derive(Debug, Default, Clone)]
 pub struct SleighContextBuilder {
-    defs: Vec<(LanguageDefinition, PathBuf)>,
+    defs: Vec<(Language, PathBuf)>,
 }
 
 impl SleighContextBuilder {
@@ -21,12 +21,12 @@ impl SleighContextBuilder {
         self.defs.iter().map(|(l, _)| l.id.as_str()).collect()
     }
 
-    fn get_language(&self, id: &str) -> Option<&(LanguageDefinition, PathBuf)> {
+    fn get_language(&self, id: &str) -> Option<&(Language, PathBuf)> {
         self.defs.iter().find(|(p, _)| p.id.eq(id))
     }
     #[instrument(skip_all, fields(%id))]
     pub fn build(&self, id: &str) -> Result<SleighContext, JingleSleighError> {
-        let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId)?;
+        let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId(id.to_string()))?;
         let mut context = SleighContext::new(lang, path)?;
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);
@@ -51,20 +51,20 @@ impl SleighContextBuilder {
         Ok(SleighContextBuilder { defs: ldef })
     }
 
-    fn _load_folder(path: &Path) -> Result<Vec<(LanguageDefinition, PathBuf)>, JingleSleighError> {
+    fn _load_folder(path: &Path) -> Result<Vec<(Language, PathBuf)>, JingleSleighError> {
         let path = path.canonicalize();
         let path = path.map_err(|_| LanguageSpecRead)?;
         if !path.is_dir() {
             return Err(LanguageSpecRead);
         }
         let ldef_paths = find_ldef(&path)?;
-        let defs: Vec<(LanguageDefinition, PathBuf)> = ldef_paths
+        let defs: Vec<(Language, PathBuf)> = ldef_paths
             .iter()
             .flat_map(|ldef_path| {
-                let defs: Vec<LanguageDefinition> = parse_ldef(ldef_path.as_path()).unwrap();
+                let defs: Vec<Language> = parse_ldef(ldef_path.as_path()).unwrap();
                 defs.iter()
                     .map(|f| (f.clone(), path.to_path_buf()))
-                    .collect::<Vec<(LanguageDefinition, PathBuf)>>()
+                    .collect::<Vec<(Language, PathBuf)>>()
             })
             .collect();
         Ok(defs)

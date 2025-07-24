@@ -7,16 +7,18 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 #[serde(rename = "context_set")]
 pub struct ContextSet {
+    #[serde(rename = "@name")]
     pub name: String,
-    #[serde(rename = "val")]
+    #[serde(rename = "@val")]
     pub value: String,
 }
 #[expect(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename = "context_set")]
 pub struct ContextSetSpace {
+    #[serde(rename = "@space")]
     pub space: String,
-    #[serde(rename = "$value")]
+    #[serde(rename = "#content")]
     pub sets: Vec<ContextSet>,
 }
 

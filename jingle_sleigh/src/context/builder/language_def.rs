@@ -15,31 +15,44 @@ pub enum SleighEndian {
 #[expect(unused)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct Compiler {
+    #[serde(rename = "@name")]
     pub name: String,
+    #[serde(rename = "@spec")]
     pub spec: String,
+    #[serde(rename = "@id")]
     pub id: String,
 }
 
 #[expect(unused)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct ExternalName {
+    #[serde(rename = "@tool")]
     pub tool: String,
+    #[serde(rename = "@name")]
     pub name: String,
 }
 
 #[expect(unused)]
 #[derive(Clone, Debug, Deserialize)]
-pub struct LanguageDefinition {
+#[serde(rename = "language")]
+pub struct Language {
+    #[serde(rename = "@processor")]
     pub processor: String,
+    #[serde(rename = "@endian")]
     pub endian: SleighEndian,
+    #[serde(rename = "@size")]
+    pub size: String,
+    #[serde(rename = "@variant")]
     pub variant: String,
+    #[serde(rename = "@version")]
     pub version: String,
-    #[serde(rename = "slafile")]
+    #[serde(rename = "@slafile")]
     pub sla_file: PathBuf,
-    #[serde(rename = "processorspec")]
+    #[serde(rename = "@processorspec")]
     pub processor_spec: PathBuf,
-    #[serde(rename = "manualindexfile")]
+    #[serde(rename = "@manualindexfile")]
     pub manual_index_file: Option<PathBuf>,
+    #[serde(rename = "@id")]
     pub id: String,
     pub description: String,
     pub compiler: Vec<Compiler>,
@@ -49,11 +62,11 @@ pub struct LanguageDefinition {
 #[derive(Debug, Deserialize)]
 #[serde(rename = "language_definitions")]
 struct LanguageDefinitions {
-    #[serde(rename = "$value")]
-    pub language_definitions: Vec<LanguageDefinition>,
+    #[serde(rename = "#content")]
+    pub language_definitions: Vec<Language>,
 }
 
-pub(super) fn parse_ldef(path: &Path) -> Result<Vec<LanguageDefinition>, JingleSleighError> {
+pub(super) fn parse_ldef(path: &Path) -> Result<Vec<Language>, JingleSleighError> {
     let file = File::open(path).map_err(|_| LanguageSpecRead)?;
     let def: LanguageDefinitions = serde_xml_rs::from_reader(file)?;
     Ok(def.language_definitions)
@@ -61,7 +74,7 @@ pub(super) fn parse_ldef(path: &Path) -> Result<Vec<LanguageDefinition>, JingleS
 
 #[cfg(test)]
 mod tests {
-    use crate::context::builder::language_def::LanguageDefinitions;
+    use crate::context::builder::language_def::{LanguageDefinitions};
     use serde_xml_rs::from_str;
     use std::fs::File;
     use std::io::Read;
