@@ -1,4 +1,6 @@
 pub mod simple;
+pub mod pcode;
+pub mod flat;
 
 pub trait JoinSemiLattice: Eq + PartialOrd {
     fn join(&mut self, other: &Self);
