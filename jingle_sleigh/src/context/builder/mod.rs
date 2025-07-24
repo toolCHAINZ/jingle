@@ -26,7 +26,9 @@ impl SleighContextBuilder {
     }
     #[instrument(skip_all, fields(%id))]
     pub fn build(&self, id: &str) -> Result<SleighContext, JingleSleighError> {
-        let (lang, path) = self.get_language(id).ok_or(InvalidLanguageId(id.to_string()))?;
+        let (lang, path) = self
+            .get_language(id)
+            .ok_or(InvalidLanguageId(id.to_string()))?;
         let mut context = SleighContext::new(lang, path)?;
         event!(Level::INFO, "Created sleigh context");
         let pspec_path = path.join(&lang.processor_spec);

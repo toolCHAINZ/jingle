@@ -74,7 +74,7 @@ pub(super) fn parse_ldef(path: &Path) -> Result<Vec<Language>, JingleSleighError
 
 #[cfg(test)]
 mod tests {
-    use crate::context::builder::language_def::{LanguageDefinitions};
+    use crate::context::builder::language_def::LanguageDefinitions;
     use serde_xml_rs::from_str;
     use std::fs::File;
     use std::io::Read;

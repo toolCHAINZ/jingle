@@ -196,7 +196,10 @@ pub fn load_with_gimli<'a, P: AsRef<Path>, P2: AsRef<Path> + Debug>(
     let data = fs::read(p.as_ref()).map_err(|_| JingleSleighError::ImageLoadError)?;
     let f = object::File::parse(data.as_slice()).map_err(|_| JingleSleighError::ImageLoadError)?;
     let owned = OwnedFile::new(&f)?;
-    let arch = map_gimli_architecture(&f).ok_or(JingleSleighError::InvalidLanguageId(format!("{:?} (gimli)", f.architecture())))?;
+    let arch = map_gimli_architecture(&f).ok_or(JingleSleighError::InvalidLanguageId(format!(
+        "{:?} (gimli)",
+        f.architecture()
+    )))?;
     let sleigh = SleighContextBuilder::load_ghidra_installation(ghidra_path)?.build(arch)?;
     let loaded = sleigh.initialize_with_image(owned)?;
     Ok(loaded)
