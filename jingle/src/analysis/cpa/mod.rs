@@ -1,5 +1,5 @@
-mod lattice;
-mod state;
+pub mod lattice;
+pub mod state;
 
 use crate::analysis::cpa::state::AbstractState;
 use std::collections::VecDeque;

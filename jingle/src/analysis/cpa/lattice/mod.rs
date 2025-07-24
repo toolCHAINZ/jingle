@@ -1,4 +1,4 @@
-mod simple;
+pub mod simple;
 
 pub trait JoinSemiLattice: Eq + PartialOrd {
     fn join(&mut self, other: &Self);
