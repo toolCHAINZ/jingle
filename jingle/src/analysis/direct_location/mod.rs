@@ -1,6 +1,3 @@
-use std::iter::{empty, once, Chain, Once};
-use petgraph::graphmap::DiGraphMap;
-use jingle_sleigh::PcodeOperation;
 use crate::analysis::Analysis;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
@@ -9,6 +6,9 @@ use crate::analysis::cpa::state::AbstractState;
 use crate::analysis::direct_location::SuccessorIterator::{Conditional, Single};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::PcodeOperation;
+use petgraph::graphmap::DiGraphMap;
+use std::iter::{Chain, Once, empty, once};
 
 pub enum SuccessorIterator {
     Terminate,

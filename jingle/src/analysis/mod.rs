@@ -1,11 +1,11 @@
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
+pub mod cfg;
 pub mod cpa;
+pub mod direct_location;
 pub mod pcode_store;
 pub mod varnode;
-pub mod direct_location;
-pub mod cfg;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure
 /// for running and combining CPAs. The output of the CPA is often not exactly in a format

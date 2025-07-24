@@ -1,7 +1,7 @@
+use crate::analysis::cpa::lattice::JoinSemiLattice;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, LowerHex};
 use std::hash::Hash;
-use crate::analysis::cpa::lattice::JoinSemiLattice;
 
 #[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
 pub enum FlatLattice<C> {

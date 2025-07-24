@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use crate::JingleContext;
+use crate::modeling::machine::MachineState;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::PcodeOperation;
 use petgraph::Direction;
 use petgraph::graphmap::DiGraphMap;
+use std::collections::HashMap;
 use z3::ast::{Ast, Bool};
 use z3::{Model, Solver};
-use jingle_sleigh::PcodeOperation;
-use crate::JingleContext;
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use crate::modeling::machine::MachineState;
 
 pub struct PcodeCfg {
     graph: DiGraphMap<ConcretePcodeAddress, PcodeOperation>,

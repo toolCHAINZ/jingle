@@ -1,8 +1,8 @@
-use std::iter::{empty, once};
-use jingle_sleigh::PcodeOperation;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::PcodeOperation;
+use std::iter::{empty, once};
 
 pub type PcodeAddressLattice = FlatLattice<ConcretePcodeAddress>;
 
