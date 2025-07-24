@@ -20,6 +20,7 @@ unreached abstract state, indicating a fixed point over the given domain.
 As the abstract states form a lattice, this algorithm is guaranteed to terminate on any finite
 set of abstract states.
 */
+#[expect(unused)]
 pub trait ConfigurableProgramAnalysis {
     /// An abstract state. Usually (but not necessarily) represents a single program location.
     type State: AbstractState + Debug;

@@ -1,7 +1,5 @@
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::{ArchInfoProvider, PcodeOperation, VarNode};
 
 mod cpa;
 pub mod pcode_store;
@@ -24,7 +22,6 @@ pub trait Analysis {
     fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output;
     /// Given an initial [ConcretePcodeAddress], derive the [Input](Self::Input) state for
     /// a CPA
-
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;
 }
 

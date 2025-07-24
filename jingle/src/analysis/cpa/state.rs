@@ -3,16 +3,19 @@ use jingle_sleigh::PcodeOperation;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
+    #[expect(unused)]
     NoOp,
     Merged,
 }
 
 impl MergeOutcome {
+    #[expect(unused)]
     pub fn merged(&self) -> bool {
         matches!(self, MergeOutcome::Merged)
     }
 }
 
+#[expect(unused)]
 pub trait AbstractState: JoinSemiLattice + Clone {
     type SuccessorIter: Iterator<Item = Self>;
     /// Determines how two abstract states should be merged. Rather than consuming states
