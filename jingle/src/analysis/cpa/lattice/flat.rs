@@ -20,7 +20,7 @@ impl<C: Display> Display for FlatLattice<C> {
         match self {
             FlatLattice::Value(a) => f
                 .debug_tuple("FlatLattice")
-                .field(&format_args!("{}", a))
+                .field(&format_args!("{a}"))
                 .finish(),
             FlatLattice::Top => write!(f, "FlatLattice(Top)"),
         }
@@ -32,7 +32,7 @@ impl<C: LowerHex> LowerHex for FlatLattice<C> {
         match self {
             FlatLattice::Value(a) => f
                 .debug_tuple("FlatLattice")
-                .field(&format_args!("{:x}", a))
+                .field(&format_args!("{a:x}"))
                 .finish(),
             FlatLattice::Top => write!(f, "FlatLattice(Top)"),
         }
