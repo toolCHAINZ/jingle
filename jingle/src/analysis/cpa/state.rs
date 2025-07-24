@@ -13,7 +13,6 @@ impl MergeOutcome {
     }
 }
 
-#[expect(unused)]
 pub trait AbstractState: JoinSemiLattice + Clone {
     type SuccessorIter: Iterator<Item = Self>;
     /// Determines how two abstract states should be merged. Rather than consuming states
