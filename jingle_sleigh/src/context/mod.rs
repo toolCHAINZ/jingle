@@ -12,7 +12,7 @@ use crate::space::SpaceInfo;
 pub use builder::SleighContextBuilder;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
-use crate::context::builder::language_def::LanguageDefinition;
+use crate::context::builder::language_def::Language;
 use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
@@ -72,7 +72,7 @@ impl ArchInfoProvider for SleighContext {
 
 impl SleighContext {
     pub(crate) fn new<T: AsRef<Path>>(
-        language_def: &LanguageDefinition,
+        language_def: &Language,
         base_path: T,
     ) -> Result<Self, JingleSleighError> {
         let path = base_path.as_ref().join(&language_def.sla_file);

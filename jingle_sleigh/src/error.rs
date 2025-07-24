@@ -15,8 +15,8 @@ pub enum JingleSleighError {
     #[error("failed to parse sleigh language definition")]
     LanguageSpecParse(#[from] serde_xml_rs::Error),
     /// The user provided a sleigh language ID that has not been loaded
-    #[error("that's not a valid language id")]
-    InvalidLanguageId,
+    #[error("Could not find sleigh language with ID: {0}")]
+    InvalidLanguageId(String),
     /// Attempted to initialize sleigh but something went wrong
     #[error("Something went wrong putting bytes into sleigh: {0}")]
     SleighInitError(String),

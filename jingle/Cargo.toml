@@ -26,10 +26,11 @@ thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
 clap = { version = "4.5", optional = true, features = ["derive"] }
-confy = { version = "0.6" , optional = true}
+confy = { version = "1.0.0", optional = true}
 hex = { version = "0.4" , optional = true}
 anyhow = { version = "1.0", optional = true }
-pyo3 = { version = "0.24", optional = true }
+pyo3 = { version = "0.25", optional = true }
+petgraph = "0.8.2"
 
 [features]
 default = []
