@@ -3,13 +3,11 @@ use jingle_sleigh::PcodeOperation;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
-    #[expect(unused)]
     NoOp,
     Merged,
 }
 
 impl MergeOutcome {
-    #[expect(unused)]
     pub fn merged(&self) -> bool {
         matches!(self, MergeOutcome::Merged)
     }

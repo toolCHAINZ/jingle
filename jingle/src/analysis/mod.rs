@@ -1,7 +1,7 @@
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
-mod cpa;
+pub mod cpa;
 pub mod pcode_store;
 pub mod varnode;
 
