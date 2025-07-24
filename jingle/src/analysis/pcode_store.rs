@@ -1,19 +1,16 @@
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{ArchInfoProvider, PcodeOperation, VarNode};
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 pub trait PcodeStore {
     fn get_pcode_op_at(&self, addr: ConcretePcodeAddress) -> Option<PcodeOperation>;
-
 }
 
-pub trait EntryPoint{
+pub trait EntryPoint {
     fn get_entry(&self) -> ConcretePcodeAddress;
 }
 
-
-impl<'a> PcodeStore for LoadedSleighContext<'a>{
-
+impl<'a> PcodeStore for LoadedSleighContext<'a> {
     fn get_pcode_op_at(&self, addr: ConcretePcodeAddress) -> Option<PcodeOperation> {
         let instr = self.instruction_at(addr.machine())?;
         if addr.pcode() as usize == instr.ops.len() {

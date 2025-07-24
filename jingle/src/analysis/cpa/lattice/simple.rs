@@ -1,5 +1,5 @@
-use std::cmp::Ordering;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
+use std::cmp::Ordering;
 
 #[derive(PartialEq, Eq)]
 pub enum SimpleLattice<C> {

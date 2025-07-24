@@ -1,11 +1,11 @@
-use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::{ArchInfoProvider, PcodeOperation, VarNode};
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::context::loaded::LoadedSleighContext;
+use jingle_sleigh::{ArchInfoProvider, PcodeOperation, VarNode};
 
-pub mod varnode;
-pub mod pcode_store;
 mod cpa;
+pub mod pcode_store;
+pub mod varnode;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure
 /// for running and combining CPAs. The output of the CPA is often not exactly in a format
@@ -29,19 +29,22 @@ pub trait Analysis {
 }
 
 pub trait AnalyzableBase: PcodeStore + Sized {
-    fn run_analysis_at<T: Analysis, S: Into<ConcretePcodeAddress>>(&self, entry: S, mut t: T) -> T::Output {
+    fn run_analysis_at<T: Analysis, S: Into<ConcretePcodeAddress>>(
+        &self,
+        entry: S,
+        mut t: T,
+    ) -> T::Output {
         let entry = t.make_initial_state(entry.into());
         t.run(self, entry)
     }
 }
 
-pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized{
+pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
     fn run_analysis<T: Analysis>(&self, mut t: T) -> T::Output {
         let entry = t.make_initial_state(self.get_entry());
         t.run(self, entry)
     }
 }
 
-
 impl<T: PcodeStore> AnalyzableBase for T {}
-impl <T: PcodeStore + EntryPoint> AnalyzableEntry for T {}
+impl<T: PcodeStore + EntryPoint> AnalyzableEntry for T {}

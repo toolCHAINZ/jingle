@@ -1,5 +1,5 @@
-use jingle_sleigh::PcodeOperation;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use jingle_sleigh::PcodeOperation;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {

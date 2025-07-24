@@ -1,9 +1,9 @@
-mod state;
 mod lattice;
+mod state;
 
+use crate::analysis::cpa::state::AbstractState;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use crate::analysis::cpa::state::AbstractState;
 
 /**
 A trait representing Configurable Program Analysis, a tunable unified framework for
