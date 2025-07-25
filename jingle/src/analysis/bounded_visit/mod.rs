@@ -6,8 +6,6 @@ use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::cmp::Ordering;
-use std::io::empty;
-use std::ops::Index;
 
 mod back_edge_visit_count;
 
