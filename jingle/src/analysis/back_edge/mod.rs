@@ -55,7 +55,7 @@ impl JoinSemiLattice for BackEdgeState {
 }
 
 impl AbstractState for BackEdgeState {
-    type SuccessorIter = Box<dyn Iterator<Item =BackEdgeState>>;
+    type SuccessorIter = Box<dyn Iterator<Item = BackEdgeState>>;
 
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.merge_sep(other)
@@ -121,10 +121,7 @@ impl Analysis for BackEdgeAnalysis {
         let _ = cpa.run_cpa(&initial_state);
         cpa.back_edges
             .into_iter()
-            .filter_map(|(a, b)| {
-                a.value()
-                    .and_then(|av| b.value().map(|bv| (*av, *bv)))
-            })
+            .filter_map(|(a, b)| a.value().and_then(|av| b.value().map(|bv| (*av, *bv))))
             .collect()
     }
 
