@@ -1,4 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
