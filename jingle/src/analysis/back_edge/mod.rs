@@ -12,26 +12,26 @@ use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
 
 #[derive(Eq, PartialEq, Clone, Debug)]
-pub struct VisitState {
-    pub path_visits: HashSet<PcodeAddressLattice>,
-    pub location: PcodeAddressLattice,
+pub struct BackEdgeState {
+    pub(crate) path_visits: HashSet<PcodeAddressLattice>,
+    pub(crate) location: PcodeAddressLattice,
 }
 
-impl VisitState {
-    pub fn new(location: PcodeAddressLattice) -> VisitState {
+impl BackEdgeState {
+    pub fn new(location: PcodeAddressLattice) -> BackEdgeState {
         Self {
             location,
             path_visits: Default::default(),
         }
     }
-    pub fn add_location(&self, loc: PcodeAddressLattice) -> VisitState {
+    pub fn add_location(&self, loc: PcodeAddressLattice) -> BackEdgeState {
         let mut s = self.clone();
         s.location = loc;
         s.path_visits.insert(loc);
         s
     }
 }
-impl PartialOrd for VisitState {
+impl PartialOrd for BackEdgeState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.location.value() == other.location.value() {
             let other_visits = other.path_visits.get(&other.location)?;
@@ -47,14 +47,15 @@ impl PartialOrd for VisitState {
     }
 }
 
-impl JoinSemiLattice for VisitState {
+impl JoinSemiLattice for BackEdgeState {
     fn join(&mut self, _other: &Self) {
-        todo!()
+        // We don't use `join` on this state so no need to implement it
+        unimplemented!()
     }
 }
 
-impl AbstractState for VisitState {
-    type SuccessorIter = Box<dyn Iterator<Item = VisitState>>;
+impl AbstractState for BackEdgeState {
+    type SuccessorIter = Box<dyn Iterator<Item =BackEdgeState>>;
 
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.merge_sep(other)
@@ -74,7 +75,7 @@ impl AbstractState for VisitState {
     }
 }
 
-pub struct BackEdgeCPA<T: PcodeStore> {
+struct BackEdgeCPA<T: PcodeStore> {
     location: DirectLocationCPA<T>,
     pub back_edges: Vec<(PcodeAddressLattice, PcodeAddressLattice)>,
 }
@@ -89,8 +90,8 @@ impl<T: PcodeStore> BackEdgeCPA<T> {
 }
 
 impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
-    type State = VisitState;
-    type Iter = IntoIter<VisitState>;
+    type State = BackEdgeState;
+    type Iter = IntoIter<BackEdgeState>;
 
     fn successor_states(&mut self, state: &Self::State) -> Self::Iter {
         let state = state.clone();
@@ -109,11 +110,11 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
     }
 }
 
-struct BackEdgeAnalysis;
+pub struct BackEdgeAnalysis;
 
 impl Analysis for BackEdgeAnalysis {
     type Output = HashMap<ConcretePcodeAddress, ConcretePcodeAddress>;
-    type Input = VisitState;
+    type Input = BackEdgeState;
 
     fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output {
         let mut cpa = BackEdgeCPA::new(store);
@@ -122,12 +123,12 @@ impl Analysis for BackEdgeAnalysis {
             .into_iter()
             .filter_map(|(a, b)| {
                 a.value()
-                    .and_then(|av| b.value().map(|bv| (av.clone(), bv.clone())))
+                    .and_then(|av| b.value().map(|bv| (*av, *bv)))
             })
             .collect()
     }
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        VisitState::new(PcodeAddressLattice::Value(addr))
+        BackEdgeState::new(PcodeAddressLattice::Value(addr))
     }
 }
