@@ -1,7 +1,7 @@
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
-mod back_edge;
+pub mod back_edge;
 pub mod cfg;
 pub mod cpa;
 pub mod direct_location;
