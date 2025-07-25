@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.1.4...jingle-v0.1.5) - 2025-07-25
+
+### Added
+
+- back edge analysis ([#76](https://github.com/toolCHAINZ/jingle/pull/76))
+- add basic analysis ([#74](https://github.com/toolCHAINZ/jingle/pull/74))
+
 ## [0.1.4](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.1.3...jingle-v0.1.4) - 2025-07-16
 
 ### Fixed
