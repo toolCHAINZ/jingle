@@ -1,7 +1,14 @@
 use std::cmp::Ordering;
+use crate::analysis::cpa::lattice::JoinSemiLattice;
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone)]
 pub(crate) struct BackEdgeVisitCount<const N: usize>([usize; N]);
+
+impl<const N: usize> Default for BackEdgeVisitCount<N>{
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
 
 impl<const N: usize> BackEdgeVisitCount<N> {
     pub(crate) fn increment(&mut self, p0: usize) {
@@ -47,5 +54,13 @@ mod tests {
         assert!(a > c);
         assert!(e > a);
         assert_eq!(d.partial_cmp(&e), None);
+    }
+}
+
+impl<const N: usize> JoinSemiLattice for BackEdgeVisitCount<N>{
+    fn join(&mut self, other: &Self) {
+        for (a,b) in self.0.iter_mut().zip(other.0.iter()){
+            *a = (*a).max(*b)
+        }
     }
 }

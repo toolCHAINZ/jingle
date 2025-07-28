@@ -6,6 +6,7 @@ use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::cmp::Ordering;
+use crate::analysis::cpa::ConfigurableProgramAnalysis;
 
 mod back_edge_visit_count;
 
@@ -65,5 +66,25 @@ impl<const N: usize> AbstractState for BoundedVisitState<N> {
             }
             state
         }))
+    }
+}
+
+impl<const N: usize> BoundedVisitState<N>{
+    pub fn new(location: ConcretePcodeAddress, edges: [BackEdge; N]) -> Self {
+        Self{
+            location: Value(location), edges, visits: Default::default()
+        }
+    }
+}
+struct BoundedVisitCPA<const N: usize> {
+    visits: BackEdgeVisitCount<N>,
+}
+
+impl<const N: usize> ConfigurableProgramAnalysis for BoundedVisitCPA<N> {
+    type State = BoundedVisitState<N>;
+    type Iter = ();
+
+    fn successor_states(&mut self, state: &Self::State) -> Self::Iter {
+        todo!()
     }
 }
