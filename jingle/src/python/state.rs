@@ -10,11 +10,11 @@ use pyo3::prelude::*;
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
 pub struct PythonState {
-    state: State<'static>,
+    state: State,
 }
 
 impl PythonState {
-    pub fn state(&self) -> &State<'static> {
+    pub fn state(&self) -> &State {
         &self.state
     }
 }
@@ -62,8 +62,8 @@ impl PythonState {
     }
 }
 
-impl From<State<'static>> for PythonState {
-    fn from(value: State<'static>) -> Self {
+impl From<State> for PythonState {
+    fn from(value: State) -> Self {
         PythonState { state: value }
     }
 }

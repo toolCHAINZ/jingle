@@ -7,7 +7,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Clone)]
 #[pyclass(unsendable, str)]
 pub struct PythonResolvedIndirectVarNode {
-    pub inner: ResolvedIndirectVarNodeDisplay<'static>,
+    pub inner: ResolvedIndirectVarNodeDisplay,
 }
 
 #[pymethods]
@@ -60,8 +60,8 @@ impl From<PythonResolvedIndirectVarNode> for PythonResolvedVarNode {
     }
 }
 
-impl From<ResolvedVarNodeDisplay<'static>> for PythonResolvedVarNode {
-    fn from(value: ResolvedVarNodeDisplay<'static>) -> Self {
+impl From<ResolvedVarNodeDisplay> for PythonResolvedVarNode {
+    fn from(value: ResolvedVarNodeDisplay) -> Self {
         match value {
             ResolvedVarNodeDisplay::Direct(d) => PythonResolvedVarNode::Direct(d),
             ResolvedVarNodeDisplay::Indirect(a) => {

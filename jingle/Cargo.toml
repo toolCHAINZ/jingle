@@ -20,8 +20,8 @@ required-features = ["bin_features"]
 
 [dependencies]
 jingle_sleigh = { path = "../jingle_sleigh", version = "0.1.4" }
-z3 = { git = "ssh://git@github.com/prove-rs/z3.rs.git", branch = "refcount" }
-z3-sys = { git = "ssh://git@github.com/prove-rs/z3.rs.git", branch = "refcount", optional = true }
+z3 = { version = "0.14.0" }
+z3-sys = { version = "0.9.5", optional = true }
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"

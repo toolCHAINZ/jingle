@@ -22,7 +22,7 @@ impl TryIntoPythonZ3 for Bool<'static> {
     }
 }
 
-impl TryFromPythonZ3 for Bool<'static> {
+impl TryFromPythonZ3 for Bool {
     fn try_from_python(py_bv: Py<PyAny>) -> PyResult<Self> {
         Python::with_gil(|py| {
             let z3 = get_python_z3()?;

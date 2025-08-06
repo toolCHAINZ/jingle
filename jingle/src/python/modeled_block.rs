@@ -9,12 +9,12 @@ use pyo3::{PyResult, pyclass, pymethods};
 
 #[pyclass(unsendable, name = "ModeledBlock")]
 pub struct PythonModeledBlock {
-    pub instr: ModeledBlock<'static>,
+    pub instr: ModeledBlock,
 }
 
 impl PythonModeledBlock {
     pub fn new<T: Iterator<Item = Instruction>>(
-        jingle: &JingleContext<'static>,
+        jingle: &JingleContext,
         i: T,
     ) -> PyResult<PythonModeledBlock> {
         Ok(Self {
