@@ -119,7 +119,7 @@ fn get_instructions(
     config: &JingleConfig,
     architecture: String,
     hex_bytes: String,
-) -> anyhow::Result<(LoadedSleighContext, Vec<Instruction>)> {
+) -> anyhow::Result<(LoadedSleighContext<'_>, Vec<Instruction>)> {
     let sleigh_build = config.sleigh_builder().context(format!(
         "Unable to parse selected architecture. \n\
     This may indicate that your configured Ghidra path is incorrect: {}",
