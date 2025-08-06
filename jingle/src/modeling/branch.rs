@@ -26,9 +26,9 @@ pub enum BlockEndBehavior {
 
 #[deprecated]
 impl BlockEndBehavior {
-    pub fn read_dest_metadata<'a, T: ModelingContext>(
+    pub fn read_dest_metadata<T: ModelingContext>(
         &self,
-        ctx: &'a T,
+        ctx: &T,
     ) -> Result<BV, JingleError> {
         match self {
             Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().ctx(), 0, (f.size * 8) as u32)),
@@ -44,7 +44,7 @@ impl BlockEndBehavior {
             }
         }
     }
-    pub fn read_dest<'a, T: ModelingContext>(&self, ctx: &'a T) -> Result<BV, JingleError> {
+    pub fn read_dest<T: ModelingContext>(&self, ctx: &T) -> Result<BV, JingleError> {
         match self {
             Fallthrough(f) => Ok(BV::from_u64(
                 ctx.get_jingle().ctx(),
@@ -101,7 +101,7 @@ impl BranchConstraint {
     }
 
     #[deprecated]
-    pub fn build_bv<'a, T: ModelingContext>(&self, ctx: &'a T) -> Result<BV, JingleError> {
+    pub fn build_bv<T: ModelingContext>(&self, ctx: &T) -> Result<BV, JingleError> {
         let mut dest_bv = self.last.read_dest(ctx)?;
         for cond_branch in self.conditional_branches.iter().rev() {
             let condition_bv = ctx
@@ -125,7 +125,7 @@ impl BranchConstraint {
     }
 
     #[deprecated]
-    pub fn build_bv_metadata<'a, T: ModelingContext>(&self, ctx: &'a T) -> Result<BV, JingleError> {
+    pub fn build_bv_metadata<T: ModelingContext>(&self, ctx: &T) -> Result<BV, JingleError> {
         let mut dest_bv = self.last.read_dest_metadata(ctx)?;
         for cond_branch in self.conditional_branches.iter().rev() {
             let condition_bv = ctx

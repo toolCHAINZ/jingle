@@ -14,7 +14,7 @@ thread_local! {
     pub static CONTEXT: RefCell<MaybeUninit<ManuallyDrop<Context>>> = const {
         RefCell::new(MaybeUninit::zeroed())
     };
-    pub static CONTEXT_INITED: RefCell<bool> = RefCell::new(false);
+    pub static CONTEXT_INITED: RefCell<bool> = const {RefCell::new(false)};
 }
 
 thread_local! {
@@ -23,7 +23,7 @@ thread_local! {
     });
 }
 fn context_switcheroo(z3: Z3_context) -> &'static ManuallyDrop<Context> {
-    if !CONTEXT_INITED.with(|r| r.borrow().clone()) {
+    if !CONTEXT_INITED.with(|r| *r.borrow()) {
         CONTEXT.replace(MaybeUninit::new(ManuallyDrop::new(unsafe {
             Context::from_raw(z3)
         })));

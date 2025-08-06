@@ -90,7 +90,7 @@ impl ModelingContext for ModeledInstruction {
         &self.original_state
     }
 
-    fn get_final_state<'a>(&'a self) -> &'a State {
+    fn get_final_state(&self) -> &State {
         &self.state
     }
 

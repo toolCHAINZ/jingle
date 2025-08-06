@@ -69,7 +69,7 @@ impl State {
             .ok_or(UnmodeledSpace)
     }
 
-    pub fn read_varnode<'a>(&'a self, varnode: &VarNode) -> Result<BV, JingleError> {
+    pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
@@ -91,7 +91,7 @@ impl State {
         }
     }
 
-    pub fn read_varnode_metadata<'a>(&'a self, varnode: &VarNode) -> Result<BV, JingleError> {
+    pub fn read_varnode_metadata(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
@@ -202,8 +202,8 @@ impl State {
     }
 
     /// Model a write to an [IndirectVarNode] on top of the current context.
-    pub fn write_varnode_indirect<'a>(
-        &'a mut self,
+    pub fn write_varnode_indirect(
+        &mut self,
         dest: &IndirectVarNode,
         val: BV,
     ) -> Result<(), JingleError> {
@@ -220,8 +220,8 @@ impl State {
         Ok(())
     }
 
-    pub fn write_varnode_metadata_indirect<'a>(
-        &'a mut self,
+    pub fn write_varnode_metadata_indirect(
+        &mut self,
         dest: &IndirectVarNode,
         val: BV,
     ) -> Result<(), JingleError> {

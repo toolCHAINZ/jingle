@@ -30,7 +30,7 @@ impl TryFromPythonZ3 for Bool {
             let ast = ast.getattr(py, "value")?;
             let ast: usize = ast.extract(py)?;
             let ast = ast as Z3_ast;
-            unsafe { Ok(Bool::wrap(&z3, ast)) }
+            unsafe { Ok(Bool::wrap(z3, ast)) }
         })
     }
 }
