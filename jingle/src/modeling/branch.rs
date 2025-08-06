@@ -26,10 +26,7 @@ pub enum BlockEndBehavior {
 
 #[deprecated]
 impl BlockEndBehavior {
-    pub fn read_dest_metadata<T: ModelingContext>(
-        &self,
-        ctx: &T,
-    ) -> Result<BV, JingleError> {
+    pub fn read_dest_metadata<T: ModelingContext>(&self, ctx: &T) -> Result<BV, JingleError> {
         match self {
             Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().ctx(), 0, (f.size * 8) as u32)),
             UnconditionalBranch(b) => {
