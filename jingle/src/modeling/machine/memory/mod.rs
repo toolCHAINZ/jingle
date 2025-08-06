@@ -119,11 +119,7 @@ impl MemoryState {
         }
     }
 
-    pub fn write<T: Into<GeneralizedVarNode>>(
-        self,
-        dest: T,
-        val: BV,
-    ) -> Result<Self, JingleError> {
+    pub fn write<T: Into<GeneralizedVarNode>>(self, dest: T, val: BV) -> Result<Self, JingleError> {
         let gen_varnode: GeneralizedVarNode = dest.into();
         match gen_varnode {
             GeneralizedVarNode::Direct(d) => self.write_varnode(&d, val),

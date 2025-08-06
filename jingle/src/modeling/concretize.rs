@@ -7,7 +7,7 @@ use z3::{Context, Model, SatResult};
 pub trait Concretize: Clone {
     type Concretized;
 
-    fn ctx(&self) -> & Context;
+    fn ctx(&self) -> &Context;
 
     fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized>;
 
@@ -17,7 +17,7 @@ pub trait Concretize: Clone {
 impl Concretize for BV {
     type Concretized = u64;
 
-    fn ctx(&self) -> & Context {
+    fn ctx(&self) -> &Context {
         self.get_ctx()
     }
 
@@ -34,7 +34,7 @@ impl Concretize for BV {
 impl Concretize for Bool {
     type Concretized = bool;
 
-    fn ctx(&self) -> & Context {
+    fn ctx(&self) -> &Context {
         self.get_ctx()
     }
 

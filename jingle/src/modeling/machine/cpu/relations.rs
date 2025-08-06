@@ -10,7 +10,7 @@ impl SymbolicPcodeAddress {
         &self,
         memory: &MemoryState,
         op: &PcodeOperation,
-        z3: & Context,
+        z3: &Context,
     ) -> Result<Self, JingleError> {
         match op {
             PcodeOperation::Branch { input } | PcodeOperation::Call { input } => {

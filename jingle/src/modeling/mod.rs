@@ -87,10 +87,7 @@ pub trait ModelingContext: ArchInfoProvider + Debug + Sized {
     /// enforcing that the same locations in [self] are equal.
     /// In our procedure, this is only ever called on contexts that we have already verified write
     /// to all outputs that [other] did, eliminating the risk of spurious false positives
-    fn upholds_postcondition<T: ModelingContext>(
-        &self,
-        other: &T,
-    ) -> Result<Bool, JingleError> {
+    fn upholds_postcondition<T: ModelingContext>(&self, other: &T) -> Result<Bool, JingleError> {
         let mut output_terms = vec![];
         for vn in other
             .get_outputs()
@@ -113,10 +110,7 @@ pub trait ModelingContext: ArchInfoProvider + Debug + Sized {
 
     /// Returns an assertion that the final state of [self] and the first state of [other] are
     /// equal. This allows for concatenating two traces into one for the purposes of modeling.
-    fn assert_concat<T: ModelingContext>(
-        &self,
-        other: &T,
-    ) -> Result<Bool, JingleError> {
+    fn assert_concat<T: ModelingContext>(&self, other: &T) -> Result<Bool, JingleError> {
         self.get_final_state()._eq(other.get_original_state())
     }
 
@@ -195,10 +189,7 @@ pub(crate) trait TranslationContext: ModelingContext {
     fn get_branch_builder(&mut self) -> &mut BranchConstraint;
 
     /// A helper function to both read and track an input [VarNode].
-    fn read_and_track(
-        &mut self,
-        gen_varnode: GeneralizedVarNode,
-    ) -> Result<BV, JingleError> {
+    fn read_and_track(&mut self, gen_varnode: GeneralizedVarNode) -> Result<BV, JingleError> {
         match gen_varnode {
             GeneralizedVarNode::Direct(d) => {
                 self.track_input(&Direct(d.clone()));
@@ -221,11 +212,7 @@ pub(crate) trait TranslationContext: ModelingContext {
         }
     }
 
-    fn write(
-        &mut self,
-        r#gen: &GeneralizedVarNode,
-        val: BV,
-    ) -> Result<(), JingleError> {
+    fn write(&mut self, r#gen: &GeneralizedVarNode, val: BV) -> Result<(), JingleError> {
         match r#gen {
             GeneralizedVarNode::Direct(d) => {
                 self.track_output(&Direct(d.clone()));

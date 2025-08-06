@@ -33,9 +33,9 @@ impl Display for ModeledBlock {
     }
 }
 
-impl<T: ModelingContext> TryFrom<& [T]> for ModeledBlock {
+impl<T: ModelingContext> TryFrom<&[T]> for ModeledBlock {
     type Error = JingleError;
-    fn try_from(vec: & [T]) -> Result<Self, Self::Error> {
+    fn try_from(vec: &[T]) -> Result<Self, Self::Error> {
         let jingle = vec.first().ok_or(EmptyBlock)?.get_jingle();
         let original_state = State::new(jingle);
         let state = original_state.clone();

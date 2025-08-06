@@ -7,7 +7,7 @@ use z3::{Context, Model};
 impl Concretize for SymbolicPcodeAddress {
     type Concretized = ConcretePcodeAddress;
 
-    fn ctx(&self) -> & Context {
+    fn ctx(&self) -> &Context {
         self.machine.get_ctx()
     }
 

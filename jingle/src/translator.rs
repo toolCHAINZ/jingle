@@ -26,10 +26,7 @@ impl<'a> SleighTranslator<'a> {
     /// Ask sleigh to read one instruction from the given offset and attempt
     /// to model it
     /// todo: this approach might not work with MIPS delayslots
-    pub fn model_instruction_at(
-        &self,
-        offset: u64,
-    ) -> Result<ModeledInstruction, JingleError> {
+    pub fn model_instruction_at(&self, offset: u64) -> Result<ModeledInstruction, JingleError> {
         let op = self
             .sleigh
             .instruction_at(offset)
@@ -38,10 +35,7 @@ impl<'a> SleighTranslator<'a> {
     }
 
     /// Attempt to convert  the given [Instruction] into a [ModeledInstruction]
-    fn model_instruction(
-        &self,
-        instr: Instruction,
-    ) -> Result<ModeledInstruction, JingleError> {
+    fn model_instruction(&self, instr: Instruction) -> Result<ModeledInstruction, JingleError> {
         ModeledInstruction::new(instr, &self.jingle)
     }
 }

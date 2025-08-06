@@ -54,10 +54,7 @@ impl MachineState {
         ConcretizationIterator::new_with_assertions(a, t)
     }
 
-    fn apply_control_flow(
-        &self,
-        op: &PcodeOperation,
-    ) -> Result<SymbolicPcodeAddress, JingleError> {
+    fn apply_control_flow(&self, op: &PcodeOperation) -> Result<SymbolicPcodeAddress, JingleError> {
         self.pc.apply_op(&self.memory, op, self.jingle.ctx())
     }
 

@@ -43,7 +43,7 @@ impl ConcretePcodeAddress {
             pcode: self.pcode.wrapping_add(off),
         }
     }
-    pub fn symbolize(&self, z3: & Context) -> SymbolicPcodeAddress {
+    pub fn symbolize(&self, z3: &Context) -> SymbolicPcodeAddress {
         SymbolicPcodeAddress {
             machine: BV::from_u64(
                 z3,

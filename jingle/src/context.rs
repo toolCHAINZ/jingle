@@ -84,7 +84,7 @@ impl JingleContext {
             },
         }))
     }
-    
+
     pub fn ctx(&self) -> &Context {
         &self.z3
     }
@@ -92,7 +92,7 @@ impl JingleContext {
         State::new(self)
     }
 
-    pub fn with_fresh_z3_context(&self, z3: & Context) -> Self {
+    pub fn with_fresh_z3_context(&self, z3: &Context) -> Self {
         Self(Rc::new(JingleContextInternal {
             z3: z3.clone(),
             info: self.info.clone(),

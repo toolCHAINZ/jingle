@@ -179,11 +179,7 @@ impl State {
         }
     }
 
-    pub fn write_varnode_metadata(
-        &mut self,
-        dest: &VarNode,
-        val: BV,
-    ) -> Result<(), JingleError> {
+    pub fn write_varnode_metadata(&mut self, dest: &VarNode, val: BV) -> Result<(), JingleError> {
         if dest.size != val.get_size() as usize {
             return Err(MismatchedWordSize);
         }

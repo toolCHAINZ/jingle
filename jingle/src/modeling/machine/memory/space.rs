@@ -24,7 +24,7 @@ pub struct BMCModeledSpace {
 
 impl BMCModeledSpace {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub fn new(z3: & Context, space_info: &SpaceInfo) -> Self {
+    pub fn new(z3: &Context, space_info: &SpaceInfo) -> Self {
         let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
         let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
         Self {
@@ -37,7 +37,7 @@ impl BMCModeledSpace {
     }
 
     pub fn new_for_address(
-        z3: & Context,
+        z3: &Context,
         space_info: &SpaceInfo,
         addr: ConcretePcodeAddress,
     ) -> Self {

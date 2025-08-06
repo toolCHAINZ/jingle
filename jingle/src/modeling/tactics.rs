@@ -24,7 +24,7 @@ impl From<Solver> for TacticSolver {
 }
 
 impl TacticSolver {
-    pub fn new(ctx: & Context) -> Self {
+    pub fn new(ctx: &Context) -> Self {
         let t = default_tactic(ctx);
         Self(t.solver())
     }

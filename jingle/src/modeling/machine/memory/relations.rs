@@ -350,9 +350,9 @@ impl MemoryState {
             }
             PcodeOperation::BoolNegate { input, output } => {
                 let val = self.read(input)?;
-                let negated = val
-                    .bvneg()
-                    .bvand(&BV::from_u64(self.jingle.ctx(), 1, val.get_size()));
+                let negated =
+                    val.bvneg()
+                        .bvand(&BV::from_u64(self.jingle.ctx(), 1, val.get_size()));
                 final_state.write(output, negated)
             }
             PcodeOperation::BoolOr {
@@ -376,9 +376,9 @@ impl MemoryState {
                 let i0 = self.read(input0)?;
                 let i1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
-                let result = i0
-                    .bvxor(&i1)
-                    .bvand(&BV::from_u64(self.jingle.ctx(), 1, i0.get_size()));
+                let result =
+                    i0.bvxor(&i1)
+                        .bvand(&BV::from_u64(self.jingle.ctx(), 1, i0.get_size()));
                 final_state.write(output, result)
             }
             PcodeOperation::PopCount { input, output } => {
