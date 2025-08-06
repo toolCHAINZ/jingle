@@ -27,7 +27,7 @@ impl PythonResolvedIndirectVarNode {
 }
 
 impl Display for PythonResolvedIndirectVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.inner, f)
     }
 }
@@ -40,7 +40,7 @@ pub enum PythonResolvedVarNode {
 }
 
 impl Display for PythonResolvedVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             PythonResolvedVarNode::Direct(d) => Display::fmt(&d, f),
             PythonResolvedVarNode::Indirect(i) => i.fmt(f),

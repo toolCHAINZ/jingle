@@ -5,12 +5,12 @@ use jingle_sleigh::PcodeOperation;
 use z3::Context;
 use z3::ast::{Ast, BV};
 
-impl<'ctx> SymbolicPcodeAddress<'ctx> {
+impl SymbolicPcodeAddress {
     pub(crate) fn apply_op(
         &self,
-        memory: &MemoryState<'ctx>,
+        memory: &MemoryState,
         op: &PcodeOperation,
-        z3: &'ctx Context,
+        z3: & Context,
     ) -> Result<Self, JingleError> {
         match op {
             PcodeOperation::Branch { input } | PcodeOperation::Call { input } => {

@@ -1,36 +1,36 @@
 use std::ops::{Deref, DerefMut};
 use z3::{Context, Solver, Tactic};
 
-pub struct TacticSolver<'ctx>(Solver<'ctx>);
+pub struct TacticSolver(Solver);
 
-impl<'ctx> Deref for TacticSolver<'ctx> {
-    type Target = Solver<'ctx>;
+impl Deref for TacticSolver {
+    type Target = Solver;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for TacticSolver<'_> {
+impl DerefMut for TacticSolver {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'ctx> From<Solver<'ctx>> for TacticSolver<'ctx> {
-    fn from(solver: Solver<'ctx>) -> Self {
+impl From<Solver> for TacticSolver {
+    fn from(solver: Solver) -> Self {
         Self(solver)
     }
 }
 
-impl<'ctx> TacticSolver<'ctx> {
-    pub fn new(ctx: &'ctx Context) -> Self {
+impl TacticSolver {
+    pub fn new(ctx: & Context) -> Self {
         let t = default_tactic(ctx);
         Self(t.solver())
     }
 }
 
-impl Clone for TacticSolver<'_> {
+impl Clone for TacticSolver {
     fn clone(&self) -> Self {
         let new = default_tactic(self.0.get_context()).solver();
         for x in &self.get_assertions() {
@@ -47,7 +47,7 @@ impl Clone for TacticSolver<'_> {
 /// The rationale behind it is that we first simplify and eliminate variables, before eliminating
 /// array expressions (in favor of UFs), and then eliminate UFs with ackermann reduction. The result
 /// is an (often much simpler) pure bitvector problem allowing z3 to use a specialized solver.
-fn default_tactic(ctx: &Context) -> Tactic<'_> {
+fn default_tactic(ctx: &Context) -> Tactic {
     macro_rules! tactic {
         ($name:literal) => {
             Tactic::new(ctx, $name)

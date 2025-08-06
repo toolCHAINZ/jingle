@@ -126,13 +126,13 @@ impl From<&VarNode> for Range<usize> {
 }
 
 impl Display for VarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}[{}]:{}", self.space_index, self.offset, self.size)
     }
 }
 
 impl LowerHex for VarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
             "{:x}[{:x}]:{:x}",
@@ -197,7 +197,7 @@ impl IndirectVarNode {
 }
 
 impl Display for IndirectVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
             "*{}[ {} ]:{}",
@@ -207,7 +207,7 @@ impl Display for IndirectVarNode {
 }
 
 impl LowerHex for IndirectVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
             "*{:x}[ {:x} ]:{:x}",
@@ -281,7 +281,7 @@ impl From<&VarnodeInfoFFI> for VarNode {
 }
 
 impl Display for GeneralizedVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             GeneralizedVarNode::Direct(v) => {
                 write!(f, "{v}")
@@ -294,7 +294,7 @@ impl Display for GeneralizedVarNode {
 }
 
 impl LowerHex for GeneralizedVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             GeneralizedVarNode::Direct(v) => {
                 write!(f, "{v:x}")

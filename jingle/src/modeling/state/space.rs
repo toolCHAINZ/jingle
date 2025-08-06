@@ -13,37 +13,33 @@ use z3::{Context, Sort};
 /// a given value originated from a CALLOTHER operation. This is necessary for distinguishing
 /// between normal indirect jumps and some syscalls
 #[derive(Clone, Debug)]
-pub(crate) struct ModeledSpace<'ctx> {
+pub(crate) struct ModeledSpace {
     endianness: SleighEndianness,
-    data: Array<'ctx>,
-    metadata: Array<'ctx>,
+    data: Array,
+    metadata: Array,
     space_info: SpaceInfo,
 }
 
-impl<'ctx> ModeledSpace<'ctx> {
+impl ModeledSpace {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub(crate) fn new(jingle: &JingleContext<'ctx>, space_info: &SpaceInfo) -> Self {
-        let domain = Sort::bitvector(jingle.z3, space_info.index_size_bytes * 8);
-        let range = Sort::bitvector(jingle.z3, space_info.word_size_bytes * 8);
+    pub(crate) fn new(jingle: &JingleContext, space_info: &SpaceInfo) -> Self {
+        let domain = Sort::bitvector(jingle.ctx(), space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(jingle.ctx(), space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
-            data: Array::fresh_const(jingle.z3, &space_info.name, &domain, &range),
-            metadata: Array::const_array(jingle.z3, &domain, &BV::from_u64(jingle.z3, 0, 1)),
+            data: Array::fresh_const(jingle.ctx(), &space_info.name, &domain, &range),
+            metadata: Array::const_array(jingle.ctx(), &domain, &BV::from_u64(jingle.ctx(), 0, 1)),
             space_info: space_info.clone(),
         }
     }
 
     /// Get the z3 Array for this space
-    pub(crate) fn get_space(&self) -> &Array<'ctx> {
+    pub(crate) fn get_space(&self) -> &Array {
         &self.data
     }
     /// Read [size_bytes] bytes of data from the given BV [offset], using the endianness
     /// of the space
-    pub(crate) fn read_data(
-        &self,
-        offset: &BV<'ctx>,
-        size_bytes: usize,
-    ) -> Result<BV<'ctx>, JingleError> {
+    pub(crate) fn read_data(&self, offset: &BV, size_bytes: usize) -> Result<BV, JingleError> {
         if offset.get_size() != self.space_info.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -52,11 +48,7 @@ impl<'ctx> ModeledSpace<'ctx> {
 
     /// Read [size_bytes] bytes worth of metadata from the given BV [offset], using the endianness
     /// of the space
-    pub(crate) fn read_metadata(
-        &self,
-        offset: &BV<'ctx>,
-        size_bytes: usize,
-    ) -> Result<BV<'ctx>, JingleError> {
+    pub(crate) fn read_metadata(&self, offset: &BV, size_bytes: usize) -> Result<BV, JingleError> {
         if offset.get_size() != self.space_info.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -64,11 +56,7 @@ impl<'ctx> ModeledSpace<'ctx> {
     }
 
     /// Write the given bitvector of data to the given bitvector offset
-    pub(crate) fn write_data(
-        &mut self,
-        val: &BV<'ctx>,
-        offset: &BV<'ctx>,
-    ) -> Result<(), JingleError> {
+    pub(crate) fn write_data(&mut self, val: &BV, offset: &BV) -> Result<(), JingleError> {
         if offset.get_size() != self.space_info.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -77,11 +65,7 @@ impl<'ctx> ModeledSpace<'ctx> {
     }
 
     /// Write the given bitvector of metadata to the given bitvector offset
-    pub(crate) fn write_metadata(
-        &mut self,
-        val: &BV<'ctx>,
-        offset: &BV<'ctx>,
-    ) -> Result<(), JingleError> {
+    pub(crate) fn write_metadata(&mut self, val: &BV, offset: &BV) -> Result<(), JingleError> {
         if offset.get_size() != self.space_info.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -93,28 +77,22 @@ impl<'ctx> ModeledSpace<'ctx> {
         format!("{:?}", self.data.simplify())
     }
 
-    pub(crate) fn translate<'a>(&self, ctx: &'a Context) -> ModeledSpace<'a> {
-        // This transmute is in place because the z3 translate function
-        // seems to incorrectly enforce that the lifetime of the destination
-        // context is equal to the original one. Marking this
-        // method as pub(crate) for now until I have more clarity
-        unsafe {
-            std::mem::transmute(ModeledSpace {
-                space_info: self.space_info.clone(),
-                endianness: self.endianness,
-                data: self.data.translate(ctx),
-                metadata: self.metadata.translate(ctx),
-            })
+    pub(crate) fn translate(&self, ctx: &Context) -> ModeledSpace {
+        ModeledSpace {
+            space_info: self.space_info.clone(),
+            endianness: self.endianness,
+            data: self.data.translate(ctx),
+            metadata: self.metadata.translate(ctx),
         }
     }
 }
 
-fn read_from_array<'ctx>(
-    array: &Array<'ctx>,
-    offset: &BV<'ctx>,
+fn read_from_array(
+    array: &Array,
+    offset: &BV,
     size_bytes: usize,
     endianness: SleighEndianness,
-) -> Result<BV<'ctx>, JingleError> {
+) -> Result<BV, JingleError> {
     // concat left hand is most significant
     (0..size_bytes)
         .map(|i| {
@@ -130,12 +108,12 @@ fn read_from_array<'ctx>(
         .ok_or(ZeroSizedVarnode)?
 }
 
-fn write_to_array<'ctx, const W: u32>(
-    array: &Array<'ctx>,
-    val: &BV<'ctx>,
-    offset: &BV<'ctx>,
+fn write_to_array<const W: u32>(
+    array: &Array,
+    val: &BV,
+    offset: &BV,
     endianness: SleighEndianness,
-) -> Array<'ctx> {
+) -> Array {
     let mut scratch = array.clone();
     let size = val.get_size();
     for i in 0..size / W {
@@ -159,10 +137,7 @@ mod tests {
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
 
-    fn make_space<'ctx>(
-        z3: &JingleContext<'ctx>,
-        endianness: SleighEndianness,
-    ) -> ModeledSpace<'ctx> {
+    fn make_space(z3: &JingleContext, endianness: SleighEndianness) -> ModeledSpace {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),

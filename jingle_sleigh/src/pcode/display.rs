@@ -11,7 +11,7 @@ impl<T> Display for PcodeOperationDisplay<'_, T>
 where
     T: ArchInfoProvider,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         if let Some(o) = self.op.output() {
             write!(f, "{} = ", o.display(self.ctx)?)?;
         }
@@ -26,7 +26,7 @@ where
 }
 
 impl Display for crate::ffi::opcode::bridge::OpCode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let d = format!("{self:?}");
         write!(f, "{}", &d[5..])
     }

@@ -4,57 +4,57 @@ use z3::{Context, Model, SatResult};
 
 /// Implemented by types that represent expressions
 /// that can be interpreted in terms of a symbolic state
-pub trait Concretize<'ctx>: Clone {
+pub trait Concretize: Clone {
     type Concretized;
 
-    fn ctx(&self) -> &'ctx Context;
+    fn ctx(&self) -> & Context;
 
-    fn eval(&self, model: &Model<'ctx>, model_completion: bool) -> Option<Self::Concretized>;
+    fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized>;
 
-    fn make_counterexample(&self, c: &Self::Concretized) -> Bool<'ctx>;
+    fn make_counterexample(&self, c: &Self::Concretized) -> Bool;
 }
 
-impl<'ctx> Concretize<'ctx> for BV<'ctx> {
+impl Concretize for BV {
     type Concretized = u64;
 
-    fn ctx(&self) -> &'ctx Context {
+    fn ctx(&self) -> & Context {
         self.get_ctx()
     }
 
-    fn eval(&self, model: &Model<'ctx>, model_completion: bool) -> Option<Self::Concretized> {
+    fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized> {
         model.eval(self, model_completion)?.as_u64()
     }
 
-    fn make_counterexample(&self, c: &Self::Concretized) -> Bool<'ctx> {
+    fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
         let ctr = BV::from_u64(self.ctx(), *c, self.get_size());
         dbg!(self._eq(&ctr).not())
     }
 }
 
-impl<'ctx> Concretize<'ctx> for Bool<'ctx> {
+impl Concretize for Bool {
     type Concretized = bool;
 
-    fn ctx(&self) -> &'ctx Context {
+    fn ctx(&self) -> & Context {
         self.get_ctx()
     }
 
-    fn eval(&self, model: &Model<'ctx>, model_completion: bool) -> Option<Self::Concretized> {
+    fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized> {
         model.eval(self, model_completion)?.as_bool()
     }
 
-    fn make_counterexample(&self, c: &Self::Concretized) -> Bool<'ctx> {
+    fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
         let ctr = Bool::from_bool(self.get_ctx(), *c);
         self._eq(&ctr).not()
     }
 }
 
-pub struct ConcretizationIterator<'ctx, T: Concretize<'ctx>> {
+pub struct ConcretizationIterator<T: Concretize> {
     val: T,
-    assertions: Vec<Bool<'ctx>>,
+    assertions: Vec<Bool>,
 }
 
-impl<'ctx, T: Concretize<'ctx>> ConcretizationIterator<'ctx, T> {
-    pub fn new_with_assertions<I: Iterator<Item = Bool<'ctx>>>(assertions: I, val: &T) -> Self {
+impl<T: Concretize> ConcretizationIterator<T> {
+    pub fn new_with_assertions<I: Iterator<Item = Bool>>(assertions: I, val: &T) -> Self {
         Self {
             assertions: assertions.collect(),
             val: val.clone(),
@@ -69,7 +69,7 @@ impl<'ctx, T: Concretize<'ctx>> ConcretizationIterator<'ctx, T> {
     }
 }
 
-impl<'ctx, T: Concretize<'ctx>> Iterator for ConcretizationIterator<'ctx, T> {
+impl<T: Concretize> Iterator for ConcretizationIterator<T> {
     type Item = T::Concretized;
 
     fn next(&mut self) -> Option<Self::Item> {

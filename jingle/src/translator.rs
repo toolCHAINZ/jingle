@@ -11,14 +11,14 @@ use z3::Context;
 /// sleigh context has already produced, or reading new instructions directly out of sleigh and
 /// modeling them in one go
 #[derive(Debug, Clone)]
-pub struct SleighTranslator<'ctx> {
-    jingle: JingleContext<'ctx>,
-    sleigh: &'ctx LoadedSleighContext<'ctx>,
+pub struct SleighTranslator<'a> {
+    jingle: JingleContext,
+    sleigh: &'a LoadedSleighContext<'a>,
 }
 
-impl<'ctx> SleighTranslator<'ctx> {
+impl<'a> SleighTranslator<'a> {
     /// Make a new sleigh translator
-    pub fn new(sleigh: &'ctx LoadedSleighContext, z3_ctx: &'ctx Context) -> Self {
+    pub fn new(sleigh: &'a LoadedSleighContext, z3_ctx: &Context) -> Self {
         let jingle = JingleContext::new(z3_ctx, sleigh);
         Self { jingle, sleigh }
     }
@@ -29,7 +29,7 @@ impl<'ctx> SleighTranslator<'ctx> {
     pub fn model_instruction_at(
         &self,
         offset: u64,
-    ) -> Result<ModeledInstruction<'ctx>, JingleError> {
+    ) -> Result<ModeledInstruction, JingleError> {
         let op = self
             .sleigh
             .instruction_at(offset)
@@ -41,7 +41,7 @@ impl<'ctx> SleighTranslator<'ctx> {
     fn model_instruction(
         &self,
         instr: Instruction,
-    ) -> Result<ModeledInstruction<'ctx>, JingleError> {
+    ) -> Result<ModeledInstruction, JingleError> {
         ModeledInstruction::new(instr, &self.jingle)
     }
 }

@@ -988,7 +988,7 @@ impl From<&PcodeOperation> for OpCode {
 }
 
 impl Display for PcodeOperation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         if let Some(out) = self.output() {
             write!(f, "{out} = ")?;
         }
@@ -999,7 +999,7 @@ impl Display for PcodeOperation {
 }
 
 impl LowerHex for PcodeOperation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         if let Some(out) = self.output() {
             write!(f, "{out:x} = ")?;
         }

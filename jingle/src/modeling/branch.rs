@@ -26,12 +26,12 @@ pub enum BlockEndBehavior {
 
 #[deprecated]
 impl BlockEndBehavior {
-    pub fn read_dest_metadata<'ctx, 'a, T: ModelingContext<'ctx>>(
+    pub fn read_dest_metadata<'a, T: ModelingContext>(
         &self,
         ctx: &'a T,
-    ) -> Result<BV<'ctx>, JingleError> {
+    ) -> Result<BV, JingleError> {
         match self {
-            Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().z3, 0, (f.size * 8) as u32)),
+            Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().ctx(), 0, (f.size * 8) as u32)),
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
@@ -44,13 +44,13 @@ impl BlockEndBehavior {
             }
         }
     }
-    pub fn read_dest<'ctx, 'a, T: ModelingContext<'ctx>>(
+    pub fn read_dest<'a, T: ModelingContext>(
         &self,
         ctx: &'a T,
-    ) -> Result<BV<'ctx>, JingleError> {
+    ) -> Result<BV, JingleError> {
         match self {
             Fallthrough(f) => Ok(BV::from_u64(
-                ctx.get_jingle().z3,
+                ctx.get_jingle().ctx(),
                 f.offset,
                 (f.size * 8) as u32,
             )),
@@ -58,7 +58,7 @@ impl BlockEndBehavior {
                 match b {
                     // Direct branch
                     GeneralizedVarNode::Direct(d) => Ok(BV::from_u64(
-                        ctx.get_jingle().z3,
+                        ctx.get_jingle().ctx(),
                         d.offset,
                         (d.size * 8) as u32,
                     )),
@@ -104,24 +104,24 @@ impl BranchConstraint {
     }
 
     #[deprecated]
-    pub fn build_bv<'ctx, 'a, T: ModelingContext<'ctx>>(
+    pub fn build_bv<'a, T: ModelingContext>(
         &self,
         ctx: &'a T,
-    ) -> Result<BV<'ctx>, JingleError> {
+    ) -> Result<BV, JingleError> {
         let mut dest_bv = self.last.read_dest(ctx)?;
         for cond_branch in self.conditional_branches.iter().rev() {
             let condition_bv = ctx
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
                 ._eq(&BV::from_i64(
-                    ctx.get_jingle().z3,
+                    ctx.get_jingle().ctx(),
                     0,
                     (cond_branch.condition.size * 8) as u32,
                 ))
                 .not();
             let branch_dest = match &cond_branch.destination {
                 GeneralizedVarNode::Direct(d) => {
-                    BV::from_u64(ctx.get_jingle().z3, d.offset, (d.size * 8) as u32)
+                    BV::from_u64(ctx.get_jingle().ctx(), d.offset, (d.size * 8) as u32)
                 }
                 GeneralizedVarNode::Indirect(a) => ctx.get_final_state().read(a.into())?,
             };
@@ -131,17 +131,17 @@ impl BranchConstraint {
     }
 
     #[deprecated]
-    pub fn build_bv_metadata<'ctx, 'a, T: ModelingContext<'ctx>>(
+    pub fn build_bv_metadata<'a, T: ModelingContext>(
         &self,
         ctx: &'a T,
-    ) -> Result<BV<'ctx>, JingleError> {
+    ) -> Result<BV, JingleError> {
         let mut dest_bv = self.last.read_dest_metadata(ctx)?;
         for cond_branch in self.conditional_branches.iter().rev() {
             let condition_bv = ctx
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
                 ._eq(&BV::from_i64(
-                    ctx.get_jingle().z3,
+                    ctx.get_jingle().ctx(),
                     0,
                     (&cond_branch.condition.size * 8) as u32,
                 ))

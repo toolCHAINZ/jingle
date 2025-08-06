@@ -7,30 +7,30 @@ use jingle_sleigh::VarNode;
 use z3::Context;
 use z3::ast::{Ast, BV, Bool};
 
-pub type SymbolicPcodeMachineAddress<'ctx> = BV<'ctx>;
-pub type SymbolicPcodeOffset<'ctx> = BV<'ctx>;
+pub type SymbolicPcodeMachineAddress = BV;
+pub type SymbolicPcodeOffset = BV;
 
 // todo: add PcodeAddressSpace to Concrete and Symbolic addresses?
 // probably necessary for harvard architecture modeling.
 // ALSO: could be useful for callother.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SymbolicPcodeAddress<'ctx> {
-    pub(crate) machine: BV<'ctx>,
-    pub(crate) pcode: BV<'ctx>,
+pub struct SymbolicPcodeAddress {
+    pub(crate) machine: BV,
+    pub(crate) pcode: BV,
 }
 
-impl<'ctx> SymbolicPcodeAddress<'ctx> {
+impl SymbolicPcodeAddress {
     const MACHINE_SIZE_BITS: u32 = size_of::<PcodeMachineAddress>() as u32 * 8;
     const PCODE_SIZE_BITS: u32 = size_of::<PcodeOffset>() as u32 * 8;
 
-    pub fn fresh(z3: &'ctx Context) -> Self {
+    pub fn fresh(z3: &Context) -> Self {
         Self {
             machine: BV::fresh_const(z3, "pc", Self::MACHINE_SIZE_BITS),
             pcode: BV::fresh_const(z3, "ppc", Self::PCODE_SIZE_BITS),
         }
     }
 
-    pub fn try_from_symbolic_dest(z3: &'ctx Context, bv: &BV<'ctx>) -> Result<Self, JingleError> {
+    pub fn try_from_symbolic_dest(z3: &Context, bv: &BV) -> Result<Self, JingleError> {
         if bv.get_size() != Self::MACHINE_SIZE_BITS {
             Err(JingleError::InvalidBranchTargetSize)
         } else {
@@ -41,18 +41,18 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
         }
     }
 
-    fn extract_pcode(&self) -> &BV<'ctx> {
+    fn extract_pcode(&self) -> &BV {
         &self.pcode
     }
 
-    fn extract_machine(&self) -> &BV<'ctx> {
+    fn extract_machine(&self) -> &BV {
         &self.machine
     }
 
-    pub fn concretize_with_assertions<T: Iterator<Item = Bool<'ctx>>>(
+    pub fn concretize_with_assertions<T: Iterator<Item = Bool>>(
         &self,
         s: T,
-    ) -> ConcretizationIterator<'ctx, Self> {
+    ) -> ConcretizationIterator<Self> {
         ConcretizationIterator::new_with_assertions(s, self)
     }
 
@@ -62,16 +62,16 @@ impl<'ctx> SymbolicPcodeAddress<'ctx> {
             false => ConcretePcodeAddress::from(vn.offset).symbolize(self.machine.get_ctx()),
         }
     }
-    pub fn increment_pcode(&self) -> SymbolicPcodeAddress<'ctx> {
+    pub fn increment_pcode(&self) -> SymbolicPcodeAddress {
         self.add_pcode_offset(1)
     }
-    fn add_pcode_offset(&self, offset: u64) -> SymbolicPcodeAddress<'ctx> {
+    fn add_pcode_offset(&self, offset: u64) -> SymbolicPcodeAddress {
         let pcode = self.extract_pcode() + offset;
         let machine = self.extract_machine().clone();
         SymbolicPcodeAddress { machine, pcode }
     }
 
-    pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
+    pub fn _eq(&self, other: &Self) -> Bool {
         self.machine._eq(&other.machine) & self.pcode._eq(&other.pcode)
     }
 

@@ -11,54 +11,54 @@ pub mod cpu;
 pub mod memory;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MachineState<'ctx> {
-    pub jingle: JingleContext<'ctx>,
-    memory: MemoryState<'ctx>,
-    pc: SymbolicPcodeAddress<'ctx>,
+pub struct MachineState {
+    pub jingle: JingleContext,
+    memory: MemoryState,
+    pc: SymbolicPcodeAddress,
 }
 
-impl<'ctx> MachineState<'ctx> {
-    pub fn fresh(jingle: &JingleContext<'ctx>) -> Self {
+impl MachineState {
+    pub fn fresh(jingle: &JingleContext) -> Self {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),
-            pc: SymbolicPcodeAddress::fresh(jingle.z3),
+            pc: SymbolicPcodeAddress::fresh(jingle.ctx()),
         }
     }
 
     pub fn fresh_for_machine_address(
-        jingle: &JingleContext<'ctx>,
+        jingle: &JingleContext,
         machine_addr: PcodeMachineAddress,
     ) -> Self {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh_for_address(jingle, machine_addr.into()),
-            pc: pc.symbolize(jingle.z3),
+            pc: pc.symbolize(jingle.ctx()),
         }
     }
 
-    pub fn fresh_for_address(jingle: &JingleContext<'ctx>, addr: ConcretePcodeAddress) -> Self {
+    pub fn fresh_for_address(jingle: &JingleContext, addr: ConcretePcodeAddress) -> Self {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh_for_address(jingle, addr),
-            pc: addr.symbolize(jingle.z3),
+            pc: addr.symbolize(jingle.ctx()),
         }
     }
 
-    pub fn concretize_with_assertions<T: Concretize<'ctx>, I: Iterator<Item = Bool<'ctx>>>(
+    pub fn concretize_with_assertions<T: Concretize, I: Iterator<Item = Bool>>(
         &self,
         t: &T,
         a: I,
-    ) -> ConcretizationIterator<'ctx, T> {
+    ) -> ConcretizationIterator<T> {
         ConcretizationIterator::new_with_assertions(a, t)
     }
 
     fn apply_control_flow(
         &self,
         op: &PcodeOperation,
-    ) -> Result<SymbolicPcodeAddress<'ctx>, JingleError> {
-        self.pc.apply_op(&self.memory, op, self.jingle.z3)
+    ) -> Result<SymbolicPcodeAddress, JingleError> {
+        self.pc.apply_op(&self.memory, op, self.jingle.ctx())
     }
 
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
@@ -69,16 +69,16 @@ impl<'ctx> MachineState<'ctx> {
         })
     }
 
-    pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
+    pub fn _eq(&self, other: &Self) -> Bool {
         let machine_eq = self.pc.machine._eq(&other.pc.machine);
         self.pc._eq(&other.pc) & self.memory._eq(&other.memory, &machine_eq)
     }
 
-    pub fn pc(&self) -> &SymbolicPcodeAddress<'ctx> {
+    pub fn pc(&self) -> &SymbolicPcodeAddress {
         &self.pc
     }
 
-    pub fn memory(&self) -> &MemoryState<'ctx> {
+    pub fn memory(&self) -> &MemoryState {
         &self.memory
     }
 }

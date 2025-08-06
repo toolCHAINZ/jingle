@@ -14,17 +14,17 @@ use z3::{Context, Sort};
 /// a given value originated from a CALLOTHER operation. This is necessary for distinguishing
 /// between normal indirect jumps and some syscalls
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BMCModeledSpace<'ctx> {
-    data: Array<'ctx>,
+pub struct BMCModeledSpace {
+    data: Array,
     word_size_bytes: u32,
     index_size_bytes: u32,
     endianness: SleighEndianness,
     _type: SpaceType,
 }
 
-impl<'ctx> BMCModeledSpace<'ctx> {
+impl BMCModeledSpace {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub fn new(z3: &'ctx Context, space_info: &SpaceInfo) -> Self {
+    pub fn new(z3: & Context, space_info: &SpaceInfo) -> Self {
         let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
         let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
         Self {
@@ -37,7 +37,7 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
 
     pub fn new_for_address(
-        z3: &'ctx Context,
+        z3: & Context,
         space_info: &SpaceInfo,
         addr: ConcretePcodeAddress,
     ) -> Self {
@@ -61,12 +61,12 @@ impl<'ctx> BMCModeledSpace<'ctx> {
         self._type
     }
     /// Get the z3 Array for this space
-    pub fn get_space(&self) -> &Array<'ctx> {
+    pub fn get_space(&self) -> &Array {
         &self.data
     }
     /// Read [size_bytes] bytes of data from the given BV [offset], using the endianness
     /// of the space
-    pub fn read(&self, offset: &BV<'ctx>, size_bytes: usize) -> Result<BV<'ctx>, JingleError> {
+    pub fn read(&self, offset: &BV, size_bytes: usize) -> Result<BV, JingleError> {
         if offset.get_size() != self.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -74,7 +74,7 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
 
     /// Write the given bitvector of data to the given bitvector offset
-    pub fn write(&mut self, val: &BV<'ctx>, offset: &BV<'ctx>) -> Result<(), JingleError> {
+    pub fn write(&mut self, val: &BV, offset: &BV) -> Result<(), JingleError> {
         if offset.get_size() != self.index_size_bytes * 8 {
             return Err(MismatchedAddressSize);
         }
@@ -83,7 +83,7 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
 
     /// Symbolically equate two spaces. Note that these spaces MUST have the same dimensions.
-    pub fn _eq(&self, other: &Self) -> Bool<'ctx> {
+    pub fn _eq(&self, other: &Self) -> Bool {
         self.data._eq(&other.data)
     }
 
@@ -95,12 +95,12 @@ impl<'ctx> BMCModeledSpace<'ctx> {
     }
 }
 
-fn read_from_array<'ctx>(
-    array: &Array<'ctx>,
-    offset: &BV<'ctx>,
+fn read_from_array(
+    array: &Array,
+    offset: &BV,
     size_bytes: usize,
     endianness: SleighEndianness,
-) -> Result<BV<'ctx>, JingleError> {
+) -> Result<BV, JingleError> {
     // concat left hand is most significant
     (0..size_bytes)
         .map(|i| {
@@ -116,12 +116,12 @@ fn read_from_array<'ctx>(
         .ok_or(ZeroSizedVarnode)?
 }
 
-fn write_to_array<'ctx, const W: u32>(
-    array: &Array<'ctx>,
-    val: &BV<'ctx>,
-    offset: &BV<'ctx>,
+fn write_to_array<const W: u32>(
+    array: &Array,
+    val: &BV,
+    offset: &BV,
     endianness: SleighEndianness,
-) -> Array<'ctx> {
+) -> Array {
     let mut scratch = array.clone();
     let size = val.get_size();
     for i in 0..size / W {
@@ -142,7 +142,7 @@ mod tests {
     use z3::ast::{Ast, BV};
     use z3::{Config, Context};
 
-    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace<'_> {
+    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),

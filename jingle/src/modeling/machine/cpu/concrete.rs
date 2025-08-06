@@ -13,13 +13,13 @@ pub struct ConcretePcodeAddress {
 }
 
 impl Display for ConcretePcodeAddress {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}:{}", self.machine, self.pcode)
     }
 }
 
 impl LowerHex for ConcretePcodeAddress {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{:x}:{:x}", self.machine, self.pcode)
     }
 }
@@ -43,7 +43,7 @@ impl ConcretePcodeAddress {
             pcode: self.pcode.wrapping_add(off),
         }
     }
-    pub fn symbolize<'ctx>(&self, z3: &'ctx Context) -> SymbolicPcodeAddress<'ctx> {
+    pub fn symbolize(&self, z3: & Context) -> SymbolicPcodeAddress {
         SymbolicPcodeAddress {
             machine: BV::from_u64(
                 z3,
