@@ -6,7 +6,7 @@ use pyo3::{IntoPyObject, IntoPyObjectExt, Py, PyAny, PyResult, Python};
 use z3::ast::{Ast, Bool};
 use z3_sys::Z3_ast;
 
-impl TryIntoPythonZ3 for Bool<'static> {
+impl TryIntoPythonZ3 for Bool {
     fn try_into_python(self) -> PyResult<Py<PyAny>> {
         Python::with_gil(|py: Python| {
             let z3_mod = PyModule::import(py, "z3")?;
@@ -30,7 +30,7 @@ impl TryFromPythonZ3 for Bool {
             let ast = ast.getattr(py, "value")?;
             let ast: usize = ast.extract(py)?;
             let ast = ast as Z3_ast;
-            unsafe { Ok(Bool::wrap(z3, ast)) }
+            unsafe { Ok(Bool::wrap(&z3, ast)) }
         })
     }
 }
