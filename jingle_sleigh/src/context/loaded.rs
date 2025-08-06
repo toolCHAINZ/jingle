@@ -20,7 +20,7 @@ pub struct LoadedSleighContext<'a> {
 }
 
 impl Debug for LoadedSleighContext<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         self.sleigh.fmt(f)
     }
 }

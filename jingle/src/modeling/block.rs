@@ -14,18 +14,18 @@ use std::fmt::{Display, Formatter};
 
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
-pub struct ModeledBlock<'ctx> {
-    jingle: JingleContext<'ctx>,
+pub struct ModeledBlock {
+    jingle: JingleContext,
     pub instructions: Vec<Instruction>,
-    state: State<'ctx>,
-    original_state: State<'ctx>,
+    state: State,
+    original_state: State,
     branch_constraint: BranchConstraint,
-    inputs: HashSet<ResolvedVarnode<'ctx>>,
-    outputs: HashSet<ResolvedVarnode<'ctx>>,
+    inputs: HashSet<ResolvedVarnode>,
+    outputs: HashSet<ResolvedVarnode>,
 }
 
-impl Display for ModeledBlock<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Display for ModeledBlock {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for x in self.instructions.iter() {
             writeln!(f, "{:x} {}", x.address, x.disassembly)?;
         }
@@ -33,9 +33,9 @@ impl Display for ModeledBlock<'_> {
     }
 }
 
-impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
+impl<T: ModelingContext> TryFrom<&[T]> for ModeledBlock {
     type Error = JingleError;
-    fn try_from(vec: &'ctx [T]) -> Result<Self, Self::Error> {
+    fn try_from(vec: &[T]) -> Result<Self, Self::Error> {
         let jingle = vec.first().ok_or(EmptyBlock)?.get_jingle();
         let original_state = State::new(jingle);
         let state = original_state.clone();
@@ -60,9 +60,9 @@ impl<'ctx, T: ModelingContext<'ctx>> TryFrom<&'ctx [T]> for ModeledBlock<'ctx> {
     }
 }
 
-impl<'ctx> ModeledBlock<'ctx> {
+impl ModeledBlock {
     pub fn read<T: Iterator<Item = Instruction>>(
-        jingle: &JingleContext<'ctx>,
+        jingle: &JingleContext,
         instr_iter: T,
     ) -> Result<Self, JingleError> {
         let original_state = State::new(jingle);
@@ -122,7 +122,7 @@ impl<'ctx> ModeledBlock<'ctx> {
     }
 }
 
-impl ArchInfoProvider for ModeledBlock<'_> {
+impl ArchInfoProvider for ModeledBlock {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.jingle.get_space_info(idx)
     }
@@ -148,8 +148,8 @@ impl ArchInfoProvider for ModeledBlock<'_> {
     }
 }
 
-impl<'ctx> ModelingContext<'ctx> for ModeledBlock<'ctx> {
-    fn get_jingle(&self) -> &JingleContext<'ctx> {
+impl ModelingContext for ModeledBlock {
+    fn get_jingle(&self) -> &JingleContext {
         &self.jingle
     }
 
@@ -157,11 +157,11 @@ impl<'ctx> ModelingContext<'ctx> for ModeledBlock<'ctx> {
         self.instructions[0].address
     }
 
-    fn get_original_state(&self) -> &State<'ctx> {
+    fn get_original_state(&self) -> &State {
         &self.original_state
     }
 
-    fn get_final_state(&self) -> &State<'ctx> {
+    fn get_final_state(&self) -> &State {
         &self.state
     }
 
@@ -175,11 +175,11 @@ impl<'ctx> ModelingContext<'ctx> for ModeledBlock<'ctx> {
         result
     }
 
-    fn get_inputs(&self) -> HashSet<ResolvedVarnode<'ctx>> {
+    fn get_inputs(&self) -> HashSet<ResolvedVarnode> {
         self.inputs.clone()
     }
 
-    fn get_outputs(&self) -> HashSet<ResolvedVarnode<'ctx>> {
+    fn get_outputs(&self) -> HashSet<ResolvedVarnode> {
         self.outputs.clone()
     }
 
@@ -188,15 +188,15 @@ impl<'ctx> ModelingContext<'ctx> for ModeledBlock<'ctx> {
     }
 }
 
-impl<'ctx> TranslationContext<'ctx> for ModeledBlock<'ctx> {
-    fn track_input<'a, 'b: 'ctx>(&mut self, input: &ResolvedVarnode<'ctx>) {
+impl TranslationContext for ModeledBlock {
+    fn track_input(&mut self, input: &ResolvedVarnode) {
         self.inputs.insert(input.clone());
     }
-    fn track_output(&mut self, output: &ResolvedVarnode<'ctx>) {
+    fn track_output(&mut self, output: &ResolvedVarnode) {
         self.outputs.insert(output.clone());
     }
 
-    fn get_final_state_mut(&mut self) -> &mut State<'ctx> {
+    fn get_final_state_mut(&mut self) -> &mut State {
         &mut self.state
     }
 

@@ -8,9 +8,9 @@ use std::hash::Hash;
 use z3::ast::BV;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct ResolvedIndirectVarNode<'ctx> {
+pub struct ResolvedIndirectVarNode {
     pub pointer_space_idx: usize,
-    pub pointer: BV<'ctx>,
+    pub pointer: BV,
     pub pointer_location: VarNode,
     pub access_size_bytes: usize,
 }
@@ -19,16 +19,16 @@ pub struct ResolvedIndirectVarNode<'ctx> {
 /// What distinguishes this from a regular VarNode is that, in the case of indirect varnodes,
 /// the pointer value has been already evaluated
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub enum ResolvedVarnode<'ctx> {
+pub enum ResolvedVarnode {
     Direct(VarNode),
-    Indirect(ResolvedIndirectVarNode<'ctx>),
+    Indirect(ResolvedIndirectVarNode),
 }
 
-impl<'a> ResolvedVarnode<'a> {
+impl ResolvedVarnode {
     pub fn display<T: ArchInfoProvider>(
         &self,
         ctx: &T,
-    ) -> Result<ResolvedVarNodeDisplay<'a>, JingleError> {
+    ) -> Result<ResolvedVarNodeDisplay, JingleError> {
         match self {
             ResolvedVarnode::Direct(d) => Ok(ResolvedVarNodeDisplay::Direct(d.display(ctx)?)),
             ResolvedVarnode::Indirect(i) => Ok(ResolvedVarNodeDisplay::Indirect(
@@ -46,8 +46,8 @@ impl<'a> ResolvedVarnode<'a> {
     }
 }
 
-impl<'a> From<&ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a> {
-    fn from(value: &ResolvedIndirectVarNodeDisplay<'a>) -> Self {
+impl From<&ResolvedIndirectVarNodeDisplay> for ResolvedIndirectVarNode {
+    fn from(value: &ResolvedIndirectVarNodeDisplay) -> Self {
         ResolvedIndirectVarNode {
             pointer: value.pointer.clone(),
             access_size_bytes: value.access_size_bytes,
@@ -57,13 +57,13 @@ impl<'a> From<&ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'
     }
 }
 
-impl<'a> From<ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a> {
-    fn from(value: ResolvedIndirectVarNodeDisplay<'a>) -> Self {
+impl From<ResolvedIndirectVarNodeDisplay> for ResolvedIndirectVarNode {
+    fn from(value: ResolvedIndirectVarNodeDisplay) -> Self {
         ResolvedIndirectVarNode::from(&value)
     }
 }
 
-impl From<VarNode> for ResolvedVarnode<'_> {
+impl From<VarNode> for ResolvedVarnode {
     fn from(value: VarNode) -> Self {
         Self::Direct(value)
     }

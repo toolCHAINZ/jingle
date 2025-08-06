@@ -7,7 +7,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Clone)]
 #[pyclass(unsendable, str)]
 pub struct PythonResolvedIndirectVarNode {
-    pub inner: ResolvedIndirectVarNodeDisplay<'static>,
+    pub inner: ResolvedIndirectVarNodeDisplay,
 }
 
 #[pymethods]
@@ -27,7 +27,7 @@ impl PythonResolvedIndirectVarNode {
 }
 
 impl Display for PythonResolvedIndirectVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.inner, f)
     }
 }
@@ -40,7 +40,7 @@ pub enum PythonResolvedVarNode {
 }
 
 impl Display for PythonResolvedVarNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             PythonResolvedVarNode::Direct(d) => Display::fmt(&d, f),
             PythonResolvedVarNode::Indirect(i) => i.fmt(f),
@@ -60,8 +60,8 @@ impl From<PythonResolvedIndirectVarNode> for PythonResolvedVarNode {
     }
 }
 
-impl From<ResolvedVarNodeDisplay<'static>> for PythonResolvedVarNode {
-    fn from(value: ResolvedVarNodeDisplay<'static>) -> Self {
+impl From<ResolvedVarNodeDisplay> for PythonResolvedVarNode {
+    fn from(value: ResolvedVarNodeDisplay) -> Self {
         match value {
             ResolvedVarNodeDisplay::Direct(d) => PythonResolvedVarNode::Direct(d),
             ResolvedVarNodeDisplay::Indirect(a) => {

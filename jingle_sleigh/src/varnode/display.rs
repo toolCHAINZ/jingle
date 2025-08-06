@@ -33,7 +33,7 @@ pub enum GeneralizedVarNodeDisplay {
 }
 
 impl Display for RawVarNodeDisplay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         if self.space_info._type == SpaceType::IPTR_CONSTANT {
             write!(f, "{:x}:{:x}", self.offset, self.size)
         } else {
@@ -46,7 +46,7 @@ impl Display for RawVarNodeDisplay {
     }
 }
 impl Display for VarNodeDisplay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             VarNodeDisplay::Raw(r) => {
                 write!(f, "{r}")
@@ -59,7 +59,7 @@ impl Display for VarNodeDisplay {
 }
 
 impl Display for IndirectVarNodeDisplay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
             "*({}[{}]:{})",
@@ -69,7 +69,7 @@ impl Display for IndirectVarNodeDisplay {
 }
 
 impl Display for GeneralizedVarNodeDisplay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             GeneralizedVarNodeDisplay::Direct(v) => {
                 write!(f, "{v}")

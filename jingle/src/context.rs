@@ -11,7 +11,7 @@ pub struct CachedArchInfo {
     default_code_space: usize,
 }
 
-impl ArchInfoProvider for JingleContext<'_> {
+impl ArchInfoProvider for JingleContext {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.info.spaces.get(idx)
     }
@@ -46,34 +46,34 @@ impl ArchInfoProvider for JingleContext<'_> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct JingleContextInternal<'ctx> {
-    pub z3: &'ctx Context,
+pub struct JingleContextInternal {
+    pub z3: Context,
     pub info: CachedArchInfo,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct JingleContext<'ctx>(Rc<JingleContextInternal<'ctx>>);
+pub struct JingleContext(Rc<JingleContextInternal>);
 
-impl JingleContext<'_> {
-    pub(crate) fn translate<'a>(&self, ctx: &'a Context) -> JingleContext<'a> {
+impl JingleContext {
+    pub(crate) fn translate(&self, ctx: &Context) -> JingleContext {
         JingleContext(Rc::new(JingleContextInternal {
-            z3: ctx,
+            z3: ctx.clone(),
             info: self.info.clone(),
         }))
     }
 }
 
-impl<'ctx> Deref for JingleContext<'ctx> {
-    type Target = JingleContextInternal<'ctx>;
+impl Deref for JingleContext {
+    type Target = JingleContextInternal;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
     }
 }
-impl<'ctx> JingleContext<'ctx> {
-    pub fn new<S: ArchInfoProvider>(z3: &'ctx Context, r: &S) -> Self {
+impl JingleContext {
+    pub fn new<S: ArchInfoProvider>(z3: &Context, r: &S) -> Self {
         Self(Rc::new(JingleContextInternal {
-            z3,
+            z3: z3.clone(),
             info: CachedArchInfo {
                 spaces: r.get_all_space_info().cloned().collect(),
                 registers: r
@@ -84,13 +84,17 @@ impl<'ctx> JingleContext<'ctx> {
             },
         }))
     }
-    pub fn fresh_state(&self) -> State<'ctx> {
+
+    pub fn ctx(&self) -> &Context {
+        &self.z3
+    }
+    pub fn fresh_state(&self) -> State {
         State::new(self)
     }
 
-    pub fn with_fresh_z3_context(&self, z3: &'ctx Context) -> Self {
+    pub fn with_fresh_z3_context(&self, z3: &Context) -> Self {
         Self(Rc::new(JingleContextInternal {
-            z3,
+            z3: z3.clone(),
             info: self.info.clone(),
         }))
     }

@@ -12,14 +12,11 @@ use pyo3::{PyResult, pyclass, pymethods};
 /// INT-interpreted data transfer operations and contains no
 /// nontrivial control flow
 pub struct PythonModeledInstruction {
-    instr: ModeledInstruction<'static>,
+    instr: ModeledInstruction,
 }
 
 impl PythonModeledInstruction {
-    pub fn new(
-        instr: Instruction,
-        jingle: &JingleContext<'static>,
-    ) -> PyResult<PythonModeledInstruction> {
+    pub fn new(instr: Instruction, jingle: &JingleContext) -> PyResult<PythonModeledInstruction> {
         Ok(Self {
             instr: ModeledInstruction::new(instr, jingle)?,
         })
