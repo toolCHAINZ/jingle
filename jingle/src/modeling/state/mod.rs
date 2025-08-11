@@ -13,8 +13,8 @@ use jingle_sleigh::{
     ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
-use z3::Context;
 use z3::ast::{Array, Ast, BV, Bool};
+use z3::{Context, Translate};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -300,9 +300,10 @@ impl State {
         }
         lines.join("\n")
     }
+}
 
-    #[expect(unused)]
-    pub(crate) fn translate(&self, ctx: &Context) -> State {
+unsafe impl Translate for State {
+    fn translate(&self, ctx: &Context) -> Self {
         State {
             spaces: self.spaces.iter().map(|s| s.translate(ctx)).collect(),
             jingle: self.jingle.translate(ctx),

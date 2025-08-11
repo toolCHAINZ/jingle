@@ -3,7 +3,7 @@ use crate::{JingleContext, JingleError};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
 use z3::ast::{Array, Ast, BV};
-use z3::{Context, Sort};
+use z3::{Context, Sort, Translate};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -76,13 +76,15 @@ impl ModeledSpace {
     pub(crate) fn fmt_smt_array(&self) -> String {
         format!("{:?}", self.data.simplify())
     }
+}
 
-    pub(crate) fn translate(&self, ctx: &Context) -> ModeledSpace {
+unsafe impl Translate for ModeledSpace {
+    fn translate(&self, dest: &Context) -> Self {
         ModeledSpace {
             space_info: self.space_info.clone(),
             endianness: self.endianness,
-            data: self.data.translate(ctx),
-            metadata: self.metadata.translate(ctx),
+            data: self.data.translate(dest),
+            metadata: self.metadata.translate(dest),
         }
     }
 }
