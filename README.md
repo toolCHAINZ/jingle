@@ -22,10 +22,9 @@ related crates:
   found [here](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/Decompiler/src/decompile/cpp).
   This crate contains a private internal low-level API to `SLEIGH` and exposes an idiomatic high-level API to consumers.
 * [`jingle`](./jingle): a set of functions built on top of `jingle_sleigh` that defines an encoding of `p-code` operations
-  into SMT. `jingle` is currently
+  into SMT, using [z3.rs](https://github.com/prove-rs/z3.rs). `jingle` is currently
   designed for providing formulas for use in decision procedures over individual program traces. As such, it does not yet
-  expose APIs for constructing or reasoning about control-flow graphs. A more robust analysis
-  is forthcoming, depending on my research needs.
+  expose APIs for constructing or reasoning about control-flow graphs, though this is under development.
 * [`jingle_python`](./jingle_python): a set of [pyo3](https://pyo3.rs) bindings for `jingle`. These bindings expose a 
   simple interface to both SLEIGH and our logical modeling of `p-code` in SMT. SMT formulae are exposed wrapped in
   their "native" python z3 classes, allowing easy integration with other tools. These bindings are _especially_ raw and
