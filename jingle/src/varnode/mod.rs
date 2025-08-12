@@ -1,4 +1,4 @@
-use jingle_sleigh::{VarNode};
+use jingle_sleigh::VarNode;
 use std::hash::Hash;
 use z3::ast::BV;
 

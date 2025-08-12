@@ -93,7 +93,7 @@ impl<T: ArchInfoProvider> ArchInfoProvider for &[T] {
         self[0].get_space_info(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self[0].get_all_space_info()
     }
 
@@ -109,7 +109,7 @@ impl<T: ArchInfoProvider> ArchInfoProvider for &[T] {
         self[0].get_register_name(location)
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)> {
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
         self[0].get_registers()
     }
 }
@@ -119,7 +119,7 @@ pub trait ArchInfoProvider {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
 
     /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo>;
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo>;
 
     /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
     fn get_code_space_idx(&self) -> usize;
@@ -131,7 +131,7 @@ pub trait ArchInfoProvider {
     fn get_register_name(&self, location: &VarNode) -> Option<&str>;
 
     /// Get a listing of all register name/[`VarNode`] pairs
-    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)>;
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)>;
 
     fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
         for (space_index, space) in self.get_all_space_info().enumerate() {
@@ -159,7 +159,11 @@ pub struct SleighArchInfo {
 }
 
 impl SleighArchInfo {
-    pub fn new<'a, T: Iterator<Item=(&'a VarNode, &'a str)>, E: Iterator<Item=&'a SpaceInfo>>(
+    pub fn new<
+        'a,
+        T: Iterator<Item = (&'a VarNode, &'a str)>,
+        E: Iterator<Item = &'a SpaceInfo>,
+    >(
         registers: T,
         spaces: E,
         default_code_space: usize,
@@ -178,7 +182,7 @@ impl ArchInfoProvider for SleighArchInfo {
         self.info.spaces.get(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item=&SpaceInfo> {
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
         self.info.spaces.iter()
     }
 
@@ -202,7 +206,7 @@ impl ArchInfoProvider for SleighArchInfo {
             .map(|(_, name)| name.as_str())
     }
 
-    fn get_registers(&self) -> impl Iterator<Item=(&VarNode, &str)> {
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
         self.info.registers.iter().map(|(a, b)| (a, b.as_str()))
     }
 }

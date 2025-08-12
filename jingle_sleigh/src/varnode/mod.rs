@@ -1,8 +1,7 @@
-
 use crate::error::JingleSleighError;
 
+use crate::ArchInfoProvider;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-use crate::{ArchInfoProvider};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 #[cfg(feature = "pyo3")]
