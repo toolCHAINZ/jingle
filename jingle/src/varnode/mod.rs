@@ -1,9 +1,4 @@
-pub mod display;
-
-use crate::error::JingleError;
-use crate::error::JingleError::UnmodeledSpace;
-use crate::varnode::display::{ResolvedIndirectVarNodeDisplay, ResolvedVarNodeDisplay};
-use jingle_sleigh::{ArchInfoProvider, VarNode};
+use jingle_sleigh::{VarNode};
 use std::hash::Hash;
 use z3::ast::BV;
 
@@ -22,45 +17,6 @@ pub struct ResolvedIndirectVarNode {
 pub enum ResolvedVarnode {
     Direct(VarNode),
     Indirect(ResolvedIndirectVarNode),
-}
-
-impl ResolvedVarnode {
-    pub fn display<T: ArchInfoProvider>(
-        &self,
-        ctx: &T,
-    ) -> Result<ResolvedVarNodeDisplay, JingleError> {
-        match self {
-            ResolvedVarnode::Direct(d) => Ok(ResolvedVarNodeDisplay::Direct(d.display(ctx)?)),
-            ResolvedVarnode::Indirect(i) => Ok(ResolvedVarNodeDisplay::Indirect(
-                ResolvedIndirectVarNodeDisplay {
-                    pointer_space_info: ctx
-                        .get_space_info(i.pointer_space_idx)
-                        .cloned()
-                        .ok_or(UnmodeledSpace)?,
-                    pointer: i.pointer.clone(),
-                    access_size_bytes: i.access_size_bytes,
-                    pointer_location: i.pointer_location.clone(),
-                },
-            )),
-        }
-    }
-}
-
-impl From<&ResolvedIndirectVarNodeDisplay> for ResolvedIndirectVarNode {
-    fn from(value: &ResolvedIndirectVarNodeDisplay) -> Self {
-        ResolvedIndirectVarNode {
-            pointer: value.pointer.clone(),
-            access_size_bytes: value.access_size_bytes,
-            pointer_space_idx: value.pointer_space_info.index,
-            pointer_location: value.pointer_location.clone(),
-        }
-    }
-}
-
-impl From<ResolvedIndirectVarNodeDisplay> for ResolvedIndirectVarNode {
-    fn from(value: ResolvedIndirectVarNodeDisplay) -> Self {
-        ResolvedIndirectVarNode::from(&value)
-    }
 }
 
 impl From<VarNode> for ResolvedVarnode {

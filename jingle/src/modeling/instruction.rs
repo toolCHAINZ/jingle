@@ -2,10 +2,10 @@ use crate::modeling::{ModelingContext, TranslationContext};
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::{Instruction, VarNode};
 
-use std::collections::HashSet;
-
 use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
+use std::collections::HashSet;
+use z3::{Context, Translate};
 
 use crate::varnode::ResolvedVarnode;
 use crate::{JingleContext, JingleError};
@@ -115,6 +115,20 @@ impl ModelingContext for ModeledInstruction {
     }
 }
 
+unsafe impl Translate for ModeledInstruction {
+    fn translate(&self, dest: &Context) -> Self {
+        Self {
+            jingle: self.jingle.translate(dest),
+            instr: self.instr.clone(),
+            state: self.state.translate(dest),
+            original_state: self.state.translate(dest),
+            inputs: self.inputs.clone(),
+            outputs: self.outputs.clone(),
+            branch_builder: self.branch_builder.clone(),
+        }
+    }
+}
+
 impl TranslationContext for ModeledInstruction {
     fn track_input(&mut self, input: &ResolvedVarnode) {
         self.inputs.insert(input.clone());
@@ -131,11 +145,3 @@ impl TranslationContext for ModeledInstruction {
         &mut self.branch_builder
     }
 }
-
-/*impl From<&[ModeledInstruction]> for ModeledInstruction{
-    fn from(value: &[ModeledInstruction]) -> Self {
-        for instr in value.iter() {
-            instr.
-        }
-    }
-}*/

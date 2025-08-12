@@ -2,7 +2,7 @@ use crate::modeling::State;
 use jingle_sleigh::{ArchInfoProvider, SpaceInfo, VarNode};
 use std::ops::Deref;
 use std::rc::Rc;
-use z3::Context;
+use z3::{Context, Translate};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CachedArchInfo {
@@ -97,5 +97,16 @@ impl JingleContext {
             z3: z3.clone(),
             info: self.info.clone(),
         }))
+    }
+}
+
+unsafe impl Translate for JingleContext {
+    fn translate(&self, dest: &Context) -> Self {
+        Self {
+            0: Rc::new(JingleContextInternal {
+                z3: dest.clone(),
+                info: self.info.clone(),
+            }),
+        }
     }
 }

@@ -2,14 +2,14 @@ use crate::sleigh::context::loaded::LoadedSleighContext;
 use crate::sleigh::{ArchInfoProvider, Instruction, PcodeOperation, SpaceInfo, VarNode};
 use pyo3::{pyclass, pymethods};
 use std::fmt::{Display, Formatter};
+use crate::display::JingleDisplayable;
+use crate::JingleContext;
 
 #[pyclass(str, name = "Instruction")]
 /// An assembly instruction parsed by SLEIGH
 pub struct PythonInstruction {
     instruction: Instruction,
-    registers: Vec<(VarNode, String)>,
-    space_names: Vec<SpaceInfo>,
-    default_code_space: usize,
+    jingle: JingleContext,
 }
 
 impl PythonInstruction {
@@ -68,7 +68,7 @@ impl ArchInfoProvider for &PythonInstruction {
 
 impl Display for PythonInstruction {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let d = self.instruction.display(&self);
+        let d = self.instruction.display(&self.);
         d?.fmt(f)
     }
 }
