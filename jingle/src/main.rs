@@ -2,6 +2,7 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hex::decode;
 use jingle::JingleContext;
+use jingle::display::JingleDisplayable;
 use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
@@ -10,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use z3::ast::Ast;
 use z3::{Config, Context as Z3Context, Solver};
-use jingle::display::JingleDisplayable;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {
