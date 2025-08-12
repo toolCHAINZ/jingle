@@ -162,7 +162,6 @@ pub struct ImageSection<'a> {
 #[cfg(test)]
 mod tests {
     use crate::context::image::{ImageProvider, ImageSection};
-
     #[test]
     fn test_vec_sections() {
         let data: Vec<u8> = vec![1, 2, 3];

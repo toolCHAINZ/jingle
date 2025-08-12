@@ -11,7 +11,7 @@ as distribution through crates.io would require vendoring the sleigh sources int
 
 ## Why do this?
 
-This is [hardly](https://crates.io/crates/sleigh-sys) [the](https://crates.io/crates/sleigh) [first](https://crates.io/crates/sleigh-rs)
+This is [hardly](https://crates.io/crates/sleigh-sys) [the](https://crates.io/crates/sleigh) [only](https://crates.io/crates/libsla)
 time someone has written a rust FFI around `sleigh`. However, I wanted to have control over the FFI since I had particular
 requirements for `jingle` and figured "what's one more?"
 
@@ -28,24 +28,20 @@ likes dealing with multiple `main`s.
 But anyway, here's an example of usage yanked from the tests:
 
 ```rust
-    #[test]
-    fn get_one() {
-        let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let ctx = ctx_builder
-            .set_image(Image::from(mov_eax_0.as_slice()))
-            .build("x86:LE:64:default")
-            .unwrap();
-        let instr = ctx.read(0, 1).last().unwrap();
-        assert_eq!(instr.length, 5);
-        assert!(instr.disassembly.mnemonic.eq("MOV"));
-        assert!(!instr.ops.is_empty());
-        varnode!(&ctx, #0:4).unwrap();
-        let _op = PcodeOperation::Copy {
-            input: varnode!(&ctx, #0:4).unwrap(),
-            output: varnode!(&ctx, "register"[0]:4).unwrap(),
-        };
-        assert!(matches!(&instr.ops[0], _op))
-    }
+fn load_slice() {
+    let ctx_builder =
+        SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+    let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+    // an x86 push
+    let img = vec![0x55u8];
+    let sleigh = sleigh.initialize_with_image(img).unwrap();
+    let instr = sleigh.instruction_at(0).unwrap();
+    assert_eq!(instr.disassembly.mnemonic, "PUSH");
+    assert_eq!(instr.ops.len(), 3);
+    // the stages of a push in pcode
+    assert_eq!(instr.ops[0].opcode(), OpCode::CPUI_COPY);
+    assert_eq!(instr.ops[1].opcode(), OpCode::CPUI_INT_SUB);
+    assert_eq!(instr.ops[2].opcode(), OpCode::CPUI_STORE);
+}
 ```
