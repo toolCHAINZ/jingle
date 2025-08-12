@@ -2,27 +2,22 @@ use crate::sleigh::context::loaded::LoadedSleighContext;
 use crate::sleigh::{ArchInfoProvider, Instruction, PcodeOperation, SpaceInfo, VarNode};
 use pyo3::{pyclass, pymethods};
 use std::fmt::{Display, Formatter};
+use crate::context::SleighArchInfo;
 use crate::display::JingleDisplayable;
+use crate::JingleContext;
 
 #[pyclass(str, name = "Instruction")]
 /// An assembly instruction parsed by SLEIGH
 pub struct PythonInstruction {
     instruction: Instruction,
-    registers: Vec<(VarNode, String)>,
-    space_names: Vec<SpaceInfo>,
-    default_code_space: usize,
+    info: SleighArchInfo
 }
 
 impl PythonInstruction {
-    pub fn new<T: ArchInfoProvider>(instruction: &Instruction, ctx: &T) -> Self {
+    pub fn new(instruction: &Instruction, ctx: &JingleContext) -> Self {
         Self {
             instruction: instruction.clone(),
-            space_names: ctx.get_all_space_info().cloned().collect(),
-            registers: ctx
-                .get_registers()
-                .map(|(a, b)| (a.clone(), b.to_string()))
-                .collect(),
-            default_code_space: ctx.get_code_space_idx(),
+            info: ctx.info.clone(),
         }
     }
     pub fn read_from_ctx(ctx: &LoadedSleighContext, offset: u64) -> Option<Self> {
@@ -69,8 +64,8 @@ impl ArchInfoProvider for &PythonInstruction {
 
 impl Display for PythonInstruction {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let d = self.instruction.display(&self.);
-        d?.fmt(f)
+        let d = self.instruction.display(&self.info);
+        d.fmt(f)
     }
 }
 

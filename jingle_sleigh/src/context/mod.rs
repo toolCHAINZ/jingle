@@ -8,7 +8,7 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::space::SpaceInfo;
+use crate::space::{SleighArchInfo, SleighArchInfoInner, SpaceInfo};
 pub use builder::SleighContextBuilder;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
@@ -20,6 +20,7 @@ use crate::{ArchInfoProvider, VarNode};
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -130,6 +131,16 @@ impl SleighContext {
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
         LoadedSleighContext::new(self, img)
+    }
+
+    pub fn arch_info(&self) -> SleighArchInfo {
+        SleighArchInfo {
+            info: Arc::new(SleighArchInfoInner {
+                registers: self.registers.clone(),
+                default_code_space: self.get_code_space_idx(),
+                spaces: self.spaces.clone(),
+            }),
+        }
     }
 }
 

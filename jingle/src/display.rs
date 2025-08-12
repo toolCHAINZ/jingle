@@ -1,8 +1,5 @@
-use crate::context::SleighArchInfo;
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
-use jingle_sleigh::{
-    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation, VarNode,
-};
+use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation, SleighArchInfo, VarNode};
 use std::fmt::{Display, Formatter};
 use z3::ast::Ast;
 
