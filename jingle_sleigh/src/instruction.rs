@@ -1,12 +1,10 @@
 use crate::JingleSleighError::EmptyInstruction;
-use crate::display::PcodeOperationDisplay;
+use crate::OpCode;
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
-use crate::{ArchInfoProvider, OpCode};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
 
 /// A rust representation of a SLEIGH assembly instruction
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -21,28 +19,7 @@ pub struct Instruction {
     pub address: u64,
 }
 
-/// A helper structure allowing displaying an instruction and its semantics
-/// without requiring lots of pcode metadata to be stored in the instruction itself
-pub struct InstructionDisplay<'a, T: ArchInfoProvider> {
-    pub disassembly: Disassembly,
-    pub ops: Vec<PcodeOperationDisplay<'a, T>>,
-}
-
 impl Instruction {
-    pub fn display<'a, T: ArchInfoProvider>(
-        &'a self,
-        ctx: &'a T,
-    ) -> Result<InstructionDisplay<'a, T>, JingleSleighError> {
-        let mut ops: Vec<PcodeOperationDisplay<T>> = Vec::with_capacity(self.ops.len());
-        for x in &self.ops {
-            ops.push(x.display(ctx)?)
-        }
-        Ok(InstructionDisplay {
-            disassembly: self.disassembly.clone(),
-            ops,
-        })
-    }
-
     pub fn next_addr(&self) -> u64 {
         self.address + self.length as u64
     }
@@ -58,16 +35,6 @@ impl Instruction {
         self.ops
             .iter()
             .any(|o| o.opcode() == OpCode::CPUI_CALLOTHER)
-    }
-}
-
-impl<T: ArchInfoProvider> Display for InstructionDisplay<'_, T> {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        writeln!(f, "{} {}", self.disassembly.mnemonic, self.disassembly.args)?;
-        for x in &self.ops {
-            writeln!(f, "\t{x}")?;
-        }
-        Ok(())
     }
 }
 

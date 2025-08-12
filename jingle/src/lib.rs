@@ -1,5 +1,6 @@
 pub mod analysis;
 mod context;
+pub mod display;
 mod error;
 pub mod modeling;
 #[cfg(feature = "pyo3")]

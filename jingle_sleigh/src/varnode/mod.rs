@@ -1,12 +1,7 @@
-pub mod display;
-
 use crate::error::JingleSleighError;
 
+use crate::ArchInfoProvider;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
-pub use crate::varnode::display::{
-    GeneralizedVarNodeDisplay, IndirectVarNodeDisplay, VarNodeDisplay,
-};
-use crate::{ArchInfoProvider, RawVarNodeDisplay};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 #[cfg(feature = "pyo3")]
@@ -54,28 +49,10 @@ impl VarNode {
 impl VarNode {
     /// This value is hardcoded in `space.cc` within `SLEIGH`. Also hardcoding it here for convenience.
     /// todo: It would be best if this was checked with a static assert from cxx
-    const CONST_SPACE_INDEX: usize = 0;
+    pub const CONST_SPACE_INDEX: usize = 0;
 
     pub fn is_const(&self) -> bool {
         self.space_index == Self::CONST_SPACE_INDEX
-    }
-    pub fn display<T: ArchInfoProvider>(
-        &self,
-        ctx: &T,
-    ) -> Result<VarNodeDisplay, JingleSleighError> {
-        if let Some(name) = ctx.get_register_name(self) {
-            Ok(VarNodeDisplay::Register(name.to_string(), self.clone()))
-        } else {
-            ctx.get_space_info(self.space_index)
-                .map(|space_info| {
-                    VarNodeDisplay::Raw(RawVarNodeDisplay {
-                        size: self.size,
-                        offset: self.offset,
-                        space_info: space_info.clone(),
-                    })
-                })
-                .ok_or(JingleSleighError::InvalidSpaceName)
-        }
     }
 
     pub fn covers(&self, other: &VarNode) -> bool {
@@ -177,25 +154,6 @@ pub struct IndirectVarNode {
     pub access_size_bytes: usize,
 }
 
-impl IndirectVarNode {
-    pub fn display<T: ArchInfoProvider>(
-        &self,
-        ctx: &T,
-    ) -> Result<IndirectVarNodeDisplay, JingleSleighError> {
-        let pointer_location = self.pointer_location.display(ctx);
-        let pointer_space_name = ctx
-            .get_space_info(self.pointer_space_index)
-            .ok_or(JingleSleighError::InvalidSpaceName);
-        pointer_location.and_then(|pointer_loc| {
-            pointer_space_name.map(|space| IndirectVarNodeDisplay {
-                pointer_space_info: space.clone(),
-                pointer_location: pointer_loc,
-                access_size_bytes: self.access_size_bytes,
-            })
-        })
-    }
-}
-
 impl Display for IndirectVarNode {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
@@ -220,20 +178,6 @@ impl LowerHex for IndirectVarNode {
 pub enum GeneralizedVarNode {
     Direct(VarNode),
     Indirect(IndirectVarNode),
-}
-
-impl GeneralizedVarNode {
-    pub fn display<T: ArchInfoProvider>(
-        &self,
-        ctx: &T,
-    ) -> Result<GeneralizedVarNodeDisplay, JingleSleighError> {
-        match self {
-            GeneralizedVarNode::Direct(d) => Ok(GeneralizedVarNodeDisplay::Direct(d.display(ctx)?)),
-            GeneralizedVarNode::Indirect(i) => {
-                Ok(GeneralizedVarNodeDisplay::Indirect(i.display(ctx)?))
-            }
-        }
-    }
 }
 
 impl From<&VarNode> for GeneralizedVarNode {

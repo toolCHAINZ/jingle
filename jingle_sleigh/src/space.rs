@@ -5,6 +5,7 @@ use crate::space::SleighEndianness::{Big, Little};
 use crate::varnode::VarNode;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// What program-analysis library wouldn't be complete without an enum
 /// for endianness?
@@ -143,5 +144,69 @@ pub trait ArchInfoProvider {
             }
         }
         Err(JingleSleighError::InvalidSpaceName)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SleighArchInfoInner {
+    pub(crate) registers: Vec<(VarNode, String)>,
+    pub(crate) spaces: Vec<SpaceInfo>,
+    pub(crate) default_code_space: usize,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SleighArchInfo {
+    pub(crate) info: Arc<SleighArchInfoInner>,
+}
+
+impl SleighArchInfo {
+    pub fn new<
+        'a,
+        T: Iterator<Item = (&'a VarNode, &'a str)>,
+        E: Iterator<Item = &'a SpaceInfo>,
+    >(
+        registers: T,
+        spaces: E,
+        default_code_space: usize,
+    ) -> Self {
+        Self {
+            info: Arc::new(SleighArchInfoInner {
+                registers: registers.map(|(a, b)| (a.clone(), b.to_string())).collect(),
+                spaces: spaces.cloned().collect(),
+                default_code_space,
+            }),
+        }
+    }
+}
+impl ArchInfoProvider for SleighArchInfo {
+    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+        self.info.spaces.get(idx)
+    }
+
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+        self.info.spaces.iter()
+    }
+
+    fn get_code_space_idx(&self) -> usize {
+        self.info.default_code_space
+    }
+
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
+        self.info
+            .registers
+            .iter()
+            .find(|(_, reg_name)| reg_name.as_str() == name)
+            .map(|(vn, _)| vn)
+    }
+
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
+        self.info
+            .registers
+            .iter()
+            .find(|(vn, _)| vn == location)
+            .map(|(_, name)| name.as_str())
+    }
+
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
+        self.info.registers.iter().map(|(a, b)| (a, b.as_str()))
     }
 }

@@ -11,6 +11,7 @@ use jingle_sleigh::SpaceInfo;
 use jingle_sleigh::{ArchInfoProvider, Instruction, VarNode};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use z3::{Context, Translate};
 
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
@@ -202,5 +203,19 @@ impl TranslationContext for ModeledBlock {
 
     fn get_branch_builder(&mut self) -> &mut BranchConstraint {
         &mut self.branch_constraint
+    }
+}
+
+unsafe impl Translate for ModeledBlock {
+    fn translate(&self, dest: &Context) -> Self {
+        Self {
+            jingle: self.jingle.translate(dest),
+            branch_constraint: self.branch_constraint.clone(),
+            original_state: self.original_state.translate(dest),
+            state: self.state.translate(dest),
+            inputs: self.inputs.iter().map(|a| a.translate(dest)).collect(),
+            instructions: self.instructions.clone(),
+            outputs: self.outputs.iter().map(|a| a.translate(dest)).collect(),
+        }
     }
 }

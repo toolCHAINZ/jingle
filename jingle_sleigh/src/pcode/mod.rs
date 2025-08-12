@@ -1,5 +1,4 @@
 pub mod branch;
-pub mod display;
 
 use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,
@@ -13,12 +12,10 @@ use crate::pcode::PcodeOperation::{
     PtrAdd, PtrSub, Return, SegmentOp, Store, SubPiece,
 };
 
-use crate::error::JingleSleighError;
+use crate::GeneralizedVarNode;
 use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
-use crate::pcode::display::PcodeOperationDisplay;
 use crate::varnode::{IndirectVarNode, VarNode};
-use crate::{ArchInfoProvider, GeneralizedVarNode};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
@@ -392,16 +389,6 @@ impl PcodeOperation {
 
     pub fn has_fallthrough(&self) -> bool {
         !matches!(self, Return { .. } | Branch { .. } | BranchInd { .. })
-    }
-
-    pub fn display<'a, T: ArchInfoProvider>(
-        &self,
-        ctx: &'a T,
-    ) -> Result<PcodeOperationDisplay<'a, T>, JingleSleighError> {
-        Ok(PcodeOperationDisplay {
-            op: self.clone(),
-            ctx,
-        })
     }
 
     pub fn inputs(&self) -> Vec<GeneralizedVarNode> {
@@ -1006,5 +993,12 @@ impl LowerHex for PcodeOperation {
         write!(f, "{} ", self.opcode())?;
         let i: Vec<_> = self.inputs().iter().map(|ff| format!("{ff:x}")).collect();
         write!(f, "{}", i.join(", "))
+    }
+}
+
+impl Display for OpCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = format!("{:?}", self);
+        write!(f, "{}", s.as_str().get(5..).unwrap())
     }
 }

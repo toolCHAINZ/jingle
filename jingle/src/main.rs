@@ -2,6 +2,7 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hex::decode;
 use jingle::JingleContext;
+use jingle::display::JingleDisplayable;
 use jingle::modeling::{ModeledBlock, ModelingContext};
 use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
@@ -159,9 +160,10 @@ fn disassemble(
 
 fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyhow::Result<()> {
     let (sleigh, instrs) = get_instructions(config, architecture, hex_bytes)?;
+    let info = sleigh.arch_info();
     for instr in instrs {
         for x in instr.ops {
-            let x_disp = x.display(&sleigh)?;
+            let x_disp = x.display(&info);
             println!("{x_disp}")
         }
     }

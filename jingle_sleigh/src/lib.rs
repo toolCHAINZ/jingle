@@ -11,8 +11,7 @@ pub use error::JingleSleighError;
 pub use ffi::addrspace::bridge::SpaceType;
 pub use instruction::*;
 pub use pcode::*;
-pub use space::{ArchInfoProvider, SleighEndianness, SpaceInfo};
-pub use varnode::display::*;
+pub use space::{ArchInfoProvider, SleighArchInfo, SleighEndianness, SpaceInfo};
 pub use varnode::{GeneralizedVarNode, IndirectVarNode, VarNode, create_varnode};
 
 #[cfg(test)]
