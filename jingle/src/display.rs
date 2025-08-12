@@ -120,7 +120,7 @@ impl JingleDisplayable for PcodeOperation {
         if let Some(o) = self.output() {
             write!(f, "{} = ", o.display(ctx))?;
         }
-        write!(f, "{:?} ", self.opcode())?;
+        write!(f, "{} ", self.opcode())?;
         let mut args: Vec<String> = vec![];
         for x in self.inputs() {
             args.push(format!("{}", x.display(ctx)));
