@@ -2,16 +2,21 @@ use crate::modeling::State;
 use jingle_sleigh::{ArchInfoProvider, SpaceInfo, VarNode};
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 use z3::{Context, Translate};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CachedArchInfo {
+struct SleighArchInfoInner {
     registers: Vec<(VarNode, String)>,
     spaces: Vec<SpaceInfo>,
     default_code_space: usize,
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SleighArchInfo {
+    info: Arc<SleighArchInfoInner>,
+}
 
-impl ArchInfoProvider for JingleContext {
+impl ArchInfoProvider for SleighArchInfo {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.info.spaces.get(idx)
     }
@@ -45,10 +50,36 @@ impl ArchInfoProvider for JingleContext {
     }
 }
 
+impl ArchInfoProvider for JingleContext {
+    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+        self.info.get_space_info(idx)
+    }
+
+    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
+        self.info.get_all_space_info()
+    }
+
+    fn get_code_space_idx(&self) -> usize {
+        self.info.get_code_space_idx()
+    }
+
+    fn get_register(&self, name: &str) -> Option<&VarNode> {
+        self.info.get_register(name)
+    }
+
+    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
+        self.info.get_register_name(location)
+    }
+
+    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
+        self.info.get_registers()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JingleContextInternal {
     pub z3: Context,
-    pub info: CachedArchInfo,
+    pub info: SleighArchInfo,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -74,13 +105,15 @@ impl JingleContext {
     pub fn new<S: ArchInfoProvider>(z3: &Context, r: &S) -> Self {
         Self(Rc::new(JingleContextInternal {
             z3: z3.clone(),
-            info: CachedArchInfo {
-                spaces: r.get_all_space_info().cloned().collect(),
-                registers: r
-                    .get_registers()
-                    .map(|(a, b)| (a.clone(), b.to_string()))
-                    .collect(),
-                default_code_space: r.get_code_space_idx(),
+            info: SleighArchInfo {
+                info: Arc::new(SleighArchInfoInner {
+                    spaces: r.get_all_space_info().cloned().collect(),
+                    registers: r
+                        .get_registers()
+                        .map(|(a, b)| (a.clone(), b.to_string()))
+                        .collect(),
+                    default_code_space: r.get_code_space_idx(),
+                }),
             },
         }))
     }
