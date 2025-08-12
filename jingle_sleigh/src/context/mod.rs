@@ -148,7 +148,7 @@ impl SleighContext {
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::{ArchInfoProvider, VarNode};
+    use crate::{ArchInfoProvider, OpCode, VarNode};
 
     #[test]
     fn get_regs() {
@@ -208,5 +208,23 @@ mod test {
             }),
             None
         );
+    }
+
+    #[test]
+    fn load_slice() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        // an x86 push
+        let img = vec![0x55u8];
+        let sleigh = sleigh.initialize_with_image(img).unwrap();
+        let instr = sleigh.instruction_at(0).unwrap();
+        assert_eq!(instr.disassembly.mnemonic, "PUSH");
+        assert_eq!(instr.ops.len(), 3);
+        // the stages of a push in pcode
+        assert_eq!(instr.ops[0].opcode(), OpCode::CPUI_COPY);
+        assert_eq!(instr.ops[1].opcode(), OpCode::CPUI_INT_SUB);
+        assert_eq!(instr.ops[2].opcode(), OpCode::CPUI_STORE);
     }
 }

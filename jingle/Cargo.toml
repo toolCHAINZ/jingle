@@ -19,7 +19,7 @@ name = "jingle"
 required-features = ["bin"]
 
 [dependencies]
-jingle_sleigh = { path = "../jingle_sleigh", version = "0.2.1" }
+jingle_sleigh = { path = "../jingle_sleigh", version = "0.2.2" }
 z3 = { version = "0.14.1" }
 z3-sys = { version = "0.9.5", optional = true }
 thiserror = "2.0"
