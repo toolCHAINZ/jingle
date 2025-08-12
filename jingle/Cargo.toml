@@ -1,6 +1,6 @@
 [package]
 name = "jingle"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 description = "SMT Modeling for Ghidra's PCODE"
 homepage = "https://github.com/toolCHAINZ/jingle"
@@ -19,7 +19,7 @@ name = "jingle"
 required-features = ["bin"]
 
 [dependencies]
-jingle_sleigh = { path = "../jingle_sleigh", version = "0.2.0" }
+jingle_sleigh = { path = "../jingle_sleigh", version = "0.2.1" }
 z3 = { version = "0.14.1" }
 z3-sys = { version = "0.9.5", optional = true }
 thiserror = "2.0"
