@@ -168,7 +168,7 @@ impl SleighArchInfo {
             info: Arc::new(SleighArchInfoInner {
                 registers: registers.map(|(a, b)| (a.clone(), b.to_string())).collect(),
                 spaces: spaces.cloned().collect(),
-                default_code_space: default_code_space,
+                default_code_space,
             }),
         }
     }

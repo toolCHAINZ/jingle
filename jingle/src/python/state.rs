@@ -33,7 +33,7 @@ impl PythonState {
     pub fn varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
         match &varnode.inner {
             PythonResolvedVarNodeInner::Direct(a) => {
-                self.state.read_varnode(&VarNode::from(a.inner().clone()))
+                self.state.read_varnode(a.inner())
             }
             PythonResolvedVarNodeInner::Indirect(a) => {
                 let ind = a.inner().clone();

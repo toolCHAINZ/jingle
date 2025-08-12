@@ -1,5 +1,8 @@
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
-use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation, SleighArchInfo, VarNode};
+use jingle_sleigh::{
+    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation,
+    SleighArchInfo, VarNode,
+};
 use std::fmt::{Display, Formatter};
 use z3::ast::Ast;
 
@@ -20,11 +23,11 @@ pub struct JingleDisplay<T> {
     inner: T,
 }
 
-impl<T> JingleDisplay<T>{
+impl<T> JingleDisplay<T> {
     pub fn inner(&self) -> &T {
         &self.inner
     }
-    
+
     pub fn info(&self) -> &SleighArchInfo {
         &self.info
     }
@@ -36,9 +39,13 @@ impl<T: JingleDisplayable> Display for JingleDisplay<T> {
     }
 }
 
-impl JingleDisplay<ResolvedIndirectVarNode>{
+impl JingleDisplay<ResolvedIndirectVarNode> {
     pub fn space_name(&self) -> &str {
-        self.info.get_space_info(self.inner.pointer_space_idx).unwrap().name.as_str()
+        self.info
+            .get_space_info(self.inner.pointer_space_idx)
+            .unwrap()
+            .name
+            .as_str()
     }
 }
 
@@ -46,20 +53,18 @@ impl JingleDisplayable for VarNode {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, ctx: &SleighArchInfo) -> std::fmt::Result {
         if self.space_index == VarNode::CONST_SPACE_INDEX {
             write!(f, "{:x}:{:x}", self.offset, self.size)
+        } else if let Some(name) = ctx.get_register_name(self) {
+            write!(f, "{}", name)
         } else {
-            if let Some(name) = ctx.get_register_name(self) {
-                write!(f, "{}", name)
-            } else {
-                write!(
-                    f,
-                    "{}[{:x}]:{:x}",
-                    ctx.get_space_info(self.space_index)
-                        .ok_or(std::fmt::Error::default())?
-                        .name,
-                    self.offset,
-                    self.size
-                )
-            }
+            write!(
+                f,
+                "{}[{:x}]:{:x}",
+                ctx.get_space_info(self.space_index)
+                    .ok_or(std::fmt::Error)?
+                    .name,
+                self.offset,
+                self.size
+            )
         }
     }
 }
@@ -70,7 +75,7 @@ impl JingleDisplayable for IndirectVarNode {
             f,
             "*({}[{}]:{})",
             ctx.get_space_info(self.pointer_space_index)
-                .ok_or(std::fmt::Error::default())?
+                .ok_or(std::fmt::Error)?
                 .name,
             self.pointer_location,
             self.access_size_bytes
@@ -93,7 +98,7 @@ impl JingleDisplayable for ResolvedIndirectVarNode {
             f,
             "{}[{}]:{}",
             ctx.get_space_info(self.pointer_space_idx)
-                .ok_or(std::fmt::Error::default())?
+                .ok_or(std::fmt::Error)?
                 .name,
             self.pointer.simplify(),
             self.access_size_bytes

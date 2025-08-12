@@ -59,7 +59,11 @@ impl JingleContext {
     pub fn new<S: ArchInfoProvider>(z3: &Context, r: &S) -> Self {
         Self(Rc::new(JingleContextInternal {
             z3: z3.clone(),
-            info: SleighArchInfo::new(r.get_registers(), r.get_all_space_info(), r.get_code_space_idx())
+            info: SleighArchInfo::new(
+                r.get_registers(),
+                r.get_all_space_info(),
+                r.get_code_space_idx(),
+            ),
         }))
     }
 
@@ -80,11 +84,9 @@ impl JingleContext {
 
 unsafe impl Translate for JingleContext {
     fn translate(&self, dest: &Context) -> Self {
-        Self {
-            0: Rc::new(JingleContextInternal {
-                z3: dest.clone(),
-                info: self.info.clone(),
-            }),
-        }
+        Self(Rc::new(JingleContextInternal {
+            z3: dest.clone(),
+            info: self.info.clone(),
+        }))
     }
 }
