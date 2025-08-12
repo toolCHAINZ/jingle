@@ -208,10 +208,14 @@ impl TranslationContext for ModeledBlock {
 
 unsafe impl Translate for ModeledBlock {
     fn translate(&self, dest: &Context) -> Self {
-        Self{
+        Self {
+            jingle: self.jingle.translate(dest),
             branch_constraint: self.branch_constraint.clone(),
             original_state: self.original_state.translate(dest),
-            state: self.state.translate(dest), inputs: self.inputs.iter().map(|a|a.tra)
+            state: self.state.translate(dest),
+            inputs: self.inputs.iter().map(|a| a.translate(dest)).collect(),
+            instructions: self.instructions.clone(),
+            outputs: self.outputs.iter().map(|a| a.translate(dest)).collect(),
         }
     }
 }

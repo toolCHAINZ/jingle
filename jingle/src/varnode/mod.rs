@@ -14,10 +14,10 @@ pub struct ResolvedIndirectVarNode {
 unsafe impl Translate for ResolvedIndirectVarNode {
     fn translate(&self, dest: &Context) -> Self {
         Self {
-            pointer_space_idx: self.pointer_space_idx.clone(),
             pointer_location: self.pointer_location.clone(),
+            pointer_space_idx: self.pointer_space_idx,
             access_size_bytes: self.access_size_bytes,
-            pointer: self.pointer.translate(dest)
+            pointer: self.pointer.translate(dest),
         }
     }
 }
@@ -39,8 +39,8 @@ impl From<VarNode> for ResolvedVarnode {
 unsafe impl Translate for ResolvedVarnode {
     fn translate(&self, dest: &Context) -> Self {
         match self {
-            ResolvedVarnode::Direct(a) => {ResolvedVarnode::Direct(a.clone())}
-            ResolvedVarnode::Indirect(i) => {ResolvedVarnode::Indirect(i.translate(dest))}
+            ResolvedVarnode::Direct(a) => ResolvedVarnode::Direct(a.clone()),
+            ResolvedVarnode::Indirect(i) => ResolvedVarnode::Indirect(i.translate(dest)),
         }
     }
 }
