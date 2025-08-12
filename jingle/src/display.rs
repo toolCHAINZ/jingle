@@ -14,14 +14,31 @@ pub trait JingleDisplayable: Sized + Clone {
     }
 }
 
+#[derive(Clone)]
 pub struct JingleDisplay<T> {
     info: SleighArchInfo,
     inner: T,
 }
 
+impl<T> JingleDisplay<T>{
+    pub fn inner(&self) -> &T {
+        &self.inner
+    }
+    
+    pub fn info(&self) -> &SleighArchInfo {
+        &self.info
+    }
+}
+
 impl<T: JingleDisplayable> Display for JingleDisplay<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt_jingle(f, &self.info)
+    }
+}
+
+impl JingleDisplay<ResolvedIndirectVarNode>{
+    pub fn space_name(&self) -> &str {
+        self.info.get_space_info(self.inner.pointer_space_idx).unwrap().name.as_str()
     }
 }
 
