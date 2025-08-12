@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use z3::ast::Ast;
 use z3::{Config, Context as Z3Context, Solver};
+use jingle::display::JingleDisplayable;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {
@@ -159,9 +160,10 @@ fn disassemble(
 
 fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyhow::Result<()> {
     let (sleigh, instrs) = get_instructions(config, architecture, hex_bytes)?;
+    let info = sleigh.arch_info();
     for instr in instrs {
         for x in instr.ops {
-            let x_disp = x.display(&sleigh)?;
+            let x_disp = x.display(&info);
             println!("{x_disp}")
         }
     }
