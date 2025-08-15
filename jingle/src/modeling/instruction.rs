@@ -2,10 +2,10 @@ use crate::modeling::{ModelingContext, TranslationContext};
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::{Instruction, VarNode};
 
-use std::collections::HashSet;
-
 use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
+use std::collections::HashSet;
+use z3::{Context, Translate};
 
 use crate::varnode::ResolvedVarnode;
 use crate::{JingleContext, JingleError};
@@ -13,18 +13,18 @@ use jingle_sleigh::{ArchInfoProvider, SpaceInfo};
 
 /// A `jingle` model of an individual SLEIGH instruction
 #[derive(Debug, Clone)]
-pub struct ModeledInstruction<'ctx> {
-    jingle: JingleContext<'ctx>,
+pub struct ModeledInstruction {
+    jingle: JingleContext,
     pub instr: Instruction,
-    state: State<'ctx>,
-    original_state: State<'ctx>,
-    inputs: HashSet<ResolvedVarnode<'ctx>>,
-    outputs: HashSet<ResolvedVarnode<'ctx>>,
+    state: State,
+    original_state: State,
+    inputs: HashSet<ResolvedVarnode>,
+    outputs: HashSet<ResolvedVarnode>,
     branch_builder: BranchConstraint,
 }
 
-impl<'ctx> ModeledInstruction<'ctx> {
-    pub fn new(instr: Instruction, jingle: &JingleContext<'ctx>) -> Result<Self, JingleError> {
+impl ModeledInstruction {
+    pub fn new(instr: Instruction, jingle: &JingleContext) -> Result<Self, JingleError> {
         let original_state = State::new(jingle);
         let state = original_state.clone();
         let next_vn = state.get_default_code_space_info().make_varnode(
@@ -51,7 +51,7 @@ impl<'ctx> ModeledInstruction<'ctx> {
     }
 }
 
-impl ArchInfoProvider for ModeledInstruction<'_> {
+impl ArchInfoProvider for ModeledInstruction {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
         self.jingle.get_space_info(idx)
     }
@@ -77,8 +77,8 @@ impl ArchInfoProvider for ModeledInstruction<'_> {
     }
 }
 
-impl<'ctx> ModelingContext<'ctx> for ModeledInstruction<'ctx> {
-    fn get_jingle(&self) -> &JingleContext<'ctx> {
+impl ModelingContext for ModeledInstruction {
+    fn get_jingle(&self) -> &JingleContext {
         &self.jingle
     }
 
@@ -86,11 +86,11 @@ impl<'ctx> ModelingContext<'ctx> for ModeledInstruction<'ctx> {
         self.instr.address
     }
 
-    fn get_original_state(&self) -> &State<'ctx> {
+    fn get_original_state(&self) -> &State {
         &self.original_state
     }
 
-    fn get_final_state<'a>(&'a self) -> &'a State<'ctx> {
+    fn get_final_state(&self) -> &State {
         &self.state
     }
 
@@ -102,11 +102,11 @@ impl<'ctx> ModelingContext<'ctx> for ModeledInstruction<'ctx> {
         result
     }
 
-    fn get_inputs(&self) -> HashSet<ResolvedVarnode<'ctx>> {
+    fn get_inputs(&self) -> HashSet<ResolvedVarnode> {
         self.inputs.clone()
     }
 
-    fn get_outputs(&self) -> HashSet<ResolvedVarnode<'ctx>> {
+    fn get_outputs(&self) -> HashSet<ResolvedVarnode> {
         self.outputs.clone()
     }
 
@@ -115,15 +115,29 @@ impl<'ctx> ModelingContext<'ctx> for ModeledInstruction<'ctx> {
     }
 }
 
-impl<'ctx> TranslationContext<'ctx> for ModeledInstruction<'ctx> {
-    fn track_input<'a, 'b: 'ctx>(&mut self, input: &'a ResolvedVarnode<'ctx>) {
+unsafe impl Translate for ModeledInstruction {
+    fn translate(&self, dest: &Context) -> Self {
+        Self {
+            jingle: self.jingle.translate(dest),
+            instr: self.instr.clone(),
+            state: self.state.translate(dest),
+            original_state: self.state.translate(dest),
+            inputs: self.inputs.clone(),
+            outputs: self.outputs.clone(),
+            branch_builder: self.branch_builder.clone(),
+        }
+    }
+}
+
+impl TranslationContext for ModeledInstruction {
+    fn track_input(&mut self, input: &ResolvedVarnode) {
         self.inputs.insert(input.clone());
     }
-    fn track_output(&mut self, output: &ResolvedVarnode<'ctx>) {
+    fn track_output(&mut self, output: &ResolvedVarnode) {
         self.outputs.insert(output.clone());
     }
 
-    fn get_final_state_mut(&mut self) -> &mut State<'ctx> {
+    fn get_final_state_mut(&mut self) -> &mut State {
         &mut self.state
     }
 
@@ -131,11 +145,3 @@ impl<'ctx> TranslationContext<'ctx> for ModeledInstruction<'ctx> {
         &mut self.branch_builder
     }
 }
-
-/*impl<'ctx> From<&[ModeledInstruction<'ctx>]> for ModeledInstruction<'ctx>{
-    fn from(value: &[ModeledInstruction<'ctx>]) -> Self {
-        for instr in value.iter() {
-            instr.
-        }
-    }
-}*/

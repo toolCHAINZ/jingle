@@ -1,4 +1,5 @@
 use crate::JingleContext;
+use crate::display::JingleDisplayable;
 use crate::modeling::{ModeledInstruction, ModelingContext};
 use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::state::PythonState;
@@ -12,14 +13,11 @@ use pyo3::{PyResult, pyclass, pymethods};
 /// INT-interpreted data transfer operations and contains no
 /// nontrivial control flow
 pub struct PythonModeledInstruction {
-    instr: ModeledInstruction<'static>,
+    instr: ModeledInstruction,
 }
 
 impl PythonModeledInstruction {
-    pub fn new(
-        instr: Instruction,
-        jingle: &JingleContext<'static>,
-    ) -> PyResult<PythonModeledInstruction> {
+    pub fn new(instr: Instruction, jingle: &JingleContext) -> PyResult<PythonModeledInstruction> {
         Ok(Self {
             instr: ModeledInstruction::new(instr, jingle)?,
         })
@@ -45,14 +43,14 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
     pub fn get_input_vns(&self) -> PyResult<VarNodeIterator> {
-        let s = self.instr.get_original_state().clone();
-        let filtered: Result<Vec<PythonResolvedVarNode>, _> = self
+        let s = self.instr.get_jingle().info.clone();
+        let filtered: Vec<PythonResolvedVarNode> = self
             .instr
             .get_inputs()
             .into_iter()
-            .map(|g| g.display(&s).map(PythonResolvedVarNode::from))
+            .map(|g| PythonResolvedVarNode::from(g.display(&s)))
             .collect();
-        let filtered = filtered?.into_iter();
+        let filtered = filtered.into_iter();
         Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 
@@ -60,14 +58,14 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
     pub fn get_output_vns(&self) -> PyResult<VarNodeIterator> {
-        let s = self.instr.get_final_state().clone();
-        let filtered: Result<Vec<PythonResolvedVarNode>, _> = self
+        let s = self.instr.get_jingle().info.clone();
+        let filtered: Vec<PythonResolvedVarNode> = self
             .instr
             .get_outputs()
             .into_iter()
-            .map(|g| g.display(&s).map(PythonResolvedVarNode::from))
+            .map(|g| PythonResolvedVarNode::from(g.display(&s)))
             .collect();
-        let filtered = filtered?.into_iter();
+        let filtered = filtered.into_iter();
         Ok(VarNodeIterator::new(filtered.into_iter()))
     }
 }

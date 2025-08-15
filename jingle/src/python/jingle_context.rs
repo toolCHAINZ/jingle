@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 #[pyclass(unsendable, name = "JingleContext")]
 pub struct PythonJingleContext {
-    pub jingle: JingleContext<'static>,
+    pub jingle: JingleContext,
     pub sleigh: Rc<LoadedSleighContext<'static>>,
 }
 

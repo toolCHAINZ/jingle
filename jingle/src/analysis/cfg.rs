@@ -29,8 +29,8 @@ impl PcodeCfg {
         &self.graph
     }
 
-    pub fn build_solver<'ctx>(&self, jingle: JingleContext<'ctx>) -> Solver<'ctx> {
-        let solver = Solver::new(jingle.z3);
+    pub fn build_solver(&self, jingle: JingleContext) -> Solver {
+        let solver = Solver::new(jingle.ctx());
         let mut states = HashMap::new();
         for addr in self.graph.nodes() {
             states.insert(addr, MachineState::fresh_for_address(&jingle, addr));
@@ -54,18 +54,18 @@ impl PcodeCfg {
             if options.is_empty() {
                 continue;
             }
-            solver.assert(&Bool::or(jingle.z3, &options));
+            solver.assert(&Bool::or(jingle.ctx(), &options));
         }
         solver
     }
-    pub fn build_model<'ctx>(&self, jingle: JingleContext<'ctx>) -> Model<'ctx> {
+    pub fn build_model(&self, jingle: JingleContext) -> Model {
         let solver = self.build_solver(jingle);
         solver.check();
         solver.get_model().unwrap()
     }
 
-    pub fn build_solver_implication<'ctx>(&self, jingle: JingleContext<'ctx>) -> Solver<'ctx> {
-        let solver = Solver::new_for_logic(jingle.z3, "QF_ABV").unwrap();
+    pub fn build_solver_implication(&self, jingle: JingleContext) -> Solver {
+        let solver = Solver::new_for_logic(jingle.ctx(), "QF_ABV").unwrap();
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for addr in self.graph.nodes() {
@@ -89,11 +89,11 @@ impl PcodeCfg {
             })
             .collect();
 
-        solver.assert(&Bool::and(jingle.z3, &options));
+        solver.assert(&Bool::and(jingle.ctx(), &options));
 
         solver
     }
-    pub fn build_model_implication<'ctx>(&self, jingle: JingleContext<'ctx>) -> Model<'ctx> {
+    pub fn build_model_implication(&self, jingle: JingleContext) -> Model {
         let solver = self.build_solver_implication(jingle);
         solver.check();
         solver.get_model().unwrap()

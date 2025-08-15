@@ -1,70 +1,46 @@
-pub mod display;
-
-use crate::error::JingleError;
-use crate::error::JingleError::UnmodeledSpace;
-use crate::varnode::display::{ResolvedIndirectVarNodeDisplay, ResolvedVarNodeDisplay};
-use jingle_sleigh::{ArchInfoProvider, VarNode};
+use jingle_sleigh::VarNode;
 use std::hash::Hash;
 use z3::ast::BV;
+use z3::{Context, Translate};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct ResolvedIndirectVarNode<'ctx> {
+pub struct ResolvedIndirectVarNode {
     pub pointer_space_idx: usize,
-    pub pointer: BV<'ctx>,
+    pub pointer: BV,
     pub pointer_location: VarNode,
     pub access_size_bytes: usize,
 }
 
+unsafe impl Translate for ResolvedIndirectVarNode {
+    fn translate(&self, dest: &Context) -> Self {
+        Self {
+            pointer_location: self.pointer_location.clone(),
+            pointer_space_idx: self.pointer_space_idx,
+            access_size_bytes: self.access_size_bytes,
+            pointer: self.pointer.translate(dest),
+        }
+    }
+}
 /// This represents a general varnode that has been evaluated in a sequence of instructions.
 /// What distinguishes this from a regular VarNode is that, in the case of indirect varnodes,
 /// the pointer value has been already evaluated
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub enum ResolvedVarnode<'ctx> {
+pub enum ResolvedVarnode {
     Direct(VarNode),
-    Indirect(ResolvedIndirectVarNode<'ctx>),
+    Indirect(ResolvedIndirectVarNode),
 }
 
-impl<'a> ResolvedVarnode<'a> {
-    pub fn display<T: ArchInfoProvider>(
-        &self,
-        ctx: &T,
-    ) -> Result<ResolvedVarNodeDisplay<'a>, JingleError> {
-        match self {
-            ResolvedVarnode::Direct(d) => Ok(ResolvedVarNodeDisplay::Direct(d.display(ctx)?)),
-            ResolvedVarnode::Indirect(i) => Ok(ResolvedVarNodeDisplay::Indirect(
-                ResolvedIndirectVarNodeDisplay {
-                    pointer_space_info: ctx
-                        .get_space_info(i.pointer_space_idx)
-                        .cloned()
-                        .ok_or(UnmodeledSpace)?,
-                    pointer: i.pointer.clone(),
-                    access_size_bytes: i.access_size_bytes,
-                    pointer_location: i.pointer_location.clone(),
-                },
-            )),
-        }
-    }
-}
-
-impl<'a> From<&ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a> {
-    fn from(value: &ResolvedIndirectVarNodeDisplay<'a>) -> Self {
-        ResolvedIndirectVarNode {
-            pointer: value.pointer.clone(),
-            access_size_bytes: value.access_size_bytes,
-            pointer_space_idx: value.pointer_space_info.index,
-            pointer_location: value.pointer_location.clone(),
-        }
-    }
-}
-
-impl<'a> From<ResolvedIndirectVarNodeDisplay<'a>> for ResolvedIndirectVarNode<'a> {
-    fn from(value: ResolvedIndirectVarNodeDisplay<'a>) -> Self {
-        ResolvedIndirectVarNode::from(&value)
-    }
-}
-
-impl From<VarNode> for ResolvedVarnode<'_> {
+impl From<VarNode> for ResolvedVarnode {
     fn from(value: VarNode) -> Self {
         Self::Direct(value)
+    }
+}
+
+unsafe impl Translate for ResolvedVarnode {
+    fn translate(&self, dest: &Context) -> Self {
+        match self {
+            ResolvedVarnode::Direct(a) => ResolvedVarnode::Direct(a.clone()),
+            ResolvedVarnode::Indirect(i) => ResolvedVarnode::Indirect(i.translate(dest)),
+        }
     }
 }

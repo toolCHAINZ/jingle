@@ -197,10 +197,7 @@ impl PartialOrd for VarNodeSet {
             let our_space = self.space_map.get(space_idx).unwrap_or(&t1);
             let their = other.space_map.get(space_idx).unwrap_or(&t2);
             let s = our_space.partial_cmp(their);
-            if s.is_none() {
-                return None; // not comparable
-            } else {
-                let s = s.unwrap();
+            if let Some(s) = s {
                 if let Some(last_val) = last {
                     match (last_val, s) {
                         (Ordering::Equal, a) => {
@@ -217,6 +214,8 @@ impl PartialOrd for VarNodeSet {
                 } else {
                     last = Some(s);
                 }
+            } else {
+                return None;
             }
         }
         last

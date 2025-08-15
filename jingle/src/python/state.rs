@@ -1,8 +1,8 @@
 use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
-use crate::python::resolved_varnode::PythonResolvedVarNode;
+use crate::python::resolved_varnode::{PythonResolvedVarNode, PythonResolvedVarNodeInner};
 use crate::python::z3::ast::TryIntoPythonZ3;
-use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
+use crate::varnode::ResolvedVarnode;
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -10,11 +10,11 @@ use pyo3::prelude::*;
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
 pub struct PythonState {
-    state: State<'static>,
+    state: State,
 }
 
 impl PythonState {
-    pub fn state(&self) -> &State<'static> {
+    pub fn state(&self) -> &State {
         &self.state
     }
 }
@@ -31,10 +31,10 @@ impl PythonState {
 
     /// Read a varnode from the symbolic state
     pub fn varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
-        match varnode {
-            PythonResolvedVarNode::Direct(a) => self.state.read_varnode(&VarNode::from(a.clone())),
-            PythonResolvedVarNode::Indirect(a) => {
-                let ind = ResolvedIndirectVarNode::from(&a.inner);
+        match &varnode.inner {
+            PythonResolvedVarNodeInner::Direct(a) => self.state.read_varnode(a.inner()),
+            PythonResolvedVarNodeInner::Indirect(a) => {
+                let ind = a.inner().clone();
                 self.state.read_resolved(&ResolvedVarnode::Indirect(ind))
             }
         }?
@@ -62,8 +62,8 @@ impl PythonState {
     }
 }
 
-impl From<State<'static>> for PythonState {
-    fn from(value: State<'static>) -> Self {
+impl From<State> for PythonState {
+    fn from(value: State) -> Self {
         PythonState { state: value }
     }
 }

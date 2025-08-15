@@ -16,7 +16,7 @@ impl<C> From<C> for FlatLattice<C> {
 }
 
 impl<C: Display> Display for FlatLattice<C> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             FlatLattice::Value(a) => f
                 .debug_tuple("FlatLattice")
@@ -28,7 +28,7 @@ impl<C: Display> Display for FlatLattice<C> {
 }
 
 impl<C: LowerHex> LowerHex for FlatLattice<C> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             FlatLattice::Value(a) => f
                 .debug_tuple("FlatLattice")

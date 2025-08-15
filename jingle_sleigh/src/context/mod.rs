@@ -8,7 +8,7 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
-use crate::space::SpaceInfo;
+use crate::space::{SleighArchInfo, SleighArchInfoInner, SpaceInfo};
 pub use builder::SleighContextBuilder;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
@@ -20,6 +20,7 @@ use crate::{ArchInfoProvider, VarNode};
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
@@ -29,7 +30,7 @@ pub struct SleighContext {
 }
 
 impl Debug for SleighContext {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Sleigh {{arch: {}}}", self.language_id)
     }
 }
@@ -131,13 +132,23 @@ impl SleighContext {
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
         LoadedSleighContext::new(self, img)
     }
+
+    pub fn arch_info(&self) -> SleighArchInfo {
+        SleighArchInfo {
+            info: Arc::new(SleighArchInfoInner {
+                registers: self.registers.clone(),
+                default_code_space: self.get_code_space_idx(),
+                spaces: self.spaces.clone(),
+            }),
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::{ArchInfoProvider, VarNode};
+    use crate::{ArchInfoProvider, OpCode, VarNode};
 
     #[test]
     fn get_regs() {
@@ -197,5 +208,23 @@ mod test {
             }),
             None
         );
+    }
+
+    #[test]
+    fn load_slice() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        // an x86 push
+        let img = vec![0x55u8];
+        let sleigh = sleigh.initialize_with_image(img).unwrap();
+        let instr = sleigh.instruction_at(0).unwrap();
+        assert_eq!(instr.disassembly.mnemonic, "PUSH");
+        assert_eq!(instr.ops.len(), 3);
+        // the stages of a push in pcode
+        assert_eq!(instr.ops[0].opcode(), OpCode::CPUI_COPY);
+        assert_eq!(instr.ops[1].opcode(), OpCode::CPUI_INT_SUB);
+        assert_eq!(instr.ops[2].opcode(), OpCode::CPUI_STORE);
     }
 }

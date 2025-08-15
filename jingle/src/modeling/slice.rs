@@ -4,8 +4,8 @@ use crate::varnode::ResolvedVarnode;
 use jingle_sleigh::PcodeOperation;
 use std::collections::HashSet;
 
-impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
-    fn get_jingle(&self) -> &JingleContext<'ctx> {
+impl<T: ModelingContext> ModelingContext for &[T] {
+    fn get_jingle(&self) -> &JingleContext {
         self[0].get_jingle()
     }
 
@@ -13,11 +13,11 @@ impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
         self[0].get_address()
     }
 
-    fn get_original_state(&self) -> &State<'ctx> {
+    fn get_original_state(&self) -> &State {
         self[0].get_original_state()
     }
 
-    fn get_final_state(&self) -> &State<'ctx> {
+    fn get_final_state(&self) -> &State {
         self.last().unwrap().get_final_state()
     }
 
@@ -29,7 +29,7 @@ impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
         vec
     }
 
-    fn get_inputs(&self) -> HashSet<ResolvedVarnode<'ctx>> {
+    fn get_inputs(&self) -> HashSet<ResolvedVarnode> {
         // todo: this can have some inputs removed if they exist as outputs of a previous thing
         let mut hash_set = HashSet::new();
         for thing in self.iter() {
@@ -38,7 +38,7 @@ impl<'ctx, T: ModelingContext<'ctx>> ModelingContext<'ctx> for &[T] {
         hash_set
     }
 
-    fn get_outputs(&self) -> HashSet<ResolvedVarnode<'ctx>> {
+    fn get_outputs(&self) -> HashSet<ResolvedVarnode> {
         let mut hash_set = HashSet::new();
         for thing in self.iter() {
             hash_set.extend(thing.get_outputs());
