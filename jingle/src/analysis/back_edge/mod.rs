@@ -65,11 +65,11 @@ impl AbstractState for BackEdgeState {
         self.stop_sep(states)
     }
 
-    fn transfer(&self, _opcode: &PcodeOperation) -> Self::SuccessorIter {
+    fn transfer(&self, opcode: &PcodeOperation) -> Self::SuccessorIter {
         let s = self.clone();
         Box::new(
             self.location
-                .transfer(_opcode)
+                .transfer(opcode)
                 .map(move |a| s.add_location(a)),
         )
     }
