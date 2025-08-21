@@ -9,8 +9,8 @@ use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use z3::Solver;
 use z3::ast::Ast;
-use z3::{Config, Context as Z3Context, Solver};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {
@@ -171,8 +171,7 @@ fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyho
 }
 
 fn model(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyhow::Result<()> {
-    let z3 = Z3Context::new(&Config::new());
-    let solver = Solver::new(&z3);
+    let solver = Solver::new();
     let (sleigh, mut instrs) = get_instructions(config, architecture, hex_bytes)?;
     // todo: this is a disgusting hack to let us read a modeled block without requiring the user
     // to enter a block-terminating instruction. Everything with reading blocks needs to be reworked
@@ -194,7 +193,7 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyh
         length: 1,
     });
 
-    let jingle_ctx = JingleContext::new(&z3, &sleigh);
+    let jingle_ctx = JingleContext::new(&sleigh);
     let block = ModeledBlock::read(&jingle_ctx, instrs.into_iter())?;
     let final_state = jingle_ctx.fresh_state();
     solver.assert(&final_state._eq(block.get_final_state())?.simplify());
