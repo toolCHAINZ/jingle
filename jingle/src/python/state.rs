@@ -15,12 +15,16 @@ pub struct PythonState {
     state: State,
 }
 
-impl PythonState {}
+impl PythonState {
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+}
 
 #[pymethods]
 impl PythonState {
-    /// Creates a "fresh" state for a given sleigh configuration
     #[new]
+    /// Creates a "fresh" state for a given sleigh configuration
     pub fn new(j: PyRef<PythonJingleContext>) -> PyResult<PythonState> {
         Ok(PythonState {
             state: State::new(&j.jingle),
