@@ -2,10 +2,12 @@ use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
 use crate::python::resolved_varnode::{PythonResolvedVarNode, PythonResolvedVarNodeInner};
 use crate::python::z3::ast::{PythonAst, TryIntoPythonZ3};
+use crate::python::z3::get_python_z3;
 use crate::varnode::ResolvedVarnode;
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use z3::Translate;
 
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
@@ -64,6 +66,11 @@ impl PythonState {
 
 impl From<State> for PythonState {
     fn from(value: State) -> Self {
-        PythonState { state: value }
+        Python::with_gil(|_| {
+            let z3_py = get_python_z3().unwrap();
+            PythonState {
+                state: value.translate(&z3_py),
+            }
+        })
     }
 }
