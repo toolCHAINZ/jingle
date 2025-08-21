@@ -33,13 +33,7 @@ impl PythonState {
 
     /// Read a varnode from the symbolic state
     pub fn varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
-        match &varnode.inner {
-            PythonResolvedVarNodeInner::Direct(a) => self.state.read_varnode(a.inner()),
-            PythonResolvedVarNodeInner::Indirect(a) => {
-                let ind = a.inner().clone();
-                self.state.read_resolved(&ResolvedVarnode::Indirect(ind))
-            }
-        }?
+        self.state.read_resolved(varnode.inner.inner())?
         .try_into_python()
     }
 
