@@ -118,7 +118,7 @@ impl ModelingContext for ModeledInstruction {
 unsafe impl Translate for ModeledInstruction {
     fn translate(&self, dest: &Context) -> Self {
         Self {
-            jingle: self.jingle.translate(dest),
+            jingle: self.jingle.clone(),
             instr: self.instr.clone(),
             state: self.state.translate(dest),
             original_state: self.state.translate(dest),

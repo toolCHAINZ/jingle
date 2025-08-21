@@ -30,7 +30,7 @@ impl PcodeCfg {
     }
 
     pub fn build_solver(&self, jingle: JingleContext) -> Solver {
-        let solver = Solver::new(jingle.ctx());
+        let solver = Solver::new();
         let mut states = HashMap::new();
         for addr in self.graph.nodes() {
             states.insert(addr, MachineState::fresh_for_address(&jingle, addr));
@@ -48,13 +48,13 @@ impl PcodeCfg {
                     let from_state = states.get(from).expect("To state not found");
                     let relation = from_state.apply(op).unwrap();
                     let hi = relation.pc()._eq(to_state.pc());
-                    hi.implies(&relation._eq(to_state))
+                    hi.implies(relation._eq(to_state))
                 })
                 .collect();
             if options.is_empty() {
                 continue;
             }
-            solver.assert(&Bool::or(jingle.ctx(), &options));
+            solver.assert(Bool::or(&options));
         }
         solver
     }
@@ -65,7 +65,7 @@ impl PcodeCfg {
     }
 
     pub fn build_solver_implication(&self, jingle: JingleContext) -> Solver {
-        let solver = Solver::new_for_logic(jingle.ctx(), "QF_ABV").unwrap();
+        let solver = Solver::new_for_logic("QF_ABV").unwrap();
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for addr in self.graph.nodes() {
@@ -85,11 +85,11 @@ impl PcodeCfg {
                 let to_state = states.get(to).expect("To state not found");
                 let from_state_final = from_state.apply(op).unwrap();
                 let hi = from_state_final.pc()._eq(to_state.pc());
-                hi.implies(&from_state_final._eq(to_state)).simplify()
+                hi.implies(from_state_final._eq(to_state)).simplify()
             })
             .collect();
 
-        solver.assert(&Bool::and(jingle.ctx(), &options));
+        solver.assert(Bool::and(&options));
 
         solver
     }
