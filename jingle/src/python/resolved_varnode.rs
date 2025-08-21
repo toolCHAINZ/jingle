@@ -1,4 +1,4 @@
-use crate::display::{JingleDisplay, JingleDisplayable};
+use crate::display::JingleDisplay;
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::VarNode;
 use pyo3::pyclass;
@@ -23,8 +23,6 @@ impl Display for PythonResolvedVarNode {
 
 impl From<JingleDisplay<ResolvedVarnode>> for PythonResolvedVarNode {
     fn from(value: JingleDisplay<ResolvedVarnode>) -> Self {
-        Self{
-            inner: value
-        }
+        Self { inner: value }
     }
 }

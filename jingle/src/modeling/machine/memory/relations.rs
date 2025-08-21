@@ -198,10 +198,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, false);
-                let out_bv = carry_bool.ite(
-                    &BV::from_i64( 0, 8),
-                    &BV::from_i64( 1, 8),
-                );
+                let out_bv = carry_bool.ite(&BV::from_i64(0, 8), &BV::from_i64(1, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntSignedCarry {
@@ -213,10 +210,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let carry_bool = in0.bvadd_no_overflow(&in1, true);
-                let out_bv = carry_bool.ite(
-                    &BV::from_i64( 0, 8),
-                    &BV::from_i64( 1, 8),
-                );
+                let out_bv = carry_bool.ite(&BV::from_i64(0, 8), &BV::from_i64(1, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntSignedBorrow {
@@ -230,17 +224,12 @@ impl MemoryState {
                 // todo: need to do some experimentation as to what the intended
                 // meaning of "overflow" is in sleigh vs what it means in z3
                 let borrow_bool = in0.bvsub_no_underflow(&in1, true);
-                let out_bv = borrow_bool.ite(
-                    &BV::from_i64( 0, 8),
-                    &BV::from_i64( 1, 8),
-                );
+                let out_bv = borrow_bool.ite(&BV::from_i64(0, 8), &BV::from_i64(1, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::Int2Comp { input, output } => {
                 let in0 = self.read(input)?;
-                let flipped = in0
-                    .bvneg()
-                    .add(BV::from_u64( 1, in0.get_size()));
+                let flipped = in0.bvneg().add(BV::from_u64(1, in0.get_size()));
                 final_state.write(output, flipped)
             }
             PcodeOperation::IntSignedLess {
@@ -252,10 +241,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvslt(&in1);
-                let out_bv = out_bool.ite(
-                    &BV::from_i64( 1, 8),
-                    &BV::from_i64( 0, 8),
-                );
+                let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntSignedLessEqual {
@@ -267,10 +253,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvsle(&in1);
-                let out_bv = out_bool.ite(
-                    &BV::from_i64( 1, 8),
-                    &BV::from_i64( 0, 8),
-                );
+                let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntLess {
@@ -282,10 +265,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvult(&in1);
-                let out_bv = out_bool.ite(
-                    &BV::from_i64( 1, 8),
-                    &BV::from_i64( 0, 8),
-                );
+                let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntLessEqual {
@@ -297,10 +277,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let out_bool = in0.bvule(&in1);
-                let out_bv = out_bool.ite(
-                    &BV::from_i64( 1, 8),
-                    &BV::from_i64( 0, 8),
-                );
+                let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntEqual {
@@ -313,10 +290,8 @@ impl MemoryState {
                 // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1);
-                let out_bv = out_bool.ite(
-                    &BV::from_i64( 1, outsize * 8),
-                    &BV::from_i64( 0, outsize * 8),
-                );
+                let out_bv =
+                    out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::IntNotEqual {
@@ -329,10 +304,8 @@ impl MemoryState {
                 // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
                 let out_bool = in0._eq(&in1).not();
-                let out_bv = out_bool.ite(
-                    &BV::from_i64( 1, outsize * 8),
-                    &BV::from_i64( 0, outsize * 8),
-                );
+                let out_bv =
+                    out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
                 final_state.write(output, out_bv)
             }
             PcodeOperation::BoolAnd {
@@ -343,16 +316,12 @@ impl MemoryState {
                 let in0 = self.read(input0)?;
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
-                let result =
-                    in0.bvand(&in1)
-                        .bvand(&BV::from_u64( 1, in0.get_size()));
+                let result = in0.bvand(&in1).bvand(1);
                 final_state.write(output, result)
             }
             PcodeOperation::BoolNegate { input, output } => {
                 let val = self.read(input)?;
-                let negated =
-                    val.bvneg()
-                        .bvand(&BV::from_u64( 1, val.get_size()));
+                let negated = val.bvneg().bvand(1);
                 final_state.write(output, negated)
             }
             PcodeOperation::BoolOr {
@@ -363,9 +332,7 @@ impl MemoryState {
                 let i0 = self.read(input0)?;
                 let i1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
-                let result = i0
-                    .bvor(&i1)
-                    .bvand(&BV::from_u64( 1, i0.get_size()));
+                let result = i0.bvor(&i1).bvand(1);
                 final_state.write(output, result)
             }
             PcodeOperation::BoolXor {
@@ -376,15 +343,13 @@ impl MemoryState {
                 let i0 = self.read(input0)?;
                 let i1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
-                let result =
-                    i0.bvxor(&i1)
-                        .bvand(&BV::from_u64( 1, i0.get_size()));
+                let result = i0.bvxor(&i1).bvand(1);
                 final_state.write(output, result)
             }
             PcodeOperation::PopCount { input, output } => {
                 let size = output.size as u32;
                 let in0 = self.read(input)?;
-                let mut outbv = BV::from_i64( 0, output.size as u32 * 8);
+                let mut outbv = BV::from_i64(0, output.size as u32 * 8);
                 for i in 0..size * 8 {
                     let extract = in0.extract(i, i);
                     let extend = extract.zero_ext((size * 8) - 1);
@@ -423,7 +388,7 @@ impl MemoryState {
                 let hash = hasher.finish();
                 if let Some(out) = output {
                     let size = out.size * 8;
-                    let hash_bv = BV::from_u64( hash, size as u32);
+                    let hash_bv = BV::from_u64(hash, size as u32);
                     final_state.write(out, hash_bv)
                 } else {
                     Ok(final_state)

@@ -1,5 +1,5 @@
 use std::ops::{Deref, DerefMut};
-use z3::{ Solver, Tactic};
+use z3::{Solver, Tactic};
 
 pub struct TacticSolver(Solver);
 
@@ -27,6 +27,12 @@ impl TacticSolver {
     pub fn new() -> Self {
         let t = default_tactic();
         Self(t.solver())
+    }
+}
+
+impl Default for TacticSolver {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

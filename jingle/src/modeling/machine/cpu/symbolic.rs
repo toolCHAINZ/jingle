@@ -24,8 +24,8 @@ impl SymbolicPcodeAddress {
 
     pub fn fresh() -> Self {
         Self {
-            machine: BV::fresh_const( "pc", Self::MACHINE_SIZE_BITS),
-            pcode: BV::fresh_const( "ppc", Self::PCODE_SIZE_BITS),
+            machine: BV::fresh_const("pc", Self::MACHINE_SIZE_BITS),
+            pcode: BV::fresh_const("ppc", Self::PCODE_SIZE_BITS),
         }
     }
 
@@ -35,7 +35,7 @@ impl SymbolicPcodeAddress {
         } else {
             Ok(SymbolicPcodeAddress {
                 machine: bv.clone(),
-                pcode: BV::from_u64( 0u64, size_of::<PcodeOffset>() as u32 * 8),
+                pcode: BV::from_u64(0u64, size_of::<PcodeOffset>() as u32 * 8),
             })
         }
     }

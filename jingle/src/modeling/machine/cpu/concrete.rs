@@ -44,11 +44,8 @@ impl ConcretePcodeAddress {
     }
     pub fn symbolize(&self) -> SymbolicPcodeAddress {
         SymbolicPcodeAddress {
-            machine: BV::from_u64(
-                self.machine,
-                size_of::<PcodeMachineAddress>() as u32 * 8,
-            ),
-            pcode: BV::from_u64( self.pcode as u64, size_of::<PcodeOffset>() as u32 * 8),
+            machine: BV::from_u64(self.machine, size_of::<PcodeMachineAddress>() as u32 * 8),
+            pcode: BV::from_u64(self.pcode as u64, size_of::<PcodeOffset>() as u32 * 8),
         }
     }
 

@@ -29,7 +29,7 @@ impl MemoryState {
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace> = jingle
             .get_all_space_info()
-            .map(|s| BMCModeledSpace::new(s))
+            .map(BMCModeledSpace::new)
             .collect();
         Self { jingle, spaces }
     }
@@ -57,16 +57,11 @@ impl MemoryState {
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
-
                 varnode.offset as i64,
                 (varnode.size * 8) as u32,
             )),
             _ => {
-                let offset = BV::from_i64(
-
-                    varnode.offset as i64,
-                    space.index_size_bytes * 8,
-                );
+                let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
                 let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
                 arr.read(&offset, varnode.size)
             }
@@ -142,10 +137,7 @@ impl MemoryState {
                     .spaces
                     .get_mut(dest.space_index)
                     .ok_or(UnmodeledSpace)?;
-                space.write(
-                    &val,
-                    &BV::from_u64( dest.offset, info.index_size_bytes * 8),
-                )?;
+                space.write(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
                 Ok(self)
             }
         }
@@ -215,20 +207,20 @@ impl MemoryState {
         // to encode equality of CONST
         for (ours, theirs) in self.spaces.iter().zip(&other.spaces).skip(1) {
             if !ours._meta_eq(theirs) {
-                return Bool::from_bool( false);
+                return Bool::from_bool(false);
             }
             // If we're dealing with an internal space
             if ours.get_type() == SpaceType::IPTR_INTERNAL {
                 // then if both spaces have the same symbolic machine address, they are equal
                 // this expresses the "resetting" of the internal space between different
                 // machine instructions
-                terms.push(machine_eq.implies(&ours._eq(theirs)))
+                terms.push(machine_eq.implies(ours._eq(theirs)))
             } else {
                 // otherwise, we simply assert that the spaces are equal
                 terms.push(ours._eq(theirs))
             }
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
-        Bool::and( eq_terms.as_slice())
+        Bool::and(eq_terms.as_slice())
     }
 }

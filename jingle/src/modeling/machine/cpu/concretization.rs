@@ -1,12 +1,11 @@
 use crate::modeling::concretize::Concretize;
 use crate::modeling::machine::cpu::concrete::{ConcretePcodeAddress, PcodeOffset};
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
-use z3::ast::{ Bool};
-use z3::{ Model};
+use z3::Model;
+use z3::ast::Bool;
 
 impl Concretize for SymbolicPcodeAddress {
     type Concretized = ConcretePcodeAddress;
-
 
     fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized> {
         let machine = model.eval(&self.machine, model_completion)?.as_u64()?;

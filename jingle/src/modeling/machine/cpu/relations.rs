@@ -2,7 +2,7 @@ use crate::JingleError;
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use crate::modeling::machine::memory::MemoryState;
 use jingle_sleigh::PcodeOperation;
-use z3::ast::{Ast, BV};
+use z3::ast::Ast;
 
 impl SymbolicPcodeAddress {
     pub(crate) fn apply_op(
@@ -17,10 +17,7 @@ impl SymbolicPcodeAddress {
             PcodeOperation::CBranch { input0, input1 } => {
                 let fallthrough = self.increment_pcode();
                 let dest = self.interpret_branch_dest_varnode(input0);
-                let take_branch = memory
-                    .read(input1)?
-                    .extract(0, 0)
-                    ._eq(&BV::from_u64( 1, 1));
+                let take_branch = memory.read(input1)?.extract(0, 0)._eq(1);
                 let machine = take_branch.ite(&dest.machine, &fallthrough.machine);
                 let pcode = take_branch.ite(&dest.pcode, &fallthrough.pcode);
                 Ok(SymbolicPcodeAddress { machine, pcode })
@@ -29,7 +26,7 @@ impl SymbolicPcodeAddress {
             | PcodeOperation::CallInd { input }
             | PcodeOperation::Return { input } => {
                 let dest = memory.read(input)?;
-                SymbolicPcodeAddress::try_from_symbolic_dest( &dest)
+                SymbolicPcodeAddress::try_from_symbolic_dest(&dest)
             }
             _ => Ok(self.increment_pcode()),
         }

@@ -37,8 +37,6 @@ pub struct JingleContextInternal {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JingleContext(Rc<JingleContextInternal>);
 
-
-
 impl Deref for JingleContext {
     type Target = JingleContextInternal;
 
@@ -60,6 +58,4 @@ impl JingleContext {
     pub fn fresh_state(&self) -> State {
         State::new(self)
     }
-
 }
-

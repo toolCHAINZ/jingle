@@ -98,7 +98,7 @@ impl BranchConstraint {
             let condition_bv = ctx
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
-                ._eq(&BV::from_i64(0, (cond_branch.condition.size * 8) as u32))
+                ._eq(BV::from_i64(0, (cond_branch.condition.size * 8) as u32))
                 .not();
             let branch_dest = match &cond_branch.destination {
                 GeneralizedVarNode::Direct(d) => BV::from_u64(d.offset, (d.size * 8) as u32),
@@ -116,7 +116,7 @@ impl BranchConstraint {
             let condition_bv = ctx
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
-                ._eq(&BV::from_i64(0, (&cond_branch.condition.size * 8) as u32))
+                ._eq(BV::from_i64(0, (&cond_branch.condition.size * 8) as u32))
                 .not();
             let branch_dest = ctx
                 .get_final_state()

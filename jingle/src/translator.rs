@@ -18,7 +18,7 @@ pub struct SleighTranslator<'a> {
 impl<'a> SleighTranslator<'a> {
     /// Make a new sleigh translator
     pub fn new(sleigh: &'a LoadedSleighContext) -> Self {
-        let jingle = JingleContext::new( sleigh);
+        let jingle = JingleContext::new(sleigh);
         Self { jingle, sleigh }
     }
 

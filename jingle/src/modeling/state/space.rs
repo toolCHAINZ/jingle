@@ -131,15 +131,11 @@ fn write_to_array<const W: u32>(
 
 #[cfg(test)]
 mod tests {
-    use crate::JingleContext;
     use crate::modeling::state::space::ModeledSpace;
-    use crate::tests::SLEIGH_ARCH;
-    use jingle_sleigh::context::SleighContextBuilder;
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
-    use z3::{Config, Context};
 
-    fn make_space(z3: &JingleContext, endianness: SleighEndianness) -> ModeledSpace {
+    fn make_space(endianness: SleighEndianness) -> ModeledSpace {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),
@@ -151,12 +147,7 @@ mod tests {
         ModeledSpace::new(&space_info)
     }
     fn test_endian_write(e: SleighEndianness) {
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let z3 = Context::new(&Config::new());
-        let jingle = JingleContext::new(&sleigh);
-        let mut space = make_space(&jingle, e);
+        let mut space = make_space(e);
         space
             .write_data(&BV::from_u64(0xdead_beef, 32), &BV::from_u64(0, 32))
             .unwrap();
@@ -172,12 +163,7 @@ mod tests {
     }
 
     fn test_endian_read(e: SleighEndianness) {
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let z3 = Context::new(&Config::new());
-        let jingle = JingleContext::new(&sleigh);
-        let mut space = make_space(&jingle, e);
+        let mut space = make_space(e);
         let byte_layout = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
@@ -196,12 +182,7 @@ mod tests {
     }
 
     fn test_single_write(e: SleighEndianness) {
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let z3 = Context::new(&Config::new());
-        let jingle = JingleContext::new(&sleigh);
-        let mut space = make_space(&jingle, e);
+        let mut space = make_space(e);
         space
             .write_data(&BV::from_u64(0x42, 8), &BV::from_u64(0, 32))
             .unwrap();

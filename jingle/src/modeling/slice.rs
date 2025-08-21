@@ -3,7 +3,6 @@ use crate::modeling::{BranchConstraint, ModelingContext, State};
 use crate::varnode::ResolvedVarnode;
 use jingle_sleigh::PcodeOperation;
 use std::collections::HashSet;
-use z3::{Context, Translate};
 
 impl<T: ModelingContext> ModelingContext for &[T] {
     fn get_jingle(&self) -> &JingleContext {

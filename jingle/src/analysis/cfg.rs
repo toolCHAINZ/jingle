@@ -48,13 +48,13 @@ impl PcodeCfg {
                     let from_state = states.get(from).expect("To state not found");
                     let relation = from_state.apply(op).unwrap();
                     let hi = relation.pc()._eq(to_state.pc());
-                    hi.implies(&relation._eq(to_state))
+                    hi.implies(relation._eq(to_state))
                 })
                 .collect();
             if options.is_empty() {
                 continue;
             }
-            solver.assert(&Bool::or(&options));
+            solver.assert(Bool::or(&options));
         }
         solver
     }
@@ -85,11 +85,11 @@ impl PcodeCfg {
                 let to_state = states.get(to).expect("To state not found");
                 let from_state_final = from_state.apply(op).unwrap();
                 let hi = from_state_final.pc()._eq(to_state.pc());
-                hi.implies(&from_state_final._eq(to_state)).simplify()
+                hi.implies(from_state_final._eq(to_state)).simplify()
             })
             .collect();
 
-        solver.assert(&Bool::and(&options));
+        solver.assert(Bool::and(&options));
 
         solver
     }

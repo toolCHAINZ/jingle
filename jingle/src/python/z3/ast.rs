@@ -1,8 +1,7 @@
 use crate::python::z3::get_python_z3;
 use pyo3::prelude::{PyAnyMethods, PyModule};
 use pyo3::{IntoPyObject, IntoPyObjectExt, Py, PyAny, PyResult, Python};
-use std::mem::ManuallyDrop;
-use z3::ast::{Ast, Bool, BV};
+use z3::ast::{Ast, BV, Bool};
 use z3::{Context, Translate};
 use z3_sys::Z3_ast;
 
@@ -45,12 +44,11 @@ pub trait PythonAst: Sized + Ast {
     }
 }
 
-
 macro_rules! python_ast {
     ($t:ty = $l:literal) => {
         impl PythonAst for $t {
             const CLASS_NAME: &'static str = $l;
-        }        
+        }
     };
 }
 
