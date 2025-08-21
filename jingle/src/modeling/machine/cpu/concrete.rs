@@ -1,7 +1,6 @@
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::VarNode;
 use std::fmt::{Display, Formatter, LowerHex};
-use z3::Context;
 use z3::ast::BV;
 
 pub type PcodeMachineAddress = u64;
@@ -43,14 +42,13 @@ impl ConcretePcodeAddress {
             pcode: self.pcode.wrapping_add(off),
         }
     }
-    pub fn symbolize(&self, z3: &Context) -> SymbolicPcodeAddress {
+    pub fn symbolize(&self) -> SymbolicPcodeAddress {
         SymbolicPcodeAddress {
             machine: BV::from_u64(
-                z3,
                 self.machine,
                 size_of::<PcodeMachineAddress>() as u32 * 8,
             ),
-            pcode: BV::from_u64(z3, self.pcode as u64, size_of::<PcodeOffset>() as u32 * 8),
+            pcode: BV::from_u64( self.pcode as u64, size_of::<PcodeOffset>() as u32 * 8),
         }
     }
 

@@ -5,7 +5,6 @@ use crate::JingleContext;
 use crate::modeling::ModeledInstruction;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use z3::Context;
 
 /// This type wraps z3 and a sleigh context and allows for both modeling instructions that
 /// sleigh context has already produced, or reading new instructions directly out of sleigh and
@@ -18,8 +17,8 @@ pub struct SleighTranslator<'a> {
 
 impl<'a> SleighTranslator<'a> {
     /// Make a new sleigh translator
-    pub fn new(sleigh: &'a LoadedSleighContext, z3_ctx: &Context) -> Self {
-        let jingle = JingleContext::new(z3_ctx, sleigh);
+    pub fn new(sleigh: &'a LoadedSleighContext) -> Self {
+        let jingle = JingleContext::new( sleigh);
         Self { jingle, sleigh }
     }
 

@@ -18,7 +18,7 @@ mod tests {
             pcode: 0x50,
         };
         let z3 = Context::new(&Config::new());
-        let symbolized = addr.symbolize(&z3);
+        let symbolized = addr.symbolize();
         let new_concrete: Vec<_> = symbolized.concretize_with_assertions(empty()).collect();
         assert_eq!(addr, new_concrete[0])
     }
@@ -30,7 +30,7 @@ mod tests {
             pcode: 0,
         };
         let z3 = Context::new(&Config::new());
-        let symbolized = addr.symbolize(&z3);
+        let symbolized = addr.symbolize();
         let new_concrete: Vec<_> = symbolized.concretize_with_assertions(empty()).collect();
         assert_eq!(
             new_concrete[0],
@@ -52,7 +52,7 @@ mod tests {
             machine: 0,
             pcode: 0xff,
         }
-        .symbolize(&z3);
+        .symbolize();
         let plus_1 = symbolized.increment_pcode();
         let new_concrete: Vec<_> = plus_1.concretize_with_assertions(empty()).collect();
         assert_eq!(
@@ -66,11 +66,10 @@ mod tests {
 
     #[test]
     fn create_symbolic_addr() {
-        let z3 = Context::new(&Config::new());
-        let addr = BV::from_u64(&z3, 0xdeadbeef, 64);
-        let wrong = BV::from_u64(&z3, 0xdeadbeef, 65);
+        let addr = BV::from_u64( 0xdeadbeef, 64);
+        let wrong = BV::from_u64( 0xdeadbeef, 65);
 
-        let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &addr).unwrap();
+        let sym = SymbolicPcodeAddress::try_from_symbolic_dest( &addr).unwrap();
         let concrete: Vec<_> = sym.concretize_with_assertions(empty()).collect();
         assert_eq!(
             concrete[0],
@@ -80,7 +79,7 @@ mod tests {
             }
         );
 
-        let sym = SymbolicPcodeAddress::try_from_symbolic_dest(&z3, &wrong);
+        let sym = SymbolicPcodeAddress::try_from_symbolic_dest( &wrong);
         assert!(sym.is_err());
     }
 

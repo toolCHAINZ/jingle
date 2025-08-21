@@ -4,7 +4,6 @@ use crate::modeling::machine::cpu::concrete::{
     ConcretePcodeAddress, PcodeMachineAddress, PcodeOffset,
 };
 use jingle_sleigh::VarNode;
-use z3::Context;
 use z3::ast::{Ast, BV, Bool};
 
 pub type SymbolicPcodeMachineAddress = BV;
@@ -23,20 +22,20 @@ impl SymbolicPcodeAddress {
     const MACHINE_SIZE_BITS: u32 = size_of::<PcodeMachineAddress>() as u32 * 8;
     const PCODE_SIZE_BITS: u32 = size_of::<PcodeOffset>() as u32 * 8;
 
-    pub fn fresh(z3: &Context) -> Self {
+    pub fn fresh() -> Self {
         Self {
-            machine: BV::fresh_const(z3, "pc", Self::MACHINE_SIZE_BITS),
-            pcode: BV::fresh_const(z3, "ppc", Self::PCODE_SIZE_BITS),
+            machine: BV::fresh_const( "pc", Self::MACHINE_SIZE_BITS),
+            pcode: BV::fresh_const( "ppc", Self::PCODE_SIZE_BITS),
         }
     }
 
-    pub fn try_from_symbolic_dest(z3: &Context, bv: &BV) -> Result<Self, JingleError> {
+    pub fn try_from_symbolic_dest(bv: &BV) -> Result<Self, JingleError> {
         if bv.get_size() != Self::MACHINE_SIZE_BITS {
             Err(JingleError::InvalidBranchTargetSize)
         } else {
             Ok(SymbolicPcodeAddress {
                 machine: bv.clone(),
-                pcode: BV::from_u64(z3, 0u64, size_of::<PcodeOffset>() as u32 * 8),
+                pcode: BV::from_u64( 0u64, size_of::<PcodeOffset>() as u32 * 8),
             })
         }
     }
@@ -59,7 +58,7 @@ impl SymbolicPcodeAddress {
     pub fn interpret_branch_dest_varnode(&self, vn: &VarNode) -> Self {
         match vn.is_const() {
             true => self.add_pcode_offset(vn.offset),
-            false => ConcretePcodeAddress::from(vn.offset).symbolize(self.machine.get_ctx()),
+            false => ConcretePcodeAddress::from(vn.offset).symbolize(),
         }
     }
     pub fn increment_pcode(&self) -> SymbolicPcodeAddress {

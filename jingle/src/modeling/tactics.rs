@@ -1,5 +1,5 @@
 use std::ops::{Deref, DerefMut};
-use z3::{Context, Solver, Tactic};
+use z3::{ Solver, Tactic};
 
 pub struct TacticSolver(Solver);
 
@@ -24,15 +24,15 @@ impl From<Solver> for TacticSolver {
 }
 
 impl TacticSolver {
-    pub fn new(ctx: &Context) -> Self {
-        let t = default_tactic(ctx);
+    pub fn new() -> Self {
+        let t = default_tactic();
         Self(t.solver())
     }
 }
 
 impl Clone for TacticSolver {
     fn clone(&self) -> Self {
-        let new = default_tactic(self.0.get_context()).solver();
+        let new = default_tactic().solver();
         for x in &self.get_assertions() {
             new.assert(x);
         }
@@ -47,15 +47,15 @@ impl Clone for TacticSolver {
 /// The rationale behind it is that we first simplify and eliminate variables, before eliminating
 /// array expressions (in favor of UFs), and then eliminate UFs with ackermann reduction. The result
 /// is an (often much simpler) pure bitvector problem allowing z3 to use a specialized solver.
-fn default_tactic(ctx: &Context) -> Tactic {
+fn default_tactic() -> Tactic {
     macro_rules! tactic {
         ($name:literal) => {
-            Tactic::new(ctx, $name)
+            Tactic::new($name)
         };
     }
     let simplify = tactic!("simplify");
     let solve_eqs = tactic!("solve-eqs");
-    let rep = Tactic::repeat(ctx, &simplify.and_then(&solve_eqs), u32::MAX);
+    let rep = Tactic::repeat(&simplify.and_then(&solve_eqs), u32::MAX);
     let bvarray2uf = tactic!("bvarray2uf");
     let ackermannize_bv = tactic!("ackermannize_bv");
     let smt = tactic!("smt");

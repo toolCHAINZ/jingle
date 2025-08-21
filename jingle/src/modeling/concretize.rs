@@ -1,13 +1,11 @@
 use crate::modeling::tactics::TacticSolver;
 use z3::ast::{Ast, BV, Bool};
-use z3::{Context, Model, SatResult};
+use z3::{Model, SatResult};
 
 /// Implemented by types that represent expressions
 /// that can be interpreted in terms of a symbolic state
 pub trait Concretize: Clone {
     type Concretized;
-
-    fn ctx(&self) -> &Context;
 
     fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized>;
 
@@ -17,16 +15,12 @@ pub trait Concretize: Clone {
 impl Concretize for BV {
     type Concretized = u64;
 
-    fn ctx(&self) -> &Context {
-        self.get_ctx()
-    }
-
     fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized> {
         model.eval(self, model_completion)?.as_u64()
     }
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
-        let ctr = BV::from_u64(self.ctx(), *c, self.get_size());
+        let ctr = BV::from_u64(*c, self.get_size());
         dbg!(self._eq(&ctr).not())
     }
 }
@@ -34,16 +28,12 @@ impl Concretize for BV {
 impl Concretize for Bool {
     type Concretized = bool;
 
-    fn ctx(&self) -> &Context {
-        self.get_ctx()
-    }
-
     fn eval(&self, model: &Model, model_completion: bool) -> Option<Self::Concretized> {
         model.eval(self, model_completion)?.as_bool()
     }
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
-        let ctr = Bool::from_bool(self.get_ctx(), *c);
+        let ctr = Bool::from_bool(*c);
         self._eq(&ctr).not()
     }
 }
@@ -73,7 +63,7 @@ impl<T: Concretize> Iterator for ConcretizationIterator<T> {
     type Item = T::Concretized;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let s = TacticSolver::new(self.val.ctx());
+        let s = TacticSolver::new();
         for x in &self.assertions {
             s.assert(x);
         }

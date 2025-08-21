@@ -1,5 +1,5 @@
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
-use crate::{JingleContext, JingleError};
+use crate::{ JingleError};
 use jingle_sleigh::{SleighEndianness, SpaceInfo};
 use std::ops::Add;
 use z3::ast::{Array, Ast, BV};
@@ -22,13 +22,13 @@ pub(crate) struct ModeledSpace {
 
 impl ModeledSpace {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub(crate) fn new(jingle: &JingleContext, space_info: &SpaceInfo) -> Self {
-        let domain = Sort::bitvector(jingle.ctx(), space_info.index_size_bytes * 8);
-        let range = Sort::bitvector(jingle.ctx(), space_info.word_size_bytes * 8);
+    pub(crate) fn new(space_info: &SpaceInfo) -> Self {
+        let domain = Sort::bitvector( space_info.index_size_bytes * 8);
+        let range = Sort::bitvector( space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
-            data: Array::fresh_const(jingle.ctx(), &space_info.name, &domain, &range),
-            metadata: Array::const_array(jingle.ctx(), &domain, &BV::from_u64(jingle.ctx(), 0, 1)),
+            data: Array::fresh_const( &space_info.name, &domain, &range),
+            metadata: Array::const_array(&domain, &BV::from_u64( 0, 1)),
             space_info: space_info.clone(),
         }
     }
@@ -155,12 +155,12 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let z3 = Context::new(&Config::new());
-        let jingle = JingleContext::new(&z3, &sleigh);
+        let jingle = JingleContext::new( &sleigh);
         let mut space = make_space(&jingle, e);
         space
             .write_data(
-                &BV::from_u64(&z3, 0xdead_beef, 32),
-                &BV::from_u64(&z3, 0, 32),
+                &BV::from_u64( 0xdead_beef, 32),
+                &BV::from_u64( 0, 32),
             )
             .unwrap();
         let expected = match e {
@@ -169,7 +169,7 @@ mod tests {
         };
         for i in 0..4 {
             let data = space
-                .read_data(&BV::from_u64(&z3, i, 32), 1)
+                .read_data(&BV::from_u64( i, 32), 1)
                 .unwrap()
                 .simplify();
             assert!(data.is_const());
@@ -182,7 +182,7 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let z3 = Context::new(&Config::new());
-        let jingle = JingleContext::new(&z3, &sleigh);
+        let jingle = JingleContext::new( &sleigh);
         let mut space = make_space(&jingle, e);
         let byte_layout = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
@@ -191,13 +191,13 @@ mod tests {
         for i in 0..4 {
             space
                 .write_data(
-                    &BV::from_u64(&z3, byte_layout[i as usize], 8),
-                    &BV::from_u64(&z3, i, 32),
+                    &BV::from_u64( byte_layout[i as usize], 8),
+                    &BV::from_u64( i, 32),
                 )
                 .unwrap();
         }
         let val = space
-            .read_data(&BV::from_u64(&z3, 0, 32), 4)
+            .read_data(&BV::from_u64( 0, 32), 4)
             .unwrap()
             .simplify();
         assert!(val.is_const());
@@ -209,14 +209,14 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let z3 = Context::new(&Config::new());
-        let jingle = JingleContext::new(&z3, &sleigh);
+        let jingle = JingleContext::new( &sleigh);
         let mut space = make_space(&jingle, e);
         space
-            .write_data(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32))
+            .write_data(&BV::from_u64( 0x42, 8), &BV::from_u64( 0, 32))
             .unwrap();
         let expected = 0x42;
         let data = space
-            .read_data(&BV::from_u64(&z3, 0, 32), 1)
+            .read_data(&BV::from_u64( 0, 32), 1)
             .unwrap()
             .simplify();
         assert!(data.is_const());

@@ -19,7 +19,7 @@ impl PythonJingleContext {
         sleigh: Rc<LoadedSleighContext<'static>>,
     ) -> PyResult<PythonJingleContext> {
         let ctx = get_python_z3()?;
-        let ctx = JingleContext::new(ctx, sleigh.as_ref());
+        let ctx = JingleContext::new(sleigh.as_ref());
         ctx.fresh_state();
         Ok(PythonJingleContext {
             jingle: ctx,

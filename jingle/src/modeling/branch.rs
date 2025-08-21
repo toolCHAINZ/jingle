@@ -28,7 +28,7 @@ pub enum BlockEndBehavior {
 impl BlockEndBehavior {
     pub fn read_dest_metadata<T: ModelingContext>(&self, ctx: &T) -> Result<BV, JingleError> {
         match self {
-            Fallthrough(f) => Ok(BV::from_u64(ctx.get_jingle().ctx(), 0, (f.size * 8) as u32)),
+            Fallthrough(f) => Ok(BV::from_u64(0, (f.size * 8) as u32)),
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
@@ -43,19 +43,13 @@ impl BlockEndBehavior {
     }
     pub fn read_dest<T: ModelingContext>(&self, ctx: &T) -> Result<BV, JingleError> {
         match self {
-            Fallthrough(f) => Ok(BV::from_u64(
-                ctx.get_jingle().ctx(),
-                f.offset,
-                (f.size * 8) as u32,
-            )),
+            Fallthrough(f) => Ok(BV::from_u64(f.offset, (f.size * 8) as u32)),
             UnconditionalBranch(b) => {
                 match b {
                     // Direct branch
-                    GeneralizedVarNode::Direct(d) => Ok(BV::from_u64(
-                        ctx.get_jingle().ctx(),
-                        d.offset,
-                        (d.size * 8) as u32,
-                    )),
+                    GeneralizedVarNode::Direct(d) => {
+                        Ok(BV::from_u64(d.offset, (d.size * 8) as u32))
+                    }
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()
@@ -104,16 +98,10 @@ impl BranchConstraint {
             let condition_bv = ctx
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
-                ._eq(&BV::from_i64(
-                    ctx.get_jingle().ctx(),
-                    0,
-                    (cond_branch.condition.size * 8) as u32,
-                ))
+                ._eq(&BV::from_i64(0, (cond_branch.condition.size * 8) as u32))
                 .not();
             let branch_dest = match &cond_branch.destination {
-                GeneralizedVarNode::Direct(d) => {
-                    BV::from_u64(ctx.get_jingle().ctx(), d.offset, (d.size * 8) as u32)
-                }
+                GeneralizedVarNode::Direct(d) => BV::from_u64(d.offset, (d.size * 8) as u32),
                 GeneralizedVarNode::Indirect(a) => ctx.get_final_state().read(a.into())?,
             };
             dest_bv = condition_bv.ite(&branch_dest, &dest_bv);
@@ -128,11 +116,7 @@ impl BranchConstraint {
             let condition_bv = ctx
                 .get_final_state()
                 .read_varnode(&cond_branch.condition)?
-                ._eq(&BV::from_i64(
-                    ctx.get_jingle().ctx(),
-                    0,
-                    (&cond_branch.condition.size * 8) as u32,
-                ))
+                ._eq(&BV::from_i64(0, (&cond_branch.condition.size * 8) as u32))
                 .not();
             let branch_dest = ctx
                 .get_final_state()

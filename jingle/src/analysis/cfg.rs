@@ -30,7 +30,7 @@ impl PcodeCfg {
     }
 
     pub fn build_solver(&self, jingle: JingleContext) -> Solver {
-        let solver = Solver::new(jingle.ctx());
+        let solver = Solver::new();
         let mut states = HashMap::new();
         for addr in self.graph.nodes() {
             states.insert(addr, MachineState::fresh_for_address(&jingle, addr));
@@ -54,7 +54,7 @@ impl PcodeCfg {
             if options.is_empty() {
                 continue;
             }
-            solver.assert(&Bool::or(jingle.ctx(), &options));
+            solver.assert(&Bool::or(&options));
         }
         solver
     }
@@ -65,7 +65,7 @@ impl PcodeCfg {
     }
 
     pub fn build_solver_implication(&self, jingle: JingleContext) -> Solver {
-        let solver = Solver::new_for_logic(jingle.ctx(), "QF_ABV").unwrap();
+        let solver = Solver::new_for_logic("QF_ABV").unwrap();
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for addr in self.graph.nodes() {
@@ -89,7 +89,7 @@ impl PcodeCfg {
             })
             .collect();
 
-        solver.assert(&Bool::and(jingle.ctx(), &options));
+        solver.assert(&Bool::and(&options));
 
         solver
     }

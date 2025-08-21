@@ -2,7 +2,6 @@ use crate::modeling::State;
 use jingle_sleigh::{ArchInfoProvider, SleighArchInfo, SpaceInfo, VarNode};
 use std::ops::Deref;
 use std::rc::Rc;
-use z3::{Context, Translate};
 
 impl ArchInfoProvider for JingleContext {
     fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
@@ -32,21 +31,13 @@ impl ArchInfoProvider for JingleContext {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JingleContextInternal {
-    pub z3: Context,
     pub info: SleighArchInfo,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JingleContext(Rc<JingleContextInternal>);
 
-impl JingleContext {
-    pub(crate) fn translate(&self, ctx: &Context) -> JingleContext {
-        JingleContext(Rc::new(JingleContextInternal {
-            z3: ctx.clone(),
-            info: self.info.clone(),
-        }))
-    }
-}
+
 
 impl Deref for JingleContext {
     type Target = JingleContextInternal;
@@ -56,9 +47,8 @@ impl Deref for JingleContext {
     }
 }
 impl JingleContext {
-    pub fn new<S: ArchInfoProvider>(z3: &Context, r: &S) -> Self {
+    pub fn new<S: ArchInfoProvider>(r: &S) -> Self {
         Self(Rc::new(JingleContextInternal {
-            z3: z3.clone(),
             info: SleighArchInfo::new(
                 r.get_registers(),
                 r.get_all_space_info(),
@@ -67,26 +57,9 @@ impl JingleContext {
         }))
     }
 
-    pub fn ctx(&self) -> &Context {
-        &self.z3
-    }
     pub fn fresh_state(&self) -> State {
         State::new(self)
     }
 
-    pub fn with_fresh_z3_context(&self, z3: &Context) -> Self {
-        Self(Rc::new(JingleContextInternal {
-            z3: z3.clone(),
-            info: self.info.clone(),
-        }))
-    }
 }
 
-unsafe impl Translate for JingleContext {
-    fn translate(&self, dest: &Context) -> Self {
-        Self(Rc::new(JingleContextInternal {
-            z3: dest.clone(),
-            info: self.info.clone(),
-        }))
-    }
-}

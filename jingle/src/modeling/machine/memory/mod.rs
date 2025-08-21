@@ -29,7 +29,7 @@ impl MemoryState {
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace> = jingle
             .get_all_space_info()
-            .map(|s| BMCModeledSpace::new(jingle.ctx(), s))
+            .map(|s| BMCModeledSpace::new(s))
             .collect();
         Self { jingle, spaces }
     }
@@ -38,7 +38,7 @@ impl MemoryState {
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace> = jingle
             .get_all_space_info()
-            .map(|s| BMCModeledSpace::new_for_address(jingle.ctx(), s, addr))
+            .map(|s| BMCModeledSpace::new_for_address(s, addr))
             .collect();
         Self { jingle, spaces }
     }
@@ -57,13 +57,13 @@ impl MemoryState {
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
-                self.jingle.ctx(),
+
                 varnode.offset as i64,
                 (varnode.size * 8) as u32,
             )),
             _ => {
                 let offset = BV::from_i64(
-                    self.jingle.ctx(),
+
                     varnode.offset as i64,
                     space.index_size_bytes * 8,
                 );
@@ -144,7 +144,7 @@ impl MemoryState {
                     .ok_or(UnmodeledSpace)?;
                 space.write(
                     &val,
-                    &BV::from_u64(self.jingle.ctx(), dest.offset, info.index_size_bytes * 8),
+                    &BV::from_u64( dest.offset, info.index_size_bytes * 8),
                 )?;
                 Ok(self)
             }
@@ -215,7 +215,7 @@ impl MemoryState {
         // to encode equality of CONST
         for (ours, theirs) in self.spaces.iter().zip(&other.spaces).skip(1) {
             if !ours._meta_eq(theirs) {
-                return Bool::from_bool(self.jingle.ctx(), false);
+                return Bool::from_bool( false);
             }
             // If we're dealing with an internal space
             if ours.get_type() == SpaceType::IPTR_INTERNAL {
@@ -229,6 +229,6 @@ impl MemoryState {
             }
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
-        Bool::and(self.jingle.ctx(), eq_terms.as_slice())
+        Bool::and( eq_terms.as_slice())
     }
 }
