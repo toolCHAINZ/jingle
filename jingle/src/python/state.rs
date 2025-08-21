@@ -1,7 +1,7 @@
 use crate::modeling::State;
 use crate::python::jingle_context::PythonJingleContext;
 use crate::python::resolved_varnode::{PythonResolvedVarNode, PythonResolvedVarNodeInner};
-use crate::python::z3::ast::TryIntoPythonZ3;
+use crate::python::z3::ast::{PythonAst, TryIntoPythonZ3};
 use crate::varnode::ResolvedVarnode;
 use jingle_sleigh::{ArchInfoProvider, VarNode};
 use pyo3::exceptions::PyRuntimeError;
