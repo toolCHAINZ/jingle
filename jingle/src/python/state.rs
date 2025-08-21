@@ -15,16 +15,12 @@ pub struct PythonState {
     state: State,
 }
 
-impl PythonState {
-    pub fn state(&self) -> &State {
-        &self.state
-    }
-}
+impl PythonState {}
 
 #[pymethods]
 impl PythonState {
-    #[new]
     /// Creates a "fresh" state for a given sleigh configuration
+    #[new]
     pub fn new(j: PyRef<PythonJingleContext>) -> PyResult<PythonState> {
         Ok(PythonState {
             state: State::new(&j.jingle),
@@ -33,8 +29,9 @@ impl PythonState {
 
     /// Read a varnode from the symbolic state
     pub fn varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
-        self.state.read_resolved(varnode.inner.inner())?
-        .try_into_python()
+        self.state
+            .read_resolved(varnode.inner.inner())?
+            .try_into_python()
     }
 
     /// Convenience function to read a named register from the symbolic state
@@ -60,11 +57,6 @@ impl PythonState {
 
 impl From<State> for PythonState {
     fn from(value: State) -> Self {
-        Python::with_gil(|_| {
-            let z3_py = get_python_z3().unwrap();
-            PythonState {
-                state: value.translate(&z3_py),
-            }
-        })
+        PythonState { state: value }
     }
 }
