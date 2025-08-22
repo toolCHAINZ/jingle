@@ -1,9 +1,5 @@
-use lazy_static::lazy_static;
 use pyo3::types::{PyAnyMethods, PyModule};
 use pyo3::{PyResult, Python};
-use std::mem::ManuallyDrop;
-use std::sync::{Arc, Mutex};
-use z3::Context;
 use z3_sys::Z3_context;
 
 pub mod ast;
