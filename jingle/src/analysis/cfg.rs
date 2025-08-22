@@ -69,7 +69,7 @@ impl PcodeCfg {
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for addr in self.graph.nodes() {
-            let s = MachineState::fresh_for_address(&jingle, dbg!(addr));
+            let s = MachineState::fresh_for_address(&jingle, addr);
             states.insert(addr, s.clone());
             if let Some((_, _, op)) = self.graph.edges_directed(addr, Direction::Outgoing).next() {
                 let f = s.apply(op).unwrap();

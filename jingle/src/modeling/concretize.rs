@@ -21,7 +21,7 @@ impl Concretize for BV {
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
         let ctr = BV::from_u64(*c, self.get_size());
-        dbg!(self._eq(&ctr).not())
+        self._eq(&ctr).not()
     }
 }
 
