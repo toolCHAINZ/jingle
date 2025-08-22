@@ -1,3 +1,4 @@
+use std::mem;
 use crate::python::z3::get_python_z3;
 use pyo3::prelude::{PyAnyMethods, PyModule};
 use pyo3::{IntoPyObject, IntoPyObjectExt, Py, PyAny, PyResult, Python};
@@ -19,13 +20,14 @@ pub trait PythonAst: Sized + Ast {
         Python::with_gil(|py: Python| {
             let z3 = get_python_z3()?;
             let translated = self.translate(&z3);
+            let ast = translated.get_z3_ast() as usize;
+            mem::forget(translated);
+
             let z3_mod = PyModule::import(py, "z3")?;
             let ref_class = z3_mod.getattr(Self::CLASS_NAME)?.into_pyobject(py)?;
             let ctypes = PyModule::import(py, "ctypes")?;
             let ptr_type = ctypes.getattr("c_void_p")?;
-            let ast = translated.get_z3_ast() as usize;
             let ptr = ptr_type.call1((ast,))?;
-
             let a = ref_class.call1((ptr,))?.into_py_any(py)?;
             Ok(a)
         })
@@ -39,6 +41,7 @@ pub trait PythonAst: Sized + Ast {
             let ast = ast as Z3_ast;
             let p_ast = unsafe { Self::wrap(&z3, ast) };
             let translated = p_ast.translate(&Context::thread_local());
+            mem::forget(p_ast);
             Ok(translated)
         })
     }
