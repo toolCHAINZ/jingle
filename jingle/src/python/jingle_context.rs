@@ -1,7 +1,6 @@
 use crate::JingleContext;
 use crate::python::modeled_block::PythonModeledBlock;
 use crate::python::modeled_instruction::PythonModeledInstruction;
-use crate::python::z3::get_python_z3;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
@@ -18,8 +17,7 @@ impl PythonJingleContext {
     pub fn make_jingle_context(
         sleigh: Rc<LoadedSleighContext<'static>>,
     ) -> PyResult<PythonJingleContext> {
-        let ctx = get_python_z3()?;
-        let ctx = JingleContext::new(ctx, sleigh.as_ref());
+        let ctx = JingleContext::new(sleigh.as_ref());
         ctx.fresh_state();
         Ok(PythonJingleContext {
             jingle: ctx,

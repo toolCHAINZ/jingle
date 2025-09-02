@@ -22,7 +22,7 @@ impl MachineState {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh(jingle),
-            pc: SymbolicPcodeAddress::fresh(jingle.ctx()),
+            pc: SymbolicPcodeAddress::fresh(),
         }
     }
 
@@ -34,7 +34,7 @@ impl MachineState {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh_for_address(jingle, machine_addr.into()),
-            pc: pc.symbolize(jingle.ctx()),
+            pc: pc.symbolize(),
         }
     }
 
@@ -42,7 +42,7 @@ impl MachineState {
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh_for_address(jingle, addr),
-            pc: addr.symbolize(jingle.ctx()),
+            pc: addr.symbolize(),
         }
     }
 
@@ -55,7 +55,7 @@ impl MachineState {
     }
 
     fn apply_control_flow(&self, op: &PcodeOperation) -> Result<SymbolicPcodeAddress, JingleError> {
-        self.pc.apply_op(&self.memory, op, self.jingle.ctx())
+        self.pc.apply_op(&self.memory, op)
     }
 
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {

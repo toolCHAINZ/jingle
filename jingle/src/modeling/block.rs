@@ -209,7 +209,7 @@ impl TranslationContext for ModeledBlock {
 unsafe impl Translate for ModeledBlock {
     fn translate(&self, dest: &Context) -> Self {
         Self {
-            jingle: self.jingle.translate(dest),
+            jingle: self.jingle.clone(),
             branch_constraint: self.branch_constraint.clone(),
             original_state: self.original_state.translate(dest),
             state: self.state.translate(dest),

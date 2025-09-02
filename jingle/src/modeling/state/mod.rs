@@ -54,7 +54,7 @@ impl State {
     pub fn new(jingle: &JingleContext) -> Self {
         let mut spaces: Vec<ModeledSpace> = Default::default();
         for space_info in jingle.get_all_space_info() {
-            spaces.push(ModeledSpace::new(jingle, space_info));
+            spaces.push(ModeledSpace::new(space_info));
         }
         Self {
             jingle: jingle.clone(),
@@ -75,16 +75,11 @@ impl State {
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
-                self.jingle.ctx(),
                 varnode.offset as i64,
                 (varnode.size * 8) as u32,
             )),
             _ => {
-                let offset = BV::from_i64(
-                    self.jingle.ctx(),
-                    varnode.offset as i64,
-                    space.index_size_bytes * 8,
-                );
+                let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
                 let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
                 arr.read_data(&offset, varnode.size)
             }
@@ -96,11 +91,7 @@ impl State {
             .get_space_info(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
 
-        let offset = BV::from_i64(
-            self.jingle.ctx(),
-            varnode.offset as i64,
-            space.index_size_bytes * 8,
-        );
+        let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
         let arr = self.spaces.get(varnode.space_index).ok_or(UnmodeledSpace)?;
         arr.read_metadata(&offset, varnode.size)
     }
@@ -170,10 +161,7 @@ impl State {
                     .spaces
                     .get_mut(dest.space_index)
                     .ok_or(UnmodeledSpace)?;
-                space.write_data(
-                    &val,
-                    &BV::from_u64(self.jingle.ctx(), dest.offset, info.index_size_bytes * 8),
-                )?;
+                space.write_data(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
                 Ok(())
             }
         }
@@ -194,10 +182,7 @@ impl State {
             .get_space_info(dest.space_index)
             .ok_or(UnmodeledSpace)?;
 
-        space.write_metadata(
-            &val,
-            &BV::from_u64(self.jingle.ctx(), dest.offset, info.index_size_bytes * 8),
-        )?;
+        space.write_metadata(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
         Ok(())
     }
 
@@ -272,7 +257,7 @@ impl State {
             false => 0,
         };
         (0..s)
-            .map(|_| BV::from_u64(self.jingle.ctx(), val, 1))
+            .map(|_| BV::from_u64(val, 1))
             .reduce(|a, b| a.concat(&b))
             .map(|b| b.simplify())
             .unwrap()
@@ -290,7 +275,7 @@ impl State {
             terms.push(self_space._eq(other_space))
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
-        Ok(Bool::and(self.jingle.ctx(), eq_terms.as_slice()))
+        Ok(Bool::and(eq_terms.as_slice()))
     }
 
     pub fn fmt_smt_arrays(&self) -> String {
@@ -306,7 +291,7 @@ unsafe impl Translate for State {
     fn translate(&self, ctx: &Context) -> Self {
         State {
             spaces: self.spaces.iter().map(|s| s.translate(ctx)).collect(),
-            jingle: self.jingle.translate(ctx),
+            jingle: self.jingle.clone(),
         }
     }
 }

@@ -3,8 +3,8 @@ use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVa
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::ops::Add;
+use z3::Sort;
 use z3::ast::{Array, Ast, BV, Bool};
-use z3::{Context, Sort};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -24,29 +24,24 @@ pub struct BMCModeledSpace {
 
 impl BMCModeledSpace {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub fn new(z3: &Context, space_info: &SpaceInfo) -> Self {
-        let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
-        let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
+    pub fn new(space_info: &SpaceInfo) -> Self {
+        let domain = Sort::bitvector(space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
-            data: Array::fresh_const(z3, &space_info.name, &domain, &range),
+            data: Array::fresh_const(&space_info.name, &domain, &range),
             word_size_bytes: space_info.word_size_bytes,
             index_size_bytes: space_info.index_size_bytes,
             _type: space_info._type,
         }
     }
 
-    pub fn new_for_address(
-        z3: &Context,
-        space_info: &SpaceInfo,
-        addr: ConcretePcodeAddress,
-    ) -> Self {
-        let domain = Sort::bitvector(z3, space_info.index_size_bytes * 8);
-        let range = Sort::bitvector(z3, space_info.word_size_bytes * 8);
+    pub fn new_for_address(space_info: &SpaceInfo, addr: ConcretePcodeAddress) -> Self {
+        let domain = Sort::bitvector(space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
             data: Array::fresh_const(
-                z3,
                 &format!("{}_{:x}_{:x}", &space_info.name, addr.machine, addr.pcode),
                 &domain,
                 &range,
@@ -140,9 +135,8 @@ mod tests {
     use crate::modeling::machine::memory::space::BMCModeledSpace;
     use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
     use z3::ast::{Ast, BV};
-    use z3::{Config, Context};
 
-    fn make_space(z3: &Context, endianness: SleighEndianness) -> BMCModeledSpace {
+    fn make_space(endianness: SleighEndianness) -> BMCModeledSpace {
         let space_info = SpaceInfo {
             endianness,
             name: "ram".to_string(),
@@ -151,32 +145,27 @@ mod tests {
             index: 0,
             _type: SpaceType::IPTR_PROCESSOR,
         };
-        BMCModeledSpace::new(z3, &space_info)
+        BMCModeledSpace::new(&space_info)
     }
 
     fn test_endian_write(e: SleighEndianness) {
-        let z3 = Context::new(&Config::new());
-        let mut space = make_space(&z3, e);
+        let mut space = make_space(e);
         space
-            .write(
-                &BV::from_u64(&z3, 0xdead_beef, 32),
-                &BV::from_u64(&z3, 0, 32),
-            )
+            .write(&BV::from_u64(0xdead_beef, 32), &BV::from_u64(0, 32))
             .unwrap();
         let expected = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
         };
         for i in 0..4 {
-            let data = space.read(&BV::from_u64(&z3, i, 32), 1).unwrap().simplify();
+            let data = space.read(&BV::from_u64(i, 32), 1).unwrap().simplify();
             assert!(data.is_const());
             assert_eq!(data.as_u64().unwrap(), expected[i as usize])
         }
     }
 
     fn test_endian_read(e: SleighEndianness) {
-        let z3 = Context::new(&Config::new());
-        let mut space = make_space(&z3, e);
+        let mut space = make_space(e);
         let byte_layout = match e {
             SleighEndianness::Big => [0xde, 0xad, 0xbe, 0xef],
             SleighEndianness::Little => [0xef, 0xbe, 0xad, 0xde],
@@ -184,24 +173,23 @@ mod tests {
         for i in 0..4 {
             space
                 .write(
-                    &BV::from_u64(&z3, byte_layout[i as usize], 8),
-                    &BV::from_u64(&z3, i, 32),
+                    &BV::from_u64(byte_layout[i as usize], 8),
+                    &BV::from_u64(i, 32),
                 )
                 .unwrap();
         }
-        let val = space.read(&BV::from_u64(&z3, 0, 32), 4).unwrap().simplify();
+        let val = space.read(&BV::from_u64(0, 32), 4).unwrap().simplify();
         assert!(val.is_const());
         assert_eq!(val.as_u64().unwrap(), 0xdead_beef)
     }
 
     fn test_single_write(e: SleighEndianness) {
-        let z3 = Context::new(&Config::new());
-        let mut space = make_space(&z3, e);
+        let mut space = make_space(e);
         space
-            .write(&BV::from_u64(&z3, 0x42, 8), &BV::from_u64(&z3, 0, 32))
+            .write(&BV::from_u64(0x42, 8), &BV::from_u64(0, 32))
             .unwrap();
         let expected = 0x42;
-        let data = space.read(&BV::from_u64(&z3, 0, 32), 1).unwrap().simplify();
+        let data = space.read(&BV::from_u64(0, 32), 1).unwrap().simplify();
         assert!(data.is_const());
         assert_eq!(data.as_u64().unwrap(), expected)
     }

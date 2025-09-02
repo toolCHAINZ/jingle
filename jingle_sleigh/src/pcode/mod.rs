@@ -998,7 +998,7 @@ impl LowerHex for PcodeOperation {
 
 impl Display for OpCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let s = format!("{:?}", self);
+        let s = format!("{self:?}");
         write!(f, "{}", s.as_str().get(5..).unwrap())
     }
 }

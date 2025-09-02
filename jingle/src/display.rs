@@ -54,7 +54,7 @@ impl JingleDisplayable for VarNode {
         if self.space_index == VarNode::CONST_SPACE_INDEX {
             write!(f, "{:x}:{:x}", self.offset, self.size)
         } else if let Some(name) = ctx.get_register_name(self) {
-            write!(f, "{}", name)
+            write!(f, "{name}")
         } else {
             write!(
                 f,
