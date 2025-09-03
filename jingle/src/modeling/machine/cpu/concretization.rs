@@ -17,6 +17,6 @@ impl Concretize for SymbolicPcodeAddress {
     }
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
-        self._eq(&c.symbolize()).not()
+        self.eq(&c.symbolize()).not()
     }
 }

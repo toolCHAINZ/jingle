@@ -272,7 +272,7 @@ impl State {
         {
             let self_space = self.get_space(i)?;
             let other_space = other.get_space(i)?;
-            terms.push(self_space._eq(other_space))
+            terms.push(self_space.eq(other_space))
         }
         let eq_terms: Vec<&Bool> = terms.iter().collect();
         Ok(Bool::and(eq_terms.as_slice()))

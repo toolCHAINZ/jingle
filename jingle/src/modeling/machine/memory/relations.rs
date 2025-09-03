@@ -4,7 +4,7 @@ use jingle_sleigh::PcodeOperation;
 use std::cmp::{Ordering, min};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
-use z3::ast::{Ast, BV};
+use z3::ast::BV;
 
 impl MemoryState {
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
@@ -289,7 +289,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
-                let out_bool = in0._eq(&in1);
+                let out_bool = in0.eq(&in1);
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
                 final_state.write(output, out_bv)
@@ -303,7 +303,7 @@ impl MemoryState {
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
                 let outsize = output.size as u32;
-                let out_bool = in0._eq(&in1).not();
+                let out_bool = in0.eq(&in1).not();
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
                 final_state.write(output, out_bv)

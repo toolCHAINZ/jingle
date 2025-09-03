@@ -4,7 +4,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::ops::Add;
 use z3::Sort;
-use z3::ast::{Array, Ast, BV, Bool};
+use z3::ast::{Array, BV, Bool};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -79,7 +79,7 @@ impl BMCModeledSpace {
 
     /// Symbolically equate two spaces. Note that these spaces MUST have the same dimensions.
     pub fn _eq(&self, other: &Self) -> Bool {
-        self.data._eq(&other.data)
+        self.data.eq(&other.data)
     }
 
     pub fn _meta_eq(&self, other: &Self) -> bool {

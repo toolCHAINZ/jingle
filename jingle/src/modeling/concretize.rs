@@ -1,5 +1,5 @@
 use crate::modeling::tactics::TacticSolver;
-use z3::ast::{Ast, BV, Bool};
+use z3::ast::{BV, Bool};
 use z3::{Model, SatResult};
 
 /// Implemented by types that represent expressions
@@ -21,7 +21,7 @@ impl Concretize for BV {
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
         let ctr = BV::from_u64(*c, self.get_size());
-        self._eq(&ctr).not()
+        self.eq(&ctr).not()
     }
 }
 
@@ -34,7 +34,7 @@ impl Concretize for Bool {
 
     fn make_counterexample(&self, c: &Self::Concretized) -> Bool {
         let ctr = Bool::from_bool(*c);
-        self._eq(&ctr).not()
+        self.eq(&ctr).not()
     }
 }
 
