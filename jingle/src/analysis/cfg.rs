@@ -3,7 +3,6 @@ use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use petgraph::Direction;
-use petgraph::data::DataMap;
 use petgraph::prelude::{DiGraph, EdgeRef};
 use std::collections::HashMap;
 use z3::ast::{Ast, Bool};
@@ -91,7 +90,7 @@ impl PcodeCfg {
             let (addr, op) = self.graph.node_weight(idx).unwrap().clone();
             let s = MachineState::fresh_for_address(&jingle, addr);
             states.insert(addr, s.clone());
-            if let Some(_) = self.graph.edges_directed(idx, Direction::Outgoing).next() {
+            if self.graph.edges_directed(idx, Direction::Outgoing).next().is_some() {
                 let f = s.apply(&op).unwrap();
                 post_states.insert(addr, f);
             }
