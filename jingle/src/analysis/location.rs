@@ -6,6 +6,7 @@ use jingle_sleigh::PcodeOperation;
 use std::iter::{empty, once};
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Eq)]
+#[expect(unused)]
 pub struct SimpleLocation(FlatLattice<ConcretePcodeAddress>);
 
 impl JoinSemiLattice for SimpleLocation {
@@ -62,6 +63,7 @@ impl AbstractState for SimpleLocation {
 }
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Eq)]
+#[expect(unsued)]
 pub struct SMTLocation(pub(crate) FlatLattice<ConcretePcodeAddress>);
 
 impl JoinSemiLattice for SMTLocation {
