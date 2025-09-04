@@ -1,6 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
