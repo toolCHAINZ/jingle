@@ -2,9 +2,11 @@ use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 pub mod back_edge;
+// mod bounded_visit;
 pub mod cfg;
 pub mod cpa;
 pub mod direct_location;
+mod location;
 pub mod pcode_store;
 pub mod varnode;
 

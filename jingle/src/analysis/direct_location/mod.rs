@@ -3,34 +3,15 @@ use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::AbstractState;
-use crate::analysis::direct_location::SuccessorIterator::{Conditional, Single};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
-use petgraph::graphmap::DiGraphMap;
-use std::iter::{Chain, Once, empty, once};
-
-pub enum SuccessorIterator {
-    Terminate,
-    Single(Once<PcodeAddressLattice>),
-    Conditional(Chain<Once<PcodeAddressLattice>, Once<PcodeAddressLattice>>),
-}
-
-impl Iterator for SuccessorIterator {
-    type Item = PcodeAddressLattice;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Terminate => None,
-            Single(a) => a.next(),
-            Conditional(b) => b.next(),
-        }
-    }
-}
+use petgraph::prelude::DiGraph;
+use std::iter::{empty, once};
 
 pub struct DirectLocationCPA<T> {
     pcode: T,
-    pub graph: DiGraphMap<ConcretePcodeAddress, PcodeOperation>,
+    pub graph: DiGraph<(ConcretePcodeAddress, PcodeOperation), ()>,
 }
 
 pub struct DirectLocationAnalysis;
@@ -59,14 +40,14 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
         match state {
             PcodeAddressLattice::Value(a) => {
                 if let Some(op) = self.pcode.get_pcode_op_at(*a) {
-                    let nd = self.graph.add_node(*a);
+                    // let nd = self.graph.add_node((*a, op.clone()));
                     let iter: Vec<_> = state
                         .transfer(&op)
-                        .inspect(|f| {
-                            if let PcodeAddressLattice::Value(f) = f {
-                                let nd2 = self.graph.add_node(*f);
-                                self.graph.add_edge(nd, nd2, op.clone());
-                            }
+                        .inspect(|_f| {
+                            // if let PcodeAddressLattice::Value(f) = f {
+                            //     let nd2 = self.graph.add_node((*f, op));
+                            //     self.graph.add_edge(nd, nd2, op.clone());
+                            // }
                         })
                         .collect();
                     Box::new(iter.into_iter())

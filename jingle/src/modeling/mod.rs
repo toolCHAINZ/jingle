@@ -549,7 +549,7 @@ pub(crate) trait TranslationContext: ModelingContext {
             } => {
                 let i0 = self.read_and_track(input0.into())?;
                 let i1 = self.read_and_track(input1.into())?;
-                let result = i0.bvor(&i1).bvand(1);
+                let result = (i0 | i1) & 1;
                 self.write(&output.into(), result)
             }
             PcodeOperation::BoolXor {
