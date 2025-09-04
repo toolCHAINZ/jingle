@@ -96,11 +96,11 @@ pub trait ModelingContext: ArchInfoProvider + Debug + Sized {
         {
             let ours = self.get_final_state().read_resolved(vn)?;
             let other_bv = other.get_final_state().read_resolved(vn)?;
-            output_terms.push(ours._eq(&other_bv).simplify());
+            output_terms.push(ours.eq(&other_bv).simplify());
             if let Indirect(a) = vn {
                 let ours = self.get_final_state().read_varnode(&a.pointer_location)?;
                 let other = other.get_final_state().read_varnode(&a.pointer_location)?;
-                output_terms.push(ours._eq(&other).simplify());
+                output_terms.push(ours.eq(&other).simplify());
             }
         }
         let imp_terms: Vec<&Bool> = output_terms.iter().collect();
@@ -509,7 +509,7 @@ pub(crate) trait TranslationContext: ModelingContext {
                 let in0 = self.read_and_track(input0.into())?;
                 let in1 = self.read_and_track(input1.into())?;
                 let outsize = output.size as u32;
-                let out_bool = in0._eq(&in1);
+                let out_bool = in0.eq(&in1);
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
                 self.write(&output.into(), out_bv)
@@ -522,7 +522,7 @@ pub(crate) trait TranslationContext: ModelingContext {
                 let in0 = self.read_and_track(input0.into())?;
                 let in1 = self.read_and_track(input1.into())?;
                 let outsize = output.size as u32;
-                let out_bool = in0._eq(&in1).not();
+                let out_bool = in0.eq(&in1).not();
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
                 self.write(&output.into(), out_bv)

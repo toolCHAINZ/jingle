@@ -47,8 +47,8 @@ impl PcodeCfg {
                     let to_state = states.get(to).expect("From state not found");
                     let from_state = states.get(from).expect("To state not found");
                     let relation = from_state.apply(op).unwrap();
-                    let hi = relation.pc()._eq(to_state.pc());
-                    hi.implies(relation._eq(to_state))
+                    let hi = relation.pc().eq(to_state.pc());
+                    hi.implies(relation.eq(to_state))
                 })
                 .collect();
             if options.is_empty() {
@@ -84,8 +84,8 @@ impl PcodeCfg {
                 let from_state = states.get(from).expect("From state not found");
                 let to_state = states.get(to).expect("To state not found");
                 let from_state_final = from_state.apply(op).unwrap();
-                let hi = from_state_final.pc()._eq(to_state.pc());
-                hi.implies(from_state_final._eq(to_state)).simplify()
+                let hi = from_state_final.pc().eq(to_state.pc());
+                hi.implies(from_state_final.eq(to_state)).simplify()
             })
             .collect();
 

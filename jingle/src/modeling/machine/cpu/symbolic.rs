@@ -70,8 +70,8 @@ impl SymbolicPcodeAddress {
         SymbolicPcodeAddress { machine, pcode }
     }
 
-    pub fn _eq(&self, other: &Self) -> Bool {
-        self.machine._eq(&other.machine) & self.pcode._eq(&other.pcode)
+    pub fn eq(&self, other: &Self) -> Bool {
+        self.machine.eq(&other.machine) & self.pcode.eq(&other.pcode)
     }
 
     pub fn simplify(&self) -> Self {
