@@ -1,6 +1,6 @@
 [package]
 name = "jingle"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 description = "SMT Modeling for Ghidra's PCODE"
 homepage = "https://github.com/toolCHAINZ/jingle"
