@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
@@ -21,11 +22,6 @@ impl From<ConcretePcodeAddress> for SimpleLocation {
     }
 }
 
-impl From<SMTLocation> for SimpleLocation {
-    fn from(value: SMTLocation) -> Self {
-        Self(value.0)
-    }
-}
 
 impl AbstractState for SimpleLocation {
     type SuccessorIter = Box<dyn Iterator<Item = Self>>;
@@ -62,12 +58,27 @@ impl AbstractState for SimpleLocation {
     }
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Eq)]
-#[expect(unsued)]
-pub struct SMTLocation(pub(crate) FlatLattice<ConcretePcodeAddress>);
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
+enum AnnotatedLocation{
+    Location(ConcretePcodeAddress),
+    UnwindingException(ConcretePcodeAddress),
+}
 
-impl JoinSemiLattice for SMTLocation {
-    fn join(&mut self, other: &Self) {
-        self.0.join(&other.0)
+pub type AnnotatedLocationLattice = FlatLattice<AnnotatedLocation>;
+
+
+impl AbstractState for FlatLattice<AnnotatedLocation> {
+    type SuccessorIter = Box<dyn Iterator<Item = Self>>;
+
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
+        todo!()
+    }
+
+    fn stop<'a, T: Iterator<Item=&'a Self>>(&'a self, states: T) -> bool {
+        todo!()
+    }
+
+    fn transfer(&self, opcode: &PcodeOperation) -> Self::SuccessorIter {
+
     }
 }

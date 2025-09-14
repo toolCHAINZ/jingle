@@ -29,25 +29,13 @@ impl PcodeCfg {
         &self.graph
     }
 
-    pub fn leaf_ndoes(&self) -> impl Iterator<Item = (ConcretePcodeAddress, PcodeOperation)> {
-        self.graph
-            .node_indices()
-            .filter(|&n| {
-                self.graph
-                    .neighbors_directed(n, Direction::Outgoing)
-                    .next()
-                    .is_none()
-            })
-            .map(|n| self.graph.node_weight(n).unwrap())
-            .cloned()
-    }
 
     pub fn build_solver(&self, jingle: JingleContext) -> Solver {
         let solver = Solver::new();
         let mut states = HashMap::new();
         for addr in self.graph.node_indices() {
-            let (addr, _) = self.graph.node_weight(addr).unwrap();
-            states.insert(addr, MachineState::fresh_for_address(&jingle, *addr));
+            let addr = self.graph.node_weight(addr).unwrap();
+            states.insert(addr, MachineState::fresh_for_address(&jingle, addr.0));
         }
 
         for idx in self.graph.node_indices() {
@@ -90,7 +78,12 @@ impl PcodeCfg {
             let (addr, op) = self.graph.node_weight(idx).unwrap().clone();
             let s = MachineState::fresh_for_address(&jingle, addr);
             states.insert(addr, s.clone());
-            if self.graph.edges_directed(idx, Direction::Outgoing).next().is_some() {
+            if self
+                .graph
+                .edges_directed(idx, Direction::Outgoing)
+                .next()
+                .is_some()
+            {
                 let f = s.apply(&op).unwrap();
                 post_states.insert(addr, f);
             }

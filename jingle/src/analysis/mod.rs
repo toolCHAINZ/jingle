@@ -6,9 +6,10 @@ pub mod back_edge;
 pub mod cfg;
 pub mod cpa;
 pub mod direct_location;
-mod location;
+// mod location;
 pub mod pcode_store;
 pub mod varnode;
+mod path;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure
 /// for running and combining CPAs. The output of the CPA is often not exactly in a format
