@@ -9,6 +9,7 @@ pub mod direct_location;
 // mod location;
 pub mod pcode_store;
 pub mod varnode;
+#[expect(unused)]
 mod path;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure

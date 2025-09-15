@@ -1,6 +1,5 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
-use petgraph::visit::Walker;
 use std::mem;
 use std::rc::Rc;
 

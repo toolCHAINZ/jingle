@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use crate::modeling::concretize::{ConcretizationIterator, Concretize};
 use crate::modeling::machine::memory::MemoryState;
 use crate::{JingleContext, JingleError};
@@ -33,12 +34,13 @@ impl MachineState {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
             jingle: jingle.clone(),
-            memory: MemoryState::fresh_for_address(jingle, machine_addr.into()),
+            memory: MemoryState::fresh_for_address(jingle, pc),
             pc: pc.symbolize(),
         }
     }
 
-    pub fn fresh_for_address(jingle: &JingleContext, addr: ConcretePcodeAddress) -> Self {
+    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(jingle: &JingleContext, addr: T) -> Self {
+        let addr = addr.borrow();
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh_for_address(jingle, addr),
