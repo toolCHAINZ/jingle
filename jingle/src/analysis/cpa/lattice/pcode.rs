@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -17,7 +18,8 @@ impl AbstractState for PcodeAddressLattice {
         self.stop_sep(states)
     }
 
-    fn transfer(&self, op: &PcodeOperation) -> Box<dyn Iterator<Item = Self>> {
+    fn transfer<B: Borrow<PcodeOperation>>(&self, op: B) -> Box<dyn Iterator<Item = Self>> {
+        let op = op.borrow();
         match &self {
             PcodeAddressLattice::Value(a) => match op {
                 PcodeOperation::Branch { input } => {

@@ -1,5 +1,6 @@
 use std::env;
 use jingle::analysis::Analysis;
+use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
 use jingle::analysis::direct_location::DirectLocationAnalysis;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 
@@ -14,8 +15,8 @@ fn main() {
     let bin_path = env::home_dir().unwrap().join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = DirectLocationAnalysis;
-    let pcode_graph = direct.run(loaded, FUNC_GOTO);
+    let mut direct = BoundedStepLocationAnalysis::new(100);
+    let pcode_graph = direct.run(loaded, direct.make_initial_state(FUNC_GOTO.into()));
     let addrs = pcode_graph.addresses().collect::<Vec<_>>();;
     for addr in addrs {
         println!("{:x}", addr);

@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use crate::analysis::Analysis;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
@@ -65,7 +66,8 @@ impl AbstractState for BackEdgeState {
         self.stop_sep(states)
     }
 
-    fn transfer(&self, opcode: &PcodeOperation) -> Self::SuccessorIter {
+    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter {
+        let opcode = opcode.borrow();
         let s = self.clone();
         Box::new(
             self.location
@@ -119,7 +121,7 @@ impl Analysis for BackEdgeAnalysis {
     fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
         let initial_state = initial_state.into();
         let mut cpa = BackEdgeCPA::new(store);
-        let _ = cpa.run_cpa(&initial_state);
+        let _ = cpa.run_cpa(initial_state);
         cpa.back_edges
             .into_iter()
             .filter_map(|(a, b)| a.value().and_then(|av| b.value().map(|bv| (*av, *bv))))

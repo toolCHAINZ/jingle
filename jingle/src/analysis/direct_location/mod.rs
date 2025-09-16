@@ -14,6 +14,12 @@ pub struct DirectLocationCPA<T> {
     cfg: PcodeCfg,
 }
 
+impl<T> DirectLocationCPA<T> {
+    pub fn cfg(&self) -> &PcodeCfg {
+        &self.cfg
+    }
+}
+
 pub struct DirectLocationAnalysis;
 
 impl<T: PcodeStore> DirectLocationCPA<T> {
@@ -63,11 +69,15 @@ impl Analysis for DirectLocationAnalysis {
     type Output = PcodeCfg;
     type Input = ConcretePcodeAddress;
 
-    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(
+        &mut self,
+        store: T,
+        initial_state: I,
+    ) -> Self::Output {
         let initial_state = initial_state.into();
         let lattice = PcodeAddressLattice::Value(initial_state);
         let mut cpa = DirectLocationCPA::new(store);
-        let _ = cpa.run_cpa(&lattice);
+        let _ = cpa.run_cpa(lattice);
         cpa.cfg
     }
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
