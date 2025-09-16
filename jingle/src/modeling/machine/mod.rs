@@ -5,6 +5,7 @@ use cpu::concrete::ConcretePcodeAddress;
 use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
+use std::borrow::Borrow;
 use z3::ast::Bool;
 
 pub mod cpu;
@@ -33,12 +34,16 @@ impl MachineState {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
             jingle: jingle.clone(),
-            memory: MemoryState::fresh_for_address(jingle, machine_addr.into()),
+            memory: MemoryState::fresh_for_address(jingle, pc),
             pc: pc.symbolize(),
         }
     }
 
-    pub fn fresh_for_address(jingle: &JingleContext, addr: ConcretePcodeAddress) -> Self {
+    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(
+        jingle: &JingleContext,
+        addr: T,
+    ) -> Self {
+        let addr = addr.borrow();
         Self {
             jingle: jingle.clone(),
             memory: MemoryState::fresh_for_address(jingle, addr),

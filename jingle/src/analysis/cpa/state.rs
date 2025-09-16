@@ -1,5 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use jingle_sleigh::PcodeOperation;
+use std::borrow::Borrow;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -60,5 +61,5 @@ pub trait AbstractState: JoinSemiLattice + Clone {
     /// Decided to make this an iterator to allow making the state structures simpler
     /// (e.g. a resolved indirect jump could return an iterator of locations instead of
     /// having a special "the location is one in this list" variant
-    fn transfer(&self, opcode: &PcodeOperation) -> Self::SuccessorIter;
+    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter;
 }

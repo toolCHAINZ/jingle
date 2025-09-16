@@ -1,36 +1,23 @@
 use crate::analysis::Analysis;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
+use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::AbstractState;
-use crate::analysis::direct_location::SuccessorIterator::{Conditional, Single};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
-use petgraph::graphmap::DiGraphMap;
-use std::iter::{Chain, Once, empty, once};
-
-pub enum SuccessorIterator {
-    Terminate,
-    Single(Once<PcodeAddressLattice>),
-    Conditional(Chain<Once<PcodeAddressLattice>, Once<PcodeAddressLattice>>),
-}
-
-impl Iterator for SuccessorIterator {
-    type Item = PcodeAddressLattice;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Terminate => None,
-            Single(a) => a.next(),
-            Conditional(b) => b.next(),
-        }
-    }
-}
+use std::iter::{empty, once};
 
 pub struct DirectLocationCPA<T> {
     pcode: T,
-    pub graph: DiGraphMap<ConcretePcodeAddress, PcodeOperation>,
+    cfg: PcodeCfg,
+}
+
+impl<T> DirectLocationCPA<T> {
+    pub fn cfg(&self) -> &PcodeCfg {
+        &self.cfg
+    }
 }
 
 pub struct DirectLocationAnalysis;
@@ -39,7 +26,7 @@ impl<T: PcodeStore> DirectLocationCPA<T> {
     pub fn new(pcode: T) -> Self {
         Self {
             pcode,
-            graph: Default::default(),
+            cfg: Default::default(),
         }
     }
 
@@ -58,16 +45,15 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
     fn successor_states(&mut self, state: &Self::State) -> Self::Iter {
         match state {
             PcodeAddressLattice::Value(a) => {
-                if let Some(op) = self.pcode.get_pcode_op_at(*a) {
-                    let nd = self.graph.add_node(*a);
+                self.cfg.add_node(a);
+                if let Some(op) = self.pcode.get_pcode_op_at(a) {
                     let iter: Vec<_> = state
                         .transfer(&op)
-                        .inspect(|f| {
-                            if let PcodeAddressLattice::Value(f) = f {
-                                let nd2 = self.graph.add_node(*f);
-                                self.graph.add_edge(nd, nd2, op.clone());
-                            }
+                        .flat_map(|a| a.value().cloned())
+                        .inspect(|addr| {
+                            self.cfg.add_edge(a, addr, op.clone());
                         })
+                        .map(FlatLattice::Value)
                         .collect();
                     Box::new(iter.into_iter())
                 } else {
@@ -83,11 +69,16 @@ impl Analysis for DirectLocationAnalysis {
     type Output = PcodeCfg;
     type Input = ConcretePcodeAddress;
 
-    fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(
+        &mut self,
+        store: T,
+        initial_state: I,
+    ) -> Self::Output {
+        let initial_state = initial_state.into();
         let lattice = PcodeAddressLattice::Value(initial_state);
         let mut cpa = DirectLocationCPA::new(store);
-        let _ = cpa.run_cpa(&lattice);
-        PcodeCfg::new(cpa.graph.clone(), initial_state)
+        let _ = cpa.run_cpa(lattice);
+        cpa.cfg
     }
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
         addr

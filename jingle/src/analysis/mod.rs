@@ -2,9 +2,14 @@ use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 pub mod back_edge;
+// mod bounded_visit;
 pub mod cfg;
 pub mod cpa;
 pub mod direct_location;
+// mod location;
+pub mod bounded_visit;
+#[expect(unused)]
+mod path;
 pub mod pcode_store;
 pub mod varnode;
 
@@ -22,7 +27,11 @@ pub trait Analysis {
     /// any state in the type implementing [Analysis]
     type Input;
     /// Run the [Analysis] and return its [Output](Self::Output)
-    fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output;
+    fn run<T: PcodeStore, I: Into<Self::Input>>(
+        &mut self,
+        store: T,
+        initial_state: I,
+    ) -> Self::Output;
     /// Given an initial [ConcretePcodeAddress], derive the [Input](Self::Input) state for
     /// a CPA
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;

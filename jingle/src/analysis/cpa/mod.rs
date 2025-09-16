@@ -2,6 +2,7 @@ pub mod lattice;
 pub mod state;
 
 use crate::analysis::cpa::state::AbstractState;
+use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 
@@ -36,7 +37,8 @@ pub trait ConfigurableProgramAnalysis {
     /// The CPA algorithm. Implementors should not need to customize this function.
     ///
     /// Returns an iterator over abstract states reached from the initial abstract state.
-    fn run_cpa(&mut self, initial: &Self::State) -> impl Iterator<Item = Self::State> {
+    fn run_cpa<I: Borrow<Self::State>>(&mut self, initial: I) -> impl Iterator<Item = Self::State> {
+        let initial = initial.borrow();
         let mut waitlist: VecDeque<Self::State> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
         waitlist.push_front(initial.clone());

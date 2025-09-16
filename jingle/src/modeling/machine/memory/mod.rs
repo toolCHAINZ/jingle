@@ -12,6 +12,7 @@ use crate::{JingleContext, JingleError};
 use jingle_sleigh::{
     ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
+use std::borrow::Borrow;
 use std::ops::Add;
 use z3::ast::{Array, BV, Bool};
 
@@ -34,7 +35,11 @@ impl MemoryState {
         Self { jingle, spaces }
     }
 
-    pub fn fresh_for_address(jingle: &JingleContext, addr: ConcretePcodeAddress) -> Self {
+    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(
+        jingle: &JingleContext,
+        addr: T,
+    ) -> Self {
+        let addr = addr.borrow();
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace> = jingle
             .get_all_space_info()

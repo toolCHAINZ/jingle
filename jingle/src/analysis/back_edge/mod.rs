@@ -7,6 +7,7 @@ use crate::analysis::direct_location::DirectLocationCPA;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::vec::IntoIter;
@@ -65,11 +66,12 @@ impl AbstractState for BackEdgeState {
         self.stop_sep(states)
     }
 
-    fn transfer(&self, _opcode: &PcodeOperation) -> Self::SuccessorIter {
+    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter {
+        let opcode = opcode.borrow();
         let s = self.clone();
         Box::new(
             self.location
-                .transfer(_opcode)
+                .transfer(opcode)
                 .map(move |a| s.add_location(a)),
         )
     }
@@ -116,9 +118,14 @@ impl Analysis for BackEdgeAnalysis {
     type Output = HashMap<ConcretePcodeAddress, ConcretePcodeAddress>;
     type Input = BackEdgeState;
 
-    fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(
+        &mut self,
+        store: T,
+        initial_state: I,
+    ) -> Self::Output {
+        let initial_state = initial_state.into();
         let mut cpa = BackEdgeCPA::new(store);
-        let _ = cpa.run_cpa(&initial_state);
+        let _ = cpa.run_cpa(initial_state);
         cpa.back_edges
             .into_iter()
             .filter_map(|(a, b)| a.value().and_then(|av| b.value().map(|bv| (*av, *bv))))
