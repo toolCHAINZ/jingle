@@ -121,7 +121,7 @@ impl PcodeCfg {
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for (addr, idx) in &self.indices {
-            let op = &self.ops[&addr];
+            let op = &self.ops[addr];
             let s = MachineState::fresh_for_address(&jingle, addr);
             states.insert(addr, s.clone());
             if self
@@ -130,7 +130,7 @@ impl PcodeCfg {
                 .next()
                 .is_some()
             {
-                let f = s.apply(&op).unwrap();
+                let f = s.apply(op).unwrap();
                 post_states.insert(addr, f);
             }
         }

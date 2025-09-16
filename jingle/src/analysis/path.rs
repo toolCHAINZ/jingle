@@ -24,7 +24,7 @@ impl ProgramPath {
     }
 
     pub fn commit(&mut self) {
-        let old = mem::replace(&mut self.current, ProgramPathSegment::default());
+        let old = mem::take(&mut self.current);
         self.prefix.push(Rc::new(old));
     }
 

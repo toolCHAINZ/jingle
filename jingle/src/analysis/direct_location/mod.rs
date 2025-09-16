@@ -53,7 +53,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
                         .inspect(|addr| {
                             self.cfg.add_edge(a, addr, op.clone());
                         })
-                        .map(|a| FlatLattice::Value(a))
+                        .map(FlatLattice::Value)
                         .collect();
                     Box::new(iter.into_iter())
                 } else {
