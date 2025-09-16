@@ -7,11 +7,11 @@ pub mod cfg;
 pub mod cpa;
 pub mod direct_location;
 // mod location;
+pub mod bounded_visit;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
 pub mod varnode;
-pub mod bounded_visit;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure
 /// for running and combining CPAs. The output of the CPA is often not exactly in a format

@@ -1,8 +1,8 @@
-use std::borrow::Borrow;
 use crate::JingleError;
 use crate::JingleError::{MismatchedAddressSize, UnexpectedArraySort, ZeroSizedVarnode};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
+use std::borrow::Borrow;
 use std::ops::Add;
 use z3::Sort;
 use z3::ast::{Array, BV, Bool};
@@ -37,7 +37,10 @@ impl BMCModeledSpace {
         }
     }
 
-    pub fn new_for_address<T: Borrow<ConcretePcodeAddress>>(space_info: &SpaceInfo, addr: T) -> Self {
+    pub fn new_for_address<T: Borrow<ConcretePcodeAddress>>(
+        space_info: &SpaceInfo,
+        addr: T,
+    ) -> Self {
         let addr = addr.borrow();
         let domain = Sort::bitvector(space_info.index_size_bytes * 8);
         let range = Sort::bitvector(space_info.word_size_bytes * 8);

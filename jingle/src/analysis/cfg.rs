@@ -59,12 +59,8 @@ impl PcodeCfg {
         }
     }
 
-    pub fn add_edge<A, B, C>(
-        &mut self,
-        from: A,
-        to: B,
-        op: C,
-    ) where
+    pub fn add_edge<A, B, C>(&mut self, from: A, to: B, op: C)
+    where
         A: Borrow<ConcretePcodeAddress>,
         B: Borrow<ConcretePcodeAddress>,
         C: Borrow<PcodeOperation>,

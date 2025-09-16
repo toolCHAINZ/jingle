@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use crate::modeling::concretize::{ConcretizationIterator, Concretize};
 use crate::modeling::machine::memory::MemoryState;
 use crate::{JingleContext, JingleError};
@@ -6,6 +5,7 @@ use cpu::concrete::ConcretePcodeAddress;
 use cpu::concrete::PcodeMachineAddress;
 use cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::PcodeOperation;
+use std::borrow::Borrow;
 use z3::ast::Bool;
 
 pub mod cpu;
@@ -39,7 +39,10 @@ impl MachineState {
         }
     }
 
-    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(jingle: &JingleContext, addr: T) -> Self {
+    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(
+        jingle: &JingleContext,
+        addr: T,
+    ) -> Self {
         let addr = addr.borrow();
         Self {
             jingle: jingle.clone(),

@@ -1,7 +1,7 @@
-use std::borrow::Borrow;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{ArchInfoProvider, PcodeOperation, VarNode};
+use std::borrow::Borrow;
 
 pub trait PcodeStore {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation>;

@@ -36,12 +36,15 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for BoundedStepsCpa<T> {
             let i = iter
                 .into_iter()
                 .flat_map(|op| {
-                    let a = state.transfer(&op).inspect(|to| {
-                        let op = op.clone();
-                        if let Value(a) = to.location {
-                            self.cfg.add_edge(addr, a, op)
-                        }
-                    }).collect::<Vec<_>>();
+                    let a = state
+                        .transfer(&op)
+                        .inspect(|to| {
+                            let op = op.clone();
+                            if let Value(a) = to.location {
+                                self.cfg.add_edge(addr, a, op)
+                            }
+                        })
+                        .collect::<Vec<_>>();
                     a.into_iter()
                 })
                 .collect::<Vec<_>>();
@@ -66,7 +69,7 @@ impl Analysis for BoundedStepLocationAnalysis {
         initial_state: I,
     ) -> Self::Output {
         let mut cpa = BoundedStepsCpa::new(store);
-        let _ =cpa.run_cpa(initial_state.into());
+        let _ = cpa.run_cpa(initial_state.into());
         cpa.cfg
     }
 
@@ -74,7 +77,6 @@ impl Analysis for BoundedStepLocationAnalysis {
         BoundedStepsState::new(addr.into(), self.max_steps)
     }
 }
-
 
 impl BoundedStepLocationAnalysis {
     pub fn new(max_steps: usize) -> Self {

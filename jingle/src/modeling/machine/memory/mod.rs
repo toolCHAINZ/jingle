@@ -1,7 +1,6 @@
 mod relations;
 pub mod space;
 
-use std::borrow::Borrow;
 use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
@@ -13,6 +12,7 @@ use crate::{JingleContext, JingleError};
 use jingle_sleigh::{
     ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
 };
+use std::borrow::Borrow;
 use std::ops::Add;
 use z3::ast::{Array, BV, Bool};
 
@@ -35,7 +35,10 @@ impl MemoryState {
         Self { jingle, spaces }
     }
 
-    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(jingle: &JingleContext, addr: T) -> Self {
+    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(
+        jingle: &JingleContext,
+        addr: T,
+    ) -> Self {
         let addr = addr.borrow();
         let jingle = jingle.clone();
         let spaces: Vec<BMCModeledSpace> = jingle

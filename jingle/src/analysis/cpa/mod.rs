@@ -1,8 +1,8 @@
 pub mod lattice;
 pub mod state;
 
-use std::borrow::Borrow;
 use crate::analysis::cpa::state::AbstractState;
+use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 
