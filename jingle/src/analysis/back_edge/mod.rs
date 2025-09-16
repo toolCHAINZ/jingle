@@ -116,7 +116,8 @@ impl Analysis for BackEdgeAnalysis {
     type Output = HashMap<ConcretePcodeAddress, ConcretePcodeAddress>;
     type Input = BackEdgeState;
 
-    fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
+        let initial_state = initial_state.into();
         let mut cpa = BackEdgeCPA::new(store);
         let _ = cpa.run_cpa(&initial_state);
         cpa.back_edges

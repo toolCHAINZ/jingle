@@ -63,7 +63,8 @@ impl Analysis for DirectLocationAnalysis {
     type Output = PcodeCfg;
     type Input = ConcretePcodeAddress;
 
-    fn run<T: PcodeStore>(&mut self, store: T, initial_state: Self::Input) -> Self::Output {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
+        let initial_state = initial_state.into();
         let lattice = PcodeAddressLattice::Value(initial_state);
         let mut cpa = DirectLocationCPA::new(store);
         let _ = cpa.run_cpa(&lattice);

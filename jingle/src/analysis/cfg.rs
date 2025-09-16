@@ -31,6 +31,10 @@ impl PcodeCfg {
         &self.graph
     }
 
+    pub fn addresses(&self) -> impl Iterator<Item = &ConcretePcodeAddress> {
+        self.indices.keys()
+    }
+
     pub fn get_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<&PcodeOperation> {
         self.ops.get(addr.borrow())
     }
