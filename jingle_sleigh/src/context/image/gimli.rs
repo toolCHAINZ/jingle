@@ -2,7 +2,9 @@ use crate::context::SleighContextBuilder;
 use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms};
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
-use object::{Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionKind};
+use object::{
+    Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionKind,
+};
 use std::cmp::{max, min};
 use std::fmt::Debug;
 use std::fs;
@@ -151,13 +153,14 @@ pub fn map_gimli_architecture(file: &File) -> Option<&'static str> {
     match &file.architecture() {
         Architecture::Unknown => None,
         Architecture::Aarch64 => {
-            if file.format() == BinaryFormat::MachO{
-                return Some("AARCH64:LE:64:AppleSilicon")
+            if file.format() == BinaryFormat::MachO {
+                return Some("AARCH64:LE:64:AppleSilicon");
             }
             match file.endianness() {
-            Endianness::Little => Some("AARCH64:LE:64:v8A"),
-            Endianness::Big => Some("AARCH64:BE:64:v8A"),
-        }},
+                Endianness::Little => Some("AARCH64:LE:64:v8A"),
+                Endianness::Big => Some("AARCH64:BE:64:v8A"),
+            }
+        }
         Architecture::Aarch64_Ilp32 => match file.endianness() {
             Endianness::Little => Some("AARCH64:LE:32:ilp32"),
             Endianness::Big => Some("AARCH64:BE:32:ilp32"),
