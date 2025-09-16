@@ -52,7 +52,7 @@ impl PcodeCfg {
     }
 
     pub fn add_node<T: Borrow<ConcretePcodeAddress>>(&mut self, node: T) {
-        let node = node.borrow().clone();
+        let node = *node.borrow();
         if !self.indices.contains_key(&node) {
             let idx = self.graph.add_node(node);
             self.indices.insert(node, idx);
@@ -70,17 +70,17 @@ impl PcodeCfg {
         let op = op.borrow();
         self.add_node(from);
         self.add_node(to);
-        self.ops.insert(from.clone(), op.clone());
-        let from_idx = *self.indices.get(&from).unwrap();
-        let to_idx = *self.indices.get(&to).unwrap();
+        self.ops.insert(*from, op.clone());
+        let from_idx = *self.indices.get(from).unwrap();
+        let to_idx = *self.indices.get(to).unwrap();
         self.graph.add_edge(from_idx, to_idx, ());
     }
 
     pub fn build_solver(&self, jingle: JingleContext) -> Solver {
         let solver = Solver::new();
         let mut states = HashMap::new();
-        for (addr, _) in &self.indices {
-            states.insert(addr, MachineState::fresh_for_address(&jingle, addr.clone()));
+        for addr in self.indices.keys() {
+            states.insert(addr, MachineState::fresh_for_address(&jingle, *addr));
         }
 
         for idx in self.graph.node_indices() {

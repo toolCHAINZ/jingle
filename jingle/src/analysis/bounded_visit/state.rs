@@ -1,7 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -80,11 +79,11 @@ impl AbstractState for BoundedStepsState {
             };
             let max_count = self.max_count;
             Box::new(self.location.transfer(opcode).map(move |location| {
-                (Self {
+                Self {
                     location,
                     branch_count: cur,
                     max_count,
-                })
+                }
             }))
         }
     }
