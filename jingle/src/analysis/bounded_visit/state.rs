@@ -78,12 +78,10 @@ impl AbstractState for BoundedStepsState {
                 self.branch_count
             };
             let max_count = self.max_count;
-            Box::new(self.location.transfer(opcode).map(move |location| {
-                Self {
-                    location,
-                    branch_count: cur,
-                    max_count,
-                }
+            Box::new(self.location.transfer(opcode).map(move |location| Self {
+                location,
+                branch_count: cur,
+                max_count,
             }))
         }
     }
