@@ -15,8 +15,8 @@ fn main() {
     let bin_path = env::home_dir().unwrap().join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = BoundedStepLocationAnalysis::new(100);
-    let pcode_graph = direct.run(loaded, direct.make_initial_state(FUNC_GOTO.into()));
+    let mut direct = BoundedStepLocationAnalysis::new(80);
+    let pcode_graph = direct.run(loaded, direct.make_initial_state(FUNC_SWITCH.into()));
     let addrs = pcode_graph.addresses().collect::<Vec<_>>();;
     for addr in addrs {
         println!("{:x}", addr);

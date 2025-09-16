@@ -57,7 +57,11 @@ impl AbstractState for BoundedStepsState {
     type SuccessorIter = Box<dyn Iterator<Item = Self>>;
 
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        self.merge_join(other)
+        if self.location == other.location {
+            self.merge_join(other)
+        } else {
+            self.merge_sep(other)
+        }
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
@@ -67,7 +71,7 @@ impl AbstractState for BoundedStepsState {
     fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter {
         let opcode = opcode.borrow();
         if self.branch_count == self.max_count {
-            return Box::new(empty());
+            Box::new(empty())
         } else {
             let cur = if opcode.branch_destination().is_some() {
                 self.branch_count + 1
@@ -75,10 +79,12 @@ impl AbstractState for BoundedStepsState {
                 self.branch_count
             };
             let max_count = self.max_count;
-            Box::new(self.location.transfer(opcode).map(move |location| Self {
-                location,
-                branch_count: cur,
-                max_count,
+            Box::new(self.location.transfer(opcode).map(move |location| {
+                (Self {
+                    location,
+                    branch_count: cur,
+                    max_count,
+                })
             }))
         }
     }

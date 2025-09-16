@@ -6,7 +6,6 @@ use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::state::AbstractState;
-use crate::analysis::direct_location::DirectLocationCPA;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
