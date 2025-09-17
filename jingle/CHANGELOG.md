@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.2.6...jingle-v0.2.7) - 2025-09-17
+
+### Added
+
+- add bounded visitor analysis ([#77](https://github.com/toolCHAINZ/jingle/pull/77))
+
+### Other
+
+- bump pyo3 ([#92](https://github.com/toolCHAINZ/jingle/pull/92))
+
 ## [0.2.6](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.2.5...jingle-v0.2.6) - 2025-09-14
 
 ### Other
