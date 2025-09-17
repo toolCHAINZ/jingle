@@ -30,7 +30,7 @@ impl PythonState {
 
     /// Read a varnode from the symbolic state
     pub fn varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.state
                 .read_resolved(varnode.inner.inner())?
                 .try_into_python(py)
@@ -39,7 +39,7 @@ impl PythonState {
 
     /// Convenience function to read a named register from the symbolic state
     pub fn register(&self, name: &str) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let vn = self
                 .state
                 .get_register(name)
@@ -50,7 +50,7 @@ impl PythonState {
 
     /// Convenience function to read a slice from the symbolic  state of the default "code space"
     pub fn ram(&self, offset: u64, length: usize) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.state
                 .read_varnode(&VarNode {
                     offset,
