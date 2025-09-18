@@ -1,6 +1,7 @@
-use std::borrow::Borrow;
 use crate::error::JingleSleighError;
+use std::borrow::Borrow;
 
+use crate::SleighArchInfo;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
@@ -9,7 +10,6 @@ use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter, LowerHex};
 use std::ops::Range;
-use crate::SleighArchInfo;
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.

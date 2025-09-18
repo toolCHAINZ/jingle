@@ -10,14 +10,17 @@ use jingle_sleigh::context::loaded::LoadedSleighContext;
 /// modeling them in one go
 #[derive(Debug, Clone)]
 pub struct SleighTranslator<'a> {
-    jingle: SleighArchInfo,
+    info: SleighArchInfo,
     sleigh: &'a LoadedSleighContext<'a>,
 }
 
 impl<'a> SleighTranslator<'a> {
     /// Make a new sleigh translator
     pub fn new(sleigh: &'a LoadedSleighContext) -> Self {
-        Self { jingle: sleigh.arch_info().clone(), sleigh }
+        Self {
+            info: sleigh.arch_info().clone(),
+            sleigh,
+        }
     }
 
     /// Ask sleigh to read one instruction from the given offset and attempt
@@ -33,6 +36,6 @@ impl<'a> SleighTranslator<'a> {
 
     /// Attempt to convert  the given [Instruction] into a [ModeledInstruction]
     fn model_instruction(&self, instr: Instruction) -> Result<ModeledInstruction, JingleError> {
-        ModeledInstruction::new(instr, &self.jingle)
+        ModeledInstruction::new(instr, &self.info)
     }
 }

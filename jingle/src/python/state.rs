@@ -1,10 +1,10 @@
 use crate::modeling::State;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
+use crate::python::sleigh_context::PythonLoadedSleighContext;
 use crate::python::z3::ast::PythonAst;
 use jingle_sleigh::VarNode;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use crate::python::sleigh_context::PythonLoadedSleighContext;
 
 #[pyclass(unsendable, name = "State")]
 /// A symbolic p-code state
@@ -41,7 +41,8 @@ impl PythonState {
     pub fn register(&self, name: &str) -> PyResult<Py<PyAny>> {
         Python::attach(|py| {
             let vn = self
-                .state.arch_info()
+                .state
+                .arch_info()
                 .register(name)
                 .ok_or(PyRuntimeError::new_err("Queried nonexistent register"))?;
             self.state.read_varnode(vn)?.try_into_python(py)

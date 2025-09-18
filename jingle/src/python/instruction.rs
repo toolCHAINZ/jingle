@@ -1,9 +1,9 @@
-use std::borrow::Borrow;
 use crate::display::JingleDisplayable;
 use crate::sleigh::context::loaded::LoadedSleighContext;
-use crate::sleigh::{ Instruction, PcodeOperation, SpaceInfo, VarNode};
+use crate::sleigh::{Instruction, PcodeOperation, SpaceInfo, VarNode};
 use jingle_sleigh::SleighArchInfo;
 use pyo3::{pyclass, pymethods};
+use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 
 #[pyclass(str, name = "Instruction")]

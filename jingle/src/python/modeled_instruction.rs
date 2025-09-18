@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use crate::display::JingleDisplayable;
 use crate::modeling::{ModeledInstruction, ModelingContext};
 use crate::python::resolved_varnode::PythonResolvedVarNode;
@@ -6,6 +5,7 @@ use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
 use jingle_sleigh::{Instruction, SleighArchInfo};
 use pyo3::{PyResult, pyclass, pymethods};
+use std::borrow::Borrow;
 
 #[pyclass(unsendable, name = "ModeledInstruction")]
 /// A symbolic model of a "simple" SLEIGH instruction,
@@ -17,9 +17,12 @@ pub struct PythonModeledInstruction {
 }
 
 impl PythonModeledInstruction {
-    pub fn new<T: Borrow<SleighArchInfo>>(instr: Instruction, jingle: T) -> PyResult<PythonModeledInstruction> {
+    pub fn new<T: Borrow<SleighArchInfo>>(
+        instr: Instruction,
+        info: T,
+    ) -> PyResult<PythonModeledInstruction> {
         Ok(Self {
-            instr: ModeledInstruction::new(instr, jingle)?,
+            instr: ModeledInstruction::new(instr, info)?,
         })
     }
 }

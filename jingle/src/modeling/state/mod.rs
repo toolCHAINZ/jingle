@@ -21,19 +21,19 @@ use z3::{Context, Translate};
 /// on an initial state
 #[derive(Clone, Debug)]
 pub struct State {
-    jingle: SleighArchInfo,
+    info: SleighArchInfo,
     spaces: Vec<ModeledSpace>,
 }
 
 impl State {
-    pub fn new<T: Borrow<SleighArchInfo>>(jingle: T) -> Self {
+    pub fn new<T: Borrow<SleighArchInfo>>(info: T) -> Self {
         let mut spaces: Vec<ModeledSpace> = Default::default();
-        let jingle = jingle.borrow();
-        for space_info in jingle.spaces() {
+        let info = info.borrow();
+        for space_info in info.spaces() {
             spaces.push(ModeledSpace::new(space_info));
         }
         Self {
-            jingle: jingle.clone(),
+            info: info.clone(),
             spaces,
         }
     }
@@ -46,7 +46,7 @@ impl State {
     }
 
     pub fn arch_info(&self) -> &SleighArchInfo {
-        &self.jingle
+        &self.info
     }
 
     pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
@@ -136,7 +136,7 @@ impl State {
         }
 
         let info = self
-            .jingle
+            .info
             .get_space(dest.space_index)
             .ok_or(UnmodeledSpace)?;
         match info._type {
@@ -163,7 +163,7 @@ impl State {
             .get_mut(dest.space_index)
             .ok_or(UnmodeledSpace)?;
         let info = self
-            .jingle
+            .info
             .get_space(dest.space_index)
             .ok_or(UnmodeledSpace)?;
 
@@ -178,7 +178,7 @@ impl State {
         val: BV,
     ) -> Result<(), JingleError> {
         let info = self
-            .jingle
+            .info
             .get_space(dest.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
 
@@ -196,7 +196,7 @@ impl State {
         val: BV,
     ) -> Result<(), JingleError> {
         let info = self
-            .jingle
+            .info
             .get_space(dest.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
 
@@ -227,12 +227,12 @@ impl State {
     }
 
     pub fn get_default_code_space(&self) -> &Array {
-        self.spaces[self.jingle.default_code_space_index()].get_space()
+        self.spaces[self.info.default_code_space_index()].get_space()
     }
 
     pub fn get_default_code_space_info(&self) -> &SpaceInfo {
-        self.jingle
-            .get_space(self.jingle.default_code_space_index())
+        self.info
+            .get_space(self.info.default_code_space_index())
             .unwrap()
     }
 
@@ -278,7 +278,7 @@ unsafe impl Translate for State {
     fn translate(&self, ctx: &Context) -> Self {
         State {
             spaces: self.spaces.iter().map(|s| s.translate(ctx)).collect(),
-            jingle: self.jingle.clone(),
+            info: self.info.clone(),
         }
     }
 }

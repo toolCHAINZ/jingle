@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::JingleSleighError;
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::ffi::context_ffi::bridge::AddrSpaceHandle;
@@ -6,6 +5,7 @@ use crate::space::SleighEndianness::{Big, Little};
 use crate::varnode::VarNode;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// What program-analysis library wouldn't be complete without an enum
@@ -100,10 +100,7 @@ pub struct SleighArchInfo {
 }
 
 impl SleighArchInfo {
-    pub fn new<
-        T: Iterator<Item=(VarNode, String)>,
-        E: Iterator<Item=SpaceInfo>,
-    >(
+    pub fn new<T: Iterator<Item = (VarNode, String)>, E: Iterator<Item = SpaceInfo>>(
         registers: T,
         spaces: E,
         default_code_space: usize,
@@ -135,7 +132,10 @@ impl SleighArchInfo {
     }
 
     pub fn registers(&self) -> impl Iterator<Item = (VarNode, String)> {
-        self.info.vns_to_registers.iter().map(|(k, v)| (k.clone(), v.clone()))
+        self.info
+            .vns_to_registers
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
     }
 
     pub fn default_code_space_index(&self) -> usize {

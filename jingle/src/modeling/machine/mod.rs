@@ -13,40 +13,40 @@ pub mod memory;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MachineState {
-    pub jingle: SleighArchInfo,
+    info: SleighArchInfo,
     memory: MemoryState,
     pc: SymbolicPcodeAddress,
 }
 
 impl MachineState {
-    pub fn fresh<T: Borrow<SleighArchInfo>>(jingle: T) -> Self {
+    pub fn fresh<T: Borrow<SleighArchInfo>>(info: T) -> Self {
         Self {
-            jingle: jingle.borrow().clone(),
-            memory: MemoryState::fresh(jingle),
+            info: info.borrow().clone(),
+            memory: MemoryState::fresh(info),
             pc: SymbolicPcodeAddress::fresh(),
         }
     }
 
     pub fn fresh_for_machine_address<T: Borrow<SleighArchInfo>>(
-        jingle: T,
+        info: T,
         machine_addr: PcodeMachineAddress,
     ) -> Self {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
-            jingle: jingle.borrow().clone(),
-            memory: MemoryState::fresh_for_address(jingle, pc),
+            info: info.borrow().clone(),
+            memory: MemoryState::fresh_for_address(info, pc),
             pc: pc.symbolize(),
         }
     }
 
     pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>, S: Borrow<SleighArchInfo>>(
-        jingle: S,
+        info: S,
         addr: T,
     ) -> Self {
         let addr = addr.borrow();
         Self {
-            jingle: jingle.borrow().clone(),
-            memory: MemoryState::fresh_for_address(jingle, addr),
+            info: info.borrow().clone(),
+            memory: MemoryState::fresh_for_address(info, addr),
             pc: addr.symbolize(),
         }
     }
@@ -65,7 +65,7 @@ impl MachineState {
 
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         Ok(Self {
-            jingle: self.jingle.clone(),
+            info: self.info.clone(),
             memory: self.memory.apply(op)?,
             pc: self.apply_control_flow(op)?,
         })

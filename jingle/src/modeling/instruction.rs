@@ -15,7 +15,7 @@ use jingle_sleigh::SpaceInfo;
 /// A `jingle` model of an individual SLEIGH instruction
 #[derive(Debug, Clone)]
 pub struct ModeledInstruction {
-    jingle: SleighArchInfo,
+    info: SleighArchInfo,
     pub instr: Instruction,
     state: State,
     original_state: State,
@@ -27,17 +27,17 @@ pub struct ModeledInstruction {
 impl ModeledInstruction {
     pub fn new<T: Borrow<SleighArchInfo>>(
         instr: Instruction,
-        jingle: T,
+        info: T,
     ) -> Result<Self, JingleError> {
-        let jingle = jingle.borrow().clone();
-        let original_state = State::new(&jingle);
+        let info = info.borrow().clone();
+        let original_state = State::new(&info);
         let state = original_state.clone();
         let next_vn = state.get_default_code_space_info().make_varnode(
             instr.next_addr(),
             state.get_default_code_space_info().index_size_bytes as usize,
         );
         let mut model = Self {
-            jingle: jingle.borrow().clone(),
+            info: info.borrow().clone(),
             instr,
             state,
             original_state,
@@ -52,12 +52,12 @@ impl ModeledInstruction {
     }
 
     pub fn fresh(&self) -> Result<Self, JingleError> {
-        ModeledInstruction::new(self.instr.clone(), &self.jingle)
+        ModeledInstruction::new(self.instr.clone(), &self.info)
     }
 }
 impl ModelingContext for ModeledInstruction {
     fn get_arch_info(&self) -> &SleighArchInfo {
-        &self.jingle
+        &self.info
     }
 
     fn get_address(&self) -> u64 {
@@ -96,7 +96,7 @@ impl ModelingContext for ModeledInstruction {
 unsafe impl Translate for ModeledInstruction {
     fn translate(&self, dest: &Context) -> Self {
         Self {
-            jingle: self.jingle.clone(),
+            info: self.info.clone(),
             instr: self.instr.clone(),
             state: self.state.translate(dest),
             original_state: self.state.translate(dest),

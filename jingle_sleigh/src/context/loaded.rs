@@ -46,7 +46,10 @@ impl<'a> LoadedSleighContext<'a> {
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
-        let img = Box::pin(ImageFFI::new(img, sleigh_context.arch_info().default_code_space_index()));
+        let img = Box::pin(ImageFFI::new(
+            img,
+            sleigh_context.arch_info().default_code_space_index(),
+        ));
         let mut s = Self {
             sleigh: sleigh_context,
             img,
@@ -152,7 +155,6 @@ impl<'a> LoadedSleighContext<'a> {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -2,7 +2,9 @@ use crate::error::JingleError;
 
 use crate::varnode::ResolvedVarnode::{Direct, Indirect};
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
-use jingle_sleigh::{create_varnode, varnode, GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType};
+use jingle_sleigh::{
+    GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, create_varnode, varnode,
+};
 use std::cmp::{Ordering, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -73,7 +75,8 @@ pub trait ModelingContext: Debug + Sized {
     fn should_varnode_constrain(&self, v: &ResolvedVarnode) -> bool {
         match v {
             Direct(d) => self
-                .get_final_state().arch_info()
+                .get_final_state()
+                .arch_info()
                 .get_space(d.space_index)
                 .map(|o| o._type == SpaceType::IPTR_PROCESSOR)
                 .unwrap_or(false),
@@ -631,7 +634,10 @@ pub(crate) trait TranslationContext: ModelingContext {
                 for input in inputs.iter() {
                     self.read_and_track(input.into())?;
                 }
-                let size = self.get_final_state().get_default_code_space_info().index_size_bytes;
+                let size = self
+                    .get_final_state()
+                    .get_default_code_space_info()
+                    .index_size_bytes;
                 let hash_vn = create_varnode(self.get_arch_info(), "const", hash, size as usize)?;
                 let metadata = self
                     .get_final_state()

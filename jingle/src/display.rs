@@ -58,9 +58,7 @@ impl JingleDisplayable for VarNode {
             write!(
                 f,
                 "{}[{:x}]:{:x}",
-                ctx.get_space(self.space_index)
-                    .ok_or(std::fmt::Error)?
-                    .name,
+                ctx.get_space(self.space_index).ok_or(std::fmt::Error)?.name,
                 self.offset,
                 self.size
             )

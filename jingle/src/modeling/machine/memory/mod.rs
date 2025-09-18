@@ -21,32 +21,33 @@ use z3::ast::{Array, BV, Bool};
 /// on an initial state
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MemoryState {
-    jingle: SleighArchInfo,
+    info: SleighArchInfo,
     spaces: Vec<BMCModeledSpace>,
 }
 
 impl MemoryState {
-    pub fn fresh<T: Borrow<SleighArchInfo>>(jingle: T) -> Self {
-        let jingle = jingle.borrow().clone();
-        let spaces: Vec<BMCModeledSpace> = jingle
+    pub fn fresh<T: Borrow<SleighArchInfo>>(info: T) -> Self {
+        let info = info.borrow().clone();
+        let spaces: Vec<BMCModeledSpace> = info
             .spaces()
             .into_iter()
             .map(BMCModeledSpace::new)
             .collect();
-        Self { jingle, spaces }
+        Self { info, spaces }
     }
 
     pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>, S: Borrow<SleighArchInfo>>(
-        jingle: S,
+        info: S,
         addr: T,
     ) -> Self {
         let addr = addr.borrow();
-        let jingle = jingle.borrow().clone();
-        let spaces: Vec<BMCModeledSpace> = jingle
-            .spaces().into_iter()
+        let info = info.borrow().clone();
+        let spaces: Vec<BMCModeledSpace> = info
+            .spaces()
+            .into_iter()
             .map(|s| BMCModeledSpace::new_for_address(s, addr))
             .collect();
-        Self { jingle, spaces }
+        Self { info, spaces }
     }
 
     pub fn get_space(&self, idx: usize) -> Result<&Array, JingleError> {
@@ -58,7 +59,7 @@ impl MemoryState {
 
     fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
-            .jingle
+            .info
             .get_space(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
         match space._type {
@@ -76,7 +77,7 @@ impl MemoryState {
 
     fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV, JingleError> {
         let pointer_space_info = self
-            .jingle
+            .info
             .get_space(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
@@ -97,7 +98,7 @@ impl MemoryState {
         indirect: &IndirectVarNode,
     ) -> Result<BV, JingleError> {
         let pointer_space_info = self
-            .jingle
+            .info
             .get_space(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
@@ -133,7 +134,7 @@ impl MemoryState {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
-        match self.jingle.get_space(dest.space_index).unwrap() {
+        match self.info.get_space(dest.space_index).unwrap() {
             SpaceInfo {
                 _type: SpaceType::IPTR_CONSTANT,
                 ..
@@ -155,12 +156,7 @@ impl MemoryState {
         dest: &IndirectVarNode,
         val: BV,
     ) -> Result<Self, JingleError> {
-        if self
-            .jingle
-            .get_space(dest.pointer_space_index)
-            .unwrap()
-            ._type
-            == SpaceType::IPTR_CONSTANT
+        if self.info.get_space(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
@@ -175,12 +171,7 @@ impl MemoryState {
         dest: &IndirectVarNode,
         val: BV,
     ) -> Result<(), JingleError> {
-        if self
-            .jingle
-            .get_space(dest.pointer_space_index)
-            .unwrap()
-            ._type
-            == SpaceType::IPTR_CONSTANT
+        if self.info.get_space(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
