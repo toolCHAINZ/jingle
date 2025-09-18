@@ -1,6 +1,7 @@
 use crate::error::JingleSleighError;
+use std::borrow::Borrow;
 
-use crate::ArchInfoProvider;
+use crate::SleighArchInfo;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
@@ -23,7 +24,7 @@ use std::ops::Range;
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "pyo3", pyclass)]
 pub struct VarNode {
-    /// The index at which the relevant space can be found in a [`ArchInfoProvider`]
+    /// The index at which the relevant space can be found in a [`SleighArchInfo`]
     pub space_index: usize,
     /// The offset into the given space
     pub offset: u64,
@@ -118,23 +119,13 @@ impl LowerHex for VarNode {
     }
 }
 
-#[macro_export]
-macro_rules! varnode {
-    ($ctx:expr_2021, #$offset:literal:$size:literal) => {
-        $ctx.varnode("const", $offset, $size)
-    };
-    ($ctx:expr_2021, $space:literal[$offset:expr_2021]:$size:literal) => {
-        $ctx.varnode($space, $offset, $size)
-    };
-}
-
-pub fn create_varnode<T: ArchInfoProvider>(
+pub fn create_varnode<T: Borrow<SleighArchInfo>>(
     ctx: &T,
     name: &str,
     offset: u64,
     size: usize,
 ) -> Result<VarNode, JingleSleighError> {
-    for (space_index, space) in ctx.get_all_space_info().enumerate() {
+    for (space_index, space) in ctx.borrow().spaces().iter().enumerate() {
         if space.name.eq(name) {
             return Ok(VarNode {
                 space_index,

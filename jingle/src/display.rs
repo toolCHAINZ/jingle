@@ -1,7 +1,6 @@
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::{
-    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation,
-    SleighArchInfo, VarNode,
+    GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation, SleighArchInfo, VarNode,
 };
 use std::fmt::{Display, Formatter};
 use z3::ast::Ast;
@@ -42,7 +41,7 @@ impl<T: JingleDisplayable> Display for JingleDisplay<T> {
 impl JingleDisplay<ResolvedIndirectVarNode> {
     pub fn space_name(&self) -> &str {
         self.info
-            .get_space_info(self.inner.pointer_space_idx)
+            .get_space(self.inner.pointer_space_idx)
             .unwrap()
             .name
             .as_str()
@@ -53,15 +52,13 @@ impl JingleDisplayable for VarNode {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, ctx: &SleighArchInfo) -> std::fmt::Result {
         if self.space_index == VarNode::CONST_SPACE_INDEX {
             write!(f, "{:x}:{:x}", self.offset, self.size)
-        } else if let Some(name) = ctx.get_register_name(self) {
+        } else if let Some(name) = ctx.register_name(self) {
             write!(f, "{name}")
         } else {
             write!(
                 f,
                 "{}[{:x}]:{:x}",
-                ctx.get_space_info(self.space_index)
-                    .ok_or(std::fmt::Error)?
-                    .name,
+                ctx.get_space(self.space_index).ok_or(std::fmt::Error)?.name,
                 self.offset,
                 self.size
             )
@@ -74,7 +71,7 @@ impl JingleDisplayable for IndirectVarNode {
         write!(
             f,
             "*({}[{}]:{})",
-            ctx.get_space_info(self.pointer_space_index)
+            ctx.get_space(self.pointer_space_index)
                 .ok_or(std::fmt::Error)?
                 .name,
             self.pointer_location,
@@ -97,7 +94,7 @@ impl JingleDisplayable for ResolvedIndirectVarNode {
         write!(
             f,
             "{}[{}]:{}",
-            ctx.get_space_info(self.pointer_space_idx)
+            ctx.get_space(self.pointer_space_idx)
                 .ok_or(std::fmt::Error)?
                 .name,
             self.pointer.simplify(),

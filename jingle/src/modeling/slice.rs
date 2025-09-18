@@ -1,12 +1,11 @@
-use crate::JingleContext;
 use crate::modeling::{BranchConstraint, ModelingContext, State};
 use crate::varnode::ResolvedVarnode;
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::collections::HashSet;
 
 impl<T: ModelingContext> ModelingContext for &[T] {
-    fn get_jingle(&self) -> &JingleContext {
-        self[0].get_jingle()
+    fn get_arch_info(&self) -> &SleighArchInfo {
+        self[0].get_arch_info()
     }
 
     fn get_address(&self) -> u64 {

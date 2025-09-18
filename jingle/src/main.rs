@@ -1,9 +1,8 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hex::decode;
-use jingle::JingleContext;
 use jingle::display::JingleDisplayable;
-use jingle::modeling::{ModeledBlock, ModelingContext};
+use jingle::modeling::{ModeledBlock, ModelingContext, State};
 use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
@@ -163,7 +162,7 @@ fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyho
     let info = sleigh.arch_info();
     for instr in instrs {
         for x in instr.ops {
-            let x_disp = x.display(&info);
+            let x_disp = x.display(info);
             println!("{x_disp}")
         }
     }
@@ -193,9 +192,8 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyh
         length: 1,
     });
 
-    let jingle_ctx = JingleContext::new(&sleigh);
-    let block = ModeledBlock::read(&jingle_ctx, instrs.into_iter())?;
-    let final_state = jingle_ctx.fresh_state();
+    let block = ModeledBlock::read(sleigh.arch_info(), instrs.into_iter())?;
+    let final_state = State::new(sleigh.arch_info());
     solver.assert(final_state._eq(block.get_final_state())?.simplify());
     println!("{}", solver.to_smt2());
     Ok(())

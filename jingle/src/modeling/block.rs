@@ -1,4 +1,3 @@
-use crate::JingleContext;
 use crate::JingleError::EmptyBlock;
 use crate::error::JingleError;
 use crate::error::JingleError::DisassemblyLengthBound;
@@ -6,9 +5,9 @@ use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
-use jingle_sleigh::PcodeOperation;
-use jingle_sleigh::SpaceInfo;
-use jingle_sleigh::{ArchInfoProvider, Instruction, VarNode};
+use jingle_sleigh::Instruction;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use z3::{Context, Translate};
@@ -16,7 +15,7 @@ use z3::{Context, Translate};
 /// A `jingle` model of a basic block
 #[derive(Debug, Clone)]
 pub struct ModeledBlock {
-    jingle: JingleContext,
+    info: SleighArchInfo,
     pub instructions: Vec<Instruction>,
     state: State,
     original_state: State,
@@ -37,11 +36,11 @@ impl Display for ModeledBlock {
 impl<T: ModelingContext> TryFrom<&[T]> for ModeledBlock {
     type Error = JingleError;
     fn try_from(vec: &[T]) -> Result<Self, Self::Error> {
-        let jingle = vec.first().ok_or(EmptyBlock)?.get_jingle();
-        let original_state = State::new(jingle);
+        let info = vec.first().ok_or(EmptyBlock)?.get_arch_info();
+        let original_state = State::new(info);
         let state = original_state.clone();
         let mut new_block: Self = Self {
-            jingle: jingle.clone(),
+            info: info.clone(),
             instructions: Default::default(),
             state,
             original_state,
@@ -62,11 +61,12 @@ impl<T: ModelingContext> TryFrom<&[T]> for ModeledBlock {
 }
 
 impl ModeledBlock {
-    pub fn read<T: Iterator<Item = Instruction>>(
-        jingle: &JingleContext,
+    pub fn read<T: Iterator<Item = Instruction>, S: Borrow<SleighArchInfo>>(
+        info: S,
         instr_iter: T,
     ) -> Result<Self, JingleError> {
-        let original_state = State::new(jingle);
+        let info = info.borrow().clone();
+        let original_state = State::new(&info);
         let state = original_state.clone();
 
         let mut block_terminated = false;
@@ -95,7 +95,7 @@ impl ModeledBlock {
         );
 
         let mut model = Self {
-            jingle: jingle.clone(),
+            info,
             instructions,
             state,
             original_state,
@@ -110,7 +110,7 @@ impl ModeledBlock {
     }
 
     pub fn fresh(&self) -> Result<Self, JingleError> {
-        ModeledBlock::read(&self.jingle, self.instructions.clone().into_iter())
+        ModeledBlock::read(&self.info, self.instructions.clone().into_iter())
     }
 
     pub fn get_first_address(&self) -> u64 {
@@ -123,35 +123,9 @@ impl ModeledBlock {
     }
 }
 
-impl ArchInfoProvider for ModeledBlock {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.jingle.get_space_info(idx)
-    }
-
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.jingle.get_all_space_info()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self.jingle.get_code_space_idx()
-    }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.jingle.get_register(name)
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.jingle.get_register_name(location)
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.jingle.get_registers()
-    }
-}
-
 impl ModelingContext for ModeledBlock {
-    fn get_jingle(&self) -> &JingleContext {
-        &self.jingle
+    fn get_arch_info(&self) -> &SleighArchInfo {
+        &self.info
     }
 
     fn get_address(&self) -> u64 {
@@ -209,7 +183,7 @@ impl TranslationContext for ModeledBlock {
 unsafe impl Translate for ModeledBlock {
     fn translate(&self, dest: &Context) -> Self {
         Self {
-            jingle: self.jingle.clone(),
+            info: self.info.clone(),
             branch_constraint: self.branch_constraint.clone(),
             original_state: self.original_state.translate(dest),
             state: self.state.translate(dest),

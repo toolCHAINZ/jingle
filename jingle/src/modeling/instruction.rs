@@ -1,20 +1,20 @@
 use crate::modeling::{ModelingContext, TranslationContext};
-use jingle_sleigh::PcodeOperation;
-use jingle_sleigh::{Instruction, VarNode};
+use jingle_sleigh::Instruction;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+use std::borrow::Borrow;
 
 use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use std::collections::HashSet;
 use z3::{Context, Translate};
 
+use crate::JingleError;
 use crate::varnode::ResolvedVarnode;
-use crate::{JingleContext, JingleError};
-use jingle_sleigh::{ArchInfoProvider, SpaceInfo};
 
 /// A `jingle` model of an individual SLEIGH instruction
 #[derive(Debug, Clone)]
 pub struct ModeledInstruction {
-    jingle: JingleContext,
+    info: SleighArchInfo,
     pub instr: Instruction,
     state: State,
     original_state: State,
@@ -24,15 +24,19 @@ pub struct ModeledInstruction {
 }
 
 impl ModeledInstruction {
-    pub fn new(instr: Instruction, jingle: &JingleContext) -> Result<Self, JingleError> {
-        let original_state = State::new(jingle);
+    pub fn new<T: Borrow<SleighArchInfo>>(
+        instr: Instruction,
+        info: T,
+    ) -> Result<Self, JingleError> {
+        let info = info.borrow().clone();
+        let original_state = State::new(&info);
         let state = original_state.clone();
         let next_vn = state.get_default_code_space_info().make_varnode(
             instr.next_addr(),
             state.get_default_code_space_info().index_size_bytes as usize,
         );
         let mut model = Self {
-            jingle: jingle.clone(),
+            info: info.borrow().clone(),
             instr,
             state,
             original_state,
@@ -47,39 +51,12 @@ impl ModeledInstruction {
     }
 
     pub fn fresh(&self) -> Result<Self, JingleError> {
-        ModeledInstruction::new(self.instr.clone(), &self.jingle)
+        ModeledInstruction::new(self.instr.clone(), &self.info)
     }
 }
-
-impl ArchInfoProvider for ModeledInstruction {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.jingle.get_space_info(idx)
-    }
-
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.jingle.get_all_space_info()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self.jingle.get_code_space_idx()
-    }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.jingle.get_register(name)
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.jingle.get_register_name(location)
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.jingle.get_registers()
-    }
-}
-
 impl ModelingContext for ModeledInstruction {
-    fn get_jingle(&self) -> &JingleContext {
-        &self.jingle
+    fn get_arch_info(&self) -> &SleighArchInfo {
+        &self.info
     }
 
     fn get_address(&self) -> u64 {
@@ -118,7 +95,7 @@ impl ModelingContext for ModeledInstruction {
 unsafe impl Translate for ModeledInstruction {
     fn translate(&self, dest: &Context) -> Self {
         Self {
-            jingle: self.jingle.clone(),
+            info: self.info.clone(),
             instr: self.instr.clone(),
             state: self.state.translate(dest),
             original_state: self.state.translate(dest),

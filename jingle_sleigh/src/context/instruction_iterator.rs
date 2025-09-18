@@ -51,12 +51,10 @@ impl Iterator for SleighContextInstructionIterator<'_> {
 
 #[cfg(test)]
 mod test {
+    use crate::Instruction;
     use crate::context::builder::SleighContextBuilder;
-    use crate::pcode::PcodeOperation;
-    use crate::{ArchInfoProvider, Instruction};
 
     use crate::tests::SLEIGH_ARCH;
-    use crate::varnode;
 
     #[test]
     fn get_one() {
@@ -69,12 +67,6 @@ mod test {
         assert_eq!(instr.length, 5);
         assert!(instr.disassembly.mnemonic.eq("MOV"));
         assert!(!instr.ops.is_empty());
-        varnode!(&sleigh, #0:4).unwrap();
-        let _op = PcodeOperation::Copy {
-            input: varnode!(&sleigh, #0:4).unwrap(),
-            output: varnode!(&sleigh, "register"[0]:4).unwrap(),
-        };
-        assert!(matches!(&instr.ops[0], _op))
     }
 
     #[test]
