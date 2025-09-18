@@ -1,6 +1,6 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::{ArchInfoProvider, PcodeOperation, VarNode};
+use jingle_sleigh::{PcodeOperation, VarNode};
 use std::borrow::Borrow;
 
 pub trait PcodeStore {
@@ -18,7 +18,7 @@ impl<'a> PcodeStore for LoadedSleighContext<'a> {
         if addr.pcode() as usize == instr.ops.len() {
             Some(PcodeOperation::Branch {
                 input: VarNode {
-                    space_index: self.get_code_space_idx(),
+                    space_index: self.arch_info().default_code_space_index(),
                     offset: addr.machine() + instr.length as u64,
                     size: 1,
                 },

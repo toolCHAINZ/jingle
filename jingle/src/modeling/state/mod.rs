@@ -5,12 +5,12 @@ use crate::error::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
 };
+use std::borrow::Borrow;
 
-use crate::JingleContext;
 use crate::modeling::state::space::ModeledSpace;
 use crate::varnode::ResolvedVarnode;
 use jingle_sleigh::{
-    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
+    GeneralizedVarNode, IndirectVarNode, SleighArchInfo, SpaceInfo, SpaceType, VarNode,
 };
 use std::ops::Add;
 use z3::ast::{Array, Ast, BV, Bool};
@@ -21,39 +21,15 @@ use z3::{Context, Translate};
 /// on an initial state
 #[derive(Clone, Debug)]
 pub struct State {
-    jingle: JingleContext,
+    jingle: SleighArchInfo,
     spaces: Vec<ModeledSpace>,
 }
 
-impl ArchInfoProvider for State {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.jingle.get_space_info(idx)
-    }
-
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.jingle.get_all_space_info()
-    }
-    fn get_code_space_idx(&self) -> usize {
-        self.jingle.get_code_space_idx()
-    }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.jingle.get_register(name)
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.jingle.get_register_name(location)
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.jingle.get_registers()
-    }
-}
-
 impl State {
-    pub fn new(jingle: &JingleContext) -> Self {
+    pub fn new<T: Borrow<SleighArchInfo>>(jingle: T) -> Self {
         let mut spaces: Vec<ModeledSpace> = Default::default();
-        for space_info in jingle.get_all_space_info() {
+        let jingle = jingle.borrow();
+        for space_info in jingle.spaces() {
             spaces.push(ModeledSpace::new(space_info));
         }
         Self {
@@ -69,9 +45,14 @@ impl State {
             .ok_or(UnmodeledSpace)
     }
 
+    pub fn arch_info(&self) -> &SleighArchInfo {
+        &self.jingle
+    }
+
     pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
-            .get_space_info(varnode.space_index)
+            .arch_info()
+            .get_space(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
@@ -88,7 +69,8 @@ impl State {
 
     pub fn read_varnode_metadata(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
-            .get_space_info(varnode.space_index)
+            .arch_info()
+            .get_space(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
 
         let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
@@ -98,7 +80,8 @@ impl State {
 
     pub fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV, JingleError> {
         let pointer_space_info = self
-            .get_space_info(indirect.pointer_space_index)
+            .arch_info()
+            .get_space(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
@@ -117,7 +100,8 @@ impl State {
         indirect: &IndirectVarNode,
     ) -> Result<BV, JingleError> {
         let pointer_space_info = self
-            .get_space_info(indirect.pointer_space_index)
+            .arch_info()
+            .get_space(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
@@ -150,9 +134,10 @@ impl State {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
+
         let info = self
             .jingle
-            .get_space_info(dest.space_index)
+            .get_space(dest.space_index)
             .ok_or(UnmodeledSpace)?;
         match info._type {
             SpaceType::IPTR_CONSTANT => Err(ConstantWrite),
@@ -179,7 +164,7 @@ impl State {
             .ok_or(UnmodeledSpace)?;
         let info = self
             .jingle
-            .get_space_info(dest.space_index)
+            .get_space(dest.space_index)
             .ok_or(UnmodeledSpace)?;
 
         space.write_metadata(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
@@ -194,7 +179,7 @@ impl State {
     ) -> Result<(), JingleError> {
         let info = self
             .jingle
-            .get_space_info(dest.pointer_space_index)
+            .get_space(dest.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
@@ -212,7 +197,7 @@ impl State {
     ) -> Result<(), JingleError> {
         let info = self
             .jingle
-            .get_space_info(dest.pointer_space_index)
+            .get_space(dest.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
@@ -242,12 +227,12 @@ impl State {
     }
 
     pub fn get_default_code_space(&self) -> &Array {
-        self.spaces[self.jingle.get_code_space_idx()].get_space()
+        self.spaces[self.jingle.default_code_space_index()].get_space()
     }
 
     pub fn get_default_code_space_info(&self) -> &SpaceInfo {
         self.jingle
-            .get_space_info(self.jingle.get_code_space_idx())
+            .get_space(self.jingle.default_code_space_index())
             .unwrap()
     }
 
@@ -266,7 +251,9 @@ impl State {
     pub fn _eq(&self, other: &State) -> Result<Bool, JingleError> {
         let mut terms = vec![];
         for (i, _) in self
-            .get_all_space_info()
+            .arch_info()
+            .spaces()
+            .into_iter()
             .enumerate()
             .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
         {

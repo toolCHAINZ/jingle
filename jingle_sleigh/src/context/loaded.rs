@@ -3,7 +3,7 @@ use crate::context::SleighContext;
 use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::context_ffi::ImageFFI;
-use crate::{ArchInfoProvider, Instruction, JingleSleighError, SpaceInfo, VarNode};
+use crate::{Instruction, JingleSleighError, SpaceInfo, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -46,7 +46,7 @@ impl<'a> LoadedSleighContext<'a> {
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
-        let img = Box::pin(ImageFFI::new(img, sleigh_context.get_code_space_idx()));
+        let img = Box::pin(ImageFFI::new(img, sleigh_context.arch_info().default_code_space_index()));
         let mut s = Self {
             sleigh: sleigh_context,
             img,
@@ -68,7 +68,7 @@ impl<'a> LoadedSleighContext<'a> {
             .map(Instruction::from)
             .ok()?;
         let vn = VarNode {
-            space_index: self.sleigh.get_code_space_idx(),
+            space_index: self.sleigh.arch_info().default_code_space_index(),
             size: instr.length,
             offset,
         };
@@ -88,7 +88,7 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Read the byte range specified by the given [`VarNode`] from the configured image provider.
     pub fn read_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
-        if vn.space_index == self.get_code_space_idx() {
+        if vn.space_index == self.arch_info.default_code_space_index() {
             self.img.provider.get_bytes(&self.adjust_varnode_vma(vn))
         } else {
             None
@@ -113,7 +113,7 @@ impl<'a> LoadedSleighContext<'a> {
         img: T,
     ) -> Result<(), JingleSleighError> {
         let (sleigh, img_ref) = self.borrow_parts();
-        *img_ref = ImageFFI::new(img, sleigh.get_code_space_idx());
+        *img_ref = ImageFFI::new(img, sleigh.arch_info().default_code_space_index());
         sleigh
             .ctx
             .pin_mut()
@@ -153,31 +153,6 @@ impl<'a> LoadedSleighContext<'a> {
     }
 }
 
-impl ArchInfoProvider for LoadedSleighContext<'_> {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.sleigh.get_space_info(idx)
-    }
-
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.sleigh.get_all_space_info()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self.sleigh.get_code_space_idx()
-    }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.sleigh.get_register(name)
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.sleigh.get_register_name(location)
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.sleigh.get_registers()
-    }
-}
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,4 @@
 pub mod instruction;
-pub mod jingle_context;
 pub mod modeled_block;
 pub mod modeled_instruction;
 pub mod resolved_varnode;

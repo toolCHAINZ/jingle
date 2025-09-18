@@ -1,5 +1,4 @@
 pub mod analysis;
-mod context;
 pub mod display;
 mod error;
 pub mod modeling;
@@ -10,6 +9,5 @@ pub mod varnode;
 
 pub use jingle_sleigh as sleigh;
 
-pub use context::JingleContext;
 pub use error::JingleError;
 pub use translator::SleighTranslator;

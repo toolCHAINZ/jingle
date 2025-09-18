@@ -1,8 +1,7 @@
-use crate::JingleContext;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::{DiGraph, EdgeRef};
@@ -76,11 +75,12 @@ impl PcodeCfg {
         self.graph.add_edge(from_idx, to_idx, ());
     }
 
-    pub fn build_solver(&self, jingle: JingleContext) -> Solver {
+    pub fn build_solver<T: Borrow<SleighArchInfo>>(&self, jingle: T) -> Solver {
+        let jingle = jingle.borrow();
         let solver = Solver::new();
         let mut states = HashMap::new();
         for addr in self.indices.keys() {
-            states.insert(addr, MachineState::fresh_for_address(&jingle, *addr));
+            states.insert(addr, MachineState::fresh_for_address(jingle, *addr));
         }
 
         for idx in self.graph.node_indices() {
@@ -110,19 +110,20 @@ impl PcodeCfg {
         }
         solver
     }
-    pub fn build_model(&self, jingle: JingleContext) -> Model {
+    pub fn build_model<T: Borrow<SleighArchInfo>>(&self, jingle: T) -> Model {
         let solver = self.build_solver(jingle);
         solver.check();
         solver.get_model().unwrap()
     }
 
-    pub fn build_solver_implication(&self, jingle: JingleContext) -> Solver {
+    pub fn build_solver_implication<T: Borrow<SleighArchInfo>>(&self, jingle: T) -> Solver {
+        let jingle = jingle.borrow();
         let solver = Solver::new_for_logic("QF_ABV").unwrap();
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for (addr, idx) in &self.indices {
             let op = &self.ops[addr];
-            let s = MachineState::fresh_for_address(&jingle, addr);
+            let s = MachineState::fresh_for_address(jingle, addr);
             states.insert(addr, s.clone());
             if self
                 .graph
@@ -156,7 +157,7 @@ impl PcodeCfg {
 
         solver
     }
-    pub fn build_model_implication(&self, jingle: JingleContext) -> Model {
+    pub fn build_model_implication<T: Borrow<SleighArchInfo>>(&self, jingle: T) -> Model {
         let solver = self.build_solver_implication(jingle);
         solver.check();
         solver.get_model().unwrap()

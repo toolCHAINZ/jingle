@@ -10,13 +10,14 @@ use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
 use crate::space::{SleighArchInfo, SleighArchInfoInner, SpaceInfo};
 pub use builder::SleighContextBuilder;
+use std::collections::HashMap;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
+use crate::VarNode;
 use crate::context::builder::language_def::Language;
 use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
-use crate::{ArchInfoProvider, VarNode};
 use cxx::{SharedPtr, UniquePtr};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
@@ -24,50 +25,13 @@ use std::sync::Arc;
 
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
-    spaces: Vec<SpaceInfo>,
     language_id: String,
-    registers: Vec<(VarNode, String)>,
+    arch_info: SleighArchInfo,
 }
 
 impl Debug for SleighContext {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Sleigh {{arch: {}}}", self.language_id)
-    }
-}
-
-impl ArchInfoProvider for SleighContext {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self.spaces.get(idx)
-    }
-
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.spaces.iter()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self.ctx
-            .getSpaceByIndex(0)
-            .getManager()
-            .getDefaultCodeSpace()
-            .getIndex() as usize
-    }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.registers
-            .iter()
-            .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn)
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.registers
-            .iter()
-            .find(|(vn, _)| vn == location)
-            .map(|(_, name)| name.as_str())
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.registers.iter().map(|(a, b)| (a, b.as_str()))
     }
 }
 
@@ -86,17 +50,34 @@ impl SleighContext {
                 for idx in 0..ctx.getNumSpaces() {
                     spaces.push(SpaceInfo::from(ctx.getSpaceByIndex(idx)));
                 }
-                let registers = ctx
-                    .getRegisters()
-                    .iter()
-                    .map(|b| (VarNode::from(&b.varnode), b.name.clone()))
-                    .collect();
+                let mut registers_to_vns = HashMap::new();
+                let mut vns_to_registers = HashMap::new();
+
+                for info in ctx.getRegisters() {
+                    let vn = VarNode::from(info.varnode);
+                    registers_to_vns.insert(info.name.clone(), vn.clone());
+                    vns_to_registers.insert(vn, info.name);
+                }
+
+                let arch_info = SleighArchInfo {
+                    info: Arc::new(SleighArchInfoInner {
+                        registers_to_vns,
+                        vns_to_registers,
+                        // todo: this is weird, should probably clean up
+                        // this api
+                        default_code_space: ctx
+                            .getSpaceByIndex(0)
+                            .getManager()
+                            .getDefaultCodeSpace()
+                            .getIndex() as usize,
+                        spaces: spaces.clone(),
+                    }),
+                };
 
                 Ok(Self {
                     ctx,
-                    spaces,
+                    arch_info,
                     language_id: language_def.id.clone(),
-                    registers,
                 })
             }
             Err(_) => Err(SleighCompilerMutexError),
@@ -126,21 +107,21 @@ impl SleighContext {
         &self.language_id
     }
 
+    pub fn arch_info(&self) -> &SleighArchInfo {
+        &self.arch_info
+    }
+
     pub fn initialize_with_image<'b, T: ImageProvider + 'b>(
         self,
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
         LoadedSleighContext::new(self, img)
     }
+}
 
-    pub fn arch_info(&self) -> SleighArchInfo {
-        SleighArchInfo {
-            info: Arc::new(SleighArchInfoInner {
-                registers: self.registers.clone(),
-                default_code_space: self.get_code_space_idx(),
-                spaces: self.spaces.clone(),
-            }),
-        }
+impl AsRef<SleighArchInfo> for SleighContext {
+    fn as_ref(&self) -> &SleighArchInfo {
+        self.arch_info()
     }
 }
 
@@ -148,14 +129,14 @@ impl SleighContext {
 mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use crate::{ArchInfoProvider, OpCode, VarNode};
+    use crate::{OpCode, VarNode};
 
     #[test]
     fn get_regs() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        let regs: Vec<_> = sleigh.get_registers().collect();
+        let regs: Vec<_> = sleigh.arch_info().registers().collect();
         assert!(!regs.is_empty());
     }
 
@@ -164,9 +145,9 @@ mod test {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        for (vn, name) in sleigh.get_registers() {
-            let addr = sleigh.get_register(name);
-            assert_eq!(addr, Some(vn));
+        for (vn, name) in sleigh.arch_info().registers() {
+            let addr = sleigh.as_ref().register(name);
+            assert_eq!(addr, Some(&vn));
         }
     }
 
@@ -175,7 +156,7 @@ mod test {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        assert_eq!(sleigh.get_register("fake"), None);
+        assert_eq!(sleigh.arch_info().register("fake"), None);
     }
 
     #[test]
@@ -185,7 +166,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.get_register_name(&VarNode {
+            sleigh.arch_info().register_name(&VarNode {
                 space_index: 4,
                 offset: 512,
                 size: 1
@@ -201,7 +182,7 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.get_register_name(&VarNode {
+            sleigh.arch_info().register_name(&VarNode {
                 space_index: 40,
                 offset: 5122,
                 size: 1

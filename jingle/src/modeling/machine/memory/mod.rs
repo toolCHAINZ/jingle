@@ -1,6 +1,7 @@
 mod relations;
 pub mod space;
 
+use crate::JingleError;
 use crate::JingleError::{
     ConstantWrite, IndirectConstantRead, MismatchedWordSize, UnexpectedArraySort, UnmodeledSpace,
     ZeroSizedVarnode,
@@ -8,9 +9,8 @@ use crate::JingleError::{
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use crate::modeling::machine::memory::space::BMCModeledSpace;
 use crate::varnode::ResolvedVarnode;
-use crate::{JingleContext, JingleError};
 use jingle_sleigh::{
-    ArchInfoProvider, GeneralizedVarNode, IndirectVarNode, SpaceInfo, SpaceType, VarNode,
+    GeneralizedVarNode, IndirectVarNode, SleighArchInfo, SpaceInfo, SpaceType, VarNode,
 };
 use std::borrow::Borrow;
 use std::ops::Add;
@@ -21,28 +21,29 @@ use z3::ast::{Array, BV, Bool};
 /// on an initial state
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MemoryState {
-    jingle: JingleContext,
+    jingle: SleighArchInfo,
     spaces: Vec<BMCModeledSpace>,
 }
 
 impl MemoryState {
-    pub fn fresh(jingle: &JingleContext) -> Self {
-        let jingle = jingle.clone();
+    pub fn fresh<T: Borrow<SleighArchInfo>>(jingle: T) -> Self {
+        let jingle = jingle.borrow().clone();
         let spaces: Vec<BMCModeledSpace> = jingle
-            .get_all_space_info()
+            .spaces()
+            .into_iter()
             .map(BMCModeledSpace::new)
             .collect();
         Self { jingle, spaces }
     }
 
-    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>>(
-        jingle: &JingleContext,
+    pub fn fresh_for_address<T: Borrow<ConcretePcodeAddress>, S: Borrow<SleighArchInfo>>(
+        jingle: S,
         addr: T,
     ) -> Self {
         let addr = addr.borrow();
-        let jingle = jingle.clone();
+        let jingle = jingle.borrow().clone();
         let spaces: Vec<BMCModeledSpace> = jingle
-            .get_all_space_info()
+            .spaces().into_iter()
             .map(|s| BMCModeledSpace::new_for_address(s, addr))
             .collect();
         Self { jingle, spaces }
@@ -58,7 +59,7 @@ impl MemoryState {
     fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
             .jingle
-            .get_space_info(varnode.space_index)
+            .get_space(varnode.space_index)
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
@@ -76,7 +77,7 @@ impl MemoryState {
     fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV, JingleError> {
         let pointer_space_info = self
             .jingle
-            .get_space_info(indirect.pointer_space_index)
+            .get_space(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
@@ -97,7 +98,7 @@ impl MemoryState {
     ) -> Result<BV, JingleError> {
         let pointer_space_info = self
             .jingle
-            .get_space_info(indirect.pointer_space_index)
+            .get_space(indirect.pointer_space_index)
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
@@ -132,7 +133,7 @@ impl MemoryState {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
-        match self.jingle.get_space_info(dest.space_index).unwrap() {
+        match self.jingle.get_space(dest.space_index).unwrap() {
             SpaceInfo {
                 _type: SpaceType::IPTR_CONSTANT,
                 ..
@@ -156,7 +157,7 @@ impl MemoryState {
     ) -> Result<Self, JingleError> {
         if self
             .jingle
-            .get_space_info(dest.pointer_space_index)
+            .get_space(dest.pointer_space_index)
             .unwrap()
             ._type
             == SpaceType::IPTR_CONSTANT
@@ -176,7 +177,7 @@ impl MemoryState {
     ) -> Result<(), JingleError> {
         if self
             .jingle
-            .get_space_info(dest.pointer_space_index)
+            .get_space(dest.pointer_space_index)
             .unwrap()
             ._type
             == SpaceType::IPTR_CONSTANT
