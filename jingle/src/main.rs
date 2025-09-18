@@ -162,7 +162,7 @@ fn lift(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyho
     let info = sleigh.arch_info();
     for instr in instrs {
         for x in instr.ops {
-            let x_disp = x.display(&info);
+            let x_disp = x.display(info);
             println!("{x_disp}")
         }
     }
