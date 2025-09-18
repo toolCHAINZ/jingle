@@ -1,5 +1,5 @@
 use crate::modeling::{ModelingContext, TranslationContext};
-use jingle_sleigh::{Instruction, VarNode};
+use jingle_sleigh::Instruction;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;
 
@@ -10,7 +10,6 @@ use z3::{Context, Translate};
 
 use crate::JingleError;
 use crate::varnode::ResolvedVarnode;
-use jingle_sleigh::SpaceInfo;
 
 /// A `jingle` model of an individual SLEIGH instruction
 #[derive(Debug, Clone)]

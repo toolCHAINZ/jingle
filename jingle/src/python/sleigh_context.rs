@@ -16,7 +16,7 @@ pub struct PythonLoadedSleighContext {
 
 impl PythonLoadedSleighContext {
     pub fn arch_info(&self) -> &SleighArchInfo {
-        &self.context.arch_info()
+        self.context.arch_info()
     }
 }
 #[pymethods]

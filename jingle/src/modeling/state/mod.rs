@@ -253,7 +253,7 @@ impl State {
         for (i, _) in self
             .arch_info()
             .spaces()
-            .into_iter()
+            .iter()
             .enumerate()
             .filter(|(_, n)| n._type == SpaceType::IPTR_PROCESSOR)
         {

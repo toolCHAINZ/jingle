@@ -119,16 +119,6 @@ impl LowerHex for VarNode {
     }
 }
 
-#[macro_export]
-macro_rules! varnode {
-    ($ctx:expr, #$offset:tt:$size:literal) => {
-        crate::varnode::create_varnode($ctx, "const", $offset, $size)
-    };
-    ($ctx:expr, $space:literal[$offset:expr]:$size:literal) => {
-        crate::varnode::create_varnode($ctx, $space, $offset, $size)
-    };
-}
-
 pub fn create_varnode<T: Borrow<SleighArchInfo>>(
     ctx: &T,
     name: &str,

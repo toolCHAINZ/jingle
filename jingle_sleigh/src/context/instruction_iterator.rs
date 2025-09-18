@@ -53,10 +53,8 @@ impl Iterator for SleighContextInstructionIterator<'_> {
 mod test {
     use crate::Instruction;
     use crate::context::builder::SleighContextBuilder;
-    use crate::pcode::PcodeOperation;
 
     use crate::tests::SLEIGH_ARCH;
-    use crate::varnode;
 
     #[test]
     fn get_one() {

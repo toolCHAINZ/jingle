@@ -1,6 +1,6 @@
 use crate::display::JingleDisplayable;
 use crate::sleigh::context::loaded::LoadedSleighContext;
-use crate::sleigh::{Instruction, PcodeOperation, SpaceInfo, VarNode};
+use crate::sleigh::{Instruction, PcodeOperation};
 use jingle_sleigh::SleighArchInfo;
 use pyo3::{pyclass, pymethods};
 use std::borrow::Borrow;

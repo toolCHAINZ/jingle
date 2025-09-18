@@ -1,5 +1,5 @@
 use crate::error::JingleError;
-use jingle_sleigh::{Instruction, SleighArchInfo, SpaceInfo, VarNode};
+use jingle_sleigh::{Instruction, SleighArchInfo};
 
 use crate::modeling::ModeledInstruction;
 use jingle_sleigh::JingleSleighError::InstructionDecode;

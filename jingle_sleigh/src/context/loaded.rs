@@ -3,7 +3,7 @@ use crate::context::SleighContext;
 use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::context_ffi::ImageFFI;
-use crate::{Instruction, JingleSleighError, SpaceInfo, VarNode};
+use crate::{Instruction, JingleSleighError, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;

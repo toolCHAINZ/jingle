@@ -3,7 +3,7 @@ use crate::error::JingleError;
 use crate::varnode::ResolvedVarnode::{Direct, Indirect};
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::{
-    GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, create_varnode, varnode,
+    GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, create_varnode,
 };
 use std::cmp::{Ordering, min};
 use std::collections::HashSet;

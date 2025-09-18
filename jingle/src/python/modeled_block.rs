@@ -58,7 +58,7 @@ impl PythonModeledBlock {
             .instr
             .get_inputs()
             .into_iter()
-            .map(|g| PythonResolvedVarNode::from(g.display(&info)))
+            .map(|g| PythonResolvedVarNode::from(g.display(info)))
             .collect();
         let filtered = filtered.into_iter();
         Ok(VarNodeIterator::new(filtered))
@@ -73,7 +73,7 @@ impl PythonModeledBlock {
             .instr
             .get_outputs()
             .into_iter()
-            .map(|g| PythonResolvedVarNode::from(g.display(&s)))
+            .map(|g| PythonResolvedVarNode::from(g.display(s)))
             .collect();
         let filtered = filtered.into_iter();
         Ok(VarNodeIterator::new(filtered))

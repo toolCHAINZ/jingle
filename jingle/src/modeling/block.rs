@@ -5,8 +5,7 @@ use crate::modeling::branch::BranchConstraint;
 use crate::modeling::state::State;
 use crate::modeling::{ModelingContext, TranslationContext};
 use crate::varnode::ResolvedVarnode;
-use jingle_sleigh::SpaceInfo;
-use jingle_sleigh::{Instruction, VarNode};
+use jingle_sleigh::Instruction;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;
 use std::collections::HashSet;
@@ -96,7 +95,7 @@ impl ModeledBlock {
         );
 
         let mut model = Self {
-            info: info,
+            info,
             instructions,
             state,
             original_state,

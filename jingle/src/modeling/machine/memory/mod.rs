@@ -28,11 +28,7 @@ pub struct MemoryState {
 impl MemoryState {
     pub fn fresh<T: Borrow<SleighArchInfo>>(info: T) -> Self {
         let info = info.borrow().clone();
-        let spaces: Vec<BMCModeledSpace> = info
-            .spaces()
-            .into_iter()
-            .map(BMCModeledSpace::new)
-            .collect();
+        let spaces: Vec<BMCModeledSpace> = info.spaces().iter().map(BMCModeledSpace::new).collect();
         Self { info, spaces }
     }
 
@@ -44,7 +40,7 @@ impl MemoryState {
         let info = info.borrow().clone();
         let spaces: Vec<BMCModeledSpace> = info
             .spaces()
-            .into_iter()
+            .iter()
             .map(|s| BMCModeledSpace::new_for_address(s, addr))
             .collect();
         Self { info, spaces }
