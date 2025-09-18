@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.2.4...jingle_sleigh-v0.2.5) - 2025-09-18
+
+### Changed
+
+- changed! Remove unneeded traits and types ([#93](https://github.com/toolCHAINZ/jingle/pull/93))
+
 ## [0.2.4](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.2.3...jingle_sleigh-v0.2.4) - 2025-09-17
 
 ### Added
