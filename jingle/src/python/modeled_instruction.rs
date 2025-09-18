@@ -1,11 +1,11 @@
-use crate::JingleContext;
 use crate::display::JingleDisplayable;
 use crate::modeling::{ModeledInstruction, ModelingContext};
 use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
-use jingle_sleigh::Instruction;
+use jingle_sleigh::{Instruction, SleighArchInfo};
 use pyo3::{PyResult, pyclass, pymethods};
+use std::borrow::Borrow;
 
 #[pyclass(unsendable, name = "ModeledInstruction")]
 /// A symbolic model of a "simple" SLEIGH instruction,
@@ -17,9 +17,12 @@ pub struct PythonModeledInstruction {
 }
 
 impl PythonModeledInstruction {
-    pub fn new(instr: Instruction, jingle: &JingleContext) -> PyResult<PythonModeledInstruction> {
+    pub fn new<T: Borrow<SleighArchInfo>>(
+        instr: Instruction,
+        info: T,
+    ) -> PyResult<PythonModeledInstruction> {
         Ok(Self {
-            instr: ModeledInstruction::new(instr, jingle)?,
+            instr: ModeledInstruction::new(instr, info)?,
         })
     }
 }
@@ -43,7 +46,7 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// constants and "internal" varnodes are filtered out
     pub fn get_input_vns(&self) -> PyResult<VarNodeIterator> {
-        let s = self.instr.get_jingle().info.clone();
+        let s = self.instr.get_arch_info().clone();
         let filtered: Vec<PythonResolvedVarNode> = self
             .instr
             .get_inputs()
@@ -58,7 +61,7 @@ impl PythonModeledInstruction {
     /// for only those representing actual locations in processor memory:
     /// "internal" varnodes are filtered out
     pub fn get_output_vns(&self) -> PyResult<VarNodeIterator> {
-        let s = self.instr.get_jingle().info.clone();
+        let s = self.instr.get_arch_info().clone();
         let filtered: Vec<PythonResolvedVarNode> = self
             .instr
             .get_outputs()

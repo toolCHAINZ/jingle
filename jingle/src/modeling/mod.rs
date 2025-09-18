@@ -2,7 +2,9 @@ use crate::error::JingleError;
 
 use crate::varnode::ResolvedVarnode::{Direct, Indirect};
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
-use jingle_sleigh::{ArchInfoProvider, GeneralizedVarNode, PcodeOperation, SpaceType};
+use jingle_sleigh::{
+    GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, create_varnode,
+};
 use std::cmp::{Ordering, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -20,7 +22,6 @@ mod slice;
 mod state;
 pub mod tactics;
 
-use crate::JingleContext;
 pub use block::ModeledBlock;
 pub use branch::*;
 pub use instruction::ModeledInstruction;
@@ -31,9 +32,9 @@ pub use state::State;
 /// It enforces that the type has a handle to z3, has a concept of program state, and also
 /// defines several helper functions for building formulae
 /// todo: this should probably be separated out with the extension trait pattern
-pub trait ModelingContext: ArchInfoProvider + Debug + Sized {
+pub trait ModelingContext: Debug + Sized {
     /// Get a handle to the jingle context associated with this modeling context
-    fn get_jingle(&self) -> &JingleContext;
+    fn get_arch_info(&self) -> &SleighArchInfo;
 
     /// Get the address this context is associated with (e.g. for an instruction, it is the address,
     /// for a basic block, it is the address of the first instruction).
@@ -75,7 +76,8 @@ pub trait ModelingContext: ArchInfoProvider + Debug + Sized {
         match v {
             Direct(d) => self
                 .get_final_state()
-                .get_space_info(d.space_index)
+                .arch_info()
+                .get_space(d.space_index)
                 .map(|o| o._type == SpaceType::IPTR_PROCESSOR)
                 .unwrap_or(false),
             Indirect(_) => true,
@@ -632,13 +634,11 @@ pub(crate) trait TranslationContext: ModelingContext {
                 for input in inputs.iter() {
                     self.read_and_track(input.into())?;
                 }
-                let hash_vn = self.get_final_state().varnode(
-                    "const",
-                    hash,
-                    self.get_final_state()
-                        .get_default_code_space_info()
-                        .index_size_bytes as usize,
-                )?;
+                let size = self
+                    .get_final_state()
+                    .get_default_code_space_info()
+                    .index_size_bytes;
+                let hash_vn = create_varnode(self.get_arch_info(), "const", hash, size as usize)?;
                 let metadata = self
                     .get_final_state()
                     .immediate_metadata_array(true, hash_vn.size);

@@ -1,10 +1,10 @@
-use crate::JingleSleighError;
 use crate::ffi::addrspace::bridge::SpaceType;
 use crate::ffi::context_ffi::bridge::AddrSpaceHandle;
 use crate::space::SleighEndianness::{Big, Little};
 use crate::varnode::VarNode;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// What program-analysis library wouldn't be complete without an enum
@@ -86,70 +86,10 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
     }
 }
 
-/// `jingle` models traces of code using slices, so it is helpful to implement some of these
-/// traits on slices of types that implement those same traits.
-impl<T: ArchInfoProvider> ArchInfoProvider for &[T] {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
-        self[0].get_space_info(idx)
-    }
-
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self[0].get_all_space_info()
-    }
-
-    fn get_code_space_idx(&self) -> usize {
-        self[0].get_code_space_idx()
-    }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self[0].get_register(name)
-    }
-
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self[0].get_register_name(location)
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self[0].get_registers()
-    }
-}
-
-pub trait ArchInfoProvider {
-    /// Retrieve the [`SpaceInfo`] associated with the given index, if it exists
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo>;
-
-    /// Retrieve a listing of all [`SpaceInfo`] associated with this `SLEIGH` context
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo>;
-
-    /// Returns the index that `SLEIGH` claims is the "main" space in which instructions reside
-    fn get_code_space_idx(&self) -> usize;
-
-    /// Given a register name, get a corresponding [`VarNode`], if one exists
-    fn get_register(&self, name: &str) -> Option<&VarNode>;
-
-    /// Given a [`VarNode`], get the name of the corresponding architectural register, if one exists
-    fn get_register_name(&self, location: &VarNode) -> Option<&str>;
-
-    /// Get a listing of all register name/[`VarNode`] pairs
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)>;
-
-    fn varnode(&self, name: &str, offset: u64, size: usize) -> Result<VarNode, JingleSleighError> {
-        for (space_index, space) in self.get_all_space_info().enumerate() {
-            if space.name.eq(name) {
-                return Ok(VarNode {
-                    space_index,
-                    size,
-                    offset,
-                });
-            }
-        }
-        Err(JingleSleighError::InvalidSpaceName)
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SleighArchInfoInner {
-    pub(crate) registers: Vec<(VarNode, String)>,
+    pub(crate) registers_to_vns: HashMap<String, VarNode>,
+    pub(crate) vns_to_registers: HashMap<VarNode, String>,
     pub(crate) spaces: Vec<SpaceInfo>,
     pub(crate) default_code_space: usize,
 }
@@ -159,54 +99,52 @@ pub struct SleighArchInfo {
 }
 
 impl SleighArchInfo {
-    pub fn new<
-        'a,
-        T: Iterator<Item = (&'a VarNode, &'a str)>,
-        E: Iterator<Item = &'a SpaceInfo>,
-    >(
+    pub fn new<T: Iterator<Item = (VarNode, String)>, E: Iterator<Item = SpaceInfo>>(
         registers: T,
         spaces: E,
         default_code_space: usize,
     ) -> Self {
+        let mut registers_to_vns = HashMap::new();
+        let mut vns_to_registers = HashMap::new();
+
+        for (varnode, name) in registers {
+            registers_to_vns.insert(name.clone(), varnode.clone());
+            vns_to_registers.insert(varnode, name);
+        }
+
         Self {
             info: Arc::new(SleighArchInfoInner {
-                registers: registers.map(|(a, b)| (a.clone(), b.to_string())).collect(),
-                spaces: spaces.cloned().collect(),
+                registers_to_vns,
+                vns_to_registers,
+                spaces: spaces.collect(),
                 default_code_space,
             }),
         }
     }
-}
-impl ArchInfoProvider for SleighArchInfo {
-    fn get_space_info(&self, idx: usize) -> Option<&SpaceInfo> {
+
+    pub fn get_space(&self, idx: usize) -> Option<&SpaceInfo> {
         self.info.spaces.get(idx)
     }
 
-    fn get_all_space_info(&self) -> impl Iterator<Item = &SpaceInfo> {
-        self.info.spaces.iter()
+    pub fn spaces(&self) -> &[SpaceInfo] {
+        &self.info.spaces
     }
 
-    fn get_code_space_idx(&self) -> usize {
+    pub fn registers(&self) -> impl Iterator<Item = (VarNode, String)> {
+        self.info
+            .vns_to_registers
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+    }
+
+    pub fn default_code_space_index(&self) -> usize {
         self.info.default_code_space
     }
-
-    fn get_register(&self, name: &str) -> Option<&VarNode> {
-        self.info
-            .registers
-            .iter()
-            .find(|(_, reg_name)| reg_name.as_str() == name)
-            .map(|(vn, _)| vn)
+    pub fn register_name(&self, location: &VarNode) -> Option<&str> {
+        self.info.vns_to_registers.get(location).map(|s| s.as_str())
     }
 
-    fn get_register_name(&self, location: &VarNode) -> Option<&str> {
-        self.info
-            .registers
-            .iter()
-            .find(|(vn, _)| vn == location)
-            .map(|(_, name)| name.as_str())
-    }
-
-    fn get_registers(&self) -> impl Iterator<Item = (&VarNode, &str)> {
-        self.info.registers.iter().map(|(a, b)| (a, b.as_str()))
+    pub fn register<T: AsRef<str>>(&self, name: T) -> Option<&VarNode> {
+        self.info.registers_to_vns.get(name.as_ref())
     }
 }

@@ -1,8 +1,8 @@
 use crate::modeling::State;
-use crate::python::jingle_context::PythonJingleContext;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
+use crate::python::sleigh_context::PythonLoadedSleighContext;
 use crate::python::z3::ast::PythonAst;
-use jingle_sleigh::{ArchInfoProvider, VarNode};
+use jingle_sleigh::VarNode;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -22,9 +22,9 @@ impl PythonState {
 impl PythonState {
     #[new]
     /// Creates a "fresh" state for a given sleigh configuration
-    pub fn new(j: PyRef<PythonJingleContext>) -> PyResult<PythonState> {
+    pub fn new(j: PyRef<PythonLoadedSleighContext>) -> PyResult<PythonState> {
         Ok(PythonState {
-            state: State::new(&j.jingle),
+            state: State::new(j.arch_info()),
         })
     }
 
@@ -42,7 +42,8 @@ impl PythonState {
         Python::attach(|py| {
             let vn = self
                 .state
-                .get_register(name)
+                .arch_info()
+                .register(name)
                 .ok_or(PyRuntimeError::new_err("Queried nonexistent register"))?;
             self.state.read_varnode(vn)?.try_into_python(py)
         })
@@ -55,7 +56,7 @@ impl PythonState {
                 .read_varnode(&VarNode {
                     offset,
                     size: length,
-                    space_index: self.state.get_code_space_idx(),
+                    space_index: self.state.get_default_code_space_info().index,
                 })?
                 .try_into_python(py)
         })
