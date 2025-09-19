@@ -147,4 +147,13 @@ impl SleighArchInfo {
     pub fn register<T: AsRef<str>>(&self, name: T) -> Option<&VarNode> {
         self.info.registers_to_vns.get(name.as_ref())
     }
+
+    pub fn varnode(&self, name: &str, offset: u64, size: usize) -> Option<VarNode> {
+        let space_index = self.spaces().iter().position(|s| s.name == name)?;
+        Some(VarNode {
+            space_index,
+            offset,
+            size,
+        })
+    }
 }
