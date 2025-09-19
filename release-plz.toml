@@ -6,6 +6,7 @@ publish_allow_dirty = true # add `--allow-dirty` to `cargo publish`
 
 [[package]] # the double square brackets define a TOML table array
 name = "jingle_python"
+release = false
 publish = false # disable `cargo publish` for `package_a`
 git_release_enable = false
 git_tag_enable = false
