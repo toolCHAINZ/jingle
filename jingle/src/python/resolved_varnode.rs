@@ -10,7 +10,7 @@ pub enum PythonResolvedVarNodeInner {
     Indirect(JingleDisplay<ResolvedIndirectVarNode>),
 }
 #[derive(Clone)]
-#[pyclass(unsendable, str)]
+#[pyclass(unsendable, str, name="ResolvedVarNode")]
 pub struct PythonResolvedVarNode {
     pub inner: JingleDisplay<ResolvedVarnode>,
 }
