@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.1...jingle-v0.3.2) - 2025-09-19
+
+### Changed
+
+- rename PythonResolvedVarNode ([#101](https://github.com/toolCHAINZ/jingle/pull/101))
+
 ## [0.3.1](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.0...jingle-v0.3.1) - 2025-09-19
 
 ### Other
