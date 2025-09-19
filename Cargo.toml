@@ -3,6 +3,6 @@ resolver = "3"
 
 members = [
     "jingle",
-    "jingle_python",
+#    "jingle_python", # this is here for testing only, and is not intended to be published
     "jingle_sleigh"
 ]
