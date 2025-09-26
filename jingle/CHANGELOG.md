@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.2...jingle-v0.3.3) - 2025-09-26
+
+### Other
+
+- bump z3 ([#103](https://github.com/toolCHAINZ/jingle/pull/103))
+
 ## [0.3.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.1...jingle-v0.3.2) - 2025-09-19
 
 ### Changed
