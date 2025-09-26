@@ -30,9 +30,35 @@ related crates:
   their "native" python z3 classes, allowing easy integration with other tools. These bindings are _especially_ raw and
   subject to change.
 
-## Requirements
+## Usage
 
-### Building
+In order to use `jingle` in your project, you can just `cargo add` it:
+
+```sh
+cargo add jingle
+```
+
+While `jingle` can be configured to work with a single set `sleigh` architecture,
+the default way to use it is to point it to an existing `ghidra` installation.
+[Install ghidra](https://ghidra-sre.org) and use the installation root when instantiating the `SleighBuilder`. 
+The only thing ghidra is used for here is as a standardized folder layout for `sleigh` architectures.
+`jingle` has no code dependency on ghidra outside of the bundled `sleigh` C++ code.
+
+### CLI 
+
+You can install a simple CLI demonstrating jingle's modeling by running
+
+```sh
+cargo install --features  bin jingle
+```
+
+If you are using the [CLI](./jingle),
+then provide the path to ghidra as an argument in your first run.
+
+The CLI produces disassembly, pcode, and SMT models for small hex-encoded instruction encodings.
+
+
+## Development
 
 If you're working directly with the `jingle` source distribution,
 you will need to manually download a copy of the `ghidra` source tree
@@ -56,28 +82,6 @@ git clone https://github.com/NationalSecurityAgency/ghidra.git
 If you are using `jingle` as a cargo `git` or `crates.io` dependency,
 this step is not necessary. `cargo` will handle all this in the `git` case
 and we will vendor the necessary `ghidra` sources into all `crates.io` releases.
-
-### Running
-
-While `jingle` can be configured to work with a single set `sleigh` architecture,
-the default way to use it is to point it to an existing `ghidra` installation.
-[Install ghidra](https://ghidra-sre.org) and, if you are using `jingle` programatically,
-point it at the top level folder of the installation. If you are using the [CLI](./jingle),
-then provide the path to ghidra as an argument in your first run.
-
-The only thing ghidra is used for here is as a standardized folder layout for `sleigh` architectures.
-`jingle` has no code dependency on ghidra outside of the bundled `sleigh` C++ code.
-
-## Usage as a Library
-
-In order to use `jingle`, include it in your `Cargo.toml` as usual:
-
-```toml
-jingle = { git = "ssh://git@github.com/toolCHAINZ/jingle", branch = "main" }
-```
-
-Again, this project is under active development an is still of "research quality" so we recommend targeting 
-the latest commit SHA on `main` or a tag.
 
 # Research Paper
 
