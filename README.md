@@ -81,20 +81,17 @@ the latest commit SHA on `main` or a tag.
 
 # Research Paper
 
-`jingle` was developed in support of our research paper _Synthesis of Code-Reuse Attacks from `p-code` Programs_.
-You can find the author accepted manuscript [here](https://ora.ox.ac.uk/objects/uuid:906d32ca-407c-4cab-beab-b90200f81d65).
-This work has been accepted to [Usenix Security 2025](https://www.usenix.org/conference/usenixsecurity25/presentation/denhoed).
+`jingle` was initially developed in support of our research paper, _Synthesis of Code-Reuse Attacks from `p-code` Programs_,
+presented at [Usenix Security 2025](https://www.usenix.org/conference/usenixsecurity25/presentation/denhoed).
 
-You can cite this work with the following BibTex:
+If you found the paper or the implementation useful, you can cite it with the following BibTeX:
 
 ```bibtex
-@inproceedings {denhoed2025synthesis,
-author = {Mark DenHoed and Thomas Melham},
-title = {Synthesis of Code-Reuse Attacks from p-code Programs},
-booktitle = {34th USENIX Security Symposium (USENIX Security 25)},
-year = {2025},
-address = {Seattle, WA},
-publisher = {USENIX Association},
-month = aug
+@inproceedings{denhoed2025synthesis,
+  title={Synthesis of ${Code-Reuse}$ Attacks from p-code Programs},
+  author={DenHoed, Mark and Melham, Tom},
+  booktitle={34th USENIX Security Symposium (USENIX Security 25)},
+  pages={395--411},
+  year={2025}
 }
 ```
