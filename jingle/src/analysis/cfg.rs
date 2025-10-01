@@ -30,7 +30,7 @@ impl PcodeCfg {
         &self.graph
     }
 
-    pub fn addresses(&self) -> impl Iterator<Item = &ConcretePcodeAddress> {
+    pub fn nodes(&self) -> impl Iterator<Item = &ConcretePcodeAddress> {
         self.indices.keys()
     }
 
@@ -169,4 +169,23 @@ impl PcodeStore for PcodeCfg {
         let addr = *addr.borrow();
         self.get_op_at(addr).cloned()
     }
+}
+
+
+pub trait CfgTrait{
+    type Node;
+    fn graph(&self) -> &DiGraph<Self::Node, ()>;
+
+    fn leaf_nodes(&self) -> impl Iterator<Item = &Self::Node> {
+        self.graph()
+            .node_indices()
+            .filter(move |node| {
+                self.graph()
+                    .neighbors_directed(*node, Direction::Outgoing)
+                    .next()
+                    .is_none()
+            })
+            .map(|node| self.graph().node_weight(node).unwrap())
+    }
+
 }
