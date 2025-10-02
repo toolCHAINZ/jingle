@@ -1,1 +1,2 @@
+#[expect(unused)]
 mod cfg;

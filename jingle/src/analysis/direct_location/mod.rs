@@ -11,11 +11,11 @@ use std::iter::{empty, once};
 
 pub struct DirectLocationCPA<T> {
     pcode: T,
-    cfg: PcodeCfg,
+    cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation>,
 }
 
 impl<T> DirectLocationCPA<T> {
-    pub fn cfg(&self) -> &PcodeCfg {
+    pub fn cfg(&self) -> &PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
         &self.cfg
     }
 }
@@ -66,7 +66,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
 }
 
 impl Analysis for DirectLocationAnalysis {
-    type Output = PcodeCfg;
+    type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
     type Input = ConcretePcodeAddress;
 
     fn run<T: PcodeStore, I: Into<Self::Input>>(

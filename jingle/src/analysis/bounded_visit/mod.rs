@@ -8,10 +8,11 @@ use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::state::AbstractState;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::PcodeOperation;
 
 struct BoundedStepsCpa<T: PcodeStore> {
     pcode: T,
-    cfg: PcodeCfg,
+    cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation>,
 }
 
 impl<T: PcodeStore> BoundedStepsCpa<T> {
@@ -60,7 +61,7 @@ pub struct BoundedStepLocationAnalysis {
 }
 
 impl Analysis for BoundedStepLocationAnalysis {
-    type Output = PcodeCfg;
+    type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
     type Input = BoundedStepsState;
 
     fn run<T: PcodeStore, I: Into<Self::Input>>(

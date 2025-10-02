@@ -1,12 +1,10 @@
-use petgraph::prelude::DiGraph;
+use crate::analysis::cfg::PcodeCfg;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::PcodeOperation;
 
-pub struct UnwoundLocation{
+pub struct UnwoundLocation {
     count: usize,
-    location: ConcretePcodeAddress
+    location: ConcretePcodeAddress,
 }
 
-pub struct UnwoundCfg{
-    max: usize,
-    graph: DiGraph<UnwoundLocation, ()>
-}
+pub type UnwoundCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
