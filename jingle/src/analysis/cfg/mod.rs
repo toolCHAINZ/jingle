@@ -75,6 +75,12 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         let to_idx = *self.indices.get(to).unwrap();
         self.graph.add_edge(from_idx, to_idx, ());
     }
+
+    pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
+        self.graph
+            .externals(Direction::Outgoing)
+            .map(move |idx| self.graph.node_weight(idx).unwrap())
+    }
 }
 
 impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {

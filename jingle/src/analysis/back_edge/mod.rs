@@ -1,4 +1,5 @@
 use crate::analysis::Analysis;
+use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
@@ -11,7 +12,24 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::io::empty;
+use std::panic::Location;
 use std::vec::IntoIter;
+
+#[derive(Clone, Debug, Default)]
+pub struct BackEdges {
+    // todo: make generic?
+    edges: HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>>,
+}
+
+impl BackEdges {
+    pub fn has(&self, from: &ConcretePcodeAddress, to: &ConcretePcodeAddress) -> bool {
+        self.edges.get(from).map_or(false, |s| s.contains(to))
+    }
+
+    pub fn add(&mut self, from: ConcretePcodeAddress, to: ConcretePcodeAddress) {
+        self.edges.entry(from).or_default().insert(to);
+    }
+}
 
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct BackEdgeState {
@@ -112,7 +130,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
 pub struct BackEdgeAnalysis;
 
 impl Analysis for BackEdgeAnalysis {
-    type Output = HashMap<ConcretePcodeAddress, ConcretePcodeAddress>;
+    type Output = BackEdges;
     type Input = BackEdgeState;
 
     fn run<T: PcodeStore, I: Into<Self::Input>>(
@@ -123,10 +141,13 @@ impl Analysis for BackEdgeAnalysis {
         let initial_state = initial_state.into();
         let mut cpa = BackEdgeCPA::new(store);
         let _ = cpa.run_cpa(initial_state);
-        cpa.back_edges
-            .into_iter()
-            .filter_map(|(a, b)| a.value().and_then(|av| b.value().map(|bv| (*av, *bv))))
-            .collect()
+        let mut b = BackEdges::default();
+        for (from, to) in cpa.back_edges {
+            if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {
+                b.add(from, to);
+            }
+        }
+        b
     }
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {

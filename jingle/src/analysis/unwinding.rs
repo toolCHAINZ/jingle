@@ -1,18 +1,20 @@
 use crate::analysis::cfg::{ModelTransition, PcodeCfg};
+use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::io::empty;
-use crate::analysis::pcode_store::PcodeStore;
+use crate::analysis::back_edge::BackEdges;
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum UnwoundLocation {
     UnwindError(ConcretePcodeAddress),
     Location(usize, ConcretePcodeAddress),
@@ -90,8 +92,32 @@ impl AbstractState for UnwoundLocationLattice {
     }
 }
 
-
-struct UnwoundLocationCPA<T: PcodeStore>{
+struct UnwoundLocationCPA<T: PcodeStore> {
     cfg: T,
+    max: usize,
+    back_edges: BackEdges
+}
 
+impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
+    type State = UnwoundLocationLattice;
+
+    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
+        if let Some(Location(count, loc)) = state.value()
+            && let Some(op) = self.cfg.get_pcode_op_at(loc)
+        {
+            if count >= &self.max {
+                return std::iter::empty().into();
+            }
+            let o = self.back_edges.clone();
+            state.transfer(op).into_iter().map(move |a|{
+                if let SimpleLattice::Value(Location(count, dest_loc)) = a && o.has(loc, &dest_loc) {
+                    SimpleLattice::Value(Location(count + 1, dest_loc))
+                }else{
+                    a
+                }
+            }).into()
+        } else {
+            std::iter::empty().into()
+        }
+    }
 }
