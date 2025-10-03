@@ -1,9 +1,9 @@
+use crate::JingleError;
+use crate::modeling::machine::MachineState;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::hash::Hash;
 use z3::ast::Bool;
-use jingle_sleigh::{PcodeOperation, SleighArchInfo};
-use crate::JingleError;
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use crate::modeling::machine::MachineState;
 
 pub trait CfgStateModel {
     fn location_eq(&self, other: &Self) -> Bool;

@@ -16,7 +16,7 @@ impl MergeOutcome {
 
 pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
 
-impl<'a, T: 'a> Successor<'a, T>{
+impl<'a, T: 'a> Successor<'a, T> {
     pub fn into_iter(mut self) -> impl Iterator<Item = T> + 'a {
         self.0
     }
@@ -27,7 +27,6 @@ impl<'a, T, I: Iterator<Item = T> + 'a> From<I> for Successor<'a, T> {
         Self(Box::new(value))
     }
 }
-
 
 pub trait AbstractState: JoinSemiLattice + Clone {
     /// Determines how two abstract states should be merged. Rather than consuming states

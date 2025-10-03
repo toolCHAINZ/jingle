@@ -7,7 +7,7 @@ pub enum SimpleLattice<C> {
     Top,
 }
 
-impl <C> From<C> for SimpleLattice<C> {
+impl<C> From<C> for SimpleLattice<C> {
     fn from(value: C) -> Self {
         Self::Value(value)
     }

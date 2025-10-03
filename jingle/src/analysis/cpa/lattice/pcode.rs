@@ -4,7 +4,7 @@ use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
-use std::iter::{empty, once};
+use std::iter::once;
 
 pub type PcodeAddressLattice = FlatLattice<ConcretePcodeAddress>;
 

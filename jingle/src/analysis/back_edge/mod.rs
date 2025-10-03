@@ -1,5 +1,4 @@
 use crate::analysis::Analysis;
-use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
@@ -11,9 +10,6 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::io::empty;
-use std::panic::Location;
-use std::vec::IntoIter;
 
 #[derive(Clone, Debug, Default)]
 pub struct BackEdges {

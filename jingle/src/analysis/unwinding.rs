@@ -1,3 +1,4 @@
+use crate::analysis::back_edge::BackEdges;
 use crate::analysis::cfg::{ModelTransition, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
@@ -12,7 +13,6 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::io::empty;
-use crate::analysis::back_edge::BackEdges;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum UnwoundLocation {
@@ -95,7 +95,7 @@ impl AbstractState for UnwoundLocationLattice {
 struct UnwoundLocationCPA<T: PcodeStore> {
     cfg: T,
     max: usize,
-    back_edges: BackEdges
+    back_edges: BackEdges,
 }
 
 impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
@@ -109,13 +109,19 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
                 return std::iter::empty().into();
             }
             let o = self.back_edges.clone();
-            state.transfer(op).into_iter().map(move |a|{
-                if let SimpleLattice::Value(Location(count, dest_loc)) = a && o.has(loc, &dest_loc) {
-                    SimpleLattice::Value(Location(count + 1, dest_loc))
-                }else{
-                    a
-                }
-            }).into()
+            state
+                .transfer(op)
+                .into_iter()
+                .map(move |a| {
+                    if let SimpleLattice::Value(Location(count, dest_loc)) = a
+                        && o.has(loc, &dest_loc)
+                    {
+                        SimpleLattice::Value(Location(count + 1, dest_loc))
+                    } else {
+                        a
+                    }
+                })
+                .into()
         } else {
             std::iter::empty().into()
         }

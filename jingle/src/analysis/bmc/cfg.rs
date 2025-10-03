@@ -7,5 +7,4 @@ pub enum UnwoundLocation {
     Location(usize, ConcretePcodeAddress),
 }
 
-
 pub type UnwoundCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;

@@ -45,7 +45,8 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
             PcodeAddressLattice::Value(a) => {
                 if let Some(op) = self.pcode.get_pcode_op_at(a) {
                     state
-                        .transfer(&op).into_iter()
+                        .transfer(&op)
+                        .into_iter()
                         .flat_map(|a| a.value().cloned())
                         .map(FlatLattice::Value)
                         .into()

@@ -4,12 +4,11 @@ use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
+pub use state::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::hash::Hash;
-use z3::ast::{Ast, Bool};
+use z3::ast::Bool;
 use z3::{Params, Solver};
-pub use state::{CfgState, CfgStateModel, ModelTransition};
 
 mod state;
 
@@ -127,7 +126,6 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         solver
     }
 }
-
 
 impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
