@@ -14,8 +14,22 @@ impl MergeOutcome {
     }
 }
 
+pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
+
+impl<'a, T: 'a> Successor<'a, T>{
+    pub fn into_iter(mut self) -> impl Iterator<Item = T> + 'a {
+        self.0
+    }
+}
+
+impl<'a, T, I: Iterator<Item = T> + 'a> From<I> for Successor<'a, T> {
+    fn from(value: I) -> Self {
+        Self(Box::new(value))
+    }
+}
+
+
 pub trait AbstractState: JoinSemiLattice + Clone {
-    type SuccessorIter: Iterator<Item = Self>;
     /// Determines how two abstract states should be merged. Rather than consuming states
     /// and returning a new state, we mutate the first state argument. In the context of
     /// CPA, the first state should be the state from the _reached_ list, NOT the new/merged
@@ -61,5 +75,5 @@ pub trait AbstractState: JoinSemiLattice + Clone {
     /// Decided to make this an iterator to allow making the state structures simpler
     /// (e.g. a resolved indirect jump could return an iterator of locations instead of
     /// having a special "the location is one in this list" variant
-    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter;
+    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Successor<Self>;
 }

@@ -5,7 +5,8 @@ use crate::analysis::bounded_visit::state::BoundedStepsState;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
-use crate::analysis::cpa::state::AbstractState;
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::state::{AbstractState, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -26,32 +27,27 @@ impl<T: PcodeStore> BoundedStepsCpa<T> {
 
 impl<T: PcodeStore> ConfigurableProgramAnalysis for BoundedStepsCpa<T> {
     type State = BoundedStepsState;
-    type Iter = Box<dyn Iterator<Item = Self::State>>;
 
-    fn successor_states(&mut self, state: &Self::State) -> Self::Iter {
+    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
         let opt = state.location.value().cloned();
         if let Some(addr) = opt {
-            self.cfg.add_node(addr);
             let iter = self.pcode.get_pcode_op_at(addr);
-            let state = state.clone();
-            let i = iter
-                .into_iter()
-                .flat_map(|op| {
-                    let a = state
-                        .transfer(&op)
-                        .inspect(|to| {
-                            let op = op.clone();
-                            if let Value(a) = to.location {
-                                self.cfg.add_edge(addr, a, op)
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    a.into_iter()
-                })
-                .collect::<Vec<_>>();
-            Box::new(i.into_iter())
+            iter.into_iter()
+                .flat_map(|op| state.transfer(&op).into_iter())
+                .into()
         } else {
-            Box::new(std::iter::empty())
+            std::iter::empty().into()
+        }
+    }
+
+    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
+        if let Value(state) = state.location {
+            self.cfg.add_node(state);
+            if let Some(op) = self.pcode.get_pcode_op_at(state) {
+                if let Value(dest_state) = dest_state.location {
+                    self.cfg.add_edge(state, dest_state, op.clone());
+                }
+            }
         }
     }
 }

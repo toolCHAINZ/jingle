@@ -13,6 +13,7 @@ pub mod bounded_visit;
 mod path;
 pub mod pcode_store;
 pub mod varnode;
+mod unwinding;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure
 /// for running and combining CPAs. The output of the CPA is often not exactly in a format
