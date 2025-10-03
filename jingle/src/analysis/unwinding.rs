@@ -1,10 +1,8 @@
 use crate::analysis::back_edge::BackEdges;
-use crate::analysis::cfg::{ModelTransition, PcodeCfg};
+use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
-use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::lattice::PartialJoinSemiLattice;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
-use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
@@ -12,7 +10,6 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::io::empty;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum UnwoundLocation {
@@ -47,7 +44,6 @@ impl PartialOrd for UnwoundLocation {
                 (Location(a_count, ..), Location(b_count, ..)) => a_count.partial_cmp(&b_count),
                 (UnwindError(_), Location(..)) => Some(Ordering::Greater),
                 (Location(..), UnwindError(_)) => Some(Ordering::Less),
-                _ => None,
             }
         } else {
             None

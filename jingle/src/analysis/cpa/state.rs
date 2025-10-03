@@ -17,7 +17,7 @@ impl MergeOutcome {
 pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
 
 impl<'a, T: 'a> Successor<'a, T> {
-    pub fn into_iter(mut self) -> impl Iterator<Item = T> + 'a {
+    pub fn into_iter(self) -> impl Iterator<Item = T> + 'a {
         self.0
     }
 }
@@ -74,5 +74,5 @@ pub trait AbstractState: JoinSemiLattice + Clone {
     /// Decided to make this an iterator to allow making the state structures simpler
     /// (e.g. a resolved indirect jump could return an iterator of locations instead of
     /// having a special "the location is one in this list" variant
-    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Successor<Self>;
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self>;
 }

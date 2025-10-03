@@ -79,9 +79,8 @@ impl AbstractState for BackEdgeState {
         self.stop_sep(states)
     }
 
-    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Successor<Self> {
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
         let opcode = opcode.borrow();
-        let s = self.clone();
 
         self.location
             .transfer(opcode)

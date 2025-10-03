@@ -5,7 +5,6 @@ use crate::analysis::cpa::state::{AbstractState, Successor};
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::iter::Successors;
 
 /**
 A trait representing Configurable Program Analysis, a tunable unified framework for

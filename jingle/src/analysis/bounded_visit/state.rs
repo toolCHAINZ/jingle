@@ -65,7 +65,7 @@ impl AbstractState for BoundedStepsState {
         self.stop_sep(states)
     }
 
-    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Successor<Self> {
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
         let opcode = opcode.borrow();
         if self.branch_count == self.max_count {
             empty().into()

@@ -17,7 +17,7 @@ impl AbstractState for PcodeAddressLattice {
         self.stop_sep(states)
     }
 
-    fn transfer<B: Borrow<PcodeOperation>>(&self, op: B) -> Successor<Self> {
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, op: B) -> Successor<'a, Self> {
         let op = op.borrow();
         match &self {
             PcodeAddressLattice::Value(a) => a.transfer(op).into_iter().map(|a| Value(a)).into(),
