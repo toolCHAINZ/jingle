@@ -1,4 +1,5 @@
 use crate::analysis::cpa::lattice::flat::FlatLattice;
+use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -19,23 +20,7 @@ impl AbstractState for PcodeAddressLattice {
     fn transfer<B: Borrow<PcodeOperation>>(&self, op: B) -> Successor<Self> {
         let op = op.borrow();
         match &self {
-            PcodeAddressLattice::Value(a) => match op {
-                PcodeOperation::Branch { input } => {
-                    once(ConcretePcodeAddress::from(input.offset).into()).into()
-                }
-                PcodeOperation::CBranch { input0, .. } => {
-                    let dest = ConcretePcodeAddress::resolve_from_varnode(input0, *a);
-                    let fallthrough = a.next_pcode();
-                    once(dest.into()).chain(once(fallthrough.into())).into()
-                }
-                PcodeOperation::Call { .. } | PcodeOperation::CallOther { .. } => {
-                    once(a.next_pcode().into()).into()
-                }
-                PcodeOperation::Return { .. }
-                | PcodeOperation::CallInd { .. }
-                | PcodeOperation::BranchInd { .. } => empty().into(),
-                _ => once(a.next_pcode().into()).into(),
-            },
+            PcodeAddressLattice::Value(a) => a.transfer(op).into_iter().map(|a| Value(a)).into(),
             PcodeAddressLattice::Top => once(PcodeAddressLattice::Top).into(),
         }
     }

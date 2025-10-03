@@ -1,7 +1,7 @@
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
 use std::cmp::Ordering;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum SimpleLattice<C> {
     Value(C),
     Top,
