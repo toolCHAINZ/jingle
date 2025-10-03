@@ -1,17 +1,22 @@
+use crate::JingleError;
+use crate::analysis::Analysis;
 use crate::analysis::back_edge::BackEdges;
-use crate::analysis::cfg::PcodeCfg;
+use crate::analysis::cfg::{CfgState, CfgStateModel, ModelTransition, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::PartialJoinSemiLattice;
+use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
+use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use z3::ast::Bool;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum UnwoundLocation {
     UnwindError(ConcretePcodeAddress),
     Location(usize, ConcretePcodeAddress),
@@ -28,12 +33,53 @@ impl UnwoundLocation {
     pub fn new(loc: &ConcretePcodeAddress, count: &usize) -> Self {
         Self::Location(count.clone(), loc.clone())
     }
+
+    pub fn is_unwind_error(&self) -> bool {
+        matches!(self, UnwindError(_))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnwoundLocationModel {
+    is_unwind_error: Bool,
+    state: MachineState,
+}
+
+impl CfgStateModel for UnwoundLocationModel {
+    fn location_eq(&self, other: &Self) -> Bool {
+        let unwind = self.is_unwind_error.eq(&other.is_unwind_error);
+        let pc = self.state.pc().eq(&other.state.pc());
+        unwind & pc
+    }
+
+    fn eq(&self, other: &Self) -> Bool {
+        self.is_unwind_error.eq(&other.is_unwind_error) & self.state.eq(&other.state)
+    }
+}
+impl CfgState for UnwoundLocation {
+    type Model = UnwoundLocationModel;
+
+    fn fresh(&self, i: &SleighArchInfo) -> Self::Model {
+        let state = MachineState::fresh(i);
+        UnwoundLocationModel {
+            state,
+            is_unwind_error: Bool::from_bool(self.is_unwind_error()),
+        }
+    }
 }
 
 type UnwoundLocationLattice = SimpleLattice<UnwoundLocation>;
 
 pub type UnwoundCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
 
+impl ModelTransition<UnwoundLocation> for PcodeOperation {
+    fn transition(&self, init: &UnwoundLocationModel) -> Result<UnwoundLocationModel, JingleError> {
+        Ok(UnwoundLocationModel {
+            is_unwind_error: Bool::fresh_const("u"),
+            state: init.state.apply(self)?,
+        })
+    }
+}
 impl PartialOrd for UnwoundLocation {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let self_loc = self.location();
@@ -89,9 +135,10 @@ impl AbstractState for UnwoundLocationLattice {
 }
 
 struct UnwoundLocationCPA<T: PcodeStore> {
-    cfg: T,
+    source_cfg: T,
     max: usize,
     back_edges: BackEdges,
+    unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,
 }
 
 impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
@@ -99,7 +146,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
 
     fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
         if let Some(Location(count, loc)) = state.value()
-            && let Some(op) = self.cfg.get_pcode_op_at(loc)
+            && let Some(op) = self.source_cfg.get_pcode_op_at(loc)
         {
             if count >= &self.max {
                 return std::iter::empty().into();
@@ -121,5 +168,38 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
         } else {
             std::iter::empty().into()
         }
+    }
+
+    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
+        if let SimpleLattice::Value(a) = state {
+            self.unwound_cfg.add_node(a);
+            if !a.is_unwind_error() {
+                if let Some(op) = self.source_cfg.get_pcode_op_at(a.location()) {
+                    self.unwound_cfg
+                        .add_edge(a, dest_state.value().unwrap(), op)
+                }
+            }
+        }
+    }
+}
+
+struct UnwindingAnalysis {
+    max: usize,
+}
+
+impl Analysis for UnwindingAnalysis {
+    type Output = ();
+    type Input = ();
+
+    fn run<T: PcodeStore, I: Into<Self::Input>>(
+        &mut self,
+        store: T,
+        initial_state: I,
+    ) -> Self::Output {
+        todo!()
+    }
+
+    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
+        todo!()
     }
 }
