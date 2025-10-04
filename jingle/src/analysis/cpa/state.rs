@@ -16,8 +16,11 @@ impl MergeOutcome {
 
 pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
 
-impl<'a, T: 'a> Successor<'a, T> {
-    pub fn into_iter(self) -> impl Iterator<Item = T> + 'a {
+impl<'a, T: 'a> IntoIterator for Successor<'a, T> {
+    type Item = T;
+    type IntoIter = Box<dyn Iterator<Item = T> + 'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.0
     }
 }

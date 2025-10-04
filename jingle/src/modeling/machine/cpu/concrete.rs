@@ -78,20 +78,20 @@ impl ConcretePcodeAddress {
     pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
         match op {
             PcodeOperation::Branch { input } => {
-                once(ConcretePcodeAddress::from(input.offset).into()).into()
+                once(ConcretePcodeAddress::from(input.offset)).into()
             }
             PcodeOperation::CBranch { input0, .. } => {
                 let dest = ConcretePcodeAddress::resolve_from_varnode(input0, *self);
                 let fallthrough = self.next_pcode();
-                once(dest.into()).chain(once(fallthrough.into())).into()
+                once(dest).chain(once(fallthrough)).into()
             }
             PcodeOperation::Call { .. } | PcodeOperation::CallOther { .. } => {
-                once(self.next_pcode().into()).into()
+                once(self.next_pcode()).into()
             }
             PcodeOperation::Return { .. }
             | PcodeOperation::CallInd { .. }
             | PcodeOperation::BranchInd { .. } => empty().into(),
-            _ => once(self.next_pcode().into()).into(),
+            _ => once(self.next_pcode()).into(),
         }
     }
 }

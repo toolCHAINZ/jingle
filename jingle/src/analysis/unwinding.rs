@@ -1,14 +1,12 @@
 use crate::JingleError;
-use crate::analysis::back_edge::{BackEdgeAnalysis, BackEdges};
 use crate::analysis::cfg::{CfgState, CfgStateModel, ModelTransition, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
-use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
-use crate::analysis::{Analysis, AnalyzableBase};
+use crate::analysis::Analysis;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -44,7 +42,7 @@ impl UnwindingCpaState {
     }
 
     pub fn visit_count(&self) -> usize {
-        self.visits.get(&self.location).unwrap_or(&0).clone()
+        *self.visits.get(&self.location).unwrap_or(&0)
     }
 
     pub fn increment_visit_count(&mut self) {
@@ -75,7 +73,8 @@ impl PartialJoinSemiLattice for UnwindingCpaState {
         if self.location == other.location {
             let mut visits = HashMap::new();
             for (addr, count) in self.visits.iter() {
-                let max: usize = other.visits.get(addr).cloned().unwrap_or(0);
+                let count = *count;
+                let max: usize = count.max(other.visits.get(addr).cloned().unwrap_or(0));
                 visits.insert(*addr, max);
             }
             let s = Self {
@@ -131,7 +130,7 @@ impl UnwoundLocation {
     }
 
     pub fn new(loc: &ConcretePcodeAddress, count: &usize) -> Self {
-        Self::Location(count.clone(), loc.clone())
+        Self::Location(*count, *loc)
     }
 
     pub fn is_unwind_error(&self) -> bool {
@@ -140,9 +139,9 @@ impl UnwoundLocation {
 
     pub fn from_cpa_state(a: &UnwindingCpaState, max: usize) -> Self {
         if a.visit_count() - 1 > max {
-            UnwindError(a.location().clone())
+            UnwindError(a.location())
         } else {
-            Location(a.visit_count(), a.location().clone())
+            Location(a.visit_count(), a.location())
         }
     }
 }
@@ -156,7 +155,7 @@ pub struct UnwoundLocationModel {
 impl CfgStateModel for UnwoundLocationModel {
     fn location_eq(&self, other: &Self) -> Bool {
         let unwind = self.is_unwind_error.eq(&other.is_unwind_error);
-        let pc = self.state.pc().eq(&other.state.pc());
+        let pc = self.state.pc().eq(other.state.pc());
         unwind & pc
     }
 
@@ -176,8 +175,6 @@ impl CfgState for UnwoundLocation {
     }
 }
 
-type UnwoundLocationLattice = SimpleLattice<UnwindingCpaState>;
-
 pub type UnwoundCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
 
 impl ModelTransition<UnwoundLocation> for PcodeOperation {
@@ -195,7 +192,7 @@ impl PartialOrd for UnwoundLocation {
         if self_loc == other_loc {
             match (self, other) {
                 (UnwindError(_), UnwindError(_)) => Some(Ordering::Equal),
-                (Location(a_count, ..), Location(b_count, ..)) => a_count.partial_cmp(&b_count),
+                (Location(a_count, ..), Location(b_count, ..)) => a_count.partial_cmp(b_count),
                 (UnwindError(_), Location(..)) => Some(Ordering::Greater),
                 (Location(..), UnwindError(_)) => Some(Ordering::Less),
             }
@@ -209,9 +206,9 @@ impl PartialJoinSemiLattice for UnwoundLocation {
     fn partial_join(&self, other: &Self) -> Option<Self> {
         if self.location() == other.location() {
             if self >= other {
-                Some(self.clone())
+                Some(*self)
             } else {
-                Some(other.clone())
+                Some(*other)
             }
         } else {
             None
@@ -222,7 +219,6 @@ impl PartialJoinSemiLattice for UnwoundLocation {
 struct UnwoundLocationCPA<T: PcodeStore> {
     source_cfg: T,
     max: usize,
-    back_edges: BackEdges,
     unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,
 }
 
@@ -240,7 +236,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
             state
                 .transfer(op)
                 .into_iter()
-                .map(move |a| SimpleLattice::Value(a))
+                .map(SimpleLattice::Value)
                 .into()
         } else {
             std::iter::empty().into()
@@ -281,9 +277,7 @@ impl Analysis for UnwindingAnalysis {
         initial_state: I,
     ) -> Self::Output {
         let addr = initial_state.into();
-        let back_edges = store.run_analysis_at(addr, BackEdgeAnalysis);
         let mut cpa = UnwoundLocationCPA {
-            back_edges,
             max: self.max,
             source_cfg: store,
             unwound_cfg: Default::default(),

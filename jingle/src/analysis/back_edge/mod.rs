@@ -19,7 +19,7 @@ pub struct BackEdges {
 
 impl BackEdges {
     pub fn has(&self, from: &ConcretePcodeAddress, to: &ConcretePcodeAddress) -> bool {
-        self.edges.get(from).map_or(false, |s| s.contains(to))
+        self.edges.get(from).is_some_and(|s| s.contains(to))
     }
 
     pub fn add(&mut self, from: ConcretePcodeAddress, to: ConcretePcodeAddress) {
@@ -124,7 +124,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
     fn reduce(&mut self, old_state: &Self::State, new_state: &Self::State) {
         if old_state.path_visits.contains(&new_state.location) {
             self.back_edges
-                .push((old_state.location.clone(), new_state.location.clone()))
+                .push((old_state.location, new_state.location))
         }
     }
 }
