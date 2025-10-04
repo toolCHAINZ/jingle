@@ -25,6 +25,13 @@ impl BackEdges {
     pub fn add(&mut self, from: ConcretePcodeAddress, to: ConcretePcodeAddress) {
         self.edges.entry(from).or_default().insert(to);
     }
+
+    pub fn get_all_for(
+        &self,
+        from: &ConcretePcodeAddress,
+    ) -> Option<HashSet<ConcretePcodeAddress>> {
+        self.edges.get(from).cloned()
+    }
 }
 
 #[derive(Eq, PartialEq, Clone, Debug)]

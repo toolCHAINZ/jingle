@@ -12,7 +12,7 @@ pub mod bounded_visit;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
-mod unwinding;
+pub mod unwinding;
 pub mod varnode;
 
 /// A compatibility wrapper around [CPAs]. The intent here is to provide some structure

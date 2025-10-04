@@ -1,6 +1,5 @@
 use crate::JingleError;
-use crate::analysis::Analysis;
-use crate::analysis::back_edge::BackEdges;
+use crate::analysis::back_edge::{BackEdgeAnalysis, BackEdges};
 use crate::analysis::cfg::{CfgState, CfgStateModel, ModelTransition, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::PartialJoinSemiLattice;
@@ -9,6 +8,7 @@ use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
+use crate::analysis::{Analysis, AnalyzableBase};
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -151,13 +151,16 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
             if count >= &self.max {
                 return std::iter::empty().into();
             }
-            let o = self.back_edges.clone();
+            let edges = self.back_edges.get_all_for(loc);
             state
                 .transfer(op)
                 .into_iter()
                 .map(move |a| {
                     if let SimpleLattice::Value(Location(count, dest_loc)) = a
-                        && o.has(loc, &dest_loc)
+                        && edges
+                            .as_ref()
+                            .map(|a| a.contains(&dest_loc))
+                            .unwrap_or(false)
                     {
                         SimpleLattice::Value(Location(count + 1, dest_loc))
                     } else {
@@ -183,23 +186,38 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
     }
 }
 
-struct UnwindingAnalysis {
+pub struct UnwindingAnalysis {
     max: usize,
 }
 
+impl UnwindingAnalysis {
+    pub fn new(max: usize) -> Self {
+        Self { max }
+    }
+}
 impl Analysis for UnwindingAnalysis {
-    type Output = ();
-    type Input = ();
+    type Output = PcodeCfg<UnwoundLocation, PcodeOperation>;
+    type Input = ConcretePcodeAddress;
 
     fn run<T: PcodeStore, I: Into<Self::Input>>(
         &mut self,
         store: T,
         initial_state: I,
     ) -> Self::Output {
-        todo!()
+        let addr = initial_state.into();
+        let back_edges = store.run_analysis_at(addr, BackEdgeAnalysis);
+        let mut cpa = UnwoundLocationCPA {
+            back_edges,
+            max: self.max,
+            source_cfg: store,
+            unwound_cfg: Default::default(),
+        };
+        let init_state = UnwoundLocation::Location(0, addr);
+        let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
+        cpa.unwound_cfg
     }
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        todo!()
+        addr
     }
 }
