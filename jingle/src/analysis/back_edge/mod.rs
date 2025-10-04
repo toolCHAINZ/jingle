@@ -2,7 +2,7 @@ use crate::analysis::Analysis;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::direct_location::DirectLocationCPA;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -10,7 +10,29 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::vec::IntoIter;
+
+#[derive(Clone, Debug, Default)]
+pub struct BackEdges {
+    // todo: make generic?
+    edges: HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>>,
+}
+
+impl BackEdges {
+    pub fn has(&self, from: &ConcretePcodeAddress, to: &ConcretePcodeAddress) -> bool {
+        self.edges.get(from).is_some_and(|s| s.contains(to))
+    }
+
+    pub fn add(&mut self, from: ConcretePcodeAddress, to: ConcretePcodeAddress) {
+        self.edges.entry(from).or_default().insert(to);
+    }
+
+    pub fn get_all_for(
+        &self,
+        from: &ConcretePcodeAddress,
+    ) -> Option<HashSet<ConcretePcodeAddress>> {
+        self.edges.get(from).cloned()
+    }
+}
 
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct BackEdgeState {
@@ -56,8 +78,6 @@ impl JoinSemiLattice for BackEdgeState {
 }
 
 impl AbstractState for BackEdgeState {
-    type SuccessorIter = Box<dyn Iterator<Item = BackEdgeState>>;
-
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.merge_sep(other)
     }
@@ -66,14 +86,14 @@ impl AbstractState for BackEdgeState {
         self.stop_sep(states)
     }
 
-    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter {
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
         let opcode = opcode.borrow();
-        let s = self.clone();
-        Box::new(
-            self.location
-                .transfer(opcode)
-                .map(move |a| s.add_location(a)),
-        )
+
+        self.location
+            .transfer(opcode)
+            .into_iter()
+            .map(|a| self.add_location(a))
+            .into()
     }
 }
 
@@ -93,29 +113,26 @@ impl<T: PcodeStore> BackEdgeCPA<T> {
 
 impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
     type State = BackEdgeState;
-    type Iter = IntoIter<BackEdgeState>;
 
-    fn successor_states(&mut self, state: &Self::State) -> Self::Iter {
-        let state = state.clone();
-        let o: Vec<_> = match self.location.pcode_at(&state.location) {
-            Some(op) => state
-                .transfer(&op)
-                .inspect(|a| {
-                    if state.path_visits.contains(&a.location) {
-                        self.back_edges.push((state.location, a.location));
-                    }
-                })
-                .collect(),
-            None => vec![],
-        };
-        o.into_iter()
+    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
+        match self.location.pcode_at(&state.location) {
+            Some(op) => state.transfer(&op).into_iter().into(),
+            None => std::iter::empty().into(),
+        }
+    }
+
+    fn reduce(&mut self, old_state: &Self::State, new_state: &Self::State) {
+        if old_state.path_visits.contains(&new_state.location) {
+            self.back_edges
+                .push((old_state.location, new_state.location))
+        }
     }
 }
 
 pub struct BackEdgeAnalysis;
 
 impl Analysis for BackEdgeAnalysis {
-    type Output = HashMap<ConcretePcodeAddress, ConcretePcodeAddress>;
+    type Output = BackEdges;
     type Input = BackEdgeState;
 
     fn run<T: PcodeStore, I: Into<Self::Input>>(
@@ -126,10 +143,13 @@ impl Analysis for BackEdgeAnalysis {
         let initial_state = initial_state.into();
         let mut cpa = BackEdgeCPA::new(store);
         let _ = cpa.run_cpa(initial_state);
-        cpa.back_edges
-            .into_iter()
-            .filter_map(|(a, b)| a.value().and_then(|av| b.value().map(|bv| (*av, *bv))))
-            .collect()
+        let mut b = BackEdges::default();
+        for (from, to) in cpa.back_edges {
+            if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {
+                b.add(from, to);
+            }
+        }
+        b
     }
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {

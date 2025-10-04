@@ -1,6 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -53,8 +53,6 @@ impl JoinSemiLattice for BoundedStepsState {
 }
 
 impl AbstractState for BoundedStepsState {
-    type SuccessorIter = Box<dyn Iterator<Item = Self>>;
-
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         if self.location == other.location {
             self.merge_join(other)
@@ -67,10 +65,10 @@ impl AbstractState for BoundedStepsState {
         self.stop_sep(states)
     }
 
-    fn transfer<B: Borrow<PcodeOperation>>(&self, opcode: B) -> Self::SuccessorIter {
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
         let opcode = opcode.borrow();
         if self.branch_count == self.max_count {
-            Box::new(empty())
+            empty().into()
         } else {
             let cur = if opcode.branch_destination().is_some() {
                 self.branch_count + 1
@@ -78,11 +76,15 @@ impl AbstractState for BoundedStepsState {
                 self.branch_count
             };
             let max_count = self.max_count;
-            Box::new(self.location.transfer(opcode).map(move |location| Self {
-                location,
-                branch_count: cur,
-                max_count,
-            }))
+            self.location
+                .transfer(opcode)
+                .into_iter()
+                .map(move |location| Self {
+                    location,
+                    branch_count: cur,
+                    max_count,
+                })
+                .into()
         }
     }
 }

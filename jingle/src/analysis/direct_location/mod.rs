@@ -3,7 +3,7 @@ use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::AbstractState;
+use crate::analysis::cpa::state::{AbstractState, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -11,11 +11,11 @@ use std::iter::{empty, once};
 
 pub struct DirectLocationCPA<T> {
     pcode: T,
-    cfg: PcodeCfg,
+    cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation>,
 }
 
 impl<T> DirectLocationCPA<T> {
-    pub fn cfg(&self) -> &PcodeCfg {
+    pub fn cfg(&self) -> &PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
         &self.cfg
     }
 }
@@ -40,33 +40,38 @@ impl<T: PcodeStore> DirectLocationCPA<T> {
 impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
     type State = PcodeAddressLattice;
 
-    type Iter = Box<dyn Iterator<Item = Self::State>>;
-
-    fn successor_states(&mut self, state: &Self::State) -> Self::Iter {
+    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
         match state {
             PcodeAddressLattice::Value(a) => {
-                self.cfg.add_node(a);
                 if let Some(op) = self.pcode.get_pcode_op_at(a) {
-                    let iter: Vec<_> = state
+                    state
                         .transfer(&op)
+                        .into_iter()
                         .flat_map(|a| a.value().cloned())
-                        .inspect(|addr| {
-                            self.cfg.add_edge(a, addr, op.clone());
-                        })
                         .map(FlatLattice::Value)
-                        .collect();
-                    Box::new(iter.into_iter())
+                        .into()
                 } else {
-                    Box::new(empty())
+                    empty().into()
                 }
             }
-            PcodeAddressLattice::Top => Box::new(once(PcodeAddressLattice::Top)),
+            PcodeAddressLattice::Top => once(PcodeAddressLattice::Top).into(),
+        }
+    }
+
+    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
+        if let PcodeAddressLattice::Value(state) = state {
+            self.cfg.add_node(state);
+            if let Some(op) = self.pcode.get_pcode_op_at(state) {
+                if let PcodeAddressLattice::Value(dest_state) = dest_state {
+                    self.cfg.add_edge(state, dest_state, op.clone());
+                }
+            }
         }
     }
 }
 
 impl Analysis for DirectLocationAnalysis {
-    type Output = PcodeCfg;
+    type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
     type Input = ConcretePcodeAddress;
 
     fn run<T: PcodeStore, I: Into<Self::Input>>(
