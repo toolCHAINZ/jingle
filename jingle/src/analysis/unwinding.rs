@@ -185,37 +185,6 @@ impl ModelTransition<UnwoundLocation> for PcodeOperation {
         })
     }
 }
-impl PartialOrd for UnwoundLocation {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let self_loc = self.location();
-        let other_loc = other.location();
-        if self_loc == other_loc {
-            match (self, other) {
-                (UnwindError(_), UnwindError(_)) => Some(Ordering::Equal),
-                (Location(a_count, ..), Location(b_count, ..)) => a_count.partial_cmp(b_count),
-                (UnwindError(_), Location(..)) => Some(Ordering::Greater),
-                (Location(..), UnwindError(_)) => Some(Ordering::Less),
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl PartialJoinSemiLattice for UnwoundLocation {
-    fn partial_join(&self, other: &Self) -> Option<Self> {
-        if self.location() == other.location() {
-            if self >= other {
-                Some(*self)
-            } else {
-                Some(*other)
-            }
-        } else {
-            None
-        }
-    }
-}
-
 struct UnwoundLocationCPA<T: PcodeStore> {
     source_cfg: T,
     max: usize,
