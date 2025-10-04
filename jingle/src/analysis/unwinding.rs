@@ -148,10 +148,11 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
         if let Some(Location(count, loc)) = state.value()
             && let Some(op) = self.source_cfg.get_pcode_op_at(loc)
         {
-            if count >= &self.max {
+            if count > &self.max {
                 return std::iter::empty().into();
             }
             let edges = self.back_edges.get_all_for(loc);
+            let max = self.max;
             state
                 .transfer(op)
                 .into_iter()
@@ -162,7 +163,11 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
                             .map(|a| a.contains(&dest_loc))
                             .unwrap_or(false)
                     {
-                        SimpleLattice::Value(Location(count + 1, dest_loc))
+                        if count == max {
+                            SimpleLattice::Value(UnwindError(dest_loc))
+                        } else {
+                            SimpleLattice::Value(Location(count + 1, dest_loc))
+                        }
                     } else {
                         a
                     }
