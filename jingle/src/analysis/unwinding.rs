@@ -240,9 +240,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
             state
                 .transfer(op)
                 .into_iter()
-                .map(move |a| {
-                    SimpleLattice::Value(a)
-                })
+                .map(move |a| SimpleLattice::Value(a))
                 .into()
         } else {
             std::iter::empty().into()

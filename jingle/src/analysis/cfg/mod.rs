@@ -92,7 +92,6 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for (addr, idx) in &self.indices {
-            let op = &self.ops[addr];
             let s = addr.fresh(info);
             states.insert(addr, s.clone());
             if self
@@ -101,6 +100,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
                 .next()
                 .is_some()
             {
+                let op = &self.ops[addr];
                 let f = op.transition(&s).unwrap();
                 post_states.insert(addr, f);
             }
