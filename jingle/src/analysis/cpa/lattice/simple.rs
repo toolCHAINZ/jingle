@@ -1,4 +1,7 @@
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use jingle_sleigh::PcodeOperation;
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -45,6 +48,33 @@ impl<C: PartialJoinSemiLattice> JoinSemiLattice for SimpleLattice<C> {
                 None => *self = Self::Top,
                 Some(c) => *self = Self::Value(c),
             },
+        }
+    }
+}
+
+impl<S: AbstractState + PartialJoinSemiLattice> AbstractState for SimpleLattice<S> {
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
+        match (self, other) {
+            (Self::Value(a), Self::Value(b)) => a.merge(b),
+            _ => MergeOutcome::NoOp,
+        }
+    }
+
+    fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
+        match self {
+            Self::Value(a) => a.stop(states.flat_map(|t| t.value())),
+            Self::Top => true,
+        }
+    }
+
+    fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
+        match self {
+            SimpleLattice::Value(a) => a
+                .transfer(opcode)
+                .into_iter()
+                .map(|a| SimpleLattice::Value(a))
+                .into(),
+            SimpleLattice::Top => std::iter::empty().into(),
         }
     }
 }

@@ -20,7 +20,7 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = UnwindingAnalysis::new(1);
+    let mut direct = UnwindingAnalysis::new(100);
     let pcode_graph = direct.run(loaded, direct.make_initial_state(FUNC_LOOP.into()));
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
