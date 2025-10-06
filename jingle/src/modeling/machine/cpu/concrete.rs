@@ -1,6 +1,8 @@
+use crate::analysis::cpa::state::Successor;
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
-use jingle_sleigh::VarNode;
+use jingle_sleigh::{PcodeOperation, VarNode};
 use std::fmt::{Display, Formatter, LowerHex};
+use std::iter::{empty, once};
 use z3::ast::BV;
 
 pub type PcodeMachineAddress = u64;
@@ -68,6 +70,28 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
         Self {
             machine: value,
             pcode: 0,
+        }
+    }
+}
+
+impl ConcretePcodeAddress {
+    pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
+        match op {
+            PcodeOperation::Branch { input } => {
+                once(ConcretePcodeAddress::from(input.offset)).into()
+            }
+            PcodeOperation::CBranch { input0, .. } => {
+                let dest = ConcretePcodeAddress::resolve_from_varnode(input0, *self);
+                let fallthrough = self.next_pcode();
+                once(dest).chain(once(fallthrough)).into()
+            }
+            PcodeOperation::Call { .. } | PcodeOperation::CallOther { .. } => {
+                once(self.next_pcode()).into()
+            }
+            PcodeOperation::Return { .. }
+            | PcodeOperation::CallInd { .. }
+            | PcodeOperation::BranchInd { .. } => empty().into(),
+            _ => once(self.next_pcode()).into(),
         }
     }
 }
