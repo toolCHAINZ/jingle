@@ -20,7 +20,6 @@ impl CfgStateModel for MachineState {
         let machine_eq = self.pc().machine.eq(&other.pc().machine);
         self.memory()._eq(other.memory(), &machine_eq)
     }
-
 }
 
 pub trait CfgState: Clone + Hash + Eq {

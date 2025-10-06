@@ -14,7 +14,7 @@ use jingle_sleigh::{
 };
 use std::borrow::Borrow;
 use std::ops::Add;
-use z3::ast::{Array, BV, Bool, Ast};
+use z3::ast::{Array, Ast, BV, Bool};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations

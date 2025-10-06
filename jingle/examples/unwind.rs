@@ -5,8 +5,8 @@ use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
 use jingle::analysis::unwinding::UnwindingAnalysis;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
-use std::{env, fs};
 use std::time::Instant;
+use std::{env, fs};
 
 const FUNC_LINE: u64 = 0x100000460;
 const FUNC_BRANCH: u64 = 0x100000480;
@@ -36,5 +36,8 @@ fn main() {
     dbg!(solver.check());
     dbg!(solver.get_unsat_core());
     println!("took {:?}", t.elapsed());
-    fs::write("test.smt", pcode_graph.test_build(loaded.arch_info()).to_string());
+    fs::write(
+        "test.smt",
+        pcode_graph.test_build(loaded.arch_info()).to_string(),
+    );
 }
