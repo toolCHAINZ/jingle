@@ -175,8 +175,8 @@ impl CfgStateModel for UnwoundLocationModel {
         unwind & pc
     }
 
-    fn eq(&self, other: &Self) -> Bool {
-        self.is_unwind_error.eq(&other.is_unwind_error) & self.state.eq(&other.state)
+    fn mem_eq(&self, other: &Self) -> Bool {
+        self.state.mem_eq(&other.state)
     }
 }
 impl CfgState for UnwoundLocation {

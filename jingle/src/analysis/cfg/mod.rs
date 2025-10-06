@@ -4,10 +4,11 @@ use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
+use petgraph::visit::EdgeRef;
 pub use state::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use z3::ast::Bool;
+use z3::ast::{Ast, Bool};
 use z3::{Params, Solver};
 
 mod state;
@@ -85,7 +86,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
 impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
     pub fn test_build<T: Borrow<SleighArchInfo>>(&self, info: T) -> Solver {
         let info = info.borrow();
-        let solver = Solver::new_for_logic("QF_ABV").unwrap();
+        let solver = Solver::new();
         let mut params = Params::new();
         params.set_bool("smt.array.extensional", false);
         solver.set_params(&params);
@@ -106,23 +107,39 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
             }
         }
 
-        let options: Vec<_> = self
-            .graph
-            .edge_indices()
-            .map(|edge| {
-                let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
-                let from = self.graph.node_weight(fromidx).unwrap();
-                let to = self.graph.node_weight(toidx).unwrap();
+        let options = self.graph.edge_indices().map(|edge| {
+            let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
+            let from = self.graph.node_weight(fromidx).unwrap();
+            let to = self.graph.node_weight(toidx).unwrap();
 
-                let from_state_final = post_states.get(from).unwrap();
-                let to_state = states.get(to).expect("To state not found");
+            let from_state_final = post_states.get(from).unwrap();
+            let to_state = states.get(to).expect("To state not found");
+            let loc_eq = from_state_final.location_eq(to_state).simplify();
+            loc_eq.implies(from_state_final.mem_eq(to_state).simplify())
+        });
+        for x in options {
+            solver.assert(x);
+        }
+        for node in self.graph.node_indices() {
+            let edges = self.graph.edges_directed(node, Direction::Outgoing);
+            let b = edges.map(|e| {
+                let from_weight = self.graph.node_weight(e.source()).unwrap();
+                let to_weight = self.graph.node_weight(e.target()).unwrap();
+                let from_state_final = post_states.get(from_weight).unwrap();
+                let to_state = states.get(to_weight).unwrap();
                 let loc_eq = from_state_final.location_eq(to_state);
-                loc_eq.implies(from_state_final.eq(to_state))
-            })
-            .collect();
-
-        solver.assert(Bool::and(&options));
-
+                loc_eq
+            });
+            let b = &b.collect::<Vec<_>>();
+            if b.len() > 0 {
+                let bool = if b.len() > 1 {
+                    Bool::or(&b)
+                } else {
+                    b[0].clone()
+                };
+                solver.assert(&bool);
+            }
+        }
         solver
     }
 }

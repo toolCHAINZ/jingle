@@ -14,7 +14,7 @@ use jingle_sleigh::{
 };
 use std::borrow::Borrow;
 use std::ops::Add;
-use z3::ast::{Array, BV, Bool};
+use z3::ast::{Array, BV, Bool, Ast};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -207,7 +207,7 @@ impl MemoryState {
                 // then if both spaces have the same symbolic machine address, they are equal
                 // this expresses the "resetting" of the internal space between different
                 // machine instructions
-                terms.push(machine_eq.implies(ours._eq(theirs)))
+                terms.push(machine_eq.simplify().implies(ours._eq(theirs)).simplify())
             } else {
                 // otherwise, we simply assert that the spaces are equal
                 terms.push(ours._eq(theirs))

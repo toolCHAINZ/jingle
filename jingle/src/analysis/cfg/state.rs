@@ -7,7 +7,8 @@ use z3::ast::Bool;
 
 pub trait CfgStateModel {
     fn location_eq(&self, other: &Self) -> Bool;
-    fn eq(&self, other: &Self) -> Bool;
+
+    fn mem_eq(&self, other: &Self) -> Bool;
 }
 
 impl CfgStateModel for MachineState {
@@ -15,9 +16,11 @@ impl CfgStateModel for MachineState {
         self.pc().eq(other.pc())
     }
 
-    fn eq(&self, other: &Self) -> Bool {
-        self.eq(other)
+    fn mem_eq(&self, other: &Self) -> Bool {
+        let machine_eq = self.pc().machine.eq(&other.pc().machine);
+        self.memory()._eq(other.memory(), &machine_eq)
     }
+
 }
 
 pub trait CfgState: Clone + Hash + Eq {

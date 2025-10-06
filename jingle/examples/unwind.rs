@@ -6,6 +6,7 @@ use jingle::analysis::unwinding::UnwindingAnalysis;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
 use std::{env, fs};
+use std::time::Instant;
 
 const FUNC_LINE: u64 = 0x100000460;
 const FUNC_BRANCH: u64 = 0x100000480;
@@ -20,7 +21,7 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = UnwindingAnalysis::new(1);
+    let mut direct = UnwindingAnalysis::new(10);
     let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_LOOP.into()));
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
@@ -28,7 +29,12 @@ fn main() {
     }
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
 
-    //fs::write("dot.dot", format!("{:?}", Dot::new(&pcode_graph.graph())));
+    fs::write("dot.dot", format!("{:?}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
-    //fs::write("test.smt", pcode_graph.test_build(loaded.arch_info()).to_string());
+    let solver = pcode_graph.test_build(loaded.arch_info());
+    let t = Instant::now();
+    dbg!(solver.check());
+    dbg!(solver.get_unsat_core());
+    println!("took {:?}", t.elapsed());
+    fs::write("test.smt", pcode_graph.test_build(loaded.arch_info()).to_string());
 }
