@@ -1,7 +1,8 @@
 pub mod lattice;
 pub mod state;
 
-use crate::analysis::cpa::state::{AbstractState, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState};
+use crate::analysis::pcode_store::PcodeStore;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -23,13 +24,9 @@ set of abstract states.
 */
 pub trait ConfigurableProgramAnalysis {
     /// An abstract state. Usually (but not necessarily) represents a single program location.
-    type State: AbstractState + Debug;
+    type State: LocationState + Debug;
 
-    /// Generates an iterator of successor states for a given abstract state. This represents the
-    /// transition relation of CPA. While this trait makes no reference to this transition relation
-    /// or the types involved in it, it is assumed that an implemented analysis will contain the
-    /// data necessary to query the transition relation for successor states.
-    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State>;
+    fn get_pcode_store(&self) -> &impl PcodeStore;
 
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
@@ -55,7 +52,8 @@ pub trait ConfigurableProgramAnalysis {
         waitlist.push_front(initial.clone());
         reached.push_front(initial.clone());
         while let Some(state) = waitlist.pop_front() {
-            for dest_state in self.successor_states(&state).into_iter() {
+            let op = state.get_operation(self.get_pcode_store());
+            for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
                 self.reduce(&state, &dest_state);
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {

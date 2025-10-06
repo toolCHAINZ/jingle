@@ -1,5 +1,6 @@
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -75,6 +76,15 @@ impl<S: AbstractState + PartialJoinSemiLattice> AbstractState for SimpleLattice<
                 .map(|a| SimpleLattice::Value(a))
                 .into(),
             SimpleLattice::Top => std::iter::empty().into(),
+        }
+    }
+}
+
+impl<S: LocationState + AbstractState + PartialJoinSemiLattice> LocationState for SimpleLattice<S> {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+        match self {
+            SimpleLattice::Value(a) => a.get_operation(t),
+            SimpleLattice::Top => None,
         }
     }
 }
