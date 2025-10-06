@@ -13,12 +13,28 @@ use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::{Formatter, LowerHex};
 use z3::ast::Bool;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum UnwoundLocation {
     UnwindError(ConcretePcodeAddress),
     Location(usize, ConcretePcodeAddress),
+}
+
+impl UnwoundLocation{
+    pub fn count(&self) -> Option<usize>{
+        match self {
+            UnwindError(_) => None,
+            Location(c, _) => Some(*c),
+        }
+    }
+}
+
+impl LowerHex for UnwoundLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{:x} #{}", self.location(), self.count().map(|a| format!(":{:x}", a)).unwrap_or("".to_string()) )
+    }
 }
 
 #[derive(Debug, Clone, Eq)]

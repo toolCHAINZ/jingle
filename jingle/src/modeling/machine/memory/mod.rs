@@ -216,4 +216,12 @@ impl MemoryState {
         let eq_terms: Vec<&Bool> = terms.iter().collect();
         Bool::and(eq_terms.as_slice())
     }
+
+    pub fn simplify(&self) -> Self {
+        let spaces = self.spaces.iter().map(|s| s.simplify()).collect();
+        Self {
+            info: self.info.clone(),
+            spaces,
+        }
+    }
 }

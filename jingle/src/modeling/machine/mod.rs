@@ -66,8 +66,8 @@ impl MachineState {
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         Ok(Self {
             info: self.info.clone(),
-            memory: self.memory.apply(op)?,
-            pc: self.apply_control_flow(op)?,
+            memory: self.memory.apply(op)?.simplify(),
+            pc: self.apply_control_flow(op)?.simplify(),
         })
     }
 

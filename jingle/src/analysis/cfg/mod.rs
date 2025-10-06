@@ -8,15 +8,25 @@ use petgraph::visit::{EdgeRef, NodeRef};
 pub use state::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt::{Formatter, LowerHex};
 use z3::ast::{Ast, Bool};
 use z3::{Params, Solver};
 use jingle_sleigh::PcodeOperation::Branch;
 
 mod state;
 
+#[derive(Debug, Default, Copy, Clone, Hash)]
+pub struct EmptyEdge;
+
+impl LowerHex for EmptyEdge {
+    fn fmt(&self, _: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct PcodeCfg<N, D> {
-    graph: DiGraph<N, ()>,
+    graph: DiGraph<N, EmptyEdge>,
     ops: HashMap<N, D>,
     indices: HashMap<N, NodeIndex>,
 }
@@ -40,7 +50,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         }
     }
 
-    pub fn graph(&self) -> &DiGraph<N, ()> {
+    pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
         &self.graph
     }
 
@@ -74,7 +84,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         self.ops.insert(from.clone(), op.clone());
         let from_idx = *self.indices.get(from).unwrap();
         let to_idx = *self.indices.get(to).unwrap();
-        self.graph.add_edge(from_idx, to_idx, ());
+        self.graph.add_edge(from_idx, to_idx, EmptyEdge);
     }
 
     pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
@@ -254,7 +264,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
                         bb_cfg.graph.add_edge(
                             *bb_cfg.indices.get(&from_block).unwrap(),
                             *bb_cfg.indices.get(&to_block).unwrap(),
-                            (),
+                            EmptyEdge,
                         );
                     }
                 }

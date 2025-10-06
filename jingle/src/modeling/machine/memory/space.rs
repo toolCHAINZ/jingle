@@ -5,7 +5,7 @@ use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::borrow::Borrow;
 use std::ops::Add;
 use z3::Sort;
-use z3::ast::{Array, BV, Bool};
+use z3::ast::{Array, Ast, BV, Bool};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -92,6 +92,16 @@ impl BMCModeledSpace {
             && self.endianness == other.endianness
             && self.index_size_bytes == other.index_size_bytes
             && self._type == other._type
+    }
+
+    pub fn simplify(&self) -> Self {
+        Self {
+            data: self.data.simplify(),
+            word_size_bytes: self.word_size_bytes,
+            index_size_bytes: self.index_size_bytes,
+            endianness: self.endianness,
+            _type: self._type,
+        }
     }
 }
 

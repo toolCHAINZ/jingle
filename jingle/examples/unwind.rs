@@ -22,7 +22,7 @@ fn main() {
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
     let mut direct = UnwindingAnalysis::new(10);
-    let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_LOOP.into()));
+    let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
         println!("{:x}", addr.location());
@@ -30,13 +30,8 @@ fn main() {
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
     let pcode_graph = pcode_graph.basic_blocks();
     let w = pcode_graph.edge_weights().collect::<Vec<_>>();
-    for ops in w {
-        for op in ops {
-            println!("  {:x}", op);
-        }
-        println!("---");
-    }
-    fs::write("dot.dot", format!("{:?}", Dot::new(&pcode_graph.graph())));
+
+    fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
     let solver = pcode_graph.test_build(loaded.arch_info());
     let t = Instant::now();
