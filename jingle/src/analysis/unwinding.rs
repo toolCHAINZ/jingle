@@ -154,7 +154,7 @@ impl UnwoundLocation {
     }
 
     pub fn from_cpa_state(a: &UnwindingCpaState, max: usize) -> Self {
-        if a.visit_count() - 1 > max {
+        if a.visit_count() > max {
             UnwindError(a.location())
         } else {
             Location(a.visit_count(), a.location())
