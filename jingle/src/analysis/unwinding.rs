@@ -178,6 +178,12 @@ impl CfgStateModel for UnwoundLocationModel {
     fn mem_eq(&self, other: &Self) -> Bool {
         self.state.mem_eq(&other.state)
     }
+
+    fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
+        Ok(UnwoundLocationModel {
+            is_unwind_error: Bool::fresh_const("u"),
+            state: self.state.apply(op)?,
+        })    }
 }
 impl CfgState for UnwoundLocation {
     type Model = UnwoundLocationModel;
@@ -193,14 +199,6 @@ impl CfgState for UnwoundLocation {
 
 pub type UnwoundCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
 
-impl ModelTransition<UnwoundLocation> for PcodeOperation {
-    fn transition(&self, init: &UnwoundLocationModel) -> Result<UnwoundLocationModel, JingleError> {
-        Ok(UnwoundLocationModel {
-            is_unwind_error: Bool::fresh_const("u"),
-            state: init.state.apply(self)?,
-        })
-    }
-}
 struct UnwoundLocationCPA<T: PcodeStore> {
     source_cfg: T,
     unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,

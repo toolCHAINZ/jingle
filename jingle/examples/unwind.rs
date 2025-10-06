@@ -28,7 +28,14 @@ fn main() {
         println!("{:x}", addr.location());
     }
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
-
+    let pcode_graph = pcode_graph.basic_blocks();
+    let w = pcode_graph.edge_weights().collect::<Vec<_>>();
+    for ops in w {
+        for op in ops {
+            println!("  {:x}", op);
+        }
+        println!("---");
+    }
     fs::write("dot.dot", format!("{:?}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
     let solver = pcode_graph.test_build(loaded.arch_info());
