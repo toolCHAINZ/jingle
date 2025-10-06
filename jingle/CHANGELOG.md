@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.3...jingle-v0.3.4) - 2025-10-06
+
+### Added
+
+- add cfg unwinding analysis and initial SMT modeling ([#107](https://github.com/toolCHAINZ/jingle/pull/107))
+
+### Changed
+
+- reduce location repetition in CPA ([#109](https://github.com/toolCHAINZ/jingle/pull/109))
+
+### Fixed
+
+- unwinding error fix
+
 ## [0.3.3](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.2...jingle-v0.3.3) - 2025-09-26
 
 ### Other
