@@ -2,7 +2,7 @@ use crate::analysis::Analysis;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::direct_location::DirectLocationCPA;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -97,6 +97,12 @@ impl AbstractState for BackEdgeState {
     }
 }
 
+impl LocationState for BackEdgeState {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+        self.location.get_operation(t)
+    }
+}
+
 struct BackEdgeCPA<T: PcodeStore> {
     location: DirectLocationCPA<T>,
     pub back_edges: Vec<(PcodeAddressLattice, PcodeAddressLattice)>,
@@ -114,11 +120,8 @@ impl<T: PcodeStore> BackEdgeCPA<T> {
 impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
     type State = BackEdgeState;
 
-    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
-        match self.location.pcode_at(&state.location) {
-            Some(op) => state.transfer(&op).into_iter().into(),
-            None => std::iter::empty().into(),
-        }
+    fn get_pcode_store(&self) -> &impl PcodeStore {
+        self.location.get_pcode_store()
     }
 
     fn reduce(&mut self, old_state: &Self::State, new_state: &Self::State) {

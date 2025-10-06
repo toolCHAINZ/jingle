@@ -4,7 +4,7 @@ use crate::analysis::cfg::{CfgState, CfgStateModel, ModelTransition, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
 use crate::modeling::machine::MachineState;
@@ -25,13 +25,15 @@ pub enum UnwoundLocation {
 pub struct UnwindingCpaState {
     location: ConcretePcodeAddress,
     visits: HashMap<ConcretePcodeAddress, usize>,
+    max: usize,
 }
 
 impl UnwindingCpaState {
-    pub fn new(location: ConcretePcodeAddress) -> Self {
+    pub fn new(location: ConcretePcodeAddress, max: usize) -> Self {
         let mut s = UnwindingCpaState {
             location,
             visits: Default::default(),
+            max,
         };
         s.increment_visit_count();
         s
@@ -80,6 +82,7 @@ impl PartialJoinSemiLattice for UnwindingCpaState {
             let s = Self {
                 location: self.location,
                 visits,
+                max: self.max,
             };
             Some(s)
         } else {
@@ -108,16 +111,29 @@ impl AbstractState for UnwindingCpaState {
         self.stop_sep(states)
     }
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
+        if self.visit_count() > self.max {
+            return std::iter::empty().into();
+        }
         self.location
             .transfer(opcode.borrow())
             .into_iter()
             .map(|location| {
                 let visits = self.visits.clone();
-                let mut next = Self { location, visits };
+                let mut next = Self {
+                    location,
+                    visits,
+                    max: self.max,
+                };
                 next.increment_visit_count();
                 next
             })
             .into()
+    }
+}
+
+impl LocationState for UnwindingCpaState {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+        t.get_pcode_op_at(self.location)
     }
 }
 
@@ -187,39 +203,26 @@ impl ModelTransition<UnwoundLocation> for PcodeOperation {
 }
 struct UnwoundLocationCPA<T: PcodeStore> {
     source_cfg: T,
-    max: usize,
     unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,
 }
 
 impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
     type State = SimpleLattice<UnwindingCpaState>;
 
-    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
-        if let SimpleLattice::Value(state) = state
-            && let Some(op) = self.source_cfg.get_pcode_op_at(state.location)
-        {
-            let count = state.visit_count();
-            if count - 1 > self.max {
-                return std::iter::empty().into();
-            }
-            state
-                .transfer(op)
-                .into_iter()
-                .map(SimpleLattice::Value)
-                .into()
-        } else {
-            std::iter::empty().into()
-        }
+    fn get_pcode_store(&self) -> &impl PcodeStore {
+        &self.source_cfg
     }
 
     fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
         if let SimpleLattice::Value(a) = state {
-            let a = UnwoundLocation::from_cpa_state(a, self.max);
+            let a = UnwoundLocation::from_cpa_state(a, a.max);
             self.unwound_cfg.add_node(a);
             if !a.is_unwind_error() {
                 if let Some(op) = self.source_cfg.get_pcode_op_at(a.location()) {
-                    let dest =
-                        UnwoundLocation::from_cpa_state(dest_state.value().unwrap(), self.max);
+                    let dest = UnwoundLocation::from_cpa_state(
+                        dest_state.value().unwrap(),
+                        dest_state.value().unwrap().max,
+                    );
                     self.unwound_cfg.add_edge(a, dest, op)
                 }
             }
@@ -247,11 +250,10 @@ impl Analysis for UnwindingAnalysis {
     ) -> Self::Output {
         let addr = initial_state.into();
         let mut cpa = UnwoundLocationCPA {
-            max: self.max,
             source_cfg: store,
             unwound_cfg: Default::default(),
         };
-        let init_state = UnwindingCpaState::new(addr);
+        let init_state = UnwindingCpaState::new(addr, self.max);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
         cpa.unwound_cfg
     }

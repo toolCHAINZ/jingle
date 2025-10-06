@@ -5,7 +5,6 @@ use crate::analysis::bounded_visit::state::BoundedStepsState;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
-use crate::analysis::cpa::state::{AbstractState, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -27,16 +26,8 @@ impl<T: PcodeStore> BoundedStepsCpa<T> {
 impl<T: PcodeStore> ConfigurableProgramAnalysis for BoundedStepsCpa<T> {
     type State = BoundedStepsState;
 
-    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
-        let opt = state.location.value().cloned();
-        if let Some(addr) = opt {
-            let iter = self.pcode.get_pcode_op_at(addr);
-            iter.into_iter()
-                .flat_map(|op| state.transfer(&op).into_iter())
-                .into()
-        } else {
-            std::iter::empty().into()
-        }
+    fn get_pcode_store(&self) -> &impl PcodeStore {
+        &self.pcode
     }
 
     fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {

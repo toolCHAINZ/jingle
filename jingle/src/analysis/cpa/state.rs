@@ -1,4 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 
@@ -78,4 +79,8 @@ pub trait AbstractState: JoinSemiLattice + Clone {
     /// (e.g. a resolved indirect jump could return an iterator of locations instead of
     /// having a special "the location is one in this list" variant
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self>;
+}
+
+pub trait LocationState: AbstractState {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation>;
 }

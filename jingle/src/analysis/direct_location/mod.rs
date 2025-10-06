@@ -1,13 +1,10 @@
 use crate::analysis::Analysis;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
-use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
-use std::iter::{empty, once};
 
 pub struct DirectLocationCPA<T> {
     pcode: T,
@@ -40,22 +37,8 @@ impl<T: PcodeStore> DirectLocationCPA<T> {
 impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
     type State = PcodeAddressLattice;
 
-    fn successor_states<'a>(&self, state: &'a Self::State) -> Successor<'a, Self::State> {
-        match state {
-            PcodeAddressLattice::Value(a) => {
-                if let Some(op) = self.pcode.get_pcode_op_at(a) {
-                    state
-                        .transfer(&op)
-                        .into_iter()
-                        .flat_map(|a| a.value().cloned())
-                        .map(FlatLattice::Value)
-                        .into()
-                } else {
-                    empty().into()
-                }
-            }
-            PcodeAddressLattice::Top => once(PcodeAddressLattice::Top).into(),
-        }
+    fn get_pcode_store(&self) -> &impl PcodeStore {
+        &self.pcode
     }
 
     fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {

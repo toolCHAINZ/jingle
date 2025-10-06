@@ -1,6 +1,7 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -86,5 +87,11 @@ impl AbstractState for BoundedStepsState {
                 })
                 .into()
         }
+    }
+}
+
+impl LocationState for BoundedStepsState {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+        self.location.get_operation(t)
     }
 }

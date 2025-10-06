@@ -1,6 +1,7 @@
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -22,6 +23,15 @@ impl AbstractState for PcodeAddressLattice {
         match &self {
             PcodeAddressLattice::Value(a) => a.transfer(op).into_iter().map(Value).into(),
             PcodeAddressLattice::Top => once(PcodeAddressLattice::Top).into(),
+        }
+    }
+}
+
+impl LocationState for PcodeAddressLattice {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+        match self {
+            PcodeAddressLattice::Value(a) => t.get_pcode_op_at(a),
+            PcodeAddressLattice::Top => None,
         }
     }
 }
