@@ -28,7 +28,7 @@ fn main() {
     }
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
 
-    fs::write("dot.dot", format!("{:?}", Dot::new(&pcode_graph.graph())));
+    //fs::write("dot.dot", format!("{:?}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
-    dbg!(pcode_graph.test_build(loaded.arch_info()));
+    //fs::write("test.smt", pcode_graph.test_build(loaded.arch_info()).to_string());
 }
