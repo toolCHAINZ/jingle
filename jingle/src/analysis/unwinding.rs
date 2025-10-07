@@ -150,7 +150,7 @@ impl JoinSemiLattice for UnwindingCpaState {
 
 impl AbstractState for UnwindingCpaState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        if self.location == other.location {
+        if self.location == other.location  && self.visit_count() == other.visit_count() {
             let mut merged = MergeOutcome::NoOp;
             for (addr, count) in &other.visits {
                 let self_count = self.visits.get(addr).cloned().unwrap_or(0);
