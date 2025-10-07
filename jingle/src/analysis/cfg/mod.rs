@@ -1,6 +1,6 @@
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::{OpCode, PcodeOperation, SleighArchInfo};
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use z3::ast::{Ast, Bool};
 use z3::{Params, Solver};
-use jingle_sleigh::PcodeOperation::Branch;
 
 mod state;
 
@@ -26,9 +25,9 @@ impl LowerHex for EmptyEdge {
 
 #[derive(Debug)]
 pub struct PcodeCfg<N, D> {
-    graph: DiGraph<N, EmptyEdge>,
-    ops: HashMap<N, D>,
-    indices: HashMap<N, NodeIndex>,
+    pub(crate) graph: DiGraph<N, EmptyEdge>,
+    pub(crate) ops: HashMap<N, D>,
+    pub(crate) indices: HashMap<N, NodeIndex>,
 }
 
 impl<N, D> Default for PcodeCfg<N, D> {
@@ -54,7 +53,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         &self.graph
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = &N> {
+    pub fn nodes(&self) -> impl Iterator<Item=&N> {
         self.indices.keys()
     }
 
@@ -84,18 +83,24 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         self.ops.insert(from.clone(), op.clone());
         let from_idx = *self.indices.get(from).unwrap();
         let to_idx = *self.indices.get(to).unwrap();
+        // Return early if the edge already exists
+        if self.graph.find_edge(from_idx, to_idx).is_some() {
+            return;
+        }
         self.graph.add_edge(from_idx, to_idx, EmptyEdge);
     }
 
-    pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
+    pub fn leaf_nodes(&self) -> impl Iterator<Item=&N> {
         self.graph
             .externals(Direction::Outgoing)
             .map(move |idx| self.graph.node_weight(idx).unwrap())
     }
 
-    pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
+    pub fn edge_weights(&self) -> impl Iterator<Item=&D> {
         self.ops.values()
     }
+
+
 }
 
 impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
@@ -169,107 +174,98 @@ impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
 impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
     pub fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>> {
         use petgraph::visit::EdgeRef;
-        use std::collections::{HashMap, HashSet};
+        // Step 1: Initialize new graph and maps
+        let mut graph = DiGraph::<N, EmptyEdge>::default();
+        let mut ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
+        let mut indices: HashMap<N, NodeIndex> = HashMap::new();
+        // Step 2: Wrap each op in a Vec and add nodes
+        for node in self.graph.node_indices() {
+            let n = self.graph.node_weight(node).unwrap().clone();
+            let op = self.ops.get(&n).map(|op| vec![op.clone()]).unwrap_or_default();
+            let idx = graph.add_node(n.clone());
+            graph.add_node(n.clone());
+            indices.insert(n.clone(), idx);
+            ops.insert(n, op);
+        }
+        // Step 3: Add edges
+        for edge in self.graph.edge_indices() {
+            let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
+            let from = self.graph.node_weight(fromidx).unwrap();
+            let to = self.graph.node_weight(toidx).unwrap();
+            let from_idx = *indices.get(from).unwrap();
+            let to_idx = *indices.get(to).unwrap();
+            graph.add_edge(from_idx, to_idx, EmptyEdge);
+        }
+        // Step 4: Wait-list algorithm for merging
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for node in graph.node_indices() {
+                // Only consider nodes still present
+                let out_edges: Vec<_> = graph.edges_directed(node, Direction::Outgoing).collect();
+                if out_edges.len() != 1 { continue; }
+                let edge = out_edges[0];
+                let target = edge.target();
+                let in_edges: Vec<_> = graph.edges_directed(target, Direction::Incoming).collect();
+                if in_edges.len() != 1 { continue; }
 
-        // Step 1: Identify block boundaries
-        let mut block_starts = HashSet::new();
-        let mut block_ends = HashSet::new();
-        let mut preds: HashMap<&N, usize> = HashMap::new();
-        let mut succs: HashMap<&N, usize> = HashMap::new();
-        for node in self.graph.node_indices() {
-            let n = self.graph.node_weight(node).unwrap();
-            let pred_count = self.graph.edges_directed(node, Direction::Incoming).count();
-            let succ_count = self.graph.edges_directed(node, Direction::Outgoing).count();
-            preds.insert(n, pred_count);
-            succs.insert(n, succ_count);
-        }
-        // Entry node is always a block start
-        if let Some(entry) = self.graph.node_indices().next() {
-            let entry_n = self.graph.node_weight(entry).unwrap();
-            block_starts.insert(entry_n.clone());
-        }
-        // Nodes with multiple preds (join) or succs (branch) are block boundaries
-        for (n, &pred_count) in &preds {
-            if pred_count > 1 {
-                block_starts.insert((*n).clone());
-            }
-        }
-        for (n, &succ_count) in &succs {
-            if succ_count > 1 {
-                block_ends.insert((*n).clone());
-            }
-        }
-        // Step 2: Traverse and group nodes into blocks
-        let mut blocks: Vec<(Vec<N>, Vec<PcodeOperation>)> = Vec::new();
-        let mut visited = HashSet::new();
-        for node in self.graph.node_indices() {
-            let mut block_nodes = Vec::new();
-            let mut block_ops = Vec::new();
-            let mut current = node;
-            while !visited.contains(&current) {
-                visited.insert(current);
-                let n = self.graph.node_weight(current).unwrap().clone();
-                block_nodes.push(n.clone());
-                if let Some(op) = self.ops.get(&n) {
-                    // Filter out branch instructions
-                    if op.opcode() != OpCode::CPUI_BRANCH {
-                        block_ops.push(op.clone());
-                    }
+                // Merge target into node
+                let src_n = graph.node_weight(node).unwrap().clone();
+                let tgt_n = graph.node_weight(target).unwrap().clone();
+                // Fix borrow: collect target ops first
+                let tgt_ops = ops.get(&tgt_n).cloned().unwrap_or_default();
+                if !tgt_ops.is_empty() {
+                    ops.entry(src_n.clone()).or_default().extend(tgt_ops);
                 }
-                // End block if this is a block end or has multiple outgoing edges
-                let succ_count = self
-                    .graph
-                    .edges_directed(current, Direction::Outgoing)
-                    .count();
-                if block_ends.contains(&n) || succ_count != 1 {
-                    break;
+                // Redirect outgoing edges of target to source
+                let tgt_out_edges: Vec<_> = graph.edges_directed(target, Direction::Outgoing).map(|e| e.target()).collect();
+                for tgt_out in tgt_out_edges {
+                    graph.add_edge(node, tgt_out, EmptyEdge);
                 }
-                // Move to next node
-                let mut next_nodes = self
-                    .graph
-                    .edges_directed(current, Direction::Outgoing)
-                    .map(|e| e.target());
-                if let Some(next) = next_nodes.next() {
-                    current = next;
-                } else {
-                    break;
-                }
-            }
-            if !block_nodes.is_empty() {
-                blocks.push((block_nodes, block_ops));
+                // Remove target node and its ops
+                graph.remove_node(target);
+                ops.remove(&tgt_n);
+                indices.remove(&tgt_n);
+                changed = true;
+                break; // Restart after each merge
             }
         }
-        // Step 3: Build new graph
-        let mut bb_cfg = PcodeCfg::<N, Vec<PcodeOperation>>::default();
-        let mut block_map: HashMap<N, usize> = HashMap::new();
-        for (i, (nodes, ops)) in blocks.iter().enumerate() {
-            // Use first node as block id
-            let block_id = nodes[0].clone();
-            bb_cfg.add_node(block_id.clone());
-            bb_cfg.ops.insert(block_id.clone(), ops.clone());
-            for n in nodes {
-                block_map.insert(n.clone(), i);
+        // Step 5: Build a new graph using only connected nodes
+        let mut new_graph = DiGraph::<N, EmptyEdge>::default();
+        let mut new_ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
+        let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
+        // Collect connected nodes
+        let connected_nodes: Vec<_> = graph.node_indices()
+            .filter(|&node| {
+                graph.edges_directed(node, Direction::Incoming).next().is_some() ||
+                graph.edges_directed(node, Direction::Outgoing).next().is_some()
+            })
+            .collect();
+        // Add connected nodes to new graph
+        for node in connected_nodes.iter() {
+            let n = graph.node_weight(*node).unwrap().clone();
+            let idx = new_graph.add_node(n.clone());
+            new_indices.insert(n.clone(), idx);
+            if let Some(op) = ops.get(&n) {
+                new_ops.insert(n, op.clone());
             }
         }
-        // Add edges between blocks
-        for (i, (nodes, _)) in blocks.iter().enumerate() {
-            let last_node = nodes.last().unwrap();
-            let last_idx = *self.indices.get(last_node).unwrap();
-            for edge in self.graph.edges_directed(last_idx, Direction::Outgoing) {
-                let target = self.graph.node_weight(edge.target()).unwrap();
-                if let Some(&target_block) = block_map.get(target) {
-                    if target_block != i {
-                        let from_block = nodes[0].clone();
-                        let to_block = blocks[target_block].0[0].clone();
-                        bb_cfg.graph.add_edge(
-                            *bb_cfg.indices.get(&from_block).unwrap(),
-                            *bb_cfg.indices.get(&to_block).unwrap(),
-                            EmptyEdge,
-                        );
-                    }
-                }
+        // Add edges between connected nodes
+        for edge in graph.edge_indices() {
+            let (fromidx, toidx) = graph.edge_endpoints(edge).unwrap();
+            if connected_nodes.contains(&fromidx) && connected_nodes.contains(&toidx) {
+                let from = graph.node_weight(fromidx).unwrap();
+                let to = graph.node_weight(toidx).unwrap();
+                let from_idx = *new_indices.get(from).unwrap();
+                let to_idx = *new_indices.get(to).unwrap();
+                new_graph.add_edge(from_idx, to_idx, EmptyEdge);
             }
         }
-        bb_cfg
+        // Step 6: Build and return new PcodeCfg
+        PcodeCfg {
+            graph: new_graph,
+            ops: new_ops,
+            indices: new_indices,
+        }
     }
 }

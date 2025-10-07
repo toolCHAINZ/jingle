@@ -40,7 +40,13 @@ pub trait ConfigurableProgramAnalysis {
     /// This method will be called for every visited transition in the CPA, before merging. So,
     /// for every pair of states A,B visited by the CPA where A => B, this function will be called
     /// with arguments (A, B).
+    ///
+    /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
+    /// may be refined after the CPA has made some sound effect
     fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State) {}
+
+    /// A hook for when two abstract states are merged.
+    fn merged(&mut self, curr_state: &Self::State, _dest_state: &Self::State, _merged_state: &Self::State) {}
 
     /// The CPA algorithm. Implementors should not need to customize this function.
     ///
@@ -57,6 +63,7 @@ pub trait ConfigurableProgramAnalysis {
                 self.reduce(&state, &dest_state);
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {
+                        self.merged(&state, &dest_state, &reached_state);
                         waitlist.push_back(reached_state.clone());
                     }
                 }

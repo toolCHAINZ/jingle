@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use crate::JingleError;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -29,7 +30,7 @@ impl CfgStateModel for MachineState {
     }
 }
 
-pub trait CfgState: Clone + Hash + Eq {
+pub trait CfgState: Clone  + Debug + Hash + Eq {
     type Model: CfgStateModel + Clone;
 
     fn fresh(&self, i: &SleighArchInfo) -> Self::Model;

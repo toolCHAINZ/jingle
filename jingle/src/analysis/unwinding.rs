@@ -10,6 +10,7 @@ use crate::analysis::unwinding::UnwoundLocation::{Location, UnwindError};
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -22,8 +23,8 @@ pub enum UnwoundLocation {
     Location(usize, ConcretePcodeAddress),
 }
 
-impl UnwoundLocation{
-    pub fn count(&self) -> Option<usize>{
+impl UnwoundLocation {
+    pub fn count(&self) -> Option<usize> {
         match self {
             UnwindError(_) => None,
             Location(c, _) => Some(*c),
@@ -33,7 +34,14 @@ impl UnwoundLocation{
 
 impl LowerHex for UnwoundLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{:x} #{}", self.location(), self.count().map(|a| format!(":{:x}", a)).unwrap_or("".to_string()) )
+        write!(
+            f,
+            "{:x}-{}",
+            self.location(),
+            self.count()
+                .map(|a| format!("{:x}", a))
+                .unwrap_or("STOP".to_string())
+        )
     }
 }
 
@@ -77,9 +85,31 @@ impl PartialEq for UnwindingCpaState {
 impl PartialOrd for UnwindingCpaState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.location() == other.location() {
-            let self_visit = self.visits.get(&self.location).unwrap_or(&0);
-            let other_visit = other.visits.get(&self.location).unwrap_or(&0);
-            self_visit.partial_cmp(other_visit)
+            if self
+                .visits
+                .iter()
+                .all(|v| other.visits.get(v.0).is_some_and(|c| c == v.1))
+                && other
+                    .visits
+                    .iter()
+                    .all(|v| self.visits.get(v.0).is_some_and(|c| c == v.1))
+            {
+                Some(Ordering::Equal)
+            } else if self
+                .visits
+                .iter()
+                .all(|v| other.visits.get(v.0).is_some_and(|c| c >= v.1))
+            {
+                Some(Ordering::Less)
+            } else if other
+                .visits
+                .iter()
+                .all(|v| self.visits.get(v.0).is_some_and(|c| c >= v.1))
+            {
+                Some(Ordering::Greater)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -120,13 +150,28 @@ impl JoinSemiLattice for UnwindingCpaState {
 
 impl AbstractState for UnwindingCpaState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        self.merge_sep(other)
+        if self.location == other.location {
+            let mut merged = MergeOutcome::NoOp;
+            for (addr, count) in &other.visits {
+                let self_count = self.visits.get(addr).cloned().unwrap_or(0);
+                if count > &self_count {
+                    self.visits.insert(*addr, *count);
+                    merged = MergeOutcome::Merged;
+                }
+            }
+            merged
+        } else {
+            MergeOutcome::NoOp
+        }
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
         self.stop_sep(states)
     }
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
+        if self.location.machine == 0x1000005f0 {
+            println!("There! {:x}:{:x}", self.location, self.visit_count());
+        }
         if self.visit_count() > self.max {
             return std::iter::empty().into();
         }
@@ -140,6 +185,7 @@ impl AbstractState for UnwindingCpaState {
                     visits,
                     max: self.max,
                 };
+
                 next.increment_visit_count();
                 next
             })
@@ -186,20 +232,21 @@ pub struct UnwoundLocationModel {
 
 impl CfgStateModel for UnwoundLocationModel {
     fn location_eq(&self, other: &Self) -> Bool {
-        let unwind = self.is_unwind_error.eq(&other.is_unwind_error);
         let pc = self.state.pc().eq(other.state.pc());
-        unwind & pc
+        pc
     }
 
     fn mem_eq(&self, other: &Self) -> Bool {
-        self.state.mem_eq(&other.state)
+        let unwind = self.is_unwind_error.eq(&other.is_unwind_error);
+        unwind & self.state.mem_eq(&other.state)
     }
 
     fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         Ok(UnwoundLocationModel {
             is_unwind_error: Bool::fresh_const("u"),
             state: self.state.apply(op)?,
-        })    }
+        })
+    }
 }
 impl CfgState for UnwoundLocation {
     type Model = UnwoundLocationModel;
@@ -242,6 +289,50 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
             }
         }
     }
+
+    fn merged(
+        &mut self,
+        state: &Self::State,
+        dest_state: &Self::State,
+        merged_state: &Self::State,
+    ) {
+        // Convert lattice states to UnwoundLocation
+        let src =
+            UnwoundLocation::from_cpa_state(state.value().unwrap(), state.value().unwrap().max);
+        let dst = UnwoundLocation::from_cpa_state(
+            dest_state.value().unwrap(),
+            dest_state.value().unwrap().max,
+        );
+        let merged = UnwoundLocation::from_cpa_state(
+            merged_state.value().unwrap(),
+            merged_state.value().unwrap().max,
+        );
+        let op = self.source_cfg.get_pcode_op_at(src.location()).unwrap();
+        // Find node indices
+        let src_idx = match self.unwound_cfg.indices.get(&src) {
+            Some(idx) => *idx,
+            None => return,
+        };
+        let dst_idx = match self.unwound_cfg.indices.get(&dst) {
+            Some(idx) => *idx,
+            None => return,
+        };
+        // Find all edges from src to dst
+        let mut edges_to_remove = Vec::new();
+        for edge in self.unwound_cfg.graph.edges(src_idx) {
+            if edge.target() == dst_idx {
+                edges_to_remove.push(edge.id());
+                // Get the operation for src (if any)
+            }
+        }
+        println!("Remap edge from {:x} to {:x} to {:x}", src, dst, merged);
+        // Remove edges from src to dst
+        for edge_id in edges_to_remove {
+            self.unwound_cfg.graph.remove_edge(edge_id);
+        }
+        // Add edges from src to merged with the same operation(s)
+        self.unwound_cfg.add_edge(src, merged, op);
+    }
 }
 
 pub struct UnwindingAnalysis {
@@ -269,6 +360,37 @@ impl Analysis for UnwindingAnalysis {
         };
         let init_state = UnwindingCpaState::new(addr, self.max);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
+
+        let graph = &mut cpa.unwound_cfg.graph;
+        // For each node, process outgoing edges
+        for node_idx in graph.node_indices() {
+            // Map: location -> (count, edge_id)
+            let mut location_to_edges: HashMap<_, Vec<(usize, petgraph::graph::EdgeIndex)>> =
+                HashMap::new();
+            for edge in graph.edges(node_idx).collect::<Vec<_>>() {
+                let target_idx = edge.target();
+                if let Some(target_node) = graph.node_weight(target_idx) {
+                    let loc = target_node.location().clone();
+                    let count = target_node.count().unwrap_or(0);
+                    location_to_edges
+                        .entry(loc)
+                        .or_default()
+                        .push((count, edge.id()));
+                }
+            }
+            // For each location, keep only the edge with the highest count
+            for (_loc, mut edges) in location_to_edges {
+                if edges.len() <= 1 {
+                    continue;
+                }
+                // Sort by count descending
+                edges.sort_by(|a, b| b.0.cmp(&a.0));
+                // Keep the first (highest count), remove the rest
+                for &(_count, edge_id) in edges.iter().skip(1) {
+                    graph.remove_edge(edge_id);
+                }
+            }
+        }
         cpa.unwound_cfg
     }
 
