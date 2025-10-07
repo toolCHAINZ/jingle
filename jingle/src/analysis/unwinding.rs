@@ -325,7 +325,6 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
                 // Get the operation for src (if any)
             }
         }
-        println!("Remap edge from {:x} to {:x} to {:x}", src, dst, merged);
         // Remove edges from src to dst
         for edge_id in edges_to_remove {
             self.unwound_cfg.graph.remove_edge(edge_id);
