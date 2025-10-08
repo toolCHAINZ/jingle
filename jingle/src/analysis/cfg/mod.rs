@@ -135,7 +135,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
             let from_state_final = post_states.get(from).unwrap();
             let to_state = states.get(to).expect("To state not found");
             let loc_eq = from_state_final.location_eq(to_state).simplify();
-            loc_eq.implies(from_state_final.mem_eq(to_state).simplify())
+            loc_eq.implies(from_state_final.mem_eq(to_state))
         });
         for x in options {
             solver.assert(x);

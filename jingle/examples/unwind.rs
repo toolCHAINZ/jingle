@@ -34,12 +34,12 @@ fn main() {
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
     let solver = pcode_graph.test_build(loaded.arch_info());
-    let t = Instant::now();
-    dbg!(solver.check());
-    dbg!(solver.get_unsat_core());
-    println!("took {:?}", t.elapsed());
     fs::write(
         "test.smt",
         pcode_graph.test_build(loaded.arch_info()).to_string(),
     );
+    let t = Instant::now();
+    dbg!(solver.check());
+    dbg!(solver.get_unsat_core());
+    println!("took {:?}", t.elapsed());
 }
