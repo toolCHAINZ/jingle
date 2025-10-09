@@ -35,8 +35,7 @@ fn main() {
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
     let arch_info = loaded.arch_info();;
-    with_z3_config(&Config::new(), || {
-        let solver = pcode_graph.test_build(arch_info);
+    let solver = pcode_graph.test_build(arch_info);
         let mut params = Params::new();
         params.set_bool("trace", true);
         solver.set_params(&params);
@@ -48,5 +47,5 @@ fn main() {
         dbg!(solver.check());
         dbg!(solver.get_unsat_core());
         println!("took {:?}", t.elapsed());
-    })
+
 }
