@@ -67,7 +67,7 @@ impl MachineState {
         Ok(Self {
             info: self.info.clone(),
             memory: self.memory.apply(op)?,
-            pc: self.apply_control_flow(op)?,
+            pc: self.apply_control_flow(op)?.simplify(),
         })
     }
 
