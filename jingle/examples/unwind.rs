@@ -23,8 +23,9 @@ fn main() {
     z3::set_global_param("trace", "true");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = UnwindingAnalysis::new(2);
-    let pcode_graph = direct.run(&loaded, direct.make_initial_state(0x1000004a0.into()));
+    let mut direct = UnwindingAnalysis::new(10);
+    let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
+    let pcode_graph = pcode_graph.basic_blocks();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
         println!("{:x}", addr.location());
@@ -34,18 +35,14 @@ fn main() {
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
-    let arch_info = loaded.arch_info();;
+    let arch_info = loaded.arch_info();
     let solver = pcode_graph.test_build(arch_info);
-        let mut params = Params::new();
-        params.set_bool("trace", true);
-        solver.set_params(&params);
-        fs::write(
-            "test.smt",
-            pcode_graph.test_build(arch_info).to_string(),
-        );
-        let t = Instant::now();
-        dbg!(solver.check());
-        dbg!(solver.get_unsat_core());
-        println!("took {:?}", t.elapsed());
-
+    let mut params = Params::new();
+    params.set_bool("trace", true);
+    solver.set_params(&params);
+    fs::write("test.smt", pcode_graph.test_build(arch_info).to_string());
+    let t = Instant::now();
+    dbg!(solver.check());
+    dbg!(solver.get_unsat_core());
+    println!("took {:?}", t.elapsed());
 }

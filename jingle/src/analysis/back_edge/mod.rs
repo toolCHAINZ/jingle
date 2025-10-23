@@ -11,6 +11,8 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
+pub type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
+
 #[derive(Clone, Debug, Default)]
 pub struct BackEdges {
     // todo: make generic?
@@ -31,6 +33,12 @@ impl BackEdges {
         from: &ConcretePcodeAddress,
     ) -> Option<HashSet<ConcretePcodeAddress>> {
         self.edges.get(from).cloned()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = BackEdge> {
+        self.edges
+            .iter()
+            .flat_map(|(src, edges)| edges.iter().map(|dst| (*src, *dst)))
     }
 }
 

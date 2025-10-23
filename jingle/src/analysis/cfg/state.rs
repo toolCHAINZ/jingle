@@ -1,11 +1,10 @@
-use std::fmt::Debug;
 use crate::JingleError;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+use std::fmt::Debug;
 use std::hash::Hash;
 use z3::ast::Bool;
-use crate::analysis::unwinding::UnwoundLocation;
 
 pub trait CfgStateModel: Sized {
     fn location_eq(&self, other: &Self) -> Bool;
@@ -30,7 +29,7 @@ impl CfgStateModel for MachineState {
     }
 }
 
-pub trait CfgState: Clone  + Debug + Hash + Eq {
+pub trait CfgState: Clone + Debug + Hash + Eq {
     type Model: CfgStateModel + Clone;
 
     fn fresh(&self, i: &SleighArchInfo) -> Self::Model;

@@ -1,6 +1,7 @@
 use crate::JingleError;
 use crate::analysis::Analysis;
-use crate::analysis::cfg::{CfgState, CfgStateModel, ModelTransition, PcodeCfg};
+use crate::analysis::back_edge::{BackEdge, BackEdgeAnalysis, BackEdges};
+use crate::analysis::cfg::{CfgState, CfgStateModel, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
@@ -15,65 +16,75 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
+use std::iter::empty;
 use z3::ast::Bool;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum UnwoundLocation {
     UnwindError(ConcretePcodeAddress),
-    Location(usize, ConcretePcodeAddress),
+    Location(String, ConcretePcodeAddress),
 }
 
-impl UnwoundLocation {
-    pub fn count(&self) -> Option<usize> {
-        match self {
-            UnwindError(_) => None,
-            Location(c, _) => Some(*c),
-        }
-    }
-}
+impl UnwoundLocation {}
 
 impl LowerHex for UnwoundLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:x}-{}",
-            self.location(),
-            self.count()
-                .map(|a| format!("{:x}", a))
-                .unwrap_or("STOP".to_string())
-        )
+        let tag = match self {
+            UnwoundLocation::UnwindError(_) => "_Stop",
+            UnwoundLocation::Location(a, _) => a.as_str(),
+        };
+        write!(f, "{:x}{}", self.location(), tag)
     }
 }
 
 #[derive(Debug, Clone, Eq)]
 pub struct UnwindingCpaState {
     location: ConcretePcodeAddress,
-    visits: HashMap<ConcretePcodeAddress, usize>,
+    back_edge_visits: HashMap<(ConcretePcodeAddress, ConcretePcodeAddress), usize>,
     max: usize,
 }
 
 impl UnwindingCpaState {
-    pub fn new(location: ConcretePcodeAddress, max: usize) -> Self {
-        let mut s = UnwindingCpaState {
+    pub fn new(location: ConcretePcodeAddress, back_edges: BackEdges, max: usize) -> Self {
+        UnwindingCpaState {
             location,
-            visits: Default::default(),
+            back_edge_visits: back_edges.iter().map(|k| (k, 0)).collect(),
             max,
-        };
-        s.increment_visit_count();
-        s
+        }
     }
 
+    pub fn back_edge_str(&self) -> String {
+        let mut sorted = self
+            .back_edge_visits
+            .clone()
+            .into_iter()
+            .collect::<Vec<(BackEdge, usize)>>();
+        sorted.sort_by(|(a, _), (b, _)| match a.0.cmp(&b.0) {
+            Ordering::Equal => a.1.cmp(&b.1),
+            a => a,
+        });
+        let strs: Vec<_> = sorted.iter().map(|(_, size)| size.to_string()).collect();
+        strs.join("_")
+    }
     pub fn location(&self) -> ConcretePcodeAddress {
         self.location
     }
 
-    pub fn visit_count(&self) -> usize {
-        *self.visits.get(&self.location).unwrap_or(&0)
+    pub fn back_edge_count(&self, be: BackEdge) -> Option<usize> {
+        self.back_edge_visits.get(&be).cloned()
+    }
+    pub fn increment_back_edge_count(&mut self, be: BackEdge) {
+        if let Some(count) = self.back_edge_visits.get_mut(&be) {
+            *count += 1;
+        }
     }
 
-    pub fn increment_visit_count(&mut self) {
-        let new = self.visit_count() + 1;
-        self.visits.insert(self.location, new);
+    pub fn terminated(&self) -> bool {
+        self.back_edge_visits.values().any(|b| b >= &self.max)
+    }
+
+    pub fn same_visit_counts(&self, other: &UnwindingCpaState) -> bool {
+        self.back_edge_visits.eq(&other.back_edge_visits)
     }
 }
 
@@ -84,32 +95,8 @@ impl PartialEq for UnwindingCpaState {
 }
 impl PartialOrd for UnwindingCpaState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.location() == other.location() {
-            if self
-                .visits
-                .iter()
-                .all(|v| other.visits.get(v.0).is_some_and(|c| c == v.1))
-                && other
-                    .visits
-                    .iter()
-                    .all(|v| self.visits.get(v.0).is_some_and(|c| c == v.1))
-            {
-                Some(Ordering::Equal)
-            } else if self
-                .visits
-                .iter()
-                .all(|v| other.visits.get(v.0).is_some_and(|c| c >= v.1))
-            {
-                Some(Ordering::Less)
-            } else if other
-                .visits
-                .iter()
-                .all(|v| self.visits.get(v.0).is_some_and(|c| c >= v.1))
-            {
-                Some(Ordering::Greater)
-            } else {
-                None
-            }
+        if self.location() == other.location() && self.same_visit_counts(other) {
+            Some(Ordering::Equal)
         } else {
             None
         }
@@ -120,14 +107,14 @@ impl PartialJoinSemiLattice for UnwindingCpaState {
     fn partial_join(&self, other: &Self) -> Option<Self> {
         if self.location == other.location {
             let mut visits = HashMap::new();
-            for (addr, count) in self.visits.iter() {
+            for (addr, count) in self.back_edge_visits.iter() {
                 let count = *count;
-                let max: usize = count.max(other.visits.get(addr).cloned().unwrap_or(0));
+                let max: usize = count.max(other.back_edge_visits.get(addr).cloned().unwrap_or(0));
                 visits.insert(*addr, max);
             }
             let s = Self {
                 location: self.location,
-                visits,
+                back_edge_visits: visits,
                 max: self.max,
             };
             Some(s)
@@ -140,8 +127,8 @@ impl PartialJoinSemiLattice for UnwindingCpaState {
 impl JoinSemiLattice for UnwindingCpaState {
     fn join(&mut self, other: &Self) {
         if self.location == other.location {
-            for (addr, count) in self.visits.iter_mut() {
-                let max: usize = other.visits.get(addr).cloned().unwrap_or(0);
+            for (addr, count) in self.back_edge_visits.iter_mut() {
+                let max: usize = other.back_edge_visits.get(addr).cloned().unwrap_or(0);
                 *count = max;
             }
         }
@@ -150,43 +137,23 @@ impl JoinSemiLattice for UnwindingCpaState {
 
 impl AbstractState for UnwindingCpaState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        if self.location == other.location  && self.visit_count() == other.visit_count() {
-            let mut merged = MergeOutcome::NoOp;
-            for (addr, count) in &other.visits {
-                let self_count = self.visits.get(addr).cloned().unwrap_or(0);
-                if count > &self_count {
-                    self.visits.insert(*addr, *count);
-                    merged = MergeOutcome::Merged;
-                }
-            }
-            merged
-        } else {
-            MergeOutcome::NoOp
-        }
+        self.merge_sep(other)
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
         self.stop_sep(states)
     }
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
-        if self.location.machine == 0x1000005f0 {
-            println!("There! {:x}:{:x}", self.location, self.visit_count());
-        }
-        if self.visit_count() > self.max {
-            return std::iter::empty().into();
+        if self.terminated() {
+            return empty().into();
         }
         self.location
             .transfer(opcode.borrow())
             .into_iter()
             .map(|location| {
-                let visits = self.visits.clone();
-                let mut next = Self {
-                    location,
-                    visits,
-                    max: self.max,
-                };
-
-                next.increment_visit_count();
+                let mut next = self.clone();
+                next.location = location;
+                next.increment_back_edge_count((self.location, location));
                 next
             })
             .into()
@@ -207,19 +174,19 @@ impl UnwoundLocation {
         }
     }
 
-    pub fn new(loc: &ConcretePcodeAddress, count: &usize) -> Self {
-        Self::Location(*count, *loc)
+    pub fn new<T: AsRef<str>>(loc: &ConcretePcodeAddress, count: T) -> Self {
+        Self::Location(count.as_ref().into(), *loc)
     }
 
     pub fn is_unwind_error(&self) -> bool {
         matches!(self, UnwindError(_))
     }
 
-    pub fn from_cpa_state(a: &UnwindingCpaState, max: usize) -> Self {
-        if a.visit_count() > max {
+    pub fn from_cpa_state(a: &UnwindingCpaState, _max: usize) -> Self {
+        if a.terminated() {
             UnwindError(a.location())
         } else {
-            Location(a.visit_count(), a.location())
+            Location(a.back_edge_str(), a.location())
         }
     }
 }
@@ -232,8 +199,7 @@ pub struct UnwoundLocationModel {
 
 impl CfgStateModel for UnwoundLocationModel {
     fn location_eq(&self, other: &Self) -> Bool {
-        let pc = self.state.pc().eq(other.state.pc());
-        pc
+        self.state.pc().eq(other.state.pc())
     }
 
     fn mem_eq(&self, other: &Self) -> Bool {
@@ -277,7 +243,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
     fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
         if let SimpleLattice::Value(a) = state {
             let a = UnwoundLocation::from_cpa_state(a, a.max);
-            self.unwound_cfg.add_node(a);
+            self.unwound_cfg.add_node(&a);
             if !a.is_unwind_error() {
                 if let Some(op) = self.source_cfg.get_pcode_op_at(a.location()) {
                     let dest = UnwoundLocation::from_cpa_state(
@@ -353,40 +319,25 @@ impl Analysis for UnwindingAnalysis {
         initial_state: I,
     ) -> Self::Output {
         let addr = initial_state.into();
+        let bes = BackEdgeAnalysis.make_initial_state(addr);
+        let back_edges = BackEdgeAnalysis.run(&store, bes);
         let mut cpa = UnwoundLocationCPA {
             source_cfg: store,
             unwound_cfg: Default::default(),
         };
-        let init_state = UnwindingCpaState::new(addr, self.max);
+        let init_state = UnwindingCpaState::new(addr, dbg!(back_edges), self.max);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
 
         let graph = &mut cpa.unwound_cfg.graph;
         // For each node, process outgoing edges
         for node_idx in graph.node_indices() {
             // Map: location -> (count, edge_id)
-            let mut location_to_edges: HashMap<_, Vec<(usize, petgraph::graph::EdgeIndex)>> =
-                HashMap::new();
+            let mut location_to_edges: HashMap<_, Vec<petgraph::graph::EdgeIndex>> = HashMap::new();
             for edge in graph.edges(node_idx).collect::<Vec<_>>() {
                 let target_idx = edge.target();
                 if let Some(target_node) = graph.node_weight(target_idx) {
-                    let loc = target_node.location().clone();
-                    let count = target_node.count().unwrap_or(0);
-                    location_to_edges
-                        .entry(loc)
-                        .or_default()
-                        .push((count, edge.id()));
-                }
-            }
-            // For each location, keep only the edge with the highest count
-            for (_loc, mut edges) in location_to_edges {
-                if edges.len() <= 1 {
-                    continue;
-                }
-                // Sort by count descending
-                edges.sort_by(|a, b| b.0.cmp(&a.0));
-                // Keep the first (highest count), remove the rest
-                for &(_count, edge_id) in edges.iter().skip(1) {
-                    graph.remove_edge(edge_id);
+                    let loc = *target_node.location();
+                    location_to_edges.entry(loc).or_default().push(edge.id());
                 }
             }
         }

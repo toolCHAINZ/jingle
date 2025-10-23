@@ -4,12 +4,12 @@ use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
-use petgraph::visit::{EdgeRef, NodeRef};
+use petgraph::visit::EdgeRef;
 pub use state::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
-use z3::ast::{Ast, Bool};
+use z3::ast::Bool;
 use z3::{Params, Solver};
 
 mod state;
@@ -53,7 +53,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         &self.graph
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item=&N> {
+    pub fn nodes(&self) -> impl Iterator<Item = &N> {
         self.indices.keys()
     }
 
@@ -90,17 +90,15 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         self.graph.add_edge(from_idx, to_idx, EmptyEdge);
     }
 
-    pub fn leaf_nodes(&self) -> impl Iterator<Item=&N> {
+    pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
         self.graph
             .externals(Direction::Outgoing)
             .map(move |idx| self.graph.node_weight(idx).unwrap())
     }
 
-    pub fn edge_weights(&self) -> impl Iterator<Item=&D> {
+    pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
         self.ops.values()
     }
-
-
 }
 
 impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
@@ -127,33 +125,33 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
             }
         }
 
-        let options = self.graph.edge_indices().map(|edge| {
-            let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
-            let from = self.graph.node_weight(fromidx).unwrap();
-            let to = self.graph.node_weight(toidx).unwrap();
-
-            let from_state_final = post_states.get(from).unwrap();
-            let to_state = states.get(to).expect("To state not found");
-            let loc_eq = from_state_final.location_eq(to_state).simplify();
-            loc_eq.implies(from_state_final.mem_eq(to_state))
-        });
-        for x in options {
-            solver.assert(x);
-        }
+        //let options = self.graph.edge_indices().map(|edge| {
+        //    let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
+        //    let from = self.graph.node_weight(fromidx).unwrap();
+        //    let to = self.graph.node_weight(toidx).unwrap();
+        //
+        //    let from_state_final = post_states.get(from).unwrap();
+        //    let to_state = states.get(to).expect("To state not found");
+        //    let loc_eq = from_state_final.location_eq(to_state).simplify();
+        //    loc_eq.implies(from_state_final.mem_eq(to_state))
+        //});
+        //for x in options {
+        //    solver.assert(x);
+        //}
         for node in self.graph.node_indices() {
             let edges = self.graph.edges_directed(node, Direction::Outgoing);
             let b = edges.map(|e| {
                 let from_weight = self.graph.node_weight(e.source()).unwrap();
+                let op = self.ops.get(from_weight).unwrap();
                 let to_weight = self.graph.node_weight(e.target()).unwrap();
-                let from_state_final = post_states.get(from_weight).unwrap();
+                let from_state_final = op.transition(states.get(from_weight).unwrap()).unwrap();
                 let to_state = states.get(to_weight).unwrap();
-                let loc_eq = from_state_final.location_eq(to_state);
-                loc_eq
+                from_state_final.location_eq(to_state)
             });
             let b = &b.collect::<Vec<_>>();
-            if b.len() > 0 {
+            if !b.is_empty() {
                 let bool = if b.len() > 1 {
-                    Bool::or(&b)
+                    Bool::or(b)
                 } else {
                     b[0].clone()
                 };
@@ -181,7 +179,11 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         // Step 2: Wrap each op in a Vec and add nodes
         for node in self.graph.node_indices() {
             let n = self.graph.node_weight(node).unwrap().clone();
-            let op = self.ops.get(&n).map(|op| vec![op.clone()]).unwrap_or_default();
+            let op = self
+                .ops
+                .get(&n)
+                .map(|op| vec![op.clone()])
+                .unwrap_or_default();
             let idx = graph.add_node(n.clone());
             graph.add_node(n.clone());
             indices.insert(n.clone(), idx);
@@ -203,11 +205,15 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             for node in graph.node_indices() {
                 // Only consider nodes still present
                 let out_edges: Vec<_> = graph.edges_directed(node, Direction::Outgoing).collect();
-                if out_edges.len() != 1 { continue; }
+                if out_edges.len() != 1 {
+                    continue;
+                }
                 let edge = out_edges[0];
                 let target = edge.target();
                 let in_edges: Vec<_> = graph.edges_directed(target, Direction::Incoming).collect();
-                if in_edges.len() != 1 { continue; }
+                if in_edges.len() != 1 {
+                    continue;
+                }
 
                 // Merge target into node
                 let src_n = graph.node_weight(node).unwrap().clone();
@@ -218,7 +224,10 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
                     ops.entry(src_n.clone()).or_default().extend(tgt_ops);
                 }
                 // Redirect outgoing edges of target to source
-                let tgt_out_edges: Vec<_> = graph.edges_directed(target, Direction::Outgoing).map(|e| e.target()).collect();
+                let tgt_out_edges: Vec<_> = graph
+                    .edges_directed(target, Direction::Outgoing)
+                    .map(|e| e.target())
+                    .collect();
                 for tgt_out in tgt_out_edges {
                     graph.add_edge(node, tgt_out, EmptyEdge);
                 }
@@ -235,10 +244,17 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         let mut new_ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
         let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
         // Collect connected nodes
-        let connected_nodes: Vec<_> = graph.node_indices()
+        let connected_nodes: Vec<_> = graph
+            .node_indices()
             .filter(|&node| {
-                graph.edges_directed(node, Direction::Incoming).next().is_some() ||
-                graph.edges_directed(node, Direction::Outgoing).next().is_some()
+                graph
+                    .edges_directed(node, Direction::Incoming)
+                    .next()
+                    .is_some()
+                    || graph
+                        .edges_directed(node, Direction::Outgoing)
+                        .next()
+                        .is_some()
             })
             .collect();
         // Add connected nodes to new graph

@@ -46,7 +46,13 @@ pub trait ConfigurableProgramAnalysis {
     fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State) {}
 
     /// A hook for when two abstract states are merged.
-    fn merged(&mut self, curr_state: &Self::State, _dest_state: &Self::State, _merged_state: &Self::State) {}
+    fn merged(
+        &mut self,
+        _curr_state: &Self::State,
+        _dest_state: &Self::State,
+        _merged_state: &Self::State,
+    ) {
+    }
 
     /// The CPA algorithm. Implementors should not need to customize this function.
     ///
@@ -63,7 +69,7 @@ pub trait ConfigurableProgramAnalysis {
                 self.reduce(&state, &dest_state);
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {
-                        self.merged(&state, &dest_state, &reached_state);
+                        self.merged(&state, &dest_state, reached_state);
                         waitlist.push_back(reached_state.clone());
                     }
                 }
