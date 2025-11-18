@@ -24,7 +24,7 @@ impl LowerHex for EmptyEdge {
 }
 
 #[derive(Debug)]
-pub struct PcodeCfg<N, D> {
+pub struct PcodeCfg<N = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: DiGraph<N, EmptyEdge>,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
