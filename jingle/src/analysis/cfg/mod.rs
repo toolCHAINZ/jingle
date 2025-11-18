@@ -40,7 +40,7 @@ impl<N, D> Default for PcodeCfg<N, D> {
     }
 }
 
-impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
+impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn new() -> Self {
         Self {
             graph: Default::default(),
@@ -101,7 +101,7 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
     }
 }
 
-impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
+impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn test_build<T: Borrow<SleighArchInfo>>(&self, info: T) -> Solver {
         let info = info.borrow();
         let solver = Solver::new();

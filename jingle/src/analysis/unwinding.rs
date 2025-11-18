@@ -202,9 +202,9 @@ impl CfgStateModel for UnwoundLocationModel {
         self.state.pc().eq(other.state.pc())
     }
 
-    fn mem_eq(&self, other: &Self) -> Bool {
+    fn state_eq(&self, other: &Self) -> Bool {
         let unwind = self.is_unwind_error.eq(&other.is_unwind_error);
-        unwind & self.state.mem_eq(&other.state)
+        unwind & self.state.state_eq(&other.state)
     }
 
     fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
