@@ -74,7 +74,7 @@ impl<N: CfgStateModel> ModelTransition<N> for PcodeOperation {
 }
 
 impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
-    fn transition(&self, init: N) -> Result<N, JingleError> {
+    fn transition(&self, init: &N) -> Result<N, JingleError> {
         let mut state = init.clone();
         for op in self {
             state = op.transition(&state)?;

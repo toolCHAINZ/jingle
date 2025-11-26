@@ -5,14 +5,14 @@ use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
 use petgraph::visit::EdgeRef;
-pub use state::{CfgState, CfgStateModel, ModelTransition};
+pub use model::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use z3::ast::Bool;
 use z3::{Params, Solver};
 
-mod state;
+mod model;
 
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
