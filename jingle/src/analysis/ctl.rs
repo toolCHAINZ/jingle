@@ -5,6 +5,7 @@ use std::ops::{BitAnd, BitOr};
 use z3::Solver;
 use z3::ast::{Ast, Bool};
 use z3_sys::AstKind::Quantifier;
+use z3_sys::SortKind::Bool;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CtlQuantifier {
@@ -285,11 +286,10 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
     }
 
     pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
-        match self {
-            CtlFormula::Path(PathFormula{operation: op @ PathOperation::Next(_), quantifier: _}) => {
-                op.check_next_universal(g, solver)
-            }
-            _ => Err(JingleError::EmptyBlock),
-        }
+        let bools : Vec<_> = g.successors().flat_map(|a| {
+            let check = self.check(&a, solver).ok()?;
+            Some(check)
+        }).collect();
+        Ok(Bool::and(&bools))
     }
 }
