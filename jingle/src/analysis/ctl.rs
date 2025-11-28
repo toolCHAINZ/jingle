@@ -1,6 +1,6 @@
-use std::borrow::Borrow;
 use crate::analysis::cfg::{CfgState, ModelTransition, PcodeCfgVisitor};
 use crate::{JingleError, analysis::cfg::PcodeCfg, modeling::machine::MachineState};
+use std::borrow::Borrow;
 use std::ops::{BitAnd, BitOr};
 use z3::Solver;
 use z3::ast::{Ast, Bool};
@@ -36,27 +36,27 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         CtlFormula::Proposition(Box::new(f))
     }
 
-    pub fn negation<T: AsRef<CtlFormula<N,D>>>(a: T) -> Self {
+    pub fn negation<T: AsRef<CtlFormula<N, D>>>(a: T) -> Self {
         CtlFormula::Negation(Box::new(a.as_ref().clone()))
     }
 
-    pub fn conjunction<T: AsRef<CtlFormula<N,D>>, U: AsRef<CtlFormula<N,D>>>(a: T, b: U) -> Self {
+    pub fn conjunction<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
         CtlFormula::Conjunction(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
     }
 
-    pub fn disjunction<T: AsRef<CtlFormula<N,D>>, U: AsRef<CtlFormula<N,D>>>(a: T, b: U) -> Self {
+    pub fn disjunction<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
         CtlFormula::Disjunction(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
     }
 
-    pub fn implies<T: AsRef<CtlFormula<N,D>>, U: AsRef<CtlFormula<N,D>>>(a: T, b: U) -> Self {
+    pub fn implies<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
         CtlFormula::Implies(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
     }
 
-    pub fn iff<T: AsRef<CtlFormula<N,D>>, U: AsRef<CtlFormula<N,D>>>(a: T, b: U) -> Self {
+    pub fn iff<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
         CtlFormula::Iff(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
     }
 
-    pub fn path<T: Borrow<PathOperation<N,D>>>(quantifier: CtlQuantifier, pf: T) -> Self {
+    pub fn path<T: Borrow<PathOperation<N, D>>>(quantifier: CtlQuantifier, pf: T) -> Self {
         CtlFormula::Path(PathFormula {
             quantifier,
             operation: pf.borrow().clone(),
@@ -65,22 +65,48 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
 }
 
 macro_rules! ctl {
-    (bot) => {CtlFormula::Bottom};
-    (top) => {CtlFormula::Top};
-    (prop $f:expr) => {CtlFormula::proposition($f)};
-    (not $a:expr) => {CtlFormula::negation($a)};
-    ($a:tt ^ $b:tt) => {CtlFormula::conjunction($a, $b)};
-    ($a:tt v $b:tt) => {CtlFormula::disjunction($a, $b)};
-    (implies $a:expr, $b:expr) => {CtlFormula::implies($a, $b)};
-    (iff $a:expr, $b:expr) => {CtlFormula::iff($a, $b)};
-    (AX $a:tt) => {CtlFormula::path(CtlQuantifier::Universal, PathOperation::next($a))};
-    (EX $a:tt) => {CtlFormula::path(CtlQuantifier::Existential, PathOperation::next($a))};
-    (AF $a:tt) => {CtlFormula::path(CtlQuantifier::Universal, PathOperation::eventually($a))};
-    (EF $a:tt) => {CtlFormula::path(CtlQuantifier::Existential, PathOperation::eventually($a))};
-    (AG $a:tt) => {CtlFormula::path(CtlQuantifier::Universal, PathOperation::always($a))};
-    (EG $a:tt) => {CtlFormula::path(CtlQuantifier::Existential, PathOperation::always($a))};
-    (A [ $a:tt U $b:tt ]) => {CtlFormula::path(CtlQuantifier::Universal, PathOperation::until($a, $b))};
-    (E [ $a:tt U $b:tt ]) => {CtlFormula::path(CtlQuantifier::Existential, PathOperation::until($a, $b))};
+    (!$a:expr) => {
+        CtlFormula::negation($ctl!($a))
+    };
+    (($a:tt ^ $b:tt)) => {
+        CtlFormula::conjunction(ctl!($a), ctl!($b))
+    };
+    (($a:tt v $b:tt)) => {
+        CtlFormula::disjunction(ctl!($a), ctl!($b))
+    };
+    (($a:tt => $b:tt)) => {
+        CtlFormula::implies(ctl!($a), ctl!($b))
+    };
+    (($a:tt <=> $b:tt)) => {
+        CtlFormula::iff(ctl!($a), ctl!($b))
+    };
+    ((AX $a:tt)) => {
+        CtlFormula::path(CtlQuantifier::Universal, PathOperation::next(ctl!($a)))
+    };
+    ((EX $a:tt)) => {
+        CtlFormula::path(CtlQuantifier::Existential, PathOperation::next(ctl!($a)))
+    };
+    ((AF $a:tt)) => {
+        CtlFormula::path(CtlQuantifier::Universal, PathOperation::eventually(ctl!($a)))
+    };
+    ((EF $a:tt)) => {
+        CtlFormula::path(CtlQuantifier::Existential, PathOperation::eventually(ctl!($a)))
+    };
+    ((AG $a:tt)) => {
+        CtlFormula::path(CtlQuantifier::Universal, PathOperation::always(ctl!($a)))
+    };
+    (EG $a:tt) => {
+        CtlFormula::path(CtlQuantifier::Existential, PathOperation::always(ctl!($a)))
+    };
+    (A [ $a:tt U $b:tt ]) => {
+        CtlFormula::path(CtlQuantifier::Universal, PathOperation::until(ctl!($a), ctl!($b)))
+    };
+    (E [ $a:tt U $b:tt ]) => {
+        CtlFormula::path(CtlQuantifier::Existential, PathOperation::until(ctl!($a), ctl!($b)))
+    };
+    ($f: expr) => {
+        $f
+    };
 }
 
 #[derive(Debug, Clone)]
@@ -90,20 +116,12 @@ pub struct PathFormula<N: CfgState, D: ModelTransition<N::Model>> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PathFormula<N, D> {
-    fn unfold(&self) -> (CtlFormula<N, D>, CtlFormula<N, D>) {
-        match (self.quantifier, self.operation) {
+    fn rewrite(&self) -> CtlFormula<N, D> {
+        match (self.quantifier, self.operation.clone()) {
             (CtlQuantifier::Universal, PathOperation::Always(phi)) => {
-                let a = ctl!( (prop phi.as_ref().clone()) ^ (AX ctl!(AG phi)) );
-                (phi.as_ref().clone(), ctl!(AX phi))
+                ctl!((phi.clone()) ^ (AX (AX phi)))
             }
-            (CtlQuantifier::Existential, PathOperation::Always(phi)) => {
-                (phi.as_ref().clone(), ctl!(EX phi))
-            }
-            (CtlQuantifier::Universal, PathOperation::Eventually(phi)) => {}
-            (CtlQuantifier::Existential, PathOperation::Eventually(phi)) => {}
-            (CtlQuantifier::Universal, PathOperation::Until(first,second)) -> {}
-            (CtlQuantifier::Existential, PathOperation::Until(first,second)) -> {}
-
+            _ => todo!(),
         }
     }
 }
@@ -117,19 +135,19 @@ pub enum PathOperation<N: CfgState, D: ModelTransition<N::Model>> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PathOperation<N, D> {
-    pub fn next<T: AsRef<CtlFormula<N,D>>>(f: T) -> Self {
-        PathOperation::Next(Box::new(f.as_ref().clone()))
+    pub fn next<T: Borrow<CtlFormula<N, D>>>(f: T) -> Self {
+        PathOperation::Next(Box::new(f.borrow().clone()))
     }
 
-    pub fn eventually<T: AsRef<CtlFormula<N,D>>>(f: T) -> Self {
+    pub fn eventually<T: AsRef<CtlFormula<N, D>>>(f: T) -> Self {
         PathOperation::Eventually(Box::new(f.as_ref().clone()))
     }
 
-    pub fn always<T: AsRef<CtlFormula<N,D>>>(f: T) -> Self {
+    pub fn always<T: AsRef<CtlFormula<N, D>>>(f: T) -> Self {
         PathOperation::Always(Box::new(f.as_ref().clone()))
     }
 
-    pub fn until<T: AsRef<CtlFormula<N,D>>, U: AsRef<CtlFormula<N,D>>>(a: T, b: U) -> Self {
+    pub fn until<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
         PathOperation::Until(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
     }
 }
@@ -164,17 +182,17 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 let right = r.check(g, solver)?;
                 left.eq(&right)
             }
-            CtlFormula::Path {
-                quantifier,
-                path_formula,
-            } => match quantifier {
-                CtlQuantifier::Existential => path_formula.check_exists(g, solver)?,
-                CtlQuantifier::Universal => path_formula.check_forall(g, solver)?,
-            },
+            CtlFormula::Path(path_formula) => {
+                // Use path_formula.quantifier and path_formula.operation
+                match path_formula.quantifier {
+                    CtlQuantifier::Existential => path_formula.operation.check_exists(g, solver)?,
+                    CtlQuantifier::Universal => path_formula.operation.check_forall(g, solver)?,
+                }
+            }
         };
         let id = g.location().model_id();
         let track = Bool::fresh_const(&id);
-        solver.assert_and_track(val, &track);
+        solver.assert_and_track(val.clone(), &track);
         Ok(val.simplify())
     }
 }
@@ -203,5 +221,13 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PathOperation<N, D> {
             PathOperation::Always(_) => {}
             PathOperation::Until(_, _) => {}
         };
+    }
+    fn check_forall(
+        &self,
+        g: &PcodeCfgVisitor<N, D>,
+        solver: &Solver,
+    ) -> Result<Bool, JingleError> {
+        // Placeholder for universal path checking
+        Err(JingleError::EmptyBlock)
     }
 }
