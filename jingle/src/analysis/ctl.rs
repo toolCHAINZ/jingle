@@ -272,7 +272,16 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
     }
 
     pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
-        g.successors().flat_map(|a| )
+        let bools : Vec<_> = g.successors().flat_map(|a| {
+            let check = self.check(&a, solver).ok()?;
+            let simp = check.simplify();
+            if matches!(simp.as_bool(), Some(false)){
+                None
+            } else {
+                Some(simp)
+            }
+        }).collect();
+        Ok(Bool::or(&bools))
     }
 
     pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {

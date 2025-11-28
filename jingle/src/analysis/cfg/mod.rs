@@ -52,8 +52,11 @@ pub struct PcodeCfgVisitor<'a, N: CfgState, D>{
 }
 
 impl<'a, N: CfgState, D:  ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D>{
-    pub(crate) fn successors(&self) -> impl Iterator<Item=&N>{
-        self.cfg.successors(&self.location).into_iter().flatten()
+    pub(crate) fn successors(&self) -> impl Iterator<Item=Self>{
+        self.cfg.successors(&self.location).into_iter().flatten().map(|n|Self{
+            cfg: self.cfg,
+            location: n.clone()
+        })
     }
 
     pub(crate) fn transition(&self) -> Option<&D>{
