@@ -49,6 +49,8 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
 
     /// Produces a model
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model;
+
+    fn model_id(&self) -> String;
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -64,6 +66,10 @@ impl CfgState for ConcretePcodeAddress {
 
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
         MachineState::fresh_for_address(i, *self)
+    }
+
+    fn model_id(&self) -> String {
+        format!("State_PC_{:x}_{:x}", self.machine, self.pcode)
     }
 }
 

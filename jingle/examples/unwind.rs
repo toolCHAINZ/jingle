@@ -35,14 +35,14 @@ fn main() {
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
     println!("{:x?}", leaf);
-    let arch_info = loaded.arch_info();
-    let solver = pcode_graph.test_build(arch_info);
-    let mut params = Params::new();
-    params.set_bool("trace", true);
-    solver.set_params(&params);
-    fs::write("test.smt", pcode_graph.test_build(arch_info).to_string());
-    let t = Instant::now();
-    dbg!(solver.check());
-    dbg!(solver.get_unsat_core());
-    println!("took {:?}", t.elapsed());
+    //let arch_info = loaded.arch_info();
+    //let solver = pcode_graph.test_build(arch_info);
+    //let mut params = Params::new();
+    //params.set_bool("trace", true);
+    //solver.set_params(&params);
+    //fs::write("test.smt", pcode_graph.test_build(arch_info).to_string());
+    //let t = Instant::now();
+    //dbg!(solver.check());
+    //dbg!(solver.get_unsat_core());
+    //println!("took {:?}", t.elapsed());
 }

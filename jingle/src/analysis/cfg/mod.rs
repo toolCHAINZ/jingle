@@ -11,6 +11,9 @@ use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use z3::ast::Bool;
 use z3::{Params, Solver};
+use crate::analysis::ctl::CtlFormula;
+use crate::analysis::unwinding::{UnwoundLocation, UnwoundLocationModel};
+use crate::JingleError;
 
 mod model;
 
@@ -23,13 +26,48 @@ impl LowerHex for EmptyEdge {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: DiGraph<N, EmptyEdge>,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
     pub(crate) models: HashMap<N, N::Model>,
 }
+
+impl<N: CfgState,D> Default for PcodeCfg<N, D>{
+    fn default() -> Self {
+        Self{
+            graph: Default::default(),
+            ops: Default::default(),
+            indices: Default::default(),
+            models: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PcodeCfgVisitor<'a, N: CfgState, D>{
+    cfg: &'a PcodeCfg<N,D>,
+    location: N
+}
+
+impl<'a, N: CfgState, D:  ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D>{
+    pub(crate) fn successors(&self) -> impl Iterator<Item=&N>{
+        self.cfg.successors(&self.location).into_iter().flatten()
+    }
+
+    pub(crate) fn transition(&self) -> Option<&D>{
+        self.cfg.ops.get(&self.location)
+    }
+
+    pub(crate) fn location(&self) -> &N{
+        &self.location
+    }
+    pub(crate) fn state(&self) -> Option<&N::Model>{
+        self.cfg.models.get(&self.location)
+    }
+}
+
 
 pub struct PcodeCfgView<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     /// Borrowed reference to the original CFG (zero-copy view)
@@ -187,67 +225,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 }
 
-impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
-    pub fn test_build<T: Borrow<SleighArchInfo>>(&self, info: T) -> Solver {
-        let info = info.borrow();
-        let solver = Solver::new();
-        let mut params = Params::new();
-        params.set_bool("smt.array.extensional", false);
-        solver.set_params(&params);
-        let mut states = HashMap::new();
-        let mut post_states = HashMap::new();
-        for (addr, idx) in &self.indices {
-            let s = addr.fresh_model(info);
-            states.insert(addr, s.clone());
-            if self
-                .graph
-                .edges_directed(*idx, Direction::Outgoing)
-                .next()
-                .is_some()
-            {
-                let op = &self.ops[addr];
-                let f = op.transition(&s).unwrap();
-                post_states.insert(addr, f);
-            }
-        }
-
-        //let options = self.graph.edge_indices().map(|edge| {
-        //    let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
-        //    let from = self.graph.node_weight(fromidx).unwrap();
-        //    let to = self.graph.node_weight(toidx).unwrap();
-        //
-        //    let from_state_final = post_states.get(from).unwrap();
-        //    let to_state = states.get(to).expect("To state not found");
-        //    let loc_eq = from_state_final.location_eq(to_state).simplify();
-        //    loc_eq.implies(from_state_final.mem_eq(to_state))
-        //});
-        //for x in options {
-        //    solver.assert(x);
-        //}
-        for node in self.graph.node_indices() {
-            let edges = self.graph.edges_directed(node, Direction::Outgoing);
-            let b = edges.map(|e| {
-                let from_weight = self.graph.node_weight(e.source()).unwrap();
-                let op = self.ops.get(from_weight).unwrap();
-                let to_weight = self.graph.node_weight(e.target()).unwrap();
-                let from_state_final = op.transition(states.get(from_weight).unwrap()).unwrap();
-                let to_state = states.get(to_weight).unwrap();
-                from_state_final.location_eq(to_state)
-            });
-            let b = &b.collect::<Vec<_>>();
-            if !b.is_empty() {
-                let bool = if b.len() > 1 {
-                    Bool::or(b)
-                } else {
-                    b[0].clone()
-                };
-                solver.assert(&bool);
-            }
-        }
-        solver
-    }
-}
-
 impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
         let addr = *addr.borrow();
@@ -368,6 +345,15 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             graph: new_graph,
             ops: new_ops,
             indices: new_indices,
+            models: self.models.clone() // todo: just include the ones that remain
         }
+    }
+}
+
+type UnwoundPCodeCfgView<'a, D> = PcodeCfgView<'a, UnwoundLocation, D>;
+
+impl<'a, D: ModelTransition<UnwoundLocationModel>> UnwoundPCodeCfgView<'a, D>{
+    pub fn check_model(&self, location: UnwoundLocation, ctl_model: CtlFormula) -> Result<Bool, JingleError>{
+        self.
     }
 }

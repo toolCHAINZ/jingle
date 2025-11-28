@@ -215,18 +215,18 @@ impl CfgStateModel for UnwoundLocationModel {
     }
 }
 impl CfgState for UnwoundLocation {
-    type Model = UnwoundLocationModel;
+    type Model = MachineState;
 
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
         let state = MachineState::fresh(i);
-        UnwoundLocationModel {
-            state,
-            is_unwind_error: Bool::from_bool(self.is_unwind_error()),
-        }
+       state
+    }
+    fn model_id(&self) -> String {
+        format!("{:x}", self)
     }
 }
 
-pub type UnwoundCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
+pub type UnwoundPcodeCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
 
 struct UnwoundLocationCPA<T: PcodeStore> {
     source_cfg: T,
