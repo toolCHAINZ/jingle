@@ -165,8 +165,15 @@ pub struct PathFormula<N: CfgState, D: ModelTransition<N::Model>> {
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PathFormula<N, D> {
     /// Rewrites certain CTL formulas into equivalent forms
+
     /// For example, A G φ can be rewritten as φ ∧ A X A G φ
     /// This is used to break down formulas when model checking
+    ///
+    /// After using this, resulting formulas will have a new term (what was inside the path operation)
+    /// to evaluate on the current state a logical connective, and a path operator to apply to successors
+    ///
+    /// This allows for recursively unwinding CTL formulae over the CFG until there are no more successors
+    /// (at which point the residual path operator is a no-op).
     fn rewrite(&self) -> CtlFormula<N, D> {
         match (self.quantifier, self.operation.clone()) {
             (CtlQuantifier::Universal, PathOperation::Always(phi)) => phi.and(AX(AG(phi.as_ref()))),
@@ -185,7 +192,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PathFormula<N, D> {
             (CtlQuantifier::Existential, PathOperation::Until(phi, psi)) => {
                 psi.or(phi.and(EX(EU(phi.as_ref(), psi.as_ref()))))
             }
-            _ => todo!(),
+            _ => CtlFormula::Path(self.clone()),
         }
     }
 }
@@ -245,13 +252,17 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 let left = l.check(g, solver)?;
                 let right = r.check(g, solver)?;
                 left.eq(&right)
+            } CtlFormula::Path(PathFormula{operation: op @ PathOperation::Next(inner), quantifier })  => {
+                match quantifier {
+                    CtlQuantifier::Existential => inner.check_next_exists(g, solver)?,
+                    CtlQuantifier::Universal => inner.check_next_universal(g, solver)?,
+                }
             }
             CtlFormula::Path(path_formula) => {
-                // Use path_formula.quantifier and path_formula.operation
-                match path_formula.quantifier {
-                    CtlQuantifier::Existential => path_formula.operation.check_exists(g, solver)?,
-                    CtlQuantifier::Universal => path_formula.operation.check_forall(g, solver)?,
-                }
+                // rewritten formula guaranteed to only have state assertions
+                // and next operations
+                let rewrite = path_formula.rewrite();
+                rewrite.check(g, solver)?
             }
         };
         let id = g.location().model_id();
@@ -259,39 +270,17 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         solver.assert_and_track(val.clone(), &track);
         Ok(val.simplify())
     }
-}
 
-impl<N: CfgState, D: ModelTransition<N::Model>> PathOperation<N, D> {
-    fn check_exists(
-        &self,
-        g: &PcodeCfgVisitor<N, D>,
-        solver: &Solver,
-    ) -> Result<Bool, JingleError> {
-        let bools: Vec<_> = match self {
-            PathOperation::Next(formula) => g
-                .successors()
-                .map(|n| formula.check(g))
-                .flat_map(|o| o.ok())
-                .flat_map(|b| {
-                    let simp = b.simplify();
-                    if simp.as_bool() == Some(false) {
-                        None
-                    } else {
-                        Some(b)
-                    }
-                })
-                .collect(),
-            PathOperation::Eventually(_) => {}
-            PathOperation::Always(_) => {}
-            PathOperation::Until(_, _) => {}
-        };
+    pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
+        g.successors().flat_map(|a| )
     }
-    fn check_forall(
-        &self,
-        g: &PcodeCfgVisitor<N, D>,
-        solver: &Solver,
-    ) -> Result<Bool, JingleError> {
-        // Placeholder for universal path checking
-        Err(JingleError::EmptyBlock)
+
+    pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
+        match self {
+            CtlFormula::Path(PathFormula{operation: op @ PathOperation::Next(_), quantifier: _}) => {
+                op.check_next_universal(g, solver)
+            }
+            _ => Err(JingleError::EmptyBlock),
+        }
     }
 }
