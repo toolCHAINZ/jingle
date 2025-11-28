@@ -25,19 +25,19 @@ pub enum CtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
     Path(PathFormula<N, D>),
 }
 
-impl<N: CfgState,D: ModelTransition<<N as CfgState>::Model>> BitAnd for CtlFormula<N,D>{
+impl<N: CfgState, D: ModelTransition<<N as CfgState>::Model>> BitAnd for CtlFormula<N, D> {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        CtlFormula::conjunction(&self, &rhs)
+        self.and(rhs)
     }
 }
 
-impl<N: CfgState,D: ModelTransition<<N as CfgState>::Model>> BitOr for CtlFormula<N,D>{
+impl<N: CfgState, D: ModelTransition<<N as CfgState>::Model>> BitOr for CtlFormula<N, D> {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        CtlFormula::disjunction(&self, &rhs)
+        self.or(rhs)
     }
 }
 
@@ -56,20 +56,20 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         CtlFormula::Negation(Box::new(a.as_ref().clone()))
     }
 
-    pub fn conjunction<T: Borrow<CtlFormula<N, D>>, U: Borrow<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        CtlFormula::Conjunction(Box::new(a.borrow().clone()), Box::new(b.borrow().clone()))
+    pub fn and<U: Borrow<CtlFormula<N, D>>>(&self, b: U) -> Self {
+        CtlFormula::Conjunction(Box::new(self.clone()), Box::new(b.borrow().clone()))
     }
 
-    pub fn disjunction<T: Borrow<CtlFormula<N, D>>, U: Borrow<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        CtlFormula::Disjunction(Box::new(a.borrow().clone()), Box::new(b.borrow().clone()))
+    pub fn or<U: Borrow<CtlFormula<N, D>>>(&self, b: U) -> Self {
+        CtlFormula::Disjunction(Box::new(self.clone()), Box::new(b.borrow().clone()))
     }
 
-    pub fn implies<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        CtlFormula::Implies(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
+    pub fn implies<U: AsRef<CtlFormula<N, D>>>(&self, b: U) -> Self {
+        CtlFormula::Implies(Box::new(self.clone()), Box::new(b.as_ref().clone()))
     }
 
-    pub fn iff<T: AsRef<CtlFormula<N, D>>, U: AsRef<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        CtlFormula::Iff(Box::new(a.as_ref().clone()), Box::new(b.as_ref().clone()))
+    pub fn iff<U: AsRef<CtlFormula<N, D>>>(&self, b: U) -> Self {
+        CtlFormula::Iff(Box::new(self.clone()), Box::new(b.as_ref().clone()))
     }
 
     pub fn path<T: Borrow<PathOperation<N, D>>>(quantifier: CtlQuantifier, pf: T) -> Self {
@@ -78,44 +78,83 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             operation: pf.borrow().clone(),
         })
     }
+}
 
-    pub fn AX<T: Borrow<CtlFormula<N, D>>>(a: T) -> Self {
-        Self::path(CtlQuantifier::Universal, PathOperation::next(a))
-    }
-
-    pub fn EX<T: Borrow<CtlFormula<N, D>>>(a: T) -> Self {
-        Self::path(CtlQuantifier::Existential, PathOperation::next(a))
-    }
-
-    pub fn AF<T: Borrow<CtlFormula<N, D>>>(a: T) -> Self {
-        Self::path(CtlQuantifier::Universal, PathOperation::eventually(a))
-    }
-
-    pub fn EF<T: Borrow<CtlFormula<N, D>>>(a: T) -> Self {
-        Self::path(CtlQuantifier::Existential, PathOperation::eventually(a))
-    }
-
-    pub fn AG<T: Borrow<CtlFormula<N, D>>>(a: T) -> Self {
-        Self::path(CtlQuantifier::Universal, PathOperation::always(a))
-    }
-
-    pub fn EG<T: Borrow<CtlFormula<N, D>>>(a: T) -> Self {
-        Self::path(CtlQuantifier::Existential, PathOperation::always(a))
-    }
-
-    pub fn AU<T: Borrow<CtlFormula<N, D>>, U: Borrow<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        Self::path(
-            CtlQuantifier::Universal,
-            PathOperation::until(a, b),
-        )
-    }
-
-    pub fn EU<T: Borrow<CtlFormula<N, D>>, U: Borrow<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        Self::path(
-            CtlQuantifier::Existential,
-            PathOperation::until(a, b),
-        )
-    }
+pub fn AX<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
+    a: R,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Universal,
+        PathOperation::next(a.borrow().clone()),
+    )
+}
+pub fn EX<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
+    a: R,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Existential,
+        PathOperation::next(a.borrow().clone()),
+    )
+}
+pub fn AF<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
+    a: R,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Universal,
+        PathOperation::eventually(a.borrow().clone()),
+    )
+}
+pub fn EF<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
+    a: R,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Existential,
+        PathOperation::eventually(a.borrow().clone()),
+    )
+}
+pub fn AG<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
+    a: R,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Universal,
+        PathOperation::always(a.borrow().clone()),
+    )
+}
+pub fn EG<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
+    a: R,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Existential,
+        PathOperation::always(a.borrow().clone()),
+    )
+}
+pub fn AU<
+    N: CfgState,
+    D: ModelTransition<N::Model>,
+    RA: Borrow<CtlFormula<N, D>>,
+    RB: Borrow<CtlFormula<N, D>>,
+>(
+    a: RA,
+    b: RB,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Universal,
+        PathOperation::until(a.borrow().clone(), b.borrow().clone()),
+    )
+}
+pub fn EU<
+    N: CfgState,
+    D: ModelTransition<N::Model>,
+    RA: Borrow<CtlFormula<N, D>>,
+    RB: Borrow<CtlFormula<N, D>>,
+>(
+    a: RA,
+    b: RB,
+) -> CtlFormula<N, D> {
+    CtlFormula::path(
+        CtlQuantifier::Existential,
+        PathOperation::until(a.borrow().clone(), b.borrow().clone()),
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -125,10 +164,26 @@ pub struct PathFormula<N: CfgState, D: ModelTransition<N::Model>> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PathFormula<N, D> {
+    /// Rewrites certain CTL formulas into equivalent forms
+    /// For example, A G φ can be rewritten as φ ∧ A X A G φ
+    /// This is used to break down formulas when model checking
     fn rewrite(&self) -> CtlFormula<N, D> {
         match (self.quantifier, self.operation.clone()) {
-            (CtlQuantifier::Universal, PathOperation::Always(phi)) => {
-                phi ^ AX(AG(phi))
+            (CtlQuantifier::Universal, PathOperation::Always(phi)) => phi.and(AX(AG(phi.as_ref()))),
+            (CtlQuantifier::Existential, PathOperation::Always(phi)) => {
+                phi.and(EX(EG(phi.as_ref())))
+            }
+            (CtlQuantifier::Universal, PathOperation::Eventually(phi)) => {
+                phi.or(AX(AF(phi.as_ref())))
+            }
+            (CtlQuantifier::Existential, PathOperation::Eventually(phi)) => {
+                phi.or(EX(EF(phi.as_ref())))
+            }
+            (CtlQuantifier::Universal, PathOperation::Until(phi, psi)) => {
+                psi.or(phi.and(AX(AU(phi.as_ref(), psi.as_ref()))))
+            }
+            (CtlQuantifier::Existential, PathOperation::Until(phi, psi)) => {
+                psi.or(phi.and(EX(EU(phi.as_ref(), psi.as_ref()))))
             }
             _ => todo!(),
         }
