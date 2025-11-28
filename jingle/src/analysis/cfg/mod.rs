@@ -1,11 +1,11 @@
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+pub use model::{CfgState, CfgStateModel, ModelTransition};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
 use petgraph::visit::EdgeRef;
-pub use model::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
@@ -23,30 +23,71 @@ impl LowerHex for EmptyEdge {
     }
 }
 
-#[derive(Debug)]
-pub struct PcodeCfg<N = ConcretePcodeAddress, D = PcodeOperation> {
+#[derive(Debug, Default)]
+pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: DiGraph<N, EmptyEdge>,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
+    pub(crate) models: HashMap<N, N::Model>,
 }
 
-impl<N, D> Default for PcodeCfg<N, D> {
-    fn default() -> Self {
-        Self {
-            graph: Default::default(),
-            ops: Default::default(),
-            indices: Default::default(),
+pub struct PcodeCfgView<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
+    /// Borrowed reference to the original CFG (zero-copy view)
+    pub cfg: &'a PcodeCfg<N, D>,
+    /// The node index that is the entry/origin for this view
+    pub origin: NodeIndex,
+    /// Set of node indices reachable from `origin` (inclusive)
+    pub nodes: std::collections::HashSet<NodeIndex>,
+}
+
+impl<'a, N: CfgState, D> PcodeCfgView<'a, N, D> {
+    /// Returns a reference to the origin node's weight
+    pub fn origin_node(&self) -> &N {
+        self.cfg
+            .graph
+            .node_weight(self.origin)
+            .expect("origin node index should be valid")
+    }
+
+    /// Returns the nodes included in this view as a Vec of references into the backing CFG
+    pub fn nodes(&self) -> Vec<&N> {
+        self.nodes
+            .iter()
+            .map(|idx| self.cfg.graph.node_weight(*idx).unwrap())
+            .collect()
+    }
+
+    /// Get successors of a node within this view (only those that are part of the view's reachable set)
+    pub fn successors_of(&self, node: &N) -> Option<Vec<&N>>
+    where
+        N: std::hash::Hash + Eq,
+    {
+        let idx = self.cfg.indices.get(node)?;
+        if !self.nodes.contains(idx) {
+            return None;
         }
+        let succs: Vec<&N> = self
+            .cfg
+            .graph
+            .edges_directed(*idx, Direction::Outgoing)
+            .filter_map(|e| {
+                let w = self.cfg.graph.node_weight(e.target()).unwrap();
+                // only include successors inside the view
+                let tidx = self.cfg.indices.get(w).unwrap();
+                if self.nodes.contains(tidx) {
+                    Some(w)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Some(succs)
     }
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn new() -> Self {
-        Self {
-            graph: Default::default(),
-            ops: Default::default(),
-            indices: Default::default(),
-        }
+        Self::default()
     }
 
     pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
@@ -55,6 +96,11 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
 
     pub fn nodes(&self) -> impl Iterator<Item = &N> {
         self.indices.keys()
+    }
+
+    /// Check whether the CFG contains a node (by value)
+    pub fn has_node<T: Borrow<N>>(&self, node: T) -> bool {
+        self.indices.contains_key(node.borrow())
     }
 
     pub fn get_op_at<T: Borrow<N>>(&self, addr: T) -> Option<&D> {
@@ -90,6 +136,19 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.graph.add_edge(from_idx, to_idx, EmptyEdge);
     }
 
+    /// Return successors of a node (by value) as references into the backing CFG.
+    /// Returns `None` if the node is not present in the CFG.
+    pub fn successors<T: Borrow<N>>(&self, node: T) -> Option<Vec<&N>> {
+        let n = node.borrow();
+        let idx = *self.indices.get(n)?;
+        let succs: Vec<&N> = self
+            .graph
+            .edges_directed(idx, Direction::Outgoing)
+            .map(|e| self.graph.node_weight(e.target()).unwrap())
+            .collect();
+        Some(succs)
+    }
+
     pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
         self.graph
             .externals(Direction::Outgoing)
@@ -98,6 +157,33 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
 
     pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
         self.ops.values()
+    }
+
+    /// Create a zero-copy view into this CFG starting from `origin`.
+    /// The view contains all nodes reachable from `origin` (including `origin`).
+    /// Returns `None` if `origin` is not in the CFG.
+    pub fn view_from<T: Borrow<N>>(&self, origin: T) -> Option<PcodeCfgView<'_, N, D>>
+    where
+        N: std::hash::Hash + Eq,
+    {
+        let origin_key = origin.borrow();
+        let &origin_idx = self.indices.get(origin_key)?;
+        // Simple DFS/BFS to collect reachable nodes
+        let mut stack = vec![origin_idx];
+        let mut visited: std::collections::HashSet<NodeIndex> = std::collections::HashSet::new();
+        while let Some(idx) = stack.pop() {
+            if !visited.insert(idx) {
+                continue;
+            }
+            for e in self.graph.edges_directed(idx, Direction::Outgoing) {
+                stack.push(e.target());
+            }
+        }
+        Some(PcodeCfgView {
+            cfg: self,
+            origin: origin_idx,
+            nodes: visited,
+        })
     }
 }
 
@@ -111,7 +197,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         let mut states = HashMap::new();
         let mut post_states = HashMap::new();
         for (addr, idx) in &self.indices {
-            let s = addr.fresh(info);
+            let s = addr.fresh_model(info);
             states.insert(addr, s.clone());
             if self
                 .graph

@@ -217,7 +217,7 @@ impl CfgStateModel for UnwoundLocationModel {
 impl CfgState for UnwoundLocation {
     type Model = UnwoundLocationModel;
 
-    fn fresh(&self, i: &SleighArchInfo) -> Self::Model {
+    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
         let state = MachineState::fresh(i);
         UnwoundLocationModel {
             state,

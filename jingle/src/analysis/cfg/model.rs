@@ -48,7 +48,7 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
     type Model: CfgStateModel + Clone;
 
     /// Produces a model
-    fn fresh(&self, i: &SleighArchInfo) -> Self::Model;
+    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model;
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -62,7 +62,7 @@ pub trait ModelTransition<S: CfgStateModel>: Clone {
 impl CfgState for ConcretePcodeAddress {
     type Model = MachineState;
 
-    fn fresh(&self, i: &SleighArchInfo) -> Self::Model {
+    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
         MachineState::fresh_for_address(i, *self)
     }
 }
