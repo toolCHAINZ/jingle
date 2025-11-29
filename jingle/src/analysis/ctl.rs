@@ -13,7 +13,7 @@ pub enum CtlQuantifier {
     Universal,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum CtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
     Bottom,
     Top,
@@ -253,12 +253,14 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 let left = l.check(g, solver)?;
                 let right = r.check(g, solver)?;
                 left.eq(&right)
-            } CtlFormula::Path(PathFormula{operation: op @ PathOperation::Next(inner), quantifier })  => {
-                match quantifier {
-                    CtlQuantifier::Existential => inner.check_next_exists(g, solver)?,
-                    CtlQuantifier::Universal => inner.check_next_universal(g, solver)?,
-                }
             }
+            CtlFormula::Path(PathFormula {
+                operation: PathOperation::Next(inner),
+                quantifier,
+            }) => match quantifier {
+                CtlQuantifier::Existential => inner.check_next_exists(g, solver)?,
+                CtlQuantifier::Universal => inner.check_next_universal(g, solver)?,
+            },
             CtlFormula::Path(path_formula) => {
                 // rewritten formula guaranteed to only have state assertions
                 // and next operations
@@ -272,24 +274,38 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         Ok(val.simplify())
     }
 
-    pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
-        let bools : Vec<_> = g.successors().flat_map(|a| {
-            let check = self.check(&a, solver).ok()?;
-            let simp = check.simplify();
-            if matches!(simp.as_bool(), Some(false)){
-                None
-            } else {
-                Some(simp)
-            }
-        }).collect();
+    pub(crate) fn check_next_exists(
+        &self,
+        g: &PcodeCfgVisitor<N, D>,
+        solver: &Solver,
+    ) -> Result<Bool, JingleError> {
+        let bools: Vec<_> = g
+            .successors()
+            .flat_map(|a| {
+                let check = self.check(&a, solver).ok()?;
+                let simp = check.simplify();
+                if matches!(simp.as_bool(), Some(false)) {
+                    None
+                } else {
+                    Some(simp)
+                }
+            })
+            .collect();
         Ok(Bool::or(&bools))
     }
 
-    pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
-        let bools : Vec<_> = g.successors().flat_map(|a| {
-            let check = self.check(&a, solver).ok()?;
-            Some(check)
-        }).collect();
+    pub(crate) fn check_next_universal(
+        &self,
+        g: &PcodeCfgVisitor<N, D>,
+        solver: &Solver,
+    ) -> Result<Bool, JingleError> {
+        let bools: Vec<_> = g
+            .successors()
+            .flat_map(|a| {
+                let check = self.check(&a, solver).ok()?;
+                Some(check)
+            })
+            .collect();
         Ok(Bool::and(&bools))
     }
 }

@@ -12,7 +12,7 @@ use z3::ast::Bool;
 /// Separately, it has a notion of equality. Though not enforced the by the trait,
 /// equality should always imply location equality. States can have PCodeOperations applied
 /// to them, allowing for modeling state transitions
-pub trait CfgStateModel: Clone + Sized {
+pub trait CfgStateModel: Debug + Clone + Sized {
     /// Returns a [`Bool`] indicating whether the location of this state is equal to that of
     /// another.
     fn location_eq(&self, other: &Self) -> Bool;
@@ -45,7 +45,7 @@ impl CfgStateModel for MachineState {
 /// automata states.
 pub trait CfgState: Clone + Debug + Hash + Eq {
     /// A type representing a model of a [`CfgState`]
-    type Model: CfgStateModel + Clone;
+    type Model: CfgStateModel;
 
     /// Produces a model
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model;
