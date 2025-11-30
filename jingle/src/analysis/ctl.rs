@@ -1,11 +1,11 @@
+use crate::JingleError;
 use crate::analysis::cfg::{CfgState, ModelTransition, PcodeCfgVisitor};
-use crate::{JingleError, analysis::cfg::PcodeCfg, modeling::machine::MachineState};
 use std::borrow::Borrow;
+use std::fmt;
 use std::ops::{BitAnd, BitOr};
+use std::rc::Rc;
 use z3::Solver;
 use z3::ast::{Ast, Bool};
-use z3_sys::AstKind::Quantifier;
-use z3_sys::SortKind::Bool;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CtlQuantifier {
@@ -17,12 +17,12 @@ pub enum CtlQuantifier {
 pub enum CtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
     Bottom,
     Top,
-    Proposition(Box<dyn Fn(&N::Model, &D) -> Bool>),
-    Negation(Box<CtlFormula<N, D>>),
-    Conjunction(Box<CtlFormula<N, D>>, Box<CtlFormula<N, D>>),
-    Disjunction(Box<CtlFormula<N, D>>, Box<CtlFormula<N, D>>),
-    Implies(Box<CtlFormula<N, D>>, Box<CtlFormula<N, D>>),
-    Iff(Box<CtlFormula<N, D>>, Box<CtlFormula<N, D>>),
+    Proposition(Rc<dyn Fn(&N::Model, &D) -> Bool + 'static>),
+    Negation(Rc<CtlFormula<N, D>>),
+    Conjunction(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
+    Disjunction(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
+    Implies(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
+    Iff(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
     Path(PathFormula<N, D>),
 }
 
@@ -50,27 +50,27 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         CtlFormula::Top
     }
     pub fn proposition(f: impl Fn(&N::Model, &D) -> Bool + 'static) -> Self {
-        CtlFormula::Proposition(Box::new(f))
+        CtlFormula::Proposition(Rc::new(f))
     }
 
     pub fn negation<T: AsRef<CtlFormula<N, D>>>(a: T) -> Self {
-        CtlFormula::Negation(Box::new(a.as_ref().clone()))
+        CtlFormula::Negation(Rc::new(a.as_ref().clone()))
     }
 
     pub fn and<U: Borrow<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Conjunction(Box::new(self.clone()), Box::new(b.borrow().clone()))
+        CtlFormula::Conjunction(Rc::new(self.clone()), Rc::new(b.borrow().clone()))
     }
 
     pub fn or<U: Borrow<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Disjunction(Box::new(self.clone()), Box::new(b.borrow().clone()))
+        CtlFormula::Disjunction(Rc::new(self.clone()), Rc::new(b.borrow().clone()))
     }
 
     pub fn implies<U: AsRef<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Implies(Box::new(self.clone()), Box::new(b.as_ref().clone()))
+        CtlFormula::Implies(Rc::new(self.clone()), Rc::new(b.as_ref().clone()))
     }
 
     pub fn iff<U: AsRef<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Iff(Box::new(self.clone()), Box::new(b.as_ref().clone()))
+        CtlFormula::Iff(Rc::new(self.clone()), Rc::new(b.as_ref().clone()))
     }
 
     pub fn path<T: Borrow<PathOperation<N, D>>>(quantifier: CtlQuantifier, pf: T) -> Self {
@@ -158,7 +158,7 @@ pub fn EU<
     )
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PathFormula<N: CfgState, D: ModelTransition<N::Model>> {
     quantifier: CtlQuantifier,
     operation: PathOperation<N, D>,
@@ -198,32 +198,65 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PathFormula<N, D> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum PathOperation<N: CfgState, D: ModelTransition<N::Model>> {
-    Next(Box<CtlFormula<N, D>>),
-    Eventually(Box<CtlFormula<N, D>>),
-    Always(Box<CtlFormula<N, D>>),
-    Until(Box<CtlFormula<N, D>>, Box<CtlFormula<N, D>>),
+    Next(Rc<CtlFormula<N, D>>),
+    Eventually(Rc<CtlFormula<N, D>>),
+    Always(Rc<CtlFormula<N, D>>),
+    Until(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> fmt::Debug for PathOperation<N, D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PathOperation::Next(inner) => write!(f, "Next({:?})", inner),
+            PathOperation::Eventually(inner) => write!(f, "Eventually({:?})", inner),
+            PathOperation::Always(inner) => write!(f, "Always({:?})", inner),
+            PathOperation::Until(a, b) => write!(f, "Until({:?}, {:?})", a, b),
+        }
+    }
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> fmt::Debug for PathFormula<N, D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Path({:?}, {:?})", self.quantifier, self.operation)
+    }
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PathOperation<N, D> {
     pub fn next<T: Borrow<CtlFormula<N, D>>>(f: T) -> Self {
-        PathOperation::Next(Box::new(f.borrow().clone()))
+        PathOperation::Next(Rc::new(f.borrow().clone()))
     }
 
     pub fn eventually<T: Borrow<CtlFormula<N, D>>>(f: T) -> Self {
-        PathOperation::Eventually(Box::new(f.borrow().clone()))
+        PathOperation::Eventually(Rc::new(f.borrow().clone()))
     }
 
     pub fn always<T: Borrow<CtlFormula<N, D>>>(f: T) -> Self {
-        PathOperation::Always(Box::new(f.borrow().clone()))
+        PathOperation::Always(Rc::new(f.borrow().clone()))
     }
 
     pub fn until<T: Borrow<CtlFormula<N, D>>, U: Borrow<CtlFormula<N, D>>>(a: T, b: U) -> Self {
-        PathOperation::Until(Box::new(a.borrow().clone()), Box::new(b.borrow().clone()))
+        PathOperation::Until(Rc::new(a.borrow().clone()), Rc::new(b.borrow().clone()))
     }
 }
 
+impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N, D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CtlFormula::Bottom => write!(f, "Bottom"),
+            CtlFormula::Top => write!(f, "Top"),
+            // Can't print the closure inside `Proposition`, use a placeholder instead.
+            CtlFormula::Proposition(_) => write!(f, "Proposition({})", "proposition"),
+            CtlFormula::Negation(a) => write!(f, "Negation({:?})", a),
+            CtlFormula::Conjunction(l, r) => write!(f, "Conjunction({:?}, {:?})", l, r),
+            CtlFormula::Disjunction(l, r) => write!(f, "Disjunction({:?}, {:?})", l, r),
+            CtlFormula::Implies(l, r) => write!(f, "Implies({:?}, {:?})", l, r),
+            CtlFormula::Iff(l, r) => write!(f, "Iff({:?}, {:?})", l, r),
+            CtlFormula::Path(p) => write!(f, "Path({:?})", p),
+        }
+    }
+}
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
     pub fn check(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
         let val = match self {

@@ -1,4 +1,8 @@
+use crate::JingleError;
+use crate::analysis::ctl::CtlFormula;
 use crate::analysis::pcode_store::PcodeStore;
+use crate::analysis::unwinding::{UnwoundLocation, UnwoundLocationModel};
+use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
@@ -11,9 +15,6 @@ use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use z3::ast::Bool;
 use z3::{Params, Solver};
-use crate::analysis::ctl::CtlFormula;
-use crate::analysis::unwinding::{UnwoundLocation, UnwoundLocationModel};
-use crate::JingleError;
 
 mod model;
 
@@ -34,9 +35,9 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) models: HashMap<N, N::Model>,
 }
 
-impl<N: CfgState,D> Default for PcodeCfg<N, D>{
+impl<N: CfgState, D> Default for PcodeCfg<N, D> {
     fn default() -> Self {
-        Self{
+        Self {
             graph: Default::default(),
             ops: Default::default(),
             indices: Default::default(),
@@ -46,31 +47,34 @@ impl<N: CfgState,D> Default for PcodeCfg<N, D>{
 }
 
 #[derive(Clone)]
-pub struct PcodeCfgVisitor<'a, N: CfgState, D>{
-    cfg: &'a PcodeCfg<N,D>,
-    location: N
+pub struct PcodeCfgVisitor<'a, N: CfgState, D> {
+    cfg: &'a PcodeCfg<N, D>,
+    location: N,
 }
 
-impl<'a, N: CfgState, D:  ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D>{
-    pub(crate) fn successors(&self) -> impl Iterator<Item=Self>{
-        self.cfg.successors(&self.location).into_iter().flatten().map(|n|Self{
-            cfg: self.cfg,
-            location: n.clone()
-        })
+impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
+    pub(crate) fn successors(&self) -> impl Iterator<Item = Self> {
+        self.cfg
+            .successors(&self.location)
+            .into_iter()
+            .flatten()
+            .map(|n| Self {
+                cfg: self.cfg,
+                location: n.clone(),
+            })
     }
 
-    pub(crate) fn transition(&self) -> Option<&D>{
+    pub(crate) fn transition(&self) -> Option<&D> {
         self.cfg.ops.get(&self.location)
     }
 
-    pub(crate) fn location(&self) -> &N{
+    pub(crate) fn location(&self) -> &N {
         &self.location
     }
-    pub(crate) fn state(&self) -> Option<&N::Model>{
+    pub(crate) fn state(&self) -> Option<&N::Model> {
         self.cfg.models.get(&self.location)
     }
 }
-
 
 pub struct PcodeCfgView<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     /// Borrowed reference to the original CFG (zero-copy view)
@@ -348,15 +352,19 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             graph: new_graph,
             ops: new_ops,
             indices: new_indices,
-            models: self.models.clone() // todo: just include the ones that remain
+            models: self.models.clone(), // todo: just include the ones that remain
         }
     }
 }
 
 type UnwoundPCodeCfgView<'a, D> = PcodeCfgView<'a, UnwoundLocation, D>;
 
-impl<'a, D: ModelTransition<UnwoundLocationModel>> UnwoundPCodeCfgView<'a, D>{
-    pub fn check_model(&self, location: UnwoundLocation, ctl_model: CtlFormula) -> Result<Bool, JingleError>{
-        self.
+impl<'a, D: ModelTransition<MachineState>> UnwoundPCodeCfgView<'a, D> {
+    pub fn check_model(
+        &self,
+        location: UnwoundLocation,
+        ctl_model: CtlFormula<UnwoundLocation, D>,
+    ) -> Result<Bool, JingleError> {
+        todo!()
     }
 }
