@@ -2,7 +2,7 @@
 
 use jingle::analysis::Analysis;
 use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
-use jingle::analysis::ctl::{CtlFormula, EF, EG};
+use jingle::analysis::ctl::*;
 use jingle::analysis::unwinding::{UnwindingAnalysis, UnwoundLocation};
 use jingle::modeling::machine::MachineState;
 use jingle::modeling::machine::memory::MemoryState;
@@ -30,7 +30,7 @@ fn main() {
 
     let mut direct = UnwindingAnalysis::new(1);
     let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
-    let pcode_graph = pcode_graph.basic_blocks();
+    // let pcode_graph = pcode_graph.basic_blocks();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
         println!("{:x}", addr.location());
@@ -39,16 +39,18 @@ fn main() {
     let w = pcode_graph.edge_weights().collect::<Vec<_>>();
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
-    let ctl_model = CtlFormula::proposition(|a: &MachineState, b: &Vec<PcodeOperation>| {
-        let mut bools = Vec::new();
-        for vn in b[0].inputs() {
-            bools.push(a.memory().read(vn).unwrap().eq(0))
-        }
-        Bool::and(&bools)
-    });
+    let ctl_model = EX(EX(CtlFormula::proposition(
+        |a: &MachineState, b: &PcodeOperation| {
+            let mut bools = Vec::new();
+            for vn in b.inputs() {
+                bools.push(a.memory().read(vn).unwrap().eq(0))
+            }
+            Bool::and(&bools)
+        },
+    )));
     pcode_graph
         .check_model(
-            UnwoundLocation::new(&(FUNC_NESTED + 4).into(), "0_0"),
+            UnwoundLocation::new(&(FUNC_NESTED).into(), "0_0"),
             ctl_model,
         )
         .unwrap();
