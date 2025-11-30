@@ -1,3 +1,5 @@
+#![expect(non_snake_case)]
+
 use crate::JingleError;
 use crate::analysis::cfg::{CfgState, ModelTransition, PcodeCfgVisitor};
 use std::borrow::Borrow;
@@ -13,6 +15,7 @@ pub enum CtlQuantifier {
     Universal,
 }
 
+#[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub enum CtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
     Bottom,
@@ -121,6 +124,7 @@ pub fn AG<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>
         PathOperation::always(a.borrow().clone()),
     )
 }
+
 pub fn EG<N: CfgState, D: ModelTransition<N::Model>, R: Borrow<CtlFormula<N, D>>>(
     a: R,
 ) -> CtlFormula<N, D> {
@@ -166,7 +170,7 @@ pub struct PathFormula<N: CfgState, D: ModelTransition<N::Model>> {
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PathFormula<N, D> {
     /// Rewrites certain CTL formulas into equivalent forms
-
+    ///
     /// For example, A G φ can be rewritten as φ ∧ A X A G φ
     /// This is used to break down formulas when model checking
     ///

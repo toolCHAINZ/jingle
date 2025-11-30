@@ -21,7 +21,6 @@ pub trait CfgStateModel: Debug + Clone + Sized {
     fn state_eq(&self, other: &Self) -> Bool;
 
     /// Derive a new state from [`self`] by applying a [`PcodeOperation`].
-
     fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError>;
 }
 

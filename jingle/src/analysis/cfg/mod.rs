@@ -360,6 +360,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
     }
 }
 
+#[expect(clippy::extra_unused_lifetimes)]
 impl<'a, D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
     pub fn check_model(
         &self,
