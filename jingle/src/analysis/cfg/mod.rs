@@ -30,20 +30,10 @@ impl LowerHex for EmptyEdge {
 #[derive(Debug)]
 pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: DiGraph<N, EmptyEdge>,
+    pub(crate) info: SleighArchInfo,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
     pub(crate) models: HashMap<N, N::Model>,
-}
-
-impl<N: CfgState, D> Default for PcodeCfg<N, D> {
-    fn default() -> Self {
-        Self {
-            graph: Default::default(),
-            ops: Default::default(),
-            indices: Default::default(),
-            models: Default::default(),
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -131,8 +121,14 @@ impl<'a, N: CfgState, D> PcodeCfgView<'a, N, D> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(info: SleighArchInfo) -> Self {
+        Self {
+            graph: Default::default(),
+            ops: Default::default(),
+            indices: Default::default(),
+            info,
+            models: Default::default(),
+        }
     }
 
     pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
@@ -157,6 +153,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         if !self.indices.contains_key(node) {
             let idx = self.graph.add_node(node.clone());
             self.indices.insert(node.clone(), idx);
+            let model = node.fresh_model(&self.info);
+            self.models.insert(node.clone(), model);
         }
     }
 
@@ -236,6 +234,10 @@ impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
         let addr = *addr.borrow();
         self.get_op_at(addr).cloned()
+    }
+
+    fn info(&self) -> SleighArchInfo {
+        self.info.clone()
     }
 }
 
@@ -350,6 +352,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         // Step 6: Build and return new PcodeCfg
         PcodeCfg {
             graph: new_graph,
+            info: self.info.clone(),
             ops: new_ops,
             indices: new_indices,
             models: self.models.clone(), // todo: just include the ones that remain
@@ -357,14 +360,17 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
     }
 }
 
-type UnwoundPCodeCfgView<'a, D> = PcodeCfgView<'a, UnwoundLocation, D>;
-
-impl<'a, D: ModelTransition<MachineState>> UnwoundPCodeCfgView<'a, D> {
+impl<'a, D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
     pub fn check_model(
         &self,
         location: UnwoundLocation,
         ctl_model: CtlFormula<UnwoundLocation, D>,
     ) -> Result<Bool, JingleError> {
-        todo!()
+        let visitor = PcodeCfgVisitor {
+            location,
+            cfg: &self,
+        };
+        let solver = Solver::new();
+        dbg!(ctl_model.check(&visitor, &solver))
     }
 }

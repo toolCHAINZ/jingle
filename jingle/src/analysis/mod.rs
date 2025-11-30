@@ -9,7 +9,7 @@ pub mod direct_location;
 // mod location;
 mod bmc;
 pub mod bounded_visit;
-mod ctl;
+pub mod ctl;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;

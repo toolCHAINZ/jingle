@@ -21,9 +21,10 @@ pub struct DirectLocationAnalysis;
 
 impl<T: PcodeStore> DirectLocationCPA<T> {
     pub fn new(pcode: T) -> Self {
+        let info = pcode.info();
         Self {
             pcode,
-            cfg: Default::default(),
+            cfg: PcodeCfg::new(info),
         }
     }
 

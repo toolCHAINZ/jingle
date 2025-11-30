@@ -219,7 +219,7 @@ impl CfgState for UnwoundLocation {
 
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
         let state = MachineState::fresh(i);
-       state
+        state
     }
     fn model_id(&self) -> String {
         format!("{:x}", self)
@@ -321,9 +321,10 @@ impl Analysis for UnwindingAnalysis {
         let addr = initial_state.into();
         let bes = BackEdgeAnalysis.make_initial_state(addr);
         let back_edges = BackEdgeAnalysis.run(&store, bes);
+        let info = store.info();
         let mut cpa = UnwoundLocationCPA {
             source_cfg: store,
-            unwound_cfg: Default::default(),
+            unwound_cfg: PcodeCfg::new(info),
         };
         let init_state = UnwindingCpaState::new(addr, dbg!(back_edges), self.max);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));

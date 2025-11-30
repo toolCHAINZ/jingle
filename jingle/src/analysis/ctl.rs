@@ -263,7 +263,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             CtlFormula::Bottom => Bool::from_bool(false),
             CtlFormula::Top => Bool::from_bool(true),
             CtlFormula::Proposition(closure) => closure(
-                g.state().ok_or(JingleError::EmptyBlock)?,
+                g.state().ok_or(JingleError::ZeroSizedVarnode)?,
                 g.transition().ok_or(JingleError::EmptyBlock)?,
             ),
             CtlFormula::Negation(a) => a.check(g, solver)?.not(),

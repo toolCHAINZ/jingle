@@ -2,11 +2,16 @@
 
 use jingle::analysis::Analysis;
 use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
-use jingle::analysis::unwinding::UnwindingAnalysis;
+use jingle::analysis::ctl::{CtlFormula, EF, EG};
+use jingle::analysis::unwinding::{UnwindingAnalysis, UnwoundLocation};
+use jingle::modeling::machine::MachineState;
+use jingle::modeling::machine::memory::MemoryState;
+use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
 use std::time::Instant;
 use std::{env, fs};
+use z3::ast::Bool;
 use z3::{Config, Params, with_z3_config};
 
 const FUNC_LINE: u64 = 0x100000460;
@@ -23,7 +28,7 @@ fn main() {
     z3::set_global_param("trace", "true");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = UnwindingAnalysis::new(10);
+    let mut direct = UnwindingAnalysis::new(1);
     let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
     let pcode_graph = pcode_graph.basic_blocks();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
@@ -34,7 +39,19 @@ fn main() {
     let w = pcode_graph.edge_weights().collect::<Vec<_>>();
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
-    println!("{:x?}", leaf);
+    let ctl_model = CtlFormula::proposition(|a: &MachineState, b: &Vec<PcodeOperation>| {
+        let mut bools = Vec::new();
+        for vn in b[0].inputs() {
+            bools.push(a.memory().read(vn).unwrap().eq(0))
+        }
+        Bool::and(&bools)
+    });
+    pcode_graph
+        .check_model(
+            UnwoundLocation::new(&(FUNC_NESTED + 4).into(), "0_0"),
+            ctl_model,
+        )
+        .unwrap();
     //let arch_info = loaded.arch_info();
     //let solver = pcode_graph.test_build(arch_info);
     //let mut params = Params::new();
