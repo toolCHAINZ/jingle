@@ -247,7 +247,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N
             CtlFormula::Bottom => write!(f, "Bottom"),
             CtlFormula::Top => write!(f, "Top"),
             // Can't print the closure inside `Proposition`, use a placeholder instead.
-            CtlFormula::Proposition(_) => write!(f, "Proposition({})", "proposition"),
+            CtlFormula::Proposition(_) => write!(f, "Proposition(proposition)"),
             CtlFormula::Negation(a) => write!(f, "Negation({:?})", a),
             CtlFormula::Conjunction(l, r) => write!(f, "Conjunction({:?}, {:?})", l, r),
             CtlFormula::Disjunction(l, r) => write!(f, "Disjunction({:?}, {:?})", l, r),

@@ -1,7 +1,7 @@
 use crate::JingleError;
 use crate::analysis::ctl::CtlFormula;
 use crate::analysis::pcode_store::PcodeStore;
-use crate::analysis::unwinding::{UnwoundLocation, UnwoundLocationModel};
+use crate::analysis::unwinding::UnwoundLocation;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -13,8 +13,8 @@ use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
+use z3::Solver;
 use z3::ast::Bool;
-use z3::{Params, Solver};
 
 mod model;
 
@@ -368,7 +368,7 @@ impl<'a, D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
     ) -> Result<Bool, JingleError> {
         let visitor = PcodeCfgVisitor {
             location,
-            cfg: &self,
+            cfg: self,
         };
         let solver = Solver::new();
         dbg!(ctl_model.check(&visitor, &solver))
