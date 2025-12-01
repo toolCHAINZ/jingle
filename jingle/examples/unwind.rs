@@ -52,7 +52,7 @@ fn main() {
         .nodes_for_location(FUNC_NESTED.into())
         .next()
         .unwrap();
-    pcode_graph.check_model(state, ctl_model).unwrap();
+    pcode_graph.check_model(state, ctl_model);
     //let arch_info = loaded.arch_info();
     //let solver = pcode_graph.test_build(arch_info);
     //let mut params = Params::new();
