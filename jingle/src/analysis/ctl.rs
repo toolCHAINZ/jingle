@@ -6,7 +6,7 @@ use std::fmt;
 use std::ops::{BitAnd, BitOr, Deref};
 use std::rc::Rc;
 use z3::Solver;
-use z3::ast::{Ast, Bool};
+use z3::ast::Bool;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CtlQuantifier {
@@ -359,11 +359,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         val
     }
 
-    pub(crate) fn check_next_exists(
-        &self,
-        g: &PcodeCfgVisitor<N, D>,
-        solver: &Solver,
-    ) -> Bool {
+    pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
         let bools: Vec<_> = g
             .successors()
             .flat_map(|a| {
@@ -374,11 +370,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         Bool::or(&bools)
     }
 
-    pub(crate) fn check_next_universal(
-        &self,
-        g: &PcodeCfgVisitor<N, D>,
-        solver: &Solver,
-    ) -> Bool {
+    pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
         let bools: Vec<_> = g
             .successors()
             .flat_map(|a| {
