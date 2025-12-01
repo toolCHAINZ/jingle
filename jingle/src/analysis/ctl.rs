@@ -1,6 +1,5 @@
 #![expect(non_snake_case)]
 
-use crate::JingleError;
 use crate::analysis::cfg::{CfgState, ModelTransition, PcodeCfgVisitor};
 use std::borrow::Borrow;
 use std::fmt;
@@ -311,64 +310,64 @@ impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N
     }
 }
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
-    pub fn check(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Result<Bool, JingleError> {
+    pub fn check(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
         let val = match self {
             CtlFormula::Bottom => Bool::from_bool(false),
             CtlFormula::Top => Bool::from_bool(true),
             CtlFormula::Proposition(closure) => closure(
-                g.state().ok_or(JingleError::ZeroSizedVarnode)?,
-                g.transition().ok_or(JingleError::EmptyBlock)?,
+                g.state().expect("State not found in CFG! This is a bug."),
+                g.transition().expect("Transition not found in CFG! This is a bug."),
             ),
-            CtlFormula::Negation(a) => a.check(g, solver)?.not(),
+            CtlFormula::Negation(a) => a.check(g, solver).not(),
             CtlFormula::Conjunction(CtlBinary { left, right }) => {
-                let l = left.check(g, solver)?;
-                let r = right.check(g, solver)?;
+                let l = left.check(g, solver);
+                let r = right.check(g, solver);
                 l.bitand(r)
             }
             CtlFormula::Disjunction(CtlBinary { left, right }) => {
-                let l = left.check(g, solver)?;
-                let r = right.check(g, solver)?;
+                let l = left.check(g, solver);
+                let r = right.check(g, solver);
                 l.bitor(r)
             }
             CtlFormula::Implies(CtlBinary { left, right }) => {
-                let l = left.check(g, solver)?;
-                let r = right.check(g, solver)?;
+                let l = left.check(g, solver);
+                let r = right.check(g, solver);
                 l.implies(&r)
             }
             CtlFormula::Iff(CtlBinary { left, right }) => {
-                let left = left.check(g, solver)?;
-                let right = right.check(g, solver)?;
+                let left = left.check(g, solver);
+                let right = right.check(g, solver);
                 left.eq(&right)
             }
             CtlFormula::Path(PathFormula {
                 operation: PathOperation::Next(inner),
                 quantifier,
             }) => match quantifier {
-                CtlQuantifier::Existential => inner.check_next_exists(g, solver)?,
-                CtlQuantifier::Universal => inner.check_next_universal(g, solver)?,
+                CtlQuantifier::Existential => inner.check_next_exists(g, solver),
+                CtlQuantifier::Universal => inner.check_next_universal(g, solver),
             },
             CtlFormula::Path(path_formula) => {
                 // rewritten formula guaranteed to only have state assertions
                 // and next operations
                 let rewrite = path_formula.rewrite();
-                rewrite.check(g, solver)?
+                rewrite.check(g, solver)
             }
         };
         let id = g.location().model_id();
         let track = Bool::fresh_const(&id);
         solver.assert_and_track(val.clone(), &track);
-        Ok(val)
+        val
     }
 
     pub(crate) fn check_next_exists(
         &self,
         g: &PcodeCfgVisitor<N, D>,
         solver: &Solver,
-    ) -> Result<Bool, JingleError> {
+    ) -> Bool {
         let bools: Vec<_> = g
             .successors()
             .flat_map(|a| {
-                let check = self.check(&a, solver).ok()?;
+                let check = self.check(&a, solver);
                 let simp = check.simplify();
                 if matches!(simp.as_bool(), Some(false)) {
                     None
@@ -377,21 +376,21 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 }
             })
             .collect();
-        Ok(Bool::or(&bools))
+        Bool::or(&bools)
     }
 
     pub(crate) fn check_next_universal(
         &self,
         g: &PcodeCfgVisitor<N, D>,
         solver: &Solver,
-    ) -> Result<Bool, JingleError> {
+    ) -> Bool {
         let bools: Vec<_> = g
             .successors()
             .flat_map(|a| {
-                let check = self.check(&a, solver).ok()?;
+                let check = self.check(&a, solver);
                 Some(check)
             })
             .collect();
-        Ok(Bool::and(&bools))
+        Bool::and(&bools)
     }
 }

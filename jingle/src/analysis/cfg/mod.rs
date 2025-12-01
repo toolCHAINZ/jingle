@@ -1,4 +1,3 @@
-use crate::JingleError;
 use crate::analysis::ctl::CtlFormula;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::analysis::unwinding::UnwoundLocation;
@@ -288,7 +287,7 @@ impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
         &self,
         location: &UnwoundLocation,
         ctl_model: CtlFormula<UnwoundLocation, D>,
-    ) -> Result<Bool, JingleError> {
+    ) -> Bool {
         let visitor = PcodeCfgVisitor {
             location: location.clone(),
             cfg: self,
