@@ -76,7 +76,7 @@ impl CfgState for ConcretePcodeAddress {
     }
 
     fn location(&self) -> ConcretePcodeAddress {
-        self.clone()
+        *self
     }
 }
 

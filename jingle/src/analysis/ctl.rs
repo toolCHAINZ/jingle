@@ -15,25 +15,10 @@ pub enum CtlQuantifier {
     Universal,
 }
 
-trait IntoCtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
-    fn into_ctl(self) -> Rc<CtlFormula<N, D>>;
-}
-
-impl<N: CfgState, D: ModelTransition<N::Model>> IntoCtlFormula<N, D> for CtlFormula<N, D> {
-    fn into_ctl(self) -> Rc<CtlFormula<N, D>> {
-        Rc::new(self)
-    }
-}
-
-impl<N: CfgState, D: ModelTransition<N::Model>> IntoCtlFormula<N, D> for Rc<CtlFormula<N, D>> {
-    fn into_ctl(self) -> Rc<CtlFormula<N, D>> {
-        self
-    }
-}
-
+type CtlPropClosure<M, D> = Rc<dyn Fn(&M, &D) -> Bool + 'static>;
 #[derive(Clone)]
-struct CtlProp<N: CfgState, D: ModelTransition<N::Model>> {
-    closure: Rc<dyn Fn(&N::Model, &D) -> Bool + 'static>,
+pub struct CtlProp<N: CfgState, D: ModelTransition<N::Model>> {
+    closure: CtlPropClosure<N::Model, D>,
 }
 
 impl<T, N: CfgState, D: ModelTransition<N::Model>> From<T> for CtlProp<N, D>
@@ -48,14 +33,14 @@ where
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> Deref for CtlProp<N, D> {
-    type Target = Rc<dyn Fn(&N::Model, &D) -> Bool + 'static>;
+    type Target = CtlPropClosure<N::Model, D>;
     fn deref(&self) -> &Self::Target {
         &self.closure
     }
 }
 
 #[derive(Clone)]
-struct CtlUnary<N: CfgState, D: ModelTransition<N::Model>> {
+pub struct CtlUnary<N: CfgState, D: ModelTransition<N::Model>> {
     term: Rc<CtlFormula<N, D>>,
 }
 
@@ -75,7 +60,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> Deref for CtlUnary<N, D> {
 }
 
 #[derive(Clone)]
-struct CtlBinary<N: CfgState, D: ModelTransition<N::Model>> {
+pub struct CtlBinary<N: CfgState, D: ModelTransition<N::Model>> {
     pub left: Rc<CtlFormula<N, D>>,
     pub right: Rc<CtlFormula<N, D>>,
 }
@@ -91,7 +76,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> From<(CtlFormula<N, D>, CtlFormu
         }
     }
 }
-#[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub enum CtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
     Bottom,
@@ -132,8 +116,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         CtlFormula::Proposition(f.into())
     }
 
-    pub fn negation<T: Into<CtlUnary<N, D>>>(a: T) -> Self {
-        CtlFormula::Negation(a.into())
+    pub fn not(&self) -> Self {
+        CtlFormula::Negation(self.clone().into())
     }
 
     pub fn and(&self, b: CtlFormula<N, D>) -> Self {
@@ -322,7 +306,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PathOperation<N, D> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N, D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }

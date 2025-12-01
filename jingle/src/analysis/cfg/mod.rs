@@ -149,7 +149,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 
     pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
-        let location = location.clone();
         self.nodes().filter(move |a| a.location() == location)
     }
 }
@@ -284,8 +283,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
     }
 }
 
-#[expect(clippy::extra_unused_lifetimes)]
-impl<'a, D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
+impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
     pub fn check_model(
         &self,
         location: &UnwoundLocation,
