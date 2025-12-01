@@ -39,10 +39,10 @@ fn main() {
     let w = pcode_graph.edge_weights().collect::<Vec<_>>();
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
-    let ctl_model = EX(AF(CtlFormula::proposition(
-        |a: &MachineState, b: &PcodeOperation| {
+    let ctl_model = EX(AG(CtlFormula::proposition(
+        |a: &MachineState, b: Option<&PcodeOperation>| {
             let mut bools = Vec::new();
-            for vn in b.inputs() {
+            for vn in b.iter().flat_map(|bb| bb.inputs()) {
                 bools.push(a.memory().read(vn).unwrap().eq(0))
             }
             Bool::and(&bools)
@@ -52,7 +52,7 @@ fn main() {
         .nodes_for_location(FUNC_NESTED.into())
         .next()
         .unwrap();
-    pcode_graph.check_model(state, ctl_model);
+    pcode_graph.check_model(dbg!(state), ctl_model);
     //let arch_info = loaded.arch_info();
     //let solver = pcode_graph.test_build(arch_info);
     //let mut params = Params::new();

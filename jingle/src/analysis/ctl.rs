@@ -14,7 +14,7 @@ pub enum CtlQuantifier {
     Universal,
 }
 
-type CtlPropClosure<M, D> = Rc<dyn Fn(&M, &D) -> Bool + 'static>;
+type CtlPropClosure<M, D> = Rc<dyn Fn(&M, Option<&D>) -> Bool + 'static>;
 #[derive(Clone)]
 pub struct CtlProp<N: CfgState, D: ModelTransition<N::Model>> {
     closure: CtlPropClosure<N::Model, D>,
@@ -22,7 +22,7 @@ pub struct CtlProp<N: CfgState, D: ModelTransition<N::Model>> {
 
 impl<T, N: CfgState, D: ModelTransition<N::Model>> From<T> for CtlProp<N, D>
 where
-    T: Fn(&N::Model, &D) -> Bool + 'static,
+    T: Fn(&N::Model, Option<&D>) -> Bool + 'static,
 {
     fn from(value: T) -> Self {
         Self {
@@ -316,7 +316,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             CtlFormula::Top => Bool::from_bool(true),
             CtlFormula::Proposition(closure) => closure(
                 g.state().expect("State not found in CFG! This is a bug."),
-                g.transition().expect("Transition not found in CFG! This is a bug."),
+                g.transition(),
             ),
             CtlFormula::Negation(a) => a.check(g, solver).not(),
             CtlFormula::Conjunction(CtlBinary { left, right }) => {
@@ -368,12 +368,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .successors()
             .flat_map(|a| {
                 let check = self.check(&a, solver);
-                let simp = check.simplify();
-                if matches!(simp.as_bool(), Some(false)) {
-                    None
-                } else {
-                    Some(simp)
-                }
+                Some(check)
             })
             .collect();
         Bool::or(&bools)

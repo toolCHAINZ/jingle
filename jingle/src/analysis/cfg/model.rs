@@ -60,7 +60,7 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
 /// [`PcodeOperation`]s.
 ///
 /// This reprresents transitions between the beginning and end of a node in a pcode CFG
-pub trait ModelTransition<S: CfgStateModel>: Clone {
+pub trait ModelTransition<S: CfgStateModel>: Clone + Debug {
     fn transition(&self, init: &S) -> Result<S, JingleError>;
 }
 
