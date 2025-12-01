@@ -39,7 +39,7 @@ fn main() {
     let w = pcode_graph.edge_weights().collect::<Vec<_>>();
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
-    let ctl_model = EX(EX(CtlFormula::proposition(
+    let ctl_model = EX(AF(CtlFormula::proposition(
         |a: &MachineState, b: &PcodeOperation| {
             let mut bools = Vec::new();
             for vn in b.inputs() {

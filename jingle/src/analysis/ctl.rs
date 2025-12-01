@@ -4,7 +4,7 @@ use crate::JingleError;
 use crate::analysis::cfg::{CfgState, ModelTransition, PcodeCfgVisitor};
 use std::borrow::Borrow;
 use std::fmt;
-use std::ops::{BitAnd, BitOr};
+use std::ops::{BitAnd, BitOr, Deref};
 use std::rc::Rc;
 use z3::Solver;
 use z3::ast::{Ast, Bool};
@@ -15,17 +15,93 @@ pub enum CtlQuantifier {
     Universal,
 }
 
+trait IntoCtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
+    fn into_ctl(self) -> Rc<CtlFormula<N, D>>;
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> IntoCtlFormula<N, D> for CtlFormula<N, D> {
+    fn into_ctl(self) -> Rc<CtlFormula<N, D>> {
+        Rc::new(self)
+    }
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> IntoCtlFormula<N, D> for Rc<CtlFormula<N, D>> {
+    fn into_ctl(self) -> Rc<CtlFormula<N, D>> {
+        self
+    }
+}
+
+#[derive(Clone)]
+struct CtlProp<N: CfgState, D: ModelTransition<N::Model>> {
+    closure: Rc<dyn Fn(&N::Model, &D) -> Bool + 'static>,
+}
+
+impl<T, N: CfgState, D: ModelTransition<N::Model>> From<T> for CtlProp<N, D>
+where
+    T: Fn(&N::Model, &D) -> Bool + 'static,
+{
+    fn from(value: T) -> Self {
+        Self {
+            closure: Rc::new(value),
+        }
+    }
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> Deref for CtlProp<N, D> {
+    type Target = Rc<dyn Fn(&N::Model, &D) -> Bool + 'static>;
+    fn deref(&self) -> &Self::Target {
+        &self.closure
+    }
+}
+
+#[derive(Clone)]
+struct CtlUnary<N: CfgState, D: ModelTransition<N::Model>> {
+    term: Rc<CtlFormula<N, D>>,
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> From<CtlFormula<N, D>> for CtlUnary<N, D> {
+    fn from(value: CtlFormula<N, D>) -> Self {
+        Self {
+            term: Rc::new(value),
+        }
+    }
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> Deref for CtlUnary<N, D> {
+    type Target = CtlFormula<N, D>;
+    fn deref(&self) -> &Self::Target {
+        self.term.as_ref()
+    }
+}
+
+#[derive(Clone)]
+struct CtlBinary<N: CfgState, D: ModelTransition<N::Model>> {
+    pub left: Rc<CtlFormula<N, D>>,
+    pub right: Rc<CtlFormula<N, D>>,
+}
+
+impl<N: CfgState, D: ModelTransition<N::Model>> From<(CtlFormula<N, D>, CtlFormula<N, D>)>
+    for CtlBinary<N, D>
+{
+    fn from(a: (CtlFormula<N, D>, CtlFormula<N, D>)) -> Self {
+        let (left, right) = a;
+        Self {
+            left: Rc::new(left),
+            right: Rc::new(right),
+        }
+    }
+}
 #[expect(clippy::type_complexity)]
 #[derive(Clone)]
 pub enum CtlFormula<N: CfgState, D: ModelTransition<N::Model>> {
     Bottom,
     Top,
-    Proposition(Rc<dyn Fn(&N::Model, &D) -> Bool + 'static>),
-    Negation(Rc<CtlFormula<N, D>>),
-    Conjunction(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
-    Disjunction(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
-    Implies(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
-    Iff(Rc<CtlFormula<N, D>>, Rc<CtlFormula<N, D>>),
+    Proposition(CtlProp<N, D>),
+    Negation(CtlUnary<N, D>),
+    Conjunction(CtlBinary<N, D>),
+    Disjunction(CtlBinary<N, D>),
+    Implies(CtlBinary<N, D>),
+    Iff(CtlBinary<N, D>),
     Path(PathFormula<N, D>),
 }
 
@@ -52,28 +128,28 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
     pub fn top() -> Self {
         CtlFormula::Top
     }
-    pub fn proposition(f: impl Fn(&N::Model, &D) -> Bool + 'static) -> Self {
-        CtlFormula::Proposition(Rc::new(f))
+    pub fn proposition<T: Into<CtlProp<N, D>>>(f: T) -> Self {
+        CtlFormula::Proposition(f.into())
     }
 
-    pub fn negation<T: AsRef<CtlFormula<N, D>>>(a: T) -> Self {
-        CtlFormula::Negation(Rc::new(a.as_ref().clone()))
+    pub fn negation<T: Into<CtlUnary<N, D>>>(a: T) -> Self {
+        CtlFormula::Negation(a.into())
     }
 
-    pub fn and<U: Borrow<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Conjunction(Rc::new(self.clone()), Rc::new(b.borrow().clone()))
+    pub fn and(&self, b: CtlFormula<N, D>) -> Self {
+        CtlFormula::Conjunction((self.clone(), b).into())
     }
 
-    pub fn or<U: Borrow<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Disjunction(Rc::new(self.clone()), Rc::new(b.borrow().clone()))
+    pub fn or(&self, b: CtlFormula<N, D>) -> Self {
+        CtlFormula::Disjunction((self.clone(), b).into())
     }
 
-    pub fn implies<U: AsRef<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Implies(Rc::new(self.clone()), Rc::new(b.as_ref().clone()))
+    pub fn implies(&self, b: CtlFormula<N, D>) -> Self {
+        CtlFormula::Implies((self.clone(), b).into())
     }
 
-    pub fn iff<U: AsRef<CtlFormula<N, D>>>(&self, b: U) -> Self {
-        CtlFormula::Iff(Rc::new(self.clone()), Rc::new(b.as_ref().clone()))
+    pub fn iff(&self, b: CtlFormula<N, D>) -> Self {
+        CtlFormula::Iff((self.clone(), b).into())
     }
 
     pub fn path<T: Borrow<PathOperation<N, D>>>(quantifier: CtlQuantifier, pf: T) -> Self {
@@ -247,18 +323,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PathOperation<N, D> {
 
 impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CtlFormula::Bottom => write!(f, "Bottom"),
-            CtlFormula::Top => write!(f, "Top"),
-            // Can't print the closure inside `Proposition`, use a placeholder instead.
-            CtlFormula::Proposition(_) => write!(f, "Proposition(proposition)"),
-            CtlFormula::Negation(a) => write!(f, "Negation({:?})", a),
-            CtlFormula::Conjunction(l, r) => write!(f, "Conjunction({:?}, {:?})", l, r),
-            CtlFormula::Disjunction(l, r) => write!(f, "Disjunction({:?}, {:?})", l, r),
-            CtlFormula::Implies(l, r) => write!(f, "Implies({:?}, {:?})", l, r),
-            CtlFormula::Iff(l, r) => write!(f, "Iff({:?}, {:?})", l, r),
-            CtlFormula::Path(p) => write!(f, "Path({:?})", p),
-        }
+        todo!()
     }
 }
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
@@ -271,24 +336,24 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 g.transition().ok_or(JingleError::EmptyBlock)?,
             ),
             CtlFormula::Negation(a) => a.check(g, solver)?.not(),
-            CtlFormula::Conjunction(left, right) => {
+            CtlFormula::Conjunction(CtlBinary { left, right }) => {
                 let l = left.check(g, solver)?;
                 let r = right.check(g, solver)?;
                 l.bitand(r)
             }
-            CtlFormula::Disjunction(left, right) => {
+            CtlFormula::Disjunction(CtlBinary { left, right }) => {
                 let l = left.check(g, solver)?;
                 let r = right.check(g, solver)?;
                 l.bitor(r)
             }
-            CtlFormula::Implies(left, right) => {
+            CtlFormula::Implies(CtlBinary { left, right }) => {
                 let l = left.check(g, solver)?;
                 let r = right.check(g, solver)?;
                 l.implies(&r)
             }
-            CtlFormula::Iff(l, r) => {
-                let left = l.check(g, solver)?;
-                let right = r.check(g, solver)?;
+            CtlFormula::Iff(CtlBinary { left, right }) => {
+                let left = left.check(g, solver)?;
+                let right = right.check(g, solver)?;
                 left.eq(&right)
             }
             CtlFormula::Path(PathFormula {
@@ -308,7 +373,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         let id = g.location().model_id();
         let track = Bool::fresh_const(&id);
         solver.assert_and_track(val.clone(), &track);
-        Ok(val.simplify())
+        Ok(val)
     }
 
     pub(crate) fn check_next_exists(
