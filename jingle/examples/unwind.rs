@@ -48,12 +48,11 @@ fn main() {
             Bool::and(&bools)
         },
     )));
-    pcode_graph
-        .check_model(
-            UnwoundLocation::new(&(FUNC_NESTED).into(), "0_0"),
-            ctl_model,
-        )
+    let state = pcode_graph
+        .nodes_for_location(FUNC_NESTED.into())
+        .next()
         .unwrap();
+    pcode_graph.check_model(state, ctl_model).unwrap();
     //let arch_info = loaded.arch_info();
     //let solver = pcode_graph.test_build(arch_info);
     //let mut params = Params::new();

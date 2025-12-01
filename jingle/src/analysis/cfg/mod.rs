@@ -66,60 +66,6 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     }
 }
 
-pub struct PcodeCfgView<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
-    /// Borrowed reference to the original CFG (zero-copy view)
-    pub cfg: &'a PcodeCfg<N, D>,
-    /// The node index that is the entry/origin for this view
-    pub origin: NodeIndex,
-    /// Set of node indices reachable from `origin` (inclusive)
-    pub nodes: std::collections::HashSet<NodeIndex>,
-}
-
-impl<'a, N: CfgState, D> PcodeCfgView<'a, N, D> {
-    /// Returns a reference to the origin node's weight
-    pub fn origin_node(&self) -> &N {
-        self.cfg
-            .graph
-            .node_weight(self.origin)
-            .expect("origin node index should be valid")
-    }
-
-    /// Returns the nodes included in this view as a Vec of references into the backing CFG
-    pub fn nodes(&self) -> Vec<&N> {
-        self.nodes
-            .iter()
-            .map(|idx| self.cfg.graph.node_weight(*idx).unwrap())
-            .collect()
-    }
-
-    /// Get successors of a node within this view (only those that are part of the view's reachable set)
-    pub fn successors_of(&self, node: &N) -> Option<Vec<&N>>
-    where
-        N: std::hash::Hash + Eq,
-    {
-        let idx = self.cfg.indices.get(node)?;
-        if !self.nodes.contains(idx) {
-            return None;
-        }
-        let succs: Vec<&N> = self
-            .cfg
-            .graph
-            .edges_directed(*idx, Direction::Outgoing)
-            .filter_map(|e| {
-                let w = self.cfg.graph.node_weight(e.target()).unwrap();
-                // only include successors inside the view
-                let tidx = self.cfg.indices.get(w).unwrap();
-                if self.nodes.contains(tidx) {
-                    Some(w)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        Some(succs)
-    }
-}
-
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn new(info: SleighArchInfo) -> Self {
         Self {
@@ -202,31 +148,9 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.ops.values()
     }
 
-    /// Create a zero-copy view into this CFG starting from `origin`.
-    /// The view contains all nodes reachable from `origin` (including `origin`).
-    /// Returns `None` if `origin` is not in the CFG.
-    pub fn view_from<T: Borrow<N>>(&self, origin: T) -> Option<PcodeCfgView<'_, N, D>>
-    where
-        N: std::hash::Hash + Eq,
-    {
-        let origin_key = origin.borrow();
-        let &origin_idx = self.indices.get(origin_key)?;
-        // Simple DFS/BFS to collect reachable nodes
-        let mut stack = vec![origin_idx];
-        let mut visited: std::collections::HashSet<NodeIndex> = std::collections::HashSet::new();
-        while let Some(idx) = stack.pop() {
-            if !visited.insert(idx) {
-                continue;
-            }
-            for e in self.graph.edges_directed(idx, Direction::Outgoing) {
-                stack.push(e.target());
-            }
-        }
-        Some(PcodeCfgView {
-            cfg: self,
-            origin: origin_idx,
-            nodes: visited,
-        })
+    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
+        let location = location.clone();
+        self.nodes().filter(move |a| a.location() == location)
     }
 }
 
@@ -364,11 +288,11 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
 impl<'a, D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
     pub fn check_model(
         &self,
-        location: UnwoundLocation,
+        location: &UnwoundLocation,
         ctl_model: CtlFormula<UnwoundLocation, D>,
     ) -> Result<Bool, JingleError> {
         let visitor = PcodeCfgVisitor {
-            location,
+            location: location.clone(),
             cfg: self,
         };
         let solver = Solver::new();

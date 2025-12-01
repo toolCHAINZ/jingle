@@ -49,7 +49,11 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
     /// Produces a model
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model;
 
+    /// Prefix used when producing SMT models of this state with `fresh`
     fn model_id(&self) -> String;
+
+    /// Each CFG state is associated with a concrete p-code address
+    fn location(&self) -> ConcretePcodeAddress;
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -69,6 +73,10 @@ impl CfgState for ConcretePcodeAddress {
 
     fn model_id(&self) -> String {
         format!("State_PC_{:x}_{:x}", self.machine, self.pcode)
+    }
+
+    fn location(&self) -> ConcretePcodeAddress {
+        self.clone()
     }
 }
 

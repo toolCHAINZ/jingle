@@ -1,7 +1,6 @@
-use crate::JingleError;
 use crate::analysis::Analysis;
 use crate::analysis::back_edge::{BackEdge, BackEdgeAnalysis, BackEdges};
-use crate::analysis::cfg::{CfgState, CfgStateModel, PcodeCfg};
+use crate::analysis::cfg::{CfgState, PcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
@@ -17,12 +16,11 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use std::iter::empty;
-use z3::ast::Bool;
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum UnwoundLocation {
     UnwindError(ConcretePcodeAddress),
-    Location(String, ConcretePcodeAddress),
+    Location(Vec<usize>, ConcretePcodeAddress),
 }
 
 impl UnwoundLocation {}
@@ -30,8 +28,11 @@ impl UnwoundLocation {}
 impl LowerHex for UnwoundLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let tag = match self {
-            UnwoundLocation::UnwindError(_) => "_Stop",
-            UnwoundLocation::Location(a, _) => a.as_str(),
+            UnwoundLocation::UnwindError(_) => "_Stop".to_string(),
+            UnwoundLocation::Location(a, _) => {
+                let strs: Vec<_> = a.iter().map(|f| format!("{:x}", f)).collect();
+                strs.join("_")
+            }
         };
         write!(f, "{:x}{}", self.location(), tag)
     }
@@ -53,7 +54,7 @@ impl UnwindingCpaState {
         }
     }
 
-    pub fn back_edge_str(&self) -> String {
+    pub fn back_edge_str(&self) -> Vec<usize> {
         let mut sorted = self
             .back_edge_visits
             .clone()
@@ -63,8 +64,8 @@ impl UnwindingCpaState {
             Ordering::Equal => a.1.cmp(&b.1),
             a => a,
         });
-        let strs: Vec<_> = sorted.iter().map(|(_, size)| size.to_string()).collect();
-        strs.join("_")
+        let strs: Vec<_> = sorted.into_iter().map(|(_, size)| size).collect();
+        strs
     }
     pub fn location(&self) -> ConcretePcodeAddress {
         self.location
@@ -174,10 +175,6 @@ impl UnwoundLocation {
         }
     }
 
-    pub fn new<T: AsRef<str>>(loc: &ConcretePcodeAddress, count: T) -> Self {
-        Self::Location(count.as_ref().into(), *loc)
-    }
-
     pub fn is_unwind_error(&self) -> bool {
         matches!(self, UnwindError(_))
     }
@@ -191,29 +188,6 @@ impl UnwoundLocation {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct UnwoundLocationModel {
-    is_unwind_error: Bool,
-    state: MachineState,
-}
-
-impl CfgStateModel for UnwoundLocationModel {
-    fn location_eq(&self, other: &Self) -> Bool {
-        self.state.pc().eq(other.state.pc())
-    }
-
-    fn state_eq(&self, other: &Self) -> Bool {
-        let unwind = self.is_unwind_error.eq(&other.is_unwind_error);
-        unwind & self.state.state_eq(&other.state)
-    }
-
-    fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
-        Ok(UnwoundLocationModel {
-            is_unwind_error: Bool::fresh_const("u"),
-            state: self.state.apply(op)?,
-        })
-    }
-}
 impl CfgState for UnwoundLocation {
     type Model = MachineState;
 
@@ -221,7 +195,11 @@ impl CfgState for UnwoundLocation {
         MachineState::fresh(i)
     }
     fn model_id(&self) -> String {
-        format!("{:x}", self)
+        format!("{:x}", self.location())
+    }
+
+    fn location(&self) -> ConcretePcodeAddress {
+        *self.location()
     }
 }
 
@@ -325,7 +303,7 @@ impl Analysis for UnwindingAnalysis {
             source_cfg: store,
             unwound_cfg: PcodeCfg::new(info),
         };
-        let init_state = UnwindingCpaState::new(addr, dbg!(back_edges), self.max);
+        let init_state = UnwindingCpaState::new(addr, back_edges, self.max);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
 
         let graph = &mut cpa.unwound_cfg.graph;
