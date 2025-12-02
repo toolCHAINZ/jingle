@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.4...jingle-v0.3.5) - 2025-12-02
+
+### Added
+
+- CTL Model Checking ([#114](https://github.com/toolCHAINZ/jingle/pull/114))
+- use default parameterization for pcodecfg ([#111](https://github.com/toolCHAINZ/jingle/pull/111))
+
+### Other
+
+- exclude examples from crates.io ([#113](https://github.com/toolCHAINZ/jingle/pull/113))
+
 ## [0.3.4](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.3...jingle-v0.3.4) - 2025-10-23
 
 ### Added
