@@ -12,7 +12,6 @@ use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
-use z3::Solver;
 use z3::ast::Bool;
 
 mod model;

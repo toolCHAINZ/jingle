@@ -5,7 +5,6 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::ops::{BitAnd, BitOr, Deref};
 use std::rc::Rc;
-use z3::Solver;
 use z3::ast::Bool;
 
 #[derive(Debug, Clone, Copy)]
