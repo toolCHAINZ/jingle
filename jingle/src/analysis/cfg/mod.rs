@@ -36,7 +36,7 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
 }
 
 #[derive(Clone)]
-pub struct PcodeCfgVisitor<'a, N: CfgState, D> {
+pub struct PcodeCfgVisitor<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     cfg: &'a PcodeCfg<N, D>,
     location: N,
 }
@@ -57,12 +57,11 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
         self.cfg.ops.get(&self.location)
     }
 
-    #[expect(unused)]
-    pub(crate) fn location(&self) -> &N {
+    pub fn location(&self) -> &N {
         &self.location
     }
 
-    pub(crate) fn state(&self) -> Option<&N::Model> {
+    pub fn state(&self) -> Option<&N::Model> {
         self.cfg.models.get(&self.location)
     }
 }

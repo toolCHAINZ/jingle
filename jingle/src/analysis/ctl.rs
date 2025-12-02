@@ -6,7 +6,7 @@ use std::fmt;
 use std::ops::{BitAnd, BitOr, Deref};
 use std::rc::Rc;
 use z3::Solver;
-use z3::ast::{Ast, Bool};
+use z3::ast::Bool;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CtlQuantifier {
@@ -14,15 +14,15 @@ pub enum CtlQuantifier {
     Universal,
 }
 
-type CtlPropClosure<M, D> = Rc<dyn Fn(&M, Option<&D>) -> Bool + 'static>;
+type CtlPropClosure<M, D> = Rc<dyn Fn(&PcodeCfgVisitor<M, D>, Option<&D>) -> Bool + 'static>;
 #[derive(Clone)]
 pub struct CtlProp<N: CfgState, D: ModelTransition<N::Model>> {
-    closure: CtlPropClosure<N::Model, D>,
+    closure: CtlPropClosure<N, D>,
 }
 
 impl<T, N: CfgState, D: ModelTransition<N::Model>> From<T> for CtlProp<N, D>
 where
-    T: Fn(&N::Model, Option<&D>) -> Bool + 'static,
+    T: Fn(&PcodeCfgVisitor<N, D>, Option<&D>) -> Bool + 'static,
 {
     fn from(value: T) -> Self {
         Self {
@@ -32,7 +32,7 @@ where
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> Deref for CtlProp<N, D> {
-    type Target = CtlPropClosure<N::Model, D>;
+    type Target = CtlPropClosure<N, D>;
     fn deref(&self) -> &Self::Target {
         &self.closure
     }
@@ -311,13 +311,11 @@ impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N
 }
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
     pub fn check(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
-        let val = match self {
+        
+        match self {
             CtlFormula::Bottom => Bool::from_bool(false),
             CtlFormula::Top => Bool::from_bool(true),
-            CtlFormula::Proposition(closure) => closure(
-                g.state().expect("State not found in CFG! This is a bug."),
-                g.transition(),
-            ),
+            CtlFormula::Proposition(closure) => closure(g, g.transition()),
             CtlFormula::Negation(a) => a.check(g, solver).not(),
             CtlFormula::Conjunction(CtlBinary { left, right }) => {
                 let l = left.check(g, solver);
@@ -352,8 +350,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 let rewrite = path_formula.rewrite();
                 rewrite.check(g, solver)
             }
-        };
-        val
+        }
     }
 
     pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
@@ -363,9 +360,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .map(|a| {
                 let successor = a.state().unwrap();
                 let after = g.transition().unwrap().transition(state).unwrap();
-                let imp = after
-                    .location_eq(successor);
-                imp
+                
+                after.location_eq(successor)
             })
             .collect();
         let connect = Bool::or(&connect);
@@ -391,9 +387,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .map(|a| {
                 let successor = a.state().unwrap();
                 let after = g.transition().unwrap().transition(state).unwrap();
-                let imp = after
-                    .location_eq(successor);
-               imp
+                
+                after.location_eq(successor)
             })
             .collect();
         let connect = Bool::or(&connect);

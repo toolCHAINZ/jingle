@@ -2,9 +2,11 @@
 
 use jingle::analysis::Analysis;
 use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
+use jingle::analysis::cfg::PcodeCfgVisitor;
 use jingle::analysis::ctl::*;
 use jingle::analysis::unwinding::{UnwindingAnalysis, UnwoundLocation};
 use jingle::modeling::machine::MachineState;
+use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle::modeling::machine::memory::MemoryState;
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
@@ -12,8 +14,7 @@ use petgraph::dot::Dot;
 use std::time::Instant;
 use std::{env, fs};
 use z3::ast::Bool;
-use z3::{Config, Params, with_z3_config, Solver};
-use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use z3::{Config, Params, Solver, with_z3_config};
 
 const FUNC_LINE: u64 = 0x100000460;
 const FUNC_BRANCH: u64 = 0x100000480;
@@ -41,8 +42,11 @@ fn main() {
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
     let ctl_model = EF(CtlFormula::proposition(
-        |a: &MachineState, b: Option<&PcodeOperation>| {
-            a.pc().eq(&ConcretePcodeAddress::from(0x100000604).symbolize())
+        |a: &PcodeCfgVisitor<UnwoundLocation>, b: Option<&PcodeOperation>| {
+            a.state()
+                .unwrap()
+                .pc()
+                .eq(&ConcretePcodeAddress::from(0x100000604).symbolize())
         },
     ));
     let state = pcode_graph
