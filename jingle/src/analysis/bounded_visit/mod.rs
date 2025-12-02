@@ -16,9 +16,10 @@ struct BoundedStepsCpa<T: PcodeStore> {
 
 impl<T: PcodeStore> BoundedStepsCpa<T> {
     pub fn new(pcode: T) -> Self {
+        let info = pcode.info();
         Self {
             pcode,
-            cfg: Default::default(),
+            cfg: PcodeCfg::new(info),
         }
     }
 }

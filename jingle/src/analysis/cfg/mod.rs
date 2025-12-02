@@ -1,18 +1,20 @@
+use crate::analysis::ctl::CtlFormula;
 use crate::analysis::pcode_store::PcodeStore;
+use crate::analysis::unwinding::UnwoundLocation;
+use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+pub use model::{CfgState, CfgStateModel, ModelTransition};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
 use petgraph::visit::EdgeRef;
-pub use state::{CfgState, CfgStateModel, ModelTransition};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use z3::ast::Bool;
-use z3::{Params, Solver};
 
-mod state;
+mod model;
 
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
@@ -24,28 +26,53 @@ impl LowerHex for EmptyEdge {
 }
 
 #[derive(Debug)]
-pub struct PcodeCfg<N = ConcretePcodeAddress, D = PcodeOperation> {
+pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: DiGraph<N, EmptyEdge>,
+    pub(crate) info: SleighArchInfo,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
+    pub(crate) models: HashMap<N, N::Model>,
 }
 
-impl<N, D> Default for PcodeCfg<N, D> {
-    fn default() -> Self {
-        Self {
-            graph: Default::default(),
-            ops: Default::default(),
-            indices: Default::default(),
-        }
+#[derive(Clone)]
+pub struct PcodeCfgVisitor<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
+    cfg: &'a PcodeCfg<N, D>,
+    location: N,
+}
+
+impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
+    pub(crate) fn successors(&self) -> impl Iterator<Item = Self> {
+        self.cfg
+            .successors(&self.location)
+            .into_iter()
+            .flatten()
+            .map(|n| Self {
+                cfg: self.cfg,
+                location: n.clone(),
+            })
+    }
+
+    pub(crate) fn transition(&self) -> Option<&D> {
+        self.cfg.ops.get(&self.location)
+    }
+
+    pub fn location(&self) -> &N {
+        &self.location
+    }
+
+    pub fn state(&self) -> Option<&N::Model> {
+        self.cfg.models.get(&self.location)
     }
 }
 
-impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
-    pub fn new() -> Self {
+impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
+    pub fn new(info: SleighArchInfo) -> Self {
         Self {
             graph: Default::default(),
             ops: Default::default(),
             indices: Default::default(),
+            info,
+            models: Default::default(),
         }
     }
 
@@ -57,6 +84,11 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         self.indices.keys()
     }
 
+    /// Check whether the CFG contains a node (by value)
+    pub fn has_node<T: Borrow<N>>(&self, node: T) -> bool {
+        self.indices.contains_key(node.borrow())
+    }
+
     pub fn get_op_at<T: Borrow<N>>(&self, addr: T) -> Option<&D> {
         self.ops.get(addr.borrow())
     }
@@ -66,6 +98,8 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         if !self.indices.contains_key(node) {
             let idx = self.graph.add_node(node.clone());
             self.indices.insert(node.clone(), idx);
+            let model = node.fresh_model(&self.info);
+            self.models.insert(node.clone(), model);
         }
     }
 
@@ -90,6 +124,19 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
         self.graph.add_edge(from_idx, to_idx, EmptyEdge);
     }
 
+    /// Return successors of a node (by value) as references into the backing CFG.
+    /// Returns `None` if the node is not present in the CFG.
+    pub fn successors<T: Borrow<N>>(&self, node: T) -> Option<Vec<&N>> {
+        let n = node.borrow();
+        let idx = *self.indices.get(n)?;
+        let succs: Vec<&N> = self
+            .graph
+            .edges_directed(idx, Direction::Outgoing)
+            .map(|e| self.graph.node_weight(e.target()).unwrap())
+            .collect();
+        Some(succs)
+    }
+
     pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
         self.graph
             .externals(Direction::Outgoing)
@@ -99,66 +146,9 @@ impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
     pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
         self.ops.values()
     }
-}
 
-impl<N: CfgState, D: ModelTransition<N>> PcodeCfg<N, D> {
-    pub fn test_build<T: Borrow<SleighArchInfo>>(&self, info: T) -> Solver {
-        let info = info.borrow();
-        let solver = Solver::new();
-        let mut params = Params::new();
-        params.set_bool("smt.array.extensional", false);
-        solver.set_params(&params);
-        let mut states = HashMap::new();
-        let mut post_states = HashMap::new();
-        for (addr, idx) in &self.indices {
-            let s = addr.fresh(info);
-            states.insert(addr, s.clone());
-            if self
-                .graph
-                .edges_directed(*idx, Direction::Outgoing)
-                .next()
-                .is_some()
-            {
-                let op = &self.ops[addr];
-                let f = op.transition(&s).unwrap();
-                post_states.insert(addr, f);
-            }
-        }
-
-        //let options = self.graph.edge_indices().map(|edge| {
-        //    let (fromidx, toidx) = self.graph.edge_endpoints(edge).unwrap();
-        //    let from = self.graph.node_weight(fromidx).unwrap();
-        //    let to = self.graph.node_weight(toidx).unwrap();
-        //
-        //    let from_state_final = post_states.get(from).unwrap();
-        //    let to_state = states.get(to).expect("To state not found");
-        //    let loc_eq = from_state_final.location_eq(to_state).simplify();
-        //    loc_eq.implies(from_state_final.mem_eq(to_state))
-        //});
-        //for x in options {
-        //    solver.assert(x);
-        //}
-        for node in self.graph.node_indices() {
-            let edges = self.graph.edges_directed(node, Direction::Outgoing);
-            let b = edges.map(|e| {
-                let from_weight = self.graph.node_weight(e.source()).unwrap();
-                let op = self.ops.get(from_weight).unwrap();
-                let to_weight = self.graph.node_weight(e.target()).unwrap();
-                let from_state_final = op.transition(states.get(from_weight).unwrap()).unwrap();
-                let to_state = states.get(to_weight).unwrap();
-                from_state_final.location_eq(to_state)
-            });
-            let b = &b.collect::<Vec<_>>();
-            if !b.is_empty() {
-                let bool = if b.len() > 1 {
-                    Bool::or(b)
-                } else {
-                    b[0].clone()
-                };
-                solver.assert(&bool);
-            }
-        }
-        solver
+    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
+        self.nodes().filter(move |a| a.location() == location)
     }
 }
 
@@ -166,6 +156,10 @@ impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
         let addr = *addr.borrow();
         self.get_op_at(addr).cloned()
+    }
+
+    fn info(&self) -> SleighArchInfo {
+        self.info.clone()
     }
 }
 
@@ -280,8 +274,24 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         // Step 6: Build and return new PcodeCfg
         PcodeCfg {
             graph: new_graph,
+            info: self.info.clone(),
             ops: new_ops,
             indices: new_indices,
+            models: self.models.clone(), // todo: just include the ones that remain
         }
+    }
+}
+
+impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
+    pub fn check_model(
+        &self,
+        location: &UnwoundLocation,
+        ctl_model: CtlFormula<UnwoundLocation, D>,
+    ) -> Bool {
+        let visitor = PcodeCfgVisitor {
+            location: location.clone(),
+            cfg: self,
+        };
+        ctl_model.check(&visitor)
     }
 }

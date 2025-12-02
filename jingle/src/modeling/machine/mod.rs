@@ -13,7 +13,6 @@ pub mod memory;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MachineState {
-    info: SleighArchInfo,
     memory: MemoryState,
     pc: SymbolicPcodeAddress,
 }
@@ -21,7 +20,6 @@ pub struct MachineState {
 impl MachineState {
     pub fn fresh<T: Borrow<SleighArchInfo>>(info: T) -> Self {
         Self {
-            info: info.borrow().clone(),
             memory: MemoryState::fresh(info),
             pc: SymbolicPcodeAddress::fresh(),
         }
@@ -33,7 +31,6 @@ impl MachineState {
     ) -> Self {
         let pc = ConcretePcodeAddress::from(machine_addr);
         Self {
-            info: info.borrow().clone(),
             memory: MemoryState::fresh_for_address(info, pc),
             pc: pc.symbolize(),
         }
@@ -45,7 +42,6 @@ impl MachineState {
     ) -> Self {
         let addr = addr.borrow();
         Self {
-            info: info.borrow().clone(),
             memory: MemoryState::fresh_for_address(info, addr),
             pc: addr.symbolize(),
         }
@@ -65,7 +61,6 @@ impl MachineState {
 
     pub fn apply(&self, op: &PcodeOperation) -> Result<Self, JingleError> {
         Ok(Self {
-            info: self.info.clone(),
             memory: self.memory.apply(op)?,
             pc: self.apply_control_flow(op)?.simplify(),
         })
