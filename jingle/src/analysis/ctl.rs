@@ -311,7 +311,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N
 }
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
     pub fn check(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
-        
         match self {
             CtlFormula::Bottom => Bool::from_bool(false),
             CtlFormula::Top => Bool::from_bool(true),
@@ -360,7 +359,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .map(|a| {
                 let successor = a.state().unwrap();
                 let after = g.transition().unwrap().transition(state).unwrap();
-                
+
                 after.location_eq(successor)
             })
             .collect();
@@ -387,7 +386,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .map(|a| {
                 let successor = a.state().unwrap();
                 let after = g.transition().unwrap().transition(state).unwrap();
-                
+
                 after.location_eq(successor)
             })
             .collect();
