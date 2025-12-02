@@ -15,4 +15,4 @@ extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 pyo3 = "0.26"
-jingle = {path = "../jingle", features = ["pyo3", "gimli"], version = "0.3.4" }
+jingle = {path = "../jingle", features = ["pyo3", "gimli"], version = "0.3.5" }

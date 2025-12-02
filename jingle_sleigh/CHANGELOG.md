@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.3.0...jingle_sleigh-v0.3.1) - 2025-12-02
+
+### Added
+
+- CTL Model Checking ([#114](https://github.com/toolCHAINZ/jingle/pull/114))
+
 ## [0.3.0](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.2.4...jingle_sleigh-v0.3.0) - 2025-09-19
 
 ### Changed
