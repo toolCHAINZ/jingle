@@ -310,49 +310,49 @@ impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N
     }
 }
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
-    pub fn check(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
+    pub fn check(&self, g: &PcodeCfgVisitor<N, D>) -> Bool {
         match self {
             CtlFormula::Bottom => Bool::from_bool(false),
             CtlFormula::Top => Bool::from_bool(true),
             CtlFormula::Proposition(closure) => closure(g, g.transition()),
-            CtlFormula::Negation(a) => a.check(g, solver).not(),
+            CtlFormula::Negation(a) => a.check(g).not(),
             CtlFormula::Conjunction(CtlBinary { left, right }) => {
-                let l = left.check(g, solver);
-                let r = right.check(g, solver);
+                let l = left.check(g);
+                let r = right.check(g);
                 l.bitand(r)
             }
             CtlFormula::Disjunction(CtlBinary { left, right }) => {
-                let l = left.check(g, solver);
-                let r = right.check(g, solver);
+                let l = left.check(g);
+                let r = right.check(g);
                 l.bitor(r)
             }
             CtlFormula::Implies(CtlBinary { left, right }) => {
-                let l = left.check(g, solver);
-                let r = right.check(g, solver);
+                let l = left.check(g);
+                let r = right.check(g);
                 l.implies(&r)
             }
             CtlFormula::Iff(CtlBinary { left, right }) => {
-                let left = left.check(g, solver);
-                let right = right.check(g, solver);
+                let left = left.check(g);
+                let right = right.check(g);
                 left.eq(&right)
             }
             CtlFormula::Path(PathFormula {
                 operation: PathOperation::Next(inner),
                 quantifier,
             }) => match quantifier {
-                CtlQuantifier::Existential => inner.check_next_exists(g, solver),
-                CtlQuantifier::Universal => inner.check_next_universal(g, solver),
+                CtlQuantifier::Existential => inner.check_next_exists(g),
+                CtlQuantifier::Universal => inner.check_next_universal(g),
             },
             CtlFormula::Path(path_formula) => {
                 // rewritten formula guaranteed to only have state assertions
                 // and next operations
                 let rewrite = path_formula.rewrite();
-                rewrite.check(g, solver)
+                rewrite.check(g)
             }
         }
     }
 
-    pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
+    pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>) -> Bool {
         let state = g.state().unwrap();
         let connect: Vec<_> = g
             .successors()
@@ -368,7 +368,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .successors()
             .flat_map(|a| {
                 let successor = a.state().unwrap();
-                let check = self.check(&a, solver);
+                let check = self.check(&a);
                 let after = g.transition().unwrap().transition(state).unwrap();
                 let imp = after
                     .location_eq(successor)
@@ -379,7 +379,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         Bool::or(&bools).bitand(connect)
     }
 
-    pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
+    pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>) -> Bool {
         let state = g.state().unwrap();
         let connect: Vec<_> = g
             .successors()
@@ -395,7 +395,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
             .successors()
             .flat_map(|a| {
                 let successor = a.state().unwrap();
-                let check = self.check(&a, solver);
+                let check = self.check(&a);
                 let after = g.transition().unwrap().transition(state).unwrap();
                 let imp = after
                     .location_eq(successor)

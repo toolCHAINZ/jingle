@@ -293,7 +293,6 @@ impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
             location: location.clone(),
             cfg: self,
         };
-        let solver = Solver::new();
-        ctl_model.check(&visitor, &solver)
+        ctl_model.check(&visitor)
     }
 }
