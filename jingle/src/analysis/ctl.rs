@@ -1,12 +1,12 @@
 #![expect(non_snake_case)]
 
-use crate::analysis::cfg::{CfgState, ModelTransition, PcodeCfgVisitor};
+use crate::analysis::cfg::{CfgState, CfgStateModel, ModelTransition, PcodeCfgVisitor};
 use std::borrow::Borrow;
 use std::fmt;
 use std::ops::{BitAnd, BitOr, Deref};
 use std::rc::Rc;
 use z3::Solver;
-use z3::ast::Bool;
+use z3::ast::{Ast, Bool};
 
 #[derive(Debug, Clone, Copy)]
 pub enum CtlQuantifier {
@@ -353,29 +353,39 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
                 rewrite.check(g, solver)
             }
         };
-        let id = g.location().model_id();
-        let track = Bool::fresh_const(&id);
-        solver.assert_and_track(val.clone(), &track);
-        val
+        val.simplify()
     }
 
     pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
+        let state = g.state().unwrap();
+
         let bools: Vec<_> = g
             .successors()
             .flat_map(|a| {
+                let successor = a.state().unwrap();
                 let check = self.check(&a, solver);
-                Some(check)
+                let after = g.transition().unwrap().transition(state).unwrap();
+                let imp = after
+                    .location_eq(successor)
+                    .implies(after.state_eq(successor));
+                Some(check.bitand(imp))
             })
             .collect();
         Bool::or(&bools)
     }
 
     pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>, solver: &Solver) -> Bool {
+        let state = g.state().unwrap();
         let bools: Vec<_> = g
             .successors()
             .flat_map(|a| {
+                let successor = a.state().unwrap();
                 let check = self.check(&a, solver);
-                Some(check)
+                let after = g.transition().unwrap().transition(state).unwrap();
+                let imp = after
+                    .location_eq(successor)
+                    .implies(after.state_eq(successor));
+                Some(check.bitand(imp))
             })
             .collect();
         Bool::and(&bools)
