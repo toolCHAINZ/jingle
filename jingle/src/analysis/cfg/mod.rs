@@ -57,9 +57,11 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
         self.cfg.ops.get(&self.location)
     }
 
+    #[expect(unused)]
     pub(crate) fn location(&self) -> &N {
         &self.location
     }
+
     pub(crate) fn state(&self) -> Option<&N::Model> {
         self.cfg.models.get(&self.location)
     }
