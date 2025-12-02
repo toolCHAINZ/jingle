@@ -12,7 +12,8 @@ use petgraph::dot::Dot;
 use std::time::Instant;
 use std::{env, fs};
 use z3::ast::Bool;
-use z3::{Config, Params, with_z3_config};
+use z3::{Config, Params, with_z3_config, Solver};
+use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 const FUNC_LINE: u64 = 0x100000460;
 const FUNC_BRANCH: u64 = 0x100000480;
@@ -39,20 +40,22 @@ fn main() {
     let w = pcode_graph.edge_weights().collect::<Vec<_>>();
 
     fs::write("dot.dot", format!("{:x}", Dot::new(&pcode_graph.graph())));
-    let ctl_model = AX(EX(CtlFormula::proposition(
+    let ctl_model = EF(CtlFormula::proposition(
         |a: &MachineState, b: Option<&PcodeOperation>| {
-            let mut bools = Vec::new();
-            for vn in b.iter().flat_map(|bb| bb.inputs()) {
-                bools.push(a.memory().read(vn).unwrap().eq(0))
-            }
-            Bool::or(&bools)
+            a.pc().eq(&ConcretePcodeAddress::from(0x100000604).symbolize())
         },
-    )));
+    ));
     let state = pcode_graph
         .nodes_for_location(FUNC_NESTED.into())
         .next()
         .unwrap();
-    pcode_graph.check_model(dbg!(state), ctl_model);
+    let check = pcode_graph.check_model(state, ctl_model);
+    let solver = Solver::new();
+    solver.assert(check);
+    println!("check");
+    dbg!(solver.check());
+    dbg!(solver.get_model());
+    dbg!(solver.get_unsat_core());
     //let arch_info = loaded.arch_info();
     //let solver = pcode_graph.test_build(arch_info);
     //let mut params = Params::new();

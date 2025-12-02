@@ -192,7 +192,7 @@ impl CfgState for UnwoundLocation {
     type Model = MachineState;
 
     fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
-        MachineState::fresh(i)
+        MachineState::fresh_for_address(i, *self.location())
     }
     fn model_id(&self) -> String {
         format!("{:x}", self.location())

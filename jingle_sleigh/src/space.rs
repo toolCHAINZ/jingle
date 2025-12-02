@@ -86,13 +86,25 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct SleighArchInfoInner {
     pub(crate) registers_to_vns: HashMap<String, VarNode>,
     pub(crate) vns_to_registers: HashMap<VarNode, String>,
     pub(crate) spaces: Vec<SpaceInfo>,
     pub(crate) default_code_space: usize,
 }
+
+impl std::fmt::Debug for SleighArchInfoInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SleighArchInfoInner")
+            .field("registers_to_vns_count", &self.registers_to_vns.len())
+            .field("vns_to_registers_count", &self.vns_to_registers.len())
+            .field("spaces", &self.spaces)
+            .field("default_code_space", &self.default_code_space)
+            .finish()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SleighArchInfo {
     pub(crate) info: Arc<SleighArchInfoInner>,

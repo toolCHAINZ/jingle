@@ -295,6 +295,6 @@ impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
             cfg: self,
         };
         let solver = Solver::new();
-        dbg!(ctl_model.check(&visitor, &solver))
+        ctl_model.check(&visitor, &solver)
     }
 }
