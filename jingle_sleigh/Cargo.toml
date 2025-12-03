@@ -23,6 +23,8 @@ include = [
 [dependencies.pyo3]
 version = "0.26"
 optional = true
+default-features = false
+features = ["macros"]
 
 [dependencies]
 cxx = "1.0"
