@@ -91,11 +91,17 @@ presented at [Usenix Security 2025](https://www.usenix.org/conference/usenixsecu
 If you found the paper or the implementation useful, you can cite it with the following BibTeX:
 
 ```bibtex
-@inproceedings{denhoed2025synthesis,
-  title={Synthesis of ${Code-Reuse}$ Attacks from p-code Programs},
-  author={DenHoed, Mark and Melham, Tom},
-  booktitle={34th USENIX Security Symposium (USENIX Security 25)},
-  pages={395--411},
-  year={2025}
+@inproceedings{10.5555/3766078.3766099,
+author = {Melham, Tom and DenHoed, Mark},
+title = {Synthesis of code-reuse attacks from p-code programs},
+year = {2025},
+isbn = {978-1-939133-52-6},
+publisher = {USENIX Association},
+address = {USA},
+booktitle = {Proceedings of the 34th USENIX Conference on Security Symposium},
+articleno = {21},
+numpages = {17},
+location = {Seattle, WA, USA},
+series = {SEC '25}
 }
 ```
