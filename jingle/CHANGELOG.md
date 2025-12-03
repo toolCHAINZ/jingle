@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.5...jingle-v0.3.6) - 2025-12-03
+
+### Other
+
+- update pyo3 dependency to version 0.27.2 ([#117](https://github.com/toolCHAINZ/jingle/pull/117))
+- Disable default features and enable macros for pyo3 dependency ([#115](https://github.com/toolCHAINZ/jingle/pull/115))
+
 ## [0.3.5](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.3.4...jingle-v0.3.5) - 2025-12-02
 
 ### Added
