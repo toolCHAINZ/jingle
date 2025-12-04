@@ -1,5 +1,7 @@
 use crate::context::SleighContextBuilder;
-use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms};
+use crate::context::image::{
+    ImageProvider, ImageSection, ImageSectionIterator, Perms, SymbolInfo, SymbolLocation,
+};
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
 use object::{
@@ -146,6 +148,14 @@ impl ImageProvider for File<'_> {
                 None
             }
         }))
+    }
+
+    fn resolve<T: AsRef<str>>(&self, t: T) -> Option<SymbolInfo> {
+        let exp = self.exports().ok()?;
+        let needle = t.as_ref().as_bytes();
+        exp.iter().find(|e| e.name() == needle).map(|f| SymbolInfo {
+            location: f.address(),
+        })
     }
 }
 

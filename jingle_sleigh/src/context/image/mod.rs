@@ -6,6 +6,12 @@ use std::ops::Range;
 #[cfg(feature = "gimli")]
 pub mod gimli;
 
+pub type SymbolLocation = u64;
+
+pub struct SymbolInfo {
+    pub location: SymbolLocation, // todo: maybe other info goes in here later
+}
+
 pub trait ImageProvider {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
@@ -16,6 +22,10 @@ pub trait ImageProvider {
         let mut vec = vec![0u8; vn.size];
         let size = self.load(vn, &mut vec);
         if size < vn.size { None } else { Some(vec) }
+    }
+
+    fn resolve<T: AsRef<str>>(&self, t: T) -> Option<SymbolInfo> {
+        None
     }
 }
 
