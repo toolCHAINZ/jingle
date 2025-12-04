@@ -1,6 +1,7 @@
 use crate::JingleError;
 use crate::modeling::machine::memory::MemoryState;
 use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::context::loaded::SideEffect;
 use std::cmp::{Ordering, min};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
@@ -394,10 +395,26 @@ impl MemoryState {
                     Ok(final_state)
                 }
             }
+            PcodeOperation::Call { input, call_info } => {
+                if let Some(call_info) = call_info {
+                    for ele in &call_info.side_effects {
+                        match ele {
+                            SideEffect::RegisterIncrement(name, amt) => {
+                                if let Some(vn) = self.info.register(name) {
+                                    let val = self.read(vn)?.bvadd(*amt);
+                                    final_state = final_state.write(vn, val)?;
+                                }
+                            }
+                            SideEffect::RegisterDecrement(name, amt) => todo!(),
+                            _ => todo!(),
+                        };
+                    }
+                }
+                Ok(final_state)
+            }
             PcodeOperation::Branch { .. } => Ok(final_state),
             PcodeOperation::CBranch { .. } => Ok(final_state),
             PcodeOperation::BranchInd { .. }
-            | PcodeOperation::Call { .. }
             | PcodeOperation::CallInd { .. }
             | PcodeOperation::Return { .. } => Ok(final_state),
             v => Err(JingleError::UnmodeledInstruction(Box::new((*v).clone()))),
