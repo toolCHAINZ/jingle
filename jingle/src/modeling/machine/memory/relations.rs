@@ -380,7 +380,7 @@ impl MemoryState {
                     Ordering::Equal => final_state.write(output, input),
                 }
             }
-            PcodeOperation::CallOther { inputs, output } => {
+            PcodeOperation::CallOther { inputs, output, .. } => {
                 let mut hasher = DefaultHasher::new();
                 for vn in inputs {
                     vn.hash(&mut hasher);

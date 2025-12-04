@@ -1,9 +1,9 @@
-use crate::JingleSleighError::EmptyInstruction;
 use crate::OpCode;
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
+use crate::{JingleSleighError::EmptyInstruction, context::loaded::ModelingMetadata};
 use serde::{Deserialize, Serialize};
 
 /// A rust representation of a SLEIGH assembly instruction
@@ -35,6 +35,26 @@ impl Instruction {
         self.ops
             .iter()
             .any(|o| o.opcode() == OpCode::CPUI_CALLOTHER)
+    }
+
+    pub fn augment_with_metadata(&mut self, m: &ModelingMetadata) {
+        for op in self.ops.iter_mut() {
+            match op {
+                PcodeOperation::Call { input, call_info } => {
+                    if let Some(a) = m.func_info.get(&input.offset) {
+                        *call_info = Some(a.clone());
+                    }
+                }
+                PcodeOperation::CallOther {
+                    inputs, call_info, ..
+                } => {
+                    if let Some(a) = m.callother_info.get(inputs) {
+                        *call_info = Some(a.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }
 

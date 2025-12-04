@@ -1,12 +1,42 @@
+use serde::{Deserialize, Serialize};
+
 use crate::JingleSleighError::ImageLoadError;
 use crate::context::SleighContext;
 use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::{Instruction, JingleSleighError, VarNode};
+#[cfg(feature = "pyo3")]
+use pyo3::pyclass;
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
+
+#[non_exhaustive]
+#[cfg_attr(feature = "pyo3", pyclass)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+enum SideEffect {
+    /// Increment the given register by a given amount
+    /// Decrement the given register by a given amount
+    RegisterIncrement(String, u8),
+    RegisterDecrement(String, u8),
+}
+
+/// A naive representation of the effects of a function
+#[cfg_attr(feature = "pyo3", pyclass)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallInfo {
+    args: Vec<VarNode>,
+    outputs: Option<Vec<VarNode>>,
+    terminating: bool,
+    side_effects: Vec<SideEffect>,
+}
+
+pub struct ModelingMetadata {
+    pub(crate) func_info: HashMap<u64, CallInfo>,
+    pub(crate) callother_info: HashMap<Vec<VarNode>, CallInfo>,
+}
 
 /// A guard type representing a sleigh context initialized with an image.
 /// In addition to the methods in [SleighContext], is able to
@@ -17,6 +47,7 @@ pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
     /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
+    metadata: Option<ModelingMetadata>,
 }
 
 impl Debug for LoadedSleighContext<'_> {
@@ -53,6 +84,7 @@ impl<'a> LoadedSleighContext<'a> {
         let mut s = Self {
             sleigh: sleigh_context,
             img,
+            metadata: None,
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
@@ -65,11 +97,14 @@ impl<'a> LoadedSleighContext<'a> {
     /// space.
     /// todo: consider using a varnode instead of a raw offset.
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
-        let instr = self
+        let mut instr = self
             .ctx
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
+        if let Some(a) = &self.metadata {
+            instr.augment_with_metadata(a)
+        }
         let vn = VarNode {
             space_index: self.sleigh.arch_info().default_code_space_index(),
             size: instr.length,

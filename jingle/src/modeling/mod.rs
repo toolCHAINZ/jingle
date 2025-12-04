@@ -588,7 +588,7 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.read_and_track(GeneralizedVarNode::from(&input.pointer_location))?;
                 Ok(())
             }
-            PcodeOperation::Call { input } => {
+            PcodeOperation::Call { input, .. } => {
                 self.get_branch_builder().set_last(&input.into());
                 self.read_and_track(input.into())?;
                 Ok(())
@@ -625,7 +625,7 @@ pub(crate) trait TranslationContext: ModelingContext {
                     Ordering::Equal => self.write(&output.into(), input),
                 }
             }
-            PcodeOperation::CallOther { inputs, output } => {
+            PcodeOperation::CallOther { inputs, output, .. } => {
                 let mut hasher = DefaultHasher::new();
                 for vn in inputs {
                     vn.hash(&mut hasher);
