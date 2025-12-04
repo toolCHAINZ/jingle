@@ -1,8 +1,8 @@
 use crate::Instruction;
-use crate::context::SleighContext;
+use crate::context::loaded::LoadedSleighContext;
 
 pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a SleighContext,
+    sleigh: &'a LoadedSleighContext<'a>,
     remaining: usize,
     offset: u64,
     terminate_branch: bool,
@@ -11,7 +11,7 @@ pub struct SleighContextInstructionIterator<'a> {
 
 impl<'a> SleighContextInstructionIterator<'a> {
     pub(crate) fn new(
-        sleigh: &'a SleighContext,
+        sleigh: &'a LoadedSleighContext,
         offset: u64,
         remaining: usize,
         terminate_branch: bool,

@@ -8,6 +8,7 @@ pub mod gimli;
 
 pub type SymbolLocation = u64;
 
+#[derive(Clone, Debug)]
 pub struct SymbolInfo {
     pub location: SymbolLocation, // todo: maybe other info goes in here later
 }
@@ -24,7 +25,7 @@ pub trait ImageProvider {
         if size < vn.size { None } else { Some(vec) }
     }
 
-    fn resolve<T: AsRef<str>>(&self, t: T) -> Option<SymbolInfo> {
+    fn resolve(&self, _: &str) -> Option<SymbolInfo> {
         None
     }
 }
