@@ -16,7 +16,7 @@ use std::pin::Pin;
 #[non_exhaustive]
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-enum SideEffect {
+pub enum SideEffect {
     /// Increment the given register by a given amount
     /// Decrement the given register by a given amount
     RegisterIncrement(String, u8),
@@ -25,17 +25,27 @@ enum SideEffect {
 
 /// A naive representation of the effects of a function
 #[cfg_attr(feature = "pyo3", pyclass)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallInfo {
-    args: Vec<VarNode>,
-    outputs: Option<Vec<VarNode>>,
-    terminating: bool,
-    side_effects: Vec<SideEffect>,
+    pub args: Vec<VarNode>,
+    pub outputs: Option<Vec<VarNode>>,
+    pub terminating: bool,
+    pub side_effects: Vec<SideEffect>,
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct ModelingMetadata {
     pub(crate) func_info: HashMap<u64, CallInfo>,
     pub(crate) callother_info: HashMap<Vec<VarNode>, CallInfo>,
+}
+
+impl ModelingMetadata {
+    pub(crate) fn add_call_def(&mut self, addr: u64, info: CallInfo) {
+        self.func_info.insert(addr, info);
+    }
+    pub(crate) fn add_callother_def(&mut self, sig: &[VarNode], info: CallInfo) {
+        self.callother_info.insert(sig.to_vec(), info);
+    }
 }
 
 /// A guard type representing a sleigh context initialized with an image.
@@ -47,7 +57,7 @@ pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
     /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
-    metadata: Option<ModelingMetadata>,
+    metadata: ModelingMetadata,
 }
 
 impl Debug for LoadedSleighContext<'_> {
@@ -84,7 +94,7 @@ impl<'a> LoadedSleighContext<'a> {
         let mut s = Self {
             sleigh: sleigh_context,
             img,
-            metadata: None,
+            metadata: Default::default(),
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
@@ -102,9 +112,7 @@ impl<'a> LoadedSleighContext<'a> {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        if let Some(a) = &self.metadata {
-            instr.augment_with_metadata(a)
-        }
+        instr.augment_with_metadata(&self.metadata);
         let vn = VarNode {
             space_index: self.sleigh.arch_info().default_code_space_index(),
             size: instr.length,
@@ -179,6 +187,14 @@ impl<'a> LoadedSleighContext<'a> {
     /// Get the current base address
     pub fn get_base_address(&self) -> u64 {
         self.img.get_base_address()
+    }
+
+    pub fn add_call_metadata(&mut self, addr: u64, info: CallInfo) {
+        self.metadata.add_call_def(addr, info);
+    }
+
+    pub fn add_callother_metadata(&mut self, sig: &[VarNode], info: CallInfo) {
+        self.metadata.add_callother_def(sig, info);
     }
 
     // todo: properly account for spaces with non-byte-based indexing
