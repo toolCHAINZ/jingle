@@ -117,7 +117,11 @@ impl MemoryState {
         }
     }
 
-    pub fn write<T: Into<GeneralizedVarNode>>(self, dest: T, val: BV) -> Result<Self, JingleError> {
+    pub fn write<T: Into<GeneralizedVarNode>>(
+        &mut self,
+        dest: T,
+        val: BV,
+    ) -> Result<(), JingleError> {
         let gen_varnode: GeneralizedVarNode = dest.into();
         match gen_varnode {
             GeneralizedVarNode::Direct(d) => self.write_varnode(&d, val),
@@ -126,7 +130,7 @@ impl MemoryState {
     }
 
     /// Model a write to a [VarNode] on top of the current context.
-    fn write_varnode(mut self, dest: &VarNode, val: BV) -> Result<Self, JingleError> {
+    fn write_varnode(&mut self, dest: &VarNode, val: BV) -> Result<(), JingleError> {
         if dest.size as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
@@ -141,24 +145,24 @@ impl MemoryState {
                     .get_mut(dest.space_index)
                     .ok_or(UnmodeledSpace)?;
                 space.write(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
-                Ok(self)
+                Ok(())
             }
         }
     }
 
     /// Model a write to an [IndirectVarNode] on top of the current context.
     fn write_varnode_indirect(
-        mut self,
+        &mut self,
         dest: &IndirectVarNode,
         val: BV,
-    ) -> Result<Self, JingleError> {
+    ) -> Result<(), JingleError> {
         if self.info.get_space(dest.pointer_space_index).unwrap()._type == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
         let ptr = self.read_varnode(&dest.pointer_location)?;
         self.spaces[dest.pointer_space_index].write(&val, &ptr)?;
-        Ok(self)
+        Ok(())
     }
 
     #[expect(unused)]
