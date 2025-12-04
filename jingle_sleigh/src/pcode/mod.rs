@@ -414,13 +414,27 @@ impl PcodeOperation {
             BranchInd { input, .. } => {
                 vec![input.into()]
             }
-            Call { input, .. } => {
-                vec![input.into()]
+            Call { input, call_info } => {
+                let mut args = vec![input.into()];
+                if let Some(a) = call_info {
+                    let b: Vec<_> = a.args.iter().map(|f| GeneralizedVarNode::from(f)).collect();
+                    args.extend_from_slice(b.as_slice());
+                }
+                args
             }
             CallInd { input, .. } => {
                 vec![input.into()]
             }
-            CallOther { inputs, .. } => inputs.iter().map(|i| i.into()).collect(),
+            CallOther {
+                inputs, call_info, ..
+            } => {
+                let mut args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
+                if let Some(a) = call_info {
+                    let b: Vec<_> = a.args.iter().map(|f| GeneralizedVarNode::from(f)).collect();
+                    args.extend_from_slice(b.as_slice());
+                }
+                args
+            }
             Return { input, .. } => {
                 vec![input.into()]
             }
