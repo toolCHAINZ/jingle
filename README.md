@@ -92,7 +92,7 @@ If you found the paper or the implementation useful, you can cite it with the fo
 
 ```bibtex
 @inproceedings{10.5555/3766078.3766099,
-author = {Melham, Tom and DenHoed, Mark},
+author = {DenHoed, Mark and Melham, Tom},
 title = {Synthesis of code-reuse attacks from p-code programs},
 year = {2025},
 isbn = {978-1-939133-52-6},
