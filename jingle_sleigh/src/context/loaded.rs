@@ -23,14 +23,35 @@ pub enum SideEffect {
     RegisterDecrement(String, u8),
 }
 
+pub struct ModelingSummary {}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+/// A flag indicating how to model a function call
+pub enum ModelingBehavior {
+    /// Treat this function call as a branch to some terminating
+    /// piece of code
+    Terminate,
+    /// This function call should be inlined directly into the CFG during
+    /// modeling (still a todo, will require restructuring built CFGs)
+    Inline,
+    /// The default behavior: model the side-effects of a function with a
+    /// user-supplied set of side-effects
+    Summary(Vec<SideEffect>),
+}
+
+impl Default for ModelingBehavior {
+    fn default() -> Self {
+        Self::Summary(Vec::new())
+    }
+}
+
 /// A naive representation of the effects of a function
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallInfo {
     pub args: Vec<VarNode>,
     pub outputs: Option<Vec<VarNode>>,
-    pub terminating: bool,
-    pub side_effects: Vec<SideEffect>,
+    pub model_behavior: ModelingBehavior,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -57,7 +78,7 @@ pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
     /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
-    metadata: ModelingMetadata,
+    pub(crate) metadata: ModelingMetadata,
 }
 
 impl Debug for LoadedSleighContext<'_> {

@@ -40,9 +40,16 @@ impl Instruction {
     pub fn augment_with_metadata(&mut self, m: &ModelingMetadata) {
         for op in self.ops.iter_mut() {
             match op {
-                PcodeOperation::Call { input, call_info } => {
+                PcodeOperation::Call {
+                    dest: input,
+                    call_info,
+                    args,
+                } => {
                     if let Some(a) = m.func_info.get(&input.offset) {
                         *call_info = Some(a.clone());
+                        for ele in &a.args {
+                            args.push(ele.clone());
+                        }
                     }
                 }
                 PcodeOperation::CallOther {
@@ -50,6 +57,9 @@ impl Instruction {
                 } => {
                     if let Some(a) = m.callother_info.get(inputs) {
                         *call_info = Some(a.clone());
+                        for ele in &a.args {
+                            inputs.push(ele.clone());
+                        }
                     }
                 }
                 _ => {}

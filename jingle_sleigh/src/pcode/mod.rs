@@ -50,7 +50,8 @@ pub enum PcodeOperation {
         input: IndirectVarNode,
     },
     Call {
-        input: VarNode,
+        dest: VarNode,
+        args: Vec<VarNode>,
         call_info: Option<CallInfo>,
     },
     /// We're only dealing with raw pcode so this can only have one input
@@ -414,13 +415,10 @@ impl PcodeOperation {
             BranchInd { input, .. } => {
                 vec![input.into()]
             }
-            Call { input, call_info } => {
-                let mut args = vec![input.into()];
-                if let Some(a) = call_info {
-                    let b: Vec<_> = a.args.iter().map(|f| GeneralizedVarNode::from(f)).collect();
-                    args.extend_from_slice(b.as_slice());
-                }
-                args
+            Call { args, .. } => {
+                let b: Vec<_> = args.iter().map(|f| GeneralizedVarNode::from(f)).collect();
+
+                b
             }
             CallInd { input, .. } => {
                 vec![input.into()]
@@ -789,8 +787,9 @@ impl From<RawPcodeOp> for PcodeOperation {
             OpCode::CPUI_CBRANCH => two_in!(CBranch),
             OpCode::CPUI_BRANCHIND => one_in_indirect!(BranchInd),
             OpCode::CPUI_CALL => Call {
-                input: VarNode::from(&value.inputs[0]),
+                dest: VarNode::from(&value.inputs[0]),
                 call_info: None,
+                args: vec![],
             },
             OpCode::CPUI_CALLIND => one_in_indirect!(CallInd),
             OpCode::CPUI_CALLOTHER => {

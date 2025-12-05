@@ -588,9 +588,9 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.read_and_track(GeneralizedVarNode::from(&input.pointer_location))?;
                 Ok(())
             }
-            PcodeOperation::Call { input, .. } => {
-                self.get_branch_builder().set_last(&input.into());
-                self.read_and_track(input.into())?;
+            PcodeOperation::Call { dest, .. } => {
+                self.get_branch_builder().set_last(&dest.into());
+                self.read_and_track(dest.into())?;
                 Ok(())
             }
             PcodeOperation::CBranch { input0, input1 } => {

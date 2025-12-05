@@ -36,12 +36,13 @@ impl Iterator for SleighContextInstructionIterator<'_> {
         if self.terminate_branch && self.already_hit_branch {
             return None;
         }
-        let instr = self
+        let mut instr = self
             .sleigh
             .ctx
             .get_one_instruction(self.offset)
             .map(Instruction::from)
             .ok()?;
+        instr.augment_with_metadata(&self.sleigh.metadata);
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;

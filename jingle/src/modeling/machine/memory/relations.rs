@@ -1,9 +1,8 @@
 use crate::JingleError;
 use crate::modeling::machine::memory::MemoryState;
 use jingle_sleigh::PcodeOperation;
-use jingle_sleigh::context::loaded::SideEffect;
+use jingle_sleigh::context::loaded::{ModelingBehavior, SideEffect};
 use std::cmp::{Ordering, min};
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Add, Neg};
 use z3::ast::BV;
 
@@ -381,37 +380,14 @@ impl MemoryState {
                     Ordering::Equal => final_state.write(output, input)?,
                 };
             }
-            PcodeOperation::CallOther { inputs, output, .. } => {
-                let mut hasher = DefaultHasher::new();
-                for vn in inputs {
-                    vn.hash(&mut hasher);
-                }
-                let hash = hasher.finish();
-                if let Some(out) = output {
-                    let size = out.size * 8;
-                    let hash_bv = BV::from_u64(hash, size as u32);
-                    final_state.write(out, hash_bv)?;
+            PcodeOperation::CallOther { call_info, .. } => {
+                if let Some(call_info) = call_info {
+                    final_state.apply_function_model(&call_info.model_behavior)?;
                 }
             }
             PcodeOperation::Call { call_info, .. } => {
                 if let Some(call_info) = call_info {
-                    for ele in &call_info.side_effects {
-                        match ele {
-                            SideEffect::RegisterIncrement(name, amt) => {
-                                if let Some(vn) = self.info.register(name) {
-                                    let val = self.read(vn)?.bvadd(*amt);
-                                    final_state.write(vn, val)?;
-                                }
-                            }
-                            SideEffect::RegisterDecrement(name, amt) => {
-                                if let Some(vn) = self.info.register(name) {
-                                    let val = self.read(vn)?.bvsub(*amt);
-                                    final_state.write(vn, val)?;
-                                }
-                            }
-                            _ => todo!(),
-                        };
-                    }
+                    final_state.apply_function_model(&call_info.model_behavior)?;
                 }
             }
             PcodeOperation::Branch { .. } => {}
@@ -422,5 +398,31 @@ impl MemoryState {
             v => return Err(JingleError::UnmodeledInstruction(Box::new((*v).clone()))),
         };
         Ok(final_state)
+    }
+
+    fn apply_function_model(
+        &mut self,
+        modeling_behavior: &ModelingBehavior,
+    ) -> Result<(), JingleError> {
+        if let ModelingBehavior::Summary(model) = modeling_behavior {
+            for ele in model {
+                match ele {
+                    SideEffect::RegisterIncrement(name, amt) => {
+                        if let Some(vn) = self.info.register(name).cloned() {
+                            let val = self.read(&vn)?.bvadd(*amt);
+                            self.write(vn, val)?;
+                        }
+                    }
+                    SideEffect::RegisterDecrement(name, amt) => {
+                        if let Some(vn) = self.info.register(name).cloned() {
+                            let val = self.read(&vn)?.bvsub(*amt);
+                            self.write(vn, val)?;
+                        }
+                    }
+                    _ => todo!(),
+                };
+            }
+        }
+        Ok(())
     }
 }
