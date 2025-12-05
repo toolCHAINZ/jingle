@@ -416,7 +416,7 @@ impl PcodeOperation {
                 vec![input.into()]
             }
             Call { args, .. } => {
-                let b: Vec<_> = args.iter().map(|f| GeneralizedVarNode::from(f)).collect();
+                let b: Vec<_> = args.iter().map(GeneralizedVarNode::from).collect();
 
                 b
             }
@@ -428,7 +428,7 @@ impl PcodeOperation {
             } => {
                 let mut args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
                 if let Some(a) = call_info {
-                    let b: Vec<_> = a.args.iter().map(|f| GeneralizedVarNode::from(f)).collect();
+                    let b: Vec<_> = a.args.iter().map(GeneralizedVarNode::from).collect();
                     args.extend_from_slice(b.as_slice());
                 }
                 args
