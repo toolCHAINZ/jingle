@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.3.2...jingle_sleigh-v0.3.3) - 2025-12-05
+
+### Added
+
+- allow annotating CALL and CALLOTHER with metadata ([#118](https://github.com/toolCHAINZ/jingle/pull/118))
+
 ## [0.3.2](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.3.1...jingle_sleigh-v0.3.2) - 2025-12-03
 
 ### Other
