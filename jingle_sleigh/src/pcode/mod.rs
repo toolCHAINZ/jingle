@@ -1,5 +1,6 @@
 pub mod branch;
 
+use crate::context::loaded::CallInfo;
 use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,
     CallOther, Cast, Copy, Extract, FloatAbs, FloatAdd, FloatCeil, FloatDiv, FloatEqual,
@@ -49,7 +50,9 @@ pub enum PcodeOperation {
         input: IndirectVarNode,
     },
     Call {
-        input: VarNode,
+        dest: VarNode,
+        args: Vec<VarNode>,
+        call_info: Option<CallInfo>,
     },
     /// We're only dealing with raw pcode so this can only have one input
     CallInd {
@@ -58,6 +61,7 @@ pub enum PcodeOperation {
     CallOther {
         output: Option<VarNode>,
         inputs: Vec<VarNode>,
+        call_info: Option<CallInfo>,
     },
     Return {
         input: IndirectVarNode,
@@ -411,13 +415,24 @@ impl PcodeOperation {
             BranchInd { input, .. } => {
                 vec![input.into()]
             }
-            Call { input, .. } => {
-                vec![input.into()]
+            Call { args, .. } => {
+                let b: Vec<_> = args.iter().map(GeneralizedVarNode::from).collect();
+
+                b
             }
             CallInd { input, .. } => {
                 vec![input.into()]
             }
-            CallOther { inputs, .. } => inputs.iter().map(|i| i.into()).collect(),
+            CallOther {
+                inputs, call_info, ..
+            } => {
+                let mut args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
+                if let Some(a) = call_info {
+                    let b: Vec<_> = a.args.iter().map(GeneralizedVarNode::from).collect();
+                    args.extend_from_slice(b.as_slice());
+                }
+                args
+            }
             Return { input, .. } => {
                 vec![input.into()]
             }
@@ -771,7 +786,11 @@ impl From<RawPcodeOp> for PcodeOperation {
             OpCode::CPUI_BRANCH => one_in!(Branch),
             OpCode::CPUI_CBRANCH => two_in!(CBranch),
             OpCode::CPUI_BRANCHIND => one_in_indirect!(BranchInd),
-            OpCode::CPUI_CALL => one_in!(Call),
+            OpCode::CPUI_CALL => Call {
+                dest: VarNode::from(&value.inputs[0]),
+                call_info: None,
+                args: vec![],
+            },
             OpCode::CPUI_CALLIND => one_in_indirect!(CallInd),
             OpCode::CPUI_CALLOTHER => {
                 let output = match value.has_output {
@@ -780,7 +799,11 @@ impl From<RawPcodeOp> for PcodeOperation {
                 };
                 //let inputs: Vec<VarNode> = Vec::with_capacity(value.inputs.len());
                 let inputs: Vec<VarNode> = value.inputs.iter().map(|i| i.into()).collect();
-                CallOther { inputs, output }
+                CallOther {
+                    inputs,
+                    output,
+                    call_info: None,
+                }
             }
             OpCode::CPUI_RETURN => one_in_indirect!(Return),
             OpCode::CPUI_INT_EQUAL => two_in_one_out!(IntEqual),

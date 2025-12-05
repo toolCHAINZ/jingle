@@ -1,8 +1,8 @@
 use crate::Instruction;
-use crate::context::SleighContext;
+use crate::context::loaded::LoadedSleighContext;
 
 pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a SleighContext,
+    sleigh: &'a LoadedSleighContext<'a>,
     remaining: usize,
     offset: u64,
     terminate_branch: bool,
@@ -11,7 +11,7 @@ pub struct SleighContextInstructionIterator<'a> {
 
 impl<'a> SleighContextInstructionIterator<'a> {
     pub(crate) fn new(
-        sleigh: &'a SleighContext,
+        sleigh: &'a LoadedSleighContext,
         offset: u64,
         remaining: usize,
         terminate_branch: bool,
@@ -36,12 +36,13 @@ impl Iterator for SleighContextInstructionIterator<'_> {
         if self.terminate_branch && self.already_hit_branch {
             return None;
         }
-        let instr = self
+        let mut instr = self
             .sleigh
             .ctx
             .get_one_instruction(self.offset)
             .map(Instruction::from)
             .ok()?;
+        instr.augment_with_metadata(&self.sleigh.metadata);
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;

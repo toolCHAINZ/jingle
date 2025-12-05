@@ -1,11 +1,12 @@
 use crate::context::SleighContextBuilder;
-use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms};
+use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms, SymbolInfo};
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
 use object::{
     Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionKind,
 };
 use std::cmp::{max, min};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs;
 use std::path::Path;
@@ -46,15 +47,26 @@ impl TryFrom<Section<'_, '_>> for OwnedSection {
 #[derive(Debug)]
 pub struct OwnedFile {
     sections: Vec<OwnedSection>,
+    exports: HashMap<String, SymbolInfo>,
 }
 
 impl OwnedFile {
     pub fn new(file: &File) -> Result<Self, JingleSleighError> {
         let mut sections = vec![];
+        let mut exports = HashMap::new();
         for x in file.sections().filter(|f| f.kind() == SectionKind::Text) {
             sections.push(x.try_into()?);
         }
-        Ok(Self { sections })
+        if let Ok(e) = file.exports() {
+            for x in e {
+                let location = x.address();
+                let x = x.name().to_vec();
+                if let Ok(name) = String::from_utf8(x) {
+                    exports.insert(name, SymbolInfo { location });
+                }
+            }
+        }
+        Ok(Self { sections, exports })
     }
 }
 
@@ -95,6 +107,10 @@ impl ImageProvider for OwnedFile {
 
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections.iter().map(ImageSection::from))
+    }
+
+    fn resolve(&self, t: &str) -> Option<SymbolInfo> {
+        self.exports.get(t).cloned()
     }
 }
 
@@ -146,6 +162,14 @@ impl ImageProvider for File<'_> {
                 None
             }
         }))
+    }
+
+    fn resolve(&self, t: &str) -> Option<SymbolInfo> {
+        let exp = self.exports().ok()?;
+        let needle = t.as_bytes();
+        exp.iter().find(|e| e.name() == needle).map(|f| SymbolInfo {
+            location: f.address(),
+        })
     }
 }
 
