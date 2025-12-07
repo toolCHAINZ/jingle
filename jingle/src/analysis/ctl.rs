@@ -309,7 +309,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> std::fmt::Debug for CtlFormula<N
     }
 }
 impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
-    pub fn check(&self, g: &PcodeCfgVisitor<N, D>) -> Bool {
+    pub fn check(&self, g: &mut PcodeCfgVisitor<N, D>) -> Bool {
         match self {
             CtlFormula::Bottom => Bool::from_bool(false),
             CtlFormula::Top => Bool::from_bool(true),
@@ -351,24 +351,26 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         }
     }
 
-    pub(crate) fn check_next_exists(&self, g: &PcodeCfgVisitor<N, D>) -> Bool {
-        let state = g.state().unwrap();
-        let connect: Vec<_> = g
-            .successors()
+    pub(crate) fn check_next_exists(&self, g: &mut PcodeCfgVisitor<N, D>) -> Bool {
+        let state = g.state().unwrap().clone();
+        let trans = g.transition().cloned();
+        let successors: Vec<_> = g.successors().collect();
+        let connect: Vec<_> = successors
+            .iter()
             .map(|a| {
                 let successor = a.state().unwrap();
-                let after = g.transition().unwrap().transition(state).unwrap();
+                let after = trans.clone().unwrap().transition(&state).unwrap();
 
                 after.location_eq(successor)
             })
             .collect();
         let connect = Bool::or(&connect);
-        let bools: Vec<_> = g
-            .successors()
-            .flat_map(|a| {
+        let bools: Vec<_> = successors
+            .into_iter()
+            .flat_map(|mut a| {
+                let check = self.check(&mut a);
                 let successor = a.state().unwrap();
-                let check = self.check(&a);
-                let after = g.transition().unwrap().transition(state).unwrap();
+                let after = trans.clone().unwrap().transition(&state).unwrap();
                 let imp = after
                     .location_eq(successor)
                     .implies(after.state_eq(successor));
@@ -378,24 +380,26 @@ impl<N: CfgState, D: ModelTransition<N::Model>> CtlFormula<N, D> {
         Bool::or(&bools).bitand(connect)
     }
 
-    pub(crate) fn check_next_universal(&self, g: &PcodeCfgVisitor<N, D>) -> Bool {
-        let state = g.state().unwrap();
-        let connect: Vec<_> = g
-            .successors()
+    pub(crate) fn check_next_universal(&self, g: &mut PcodeCfgVisitor<N, D>) -> Bool {
+        let state = g.state().unwrap().clone();
+        let trans = g.transition().cloned();
+        let successors: Vec<_> = g.successors().collect();
+        let connect: Vec<_> = successors
+            .iter()
             .map(|a| {
                 let successor = a.state().unwrap();
-                let after = g.transition().unwrap().transition(state).unwrap();
+                let after = trans.clone().unwrap().transition(&state).unwrap();
 
                 after.location_eq(successor)
             })
             .collect();
         let connect = Bool::or(&connect);
-        let bools: Vec<_> = g
-            .successors()
-            .flat_map(|a| {
+        let bools: Vec<_> = successors
+            .into_iter()
+            .flat_map(|mut a| {
+                let check = self.check(&mut a);
                 let successor = a.state().unwrap();
-                let check = self.check(&a);
-                let after = g.transition().unwrap().transition(state).unwrap();
+                let after = trans.clone().unwrap().transition(&state).unwrap();
                 let imp = after
                     .location_eq(successor)
                     .implies(after.state_eq(successor));

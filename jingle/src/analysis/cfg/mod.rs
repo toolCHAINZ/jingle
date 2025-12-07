@@ -10,8 +10,10 @@ use petgraph::graph::NodeIndex;
 use petgraph::prelude::DiGraph;
 use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Formatter, LowerHex};
+use std::rc::Rc;
 use z3::ast::Bool;
 
 mod model;
@@ -38,17 +40,37 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
 pub struct PcodeCfgVisitor<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     cfg: &'a PcodeCfg<N, D>,
     location: N,
+    pub(crate) visited_locations: Rc<RefCell<HashSet<N>>>,
 }
 
 impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
-    pub(crate) fn successors(&self) -> impl Iterator<Item = Self> {
+    pub(crate) fn successors(&mut self) -> impl Iterator<Item = Self> {
         self.cfg
             .successors(&self.location)
             .into_iter()
             .flatten()
-            .map(|n| Self {
-                cfg: self.cfg,
-                location: n.clone(),
+            .flat_map(|n| {
+                // Use a short-lived borrow so the RefMut is released before we construct the new visitor
+                let is_repeat = {
+                    let mut set = self.visited_locations.borrow_mut();
+                    if set.contains(n) {
+                        println!("Trimming repeat of {n:x?}");
+                        true
+                    } else {
+                        set.insert(n.clone());
+                        false
+                    }
+                };
+
+                if is_repeat {
+                    None
+                } else {
+                    Some(Self {
+                        cfg: self.cfg,
+                        location: n.clone(),
+                        visited_locations: self.visited_locations.clone(),
+                    })
+                }
             })
     }
 
@@ -288,10 +310,11 @@ impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
         location: &UnwoundLocation,
         ctl_model: CtlFormula<UnwoundLocation, D>,
     ) -> Bool {
-        let visitor = PcodeCfgVisitor {
+        let mut visitor = PcodeCfgVisitor {
             location: location.clone(),
             cfg: self,
+            visited_locations: Rc::new(RefCell::new(HashSet::new())),
         };
-        ctl_model.check(&visitor)
+        ctl_model.check(&mut visitor)
     }
 }
