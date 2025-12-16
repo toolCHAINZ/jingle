@@ -1,0 +1,16 @@
+size  = @{ ASCII_DIGIT+ }
+space = @{ ASCII_ALPHANUMERIC+ }
+// pcode display of varnodes
+temporary = @{ "$U" ~ HEX_DIGIT ~ ":" ~ size }
+const     = @{ (("0x" ~ HEX_DIGIT) | (ASCII_DIGIT)) ~ ":" ~ size }
+register  = @{ ASCII }
+memory    = @{ "[" ~ space ~ "]" ~ const }
+
+varnode = @{ temporary | const | memory | register }
+
+// memory ops
+dereference = @{ "*" ~ varnode }
+reference   = @{ space ~ "(" ~ varnode ~ ")" }
+
+// pcode ops
+COPY = { varnode ~ "=" ~ "COPY" ~ varnode }

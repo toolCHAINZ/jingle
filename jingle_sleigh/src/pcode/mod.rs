@@ -1,4 +1,5 @@
 pub mod branch;
+pub mod parse;
 
 use crate::context::loaded::CallInfo;
 use crate::pcode::PcodeOperation::{

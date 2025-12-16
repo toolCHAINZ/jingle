@@ -33,6 +33,8 @@ serde-xml-rs = "0.8.1"
 thiserror = { version = "2.0", features = [] }
 object = { version = "0.37.1", optional = true }
 tracing = "0.1"
+pest = "2.8.4"
+pest_derive = "2.8.4"
 
 [build-dependencies]
 cxx-build = "1.0"
