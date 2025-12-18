@@ -55,11 +55,12 @@ fn const_to_varnode(s: &str, info: &SleighArchInfo) -> Result<VarNode, JingleSle
 }
 
 /// Parse a reference pair using grammar pairs (reference = space ~ "(" ~ varnode ~ ")")
-/// Returns the pointer space index and the parsed pointer VarNode; the caller decides access size.
+/// Returns a parsed IndirectVarNode with the pointer space and pointer location set.
+/// The access size is left as 0 for the caller to decide.
 fn parse_reference_pair(
     pair: Pair<Rule>,
     info: &SleighArchInfo,
-) -> Result<(usize, VarNode), JingleSleighError> {
+) -> Result<IndirectVarNode, JingleSleighError> {
     // Walk the inner pairs produced by the `reference` rule:
     // expected sequence: Rule::space, Rule::varnode
     let mut inner = pair.into_inner();
@@ -90,7 +91,11 @@ fn parse_reference_pair(
                 "Invalid space: {}",
                 space_name
             )))?;
-    Ok((space.index, pointer_location))
+    Ok(IndirectVarNode {
+        pointer_space_index: space.index,
+        pointer_location,
+        access_size_bytes: 0,
+    })
 }
 
 pub fn parse_pcode(
@@ -98,7 +103,6 @@ pub fn parse_pcode(
     info: &SleighArchInfo,
 ) -> Result<PcodeOperation, JingleSleighError> {
     for pair in pairs {
-        dbg!(&pair);
         match pair.as_rule() {
             Rule::COPY => {
                 let pairs: Vec<_> = pair.into_inner().collect();
@@ -110,26 +114,16 @@ pub fn parse_pcode(
                 let pairs: Vec<_> = pair.into_inner().collect();
                 // pairs[0] = output varnode, pairs[1] = reference
                 let output = parse_varnode(pairs[0].clone(), info)?;
-                let (pointer_space_index, pointer_location) =
-                    parse_reference_pair(pairs[1].clone(), info)?;
-                let input = IndirectVarNode {
-                    pointer_space_index,
-                    pointer_location,
-                    access_size_bytes: output.size,
-                };
+                let mut input = parse_reference_pair(pairs[1].clone(), info)?;
+                input.access_size_bytes = output.size;
                 return Ok(PcodeOperation::Load { input, output });
             }
             Rule::STORE => {
                 let pairs: Vec<_> = pair.into_inner().collect();
                 // pairs[0] = reference, pairs[1] = varnode to store
-                let (pointer_space_index, pointer_location) =
-                    parse_reference_pair(pairs[0].clone(), info)?;
+                let mut output = parse_reference_pair(pairs[0].clone(), info)?;
                 let input = parse_varnode(pairs[1].clone(), info)?;
-                let output = IndirectVarNode {
-                    pointer_space_index,
-                    pointer_location,
-                    access_size_bytes: input.size,
-                };
+                output.access_size_bytes = input.size;
                 return Ok(PcodeOperation::Store { output, input });
             }
             Rule::BRANCH => {
@@ -186,18 +180,26 @@ pub fn parse_pcode(
                 let p = inner.next().unwrap();
                 let vn = parse_varnode(p, info)?;
                 let input = IndirectVarNode {
-                    pointer_space_index: vn.space_index,
+                    pointer_space_index: info.default_code_space_index(),
                     pointer_location: vn,
                     access_size_bytes: 0,
                 };
                 return Ok(PcodeOperation::CallInd { input });
+            }
+            Rule::CALLOTHER => {
+                todo!("impl callother");
+                return Ok(PcodeOperation::CallOther {
+                    output: (),
+                    inputs: (),
+                    call_info: (),
+                });
             }
             Rule::RETURN => {
                 let mut inner = pair.into_inner();
                 let p = inner.next().unwrap();
                 let vn = parse_varnode(p, info)?;
                 let input = IndirectVarNode {
-                    pointer_space_index: vn.space_index,
+                    pointer_space_index: info.default_code_space_index(),
                     pointer_location: vn,
                     access_size_bytes: 0,
                 };
@@ -652,10 +654,51 @@ pub fn parse_pcode(
                 let input = parse_varnode(pairs[1].clone(), info)?;
                 return Ok(PcodeOperation::FloatAbs { output, input });
             }
+            Rule::FLOAT_SQRT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatSqrt { output, input });
+            }
+            Rule::FLOAT_CEIL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatCeil { output, input });
+            }
+            Rule::FLOAT_FLOOR => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatFloor { output, input });
+            }
+            Rule::FLOAT_ROUND => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatRound { output, input });
+            }
+            Rule::INT2FLOAT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::Int2Float { output, input });
+            }
+            Rule::FLOAT2FLOAT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::Float2Float { output, input });
+            }
+            Rule::TRUNC => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatAbs { output, input });
+            }
             // many other pcode rules are possible; fall through to unreachable to catch unhandled ones
             a => {
                 // For debugging, print the rule we hit.
-                dbg!(a);
                 return Err(JingleSleighError::PcodeParseValidation(format!(
                     "Unhandled pcode rule in parser: {:?}",
                     a
