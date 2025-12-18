@@ -132,6 +132,7 @@ impl SleighArchInfo {
         registers: T,
         spaces: E,
         default_code_space: usize,
+        userops: Vec<String>,
     ) -> Self {
         let mut registers_to_vns = HashMap::new();
         let mut vns_to_registers = HashMap::new();
@@ -147,6 +148,7 @@ impl SleighArchInfo {
                 vns_to_registers,
                 spaces: spaces.collect(),
                 default_code_space,
+                userops,
             }),
         }
     }

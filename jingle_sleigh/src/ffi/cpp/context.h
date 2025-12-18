@@ -35,6 +35,9 @@ public:
     rust::Str getRegisterName(VarnodeInfoFFI name) const;
 
     rust::Vec<RegisterInfoFFI> getRegisters() const;
+
+    // Return the list of user-defined p-code userop names
+    rust::Vec<rust::String> getUserOps() const;
 };
 
 RegisterInfoFFI collectRegInfo(std::tuple<ghidra::VarnodeData*, std::string> el);

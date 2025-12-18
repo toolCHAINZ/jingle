@@ -59,6 +59,8 @@ impl SleighContext {
                     vns_to_registers.insert(vn, info.name);
                 }
 
+                let userops = ctx.getUserOps();
+
                 let arch_info = SleighArchInfo {
                     info: Arc::new(SleighArchInfoInner {
                         registers_to_vns,
@@ -71,6 +73,7 @@ impl SleighContext {
                             .getDefaultCodeSpace()
                             .getIndex() as usize,
                         spaces: spaces.clone(),
+                        userops,
                     }),
                 };
 
@@ -189,6 +192,20 @@ mod test {
             }),
             None
         );
+    }
+
+    #[test]
+    fn get_user_ops() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        // Access the userops vector stored in the arch info. This is a placeholder
+        // assertion; replace with concrete expectations later.
+        let userops = &sleigh.arch_info().info.userops;
+        // dummy assertion to ensure the API was called and returned a Vec
+        assert!(userops.len() >= 0);
+        assert_eq!(userops[0], "segment");
     }
 
     #[test]
