@@ -17,6 +17,9 @@ use std::rc::Rc;
 use z3::ast::Bool;
 
 mod model;
+mod visitor;
+
+pub use visitor::PcodeCfgVisitor;
 
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
@@ -34,57 +37,6 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
     pub(crate) models: HashMap<N, N::Model>,
-}
-
-#[derive(Clone)]
-pub struct PcodeCfgVisitor<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
-    cfg: &'a PcodeCfg<N, D>,
-    location: N,
-    pub(crate) visited_locations: Rc<RefCell<HashSet<N>>>,
-}
-
-impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
-    pub(crate) fn successors(&mut self) -> impl Iterator<Item = Self> {
-        self.cfg
-            .successors(&self.location)
-            .into_iter()
-            .flatten()
-            .flat_map(|n| {
-                // Use a short-lived borrow so the RefMut is released before we construct the new visitor
-                let is_repeat = {
-                    let mut set = self.visited_locations.borrow_mut();
-                    if set.contains(n) {
-                        println!("Trimming repeat of {n:x?}");
-                        true
-                    } else {
-                        set.insert(n.clone());
-                        false
-                    }
-                };
-
-                if is_repeat {
-                    None
-                } else {
-                    Some(Self {
-                        cfg: self.cfg,
-                        location: n.clone(),
-                        visited_locations: self.visited_locations.clone(),
-                    })
-                }
-            })
-    }
-
-    pub(crate) fn transition(&self) -> Option<&D> {
-        self.cfg.ops.get(&self.location)
-    }
-
-    pub fn location(&self) -> &N {
-        &self.location
-    }
-
-    pub fn state(&self) -> Option<&N::Model> {
-        self.cfg.models.get(&self.location)
-    }
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {

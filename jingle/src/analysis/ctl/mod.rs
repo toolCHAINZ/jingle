@@ -7,6 +7,8 @@ use std::ops::{BitAnd, BitOr, Deref};
 use std::rc::Rc;
 use z3::ast::Bool;
 
+mod check;
+
 #[derive(Debug, Clone, Copy)]
 pub enum CtlQuantifier {
     Existential,
