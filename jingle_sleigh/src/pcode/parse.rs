@@ -5,7 +5,7 @@ use pest::{
 use pest_derive::Parser;
 use tracing::warn;
 
-use crate::{JingleSleighError, PcodeOperation, SleighArchInfo, VarNode};
+use crate::{IndirectVarNode, JingleSleighError, PcodeOperation, SleighArchInfo, VarNode};
 
 #[derive(Parser)]
 #[grammar = "pcode/grammar.pest"]
@@ -34,6 +34,74 @@ pub fn parse_program<T: AsRef<str>>(
     Ok(ops)
 }
 
+fn const_to_varnode(s: &str, info: &SleighArchInfo) -> Result<VarNode, JingleSleighError> {
+    let s = s.trim();
+    let radix = if s.starts_with("0x") { 16 } else { 10 };
+    let s = s.strip_prefix("0x").unwrap_or(s);
+    let offset = u64::from_str_radix(s, radix).map_err(|_| {
+        JingleSleighError::PcodeParseValidation(format!("Invalid const literal: {}", s))
+    })?;
+    let space = info
+        .get_space_by_name("const")
+        .ok_or(JingleSleighError::PcodeParseValidation(
+            "Missing const space in arch info".to_string(),
+        ))?;
+    // We don't have a size for these plain const tokens in the grammar; choose 0 to indicate "constant"
+    Ok(VarNode {
+        offset,
+        space_index: space.index,
+        size: 0,
+    })
+}
+
+/// Parse a reference token of the form "<space>(<varnode_text>)"
+/// Returns the pointer space index and the parsed pointer VarNode; the caller decides access size.
+fn parse_reference_pair(
+    pair: Pair<Rule>,
+    info: &SleighArchInfo,
+) -> Result<(usize, VarNode), JingleSleighError> {
+    // The grammar marks `reference` as an atomic token, so we get it as a single string.
+    // Format expected: "<space>(<varnode>)"
+    let s = pair.as_str();
+    let open = s
+        .find('(')
+        .ok_or(JingleSleighError::PcodeParseValidation(format!(
+            "Invalid reference format: {}",
+            s
+        )))?;
+    let close = s
+        .rfind(')')
+        .ok_or(JingleSleighError::PcodeParseValidation(format!(
+            "Invalid reference format: {}",
+            s
+        )))?;
+    if close <= open {
+        return Err(JingleSleighError::PcodeParseValidation(format!(
+            "Invalid reference format: {}",
+            s
+        )));
+    }
+    let space_name = s[..open].trim();
+    let inner = s[(open + 1)..close].trim();
+
+    // parse inner varnode text using the generated parser
+    let mut inner_pairs = PcodeParser::parse(Rule::varnode, inner)?;
+    let inner_pair = inner_pairs
+        .next()
+        .ok_or(JingleSleighError::PcodeParseValidation(format!(
+            "Empty varnode inside reference: {}",
+            s
+        )))?;
+    let pointer_location = parse_varnode(inner_pair, info)?;
+    let space =
+        info.get_space_by_name(space_name)
+            .ok_or(JingleSleighError::PcodeParseValidation(format!(
+                "Invalid space: {}",
+                space_name
+            )))?;
+    Ok((space.index, pointer_location))
+}
+
 pub fn parse_pcode(
     pairs: Pairs<Rule>,
     info: &SleighArchInfo,
@@ -47,12 +115,565 @@ pub fn parse_pcode(
                 let input = parse_varnode(pairs[1].clone(), info)?;
                 return Ok(PcodeOperation::Copy { input, output });
             }
+            Rule::LOAD => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                // pairs[0] = output varnode, pairs[1] = reference
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let (pointer_space_index, pointer_location) =
+                    parse_reference_pair(pairs[1].clone(), info)?;
+                let input = IndirectVarNode {
+                    pointer_space_index,
+                    pointer_location,
+                    access_size_bytes: output.size,
+                };
+                return Ok(PcodeOperation::Load { input, output });
+            }
+            Rule::STORE => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                // pairs[0] = reference, pairs[1] = varnode to store
+                let (pointer_space_index, pointer_location) =
+                    parse_reference_pair(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                let output = IndirectVarNode {
+                    pointer_space_index,
+                    pointer_location,
+                    access_size_bytes: input.size,
+                };
+                return Ok(PcodeOperation::Store { output, input });
+            }
+            Rule::BRANCH => {
+                let mut inner = pair.into_inner();
+                let dest = inner.next().unwrap();
+                match dest.as_rule() {
+                    Rule::varnode => {
+                        let input = parse_varnode(dest, info)?;
+                        return Ok(PcodeOperation::Branch { input });
+                    }
+                    Rule::LABEL => {
+                        return Err(JingleSleighError::PcodeParseValidation(
+                            "BRANCH to textual LABEL not supported".to_string(),
+                        ));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Rule::CBRANCH => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                // pairs[0] = branch_dest (varnode or label), pairs[1] = varnode condition
+                let dest_pair = pairs[0].clone();
+                if dest_pair.as_rule() != Rule::varnode {
+                    return Err(JingleSleighError::PcodeParseValidation(
+                        "CBRANCH with non-varnode destination not supported".to_string(),
+                    ));
+                }
+                let input0 = parse_varnode(dest_pair, info)?;
+                let input1 = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::CBranch { input0, input1 });
+            }
+            Rule::BRANCHIND => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let vn = parse_varnode(pairs[0].clone(), info)?;
+                let input = IndirectVarNode {
+                    pointer_space_index: vn.space_index,
+                    pointer_location: vn.clone(),
+                    access_size_bytes: vn.size,
+                };
+                return Ok(PcodeOperation::BranchInd { input });
+            }
+            Rule::CALL => {
+                let mut inner = pair.into_inner();
+                let dest_pair = inner.next().unwrap();
+                let dest = parse_varnode(dest_pair, info)?;
+                return Ok(PcodeOperation::Call {
+                    dest,
+                    args: vec![],
+                    call_info: None,
+                });
+            }
+            Rule::CALLIND => {
+                let mut inner = pair.into_inner();
+                let p = inner.next().unwrap();
+                let vn = parse_varnode(p, info)?;
+                let input = IndirectVarNode {
+                    pointer_space_index: vn.space_index,
+                    pointer_location: vn,
+                    access_size_bytes: 0,
+                };
+                return Ok(PcodeOperation::CallInd { input });
+            }
+            Rule::RETURN => {
+                let mut inner = pair.into_inner();
+                let p = inner.next().unwrap();
+                let vn = parse_varnode(p, info)?;
+                let input = IndirectVarNode {
+                    pointer_space_index: vn.space_index,
+                    pointer_location: vn,
+                    access_size_bytes: 0,
+                };
+                return Ok(PcodeOperation::Return { input });
+            }
+            Rule::PIECE => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::Piece {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::SUBPIECE => {
+                let mut pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                // pairs[2] is a const token
+                let input1 = const_to_varnode(pairs[2].as_str(), info)?;
+                return Ok(PcodeOperation::SubPiece {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::POPCOUNT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::PopCount { input, output });
+            }
+            Rule::LZCOUNT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::LzCount { output, input });
+            }
+            // integer comparisons & casts
+            Rule::INT_EQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_NOTEQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntNotEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_LESS => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntLess {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SLESS => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedLess {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_LESSEQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntLessEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SLESSEQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedLessEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_ZEXT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::IntZExt { input, output });
+            }
+            Rule::INT_SEXT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::IntSExt { input, output });
+            }
+            // arithmetic / logical binary ops
+            Rule::INT_ADD => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntAdd {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SUB => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSub {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_CARRY => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntCarry {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SCARRY => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedCarry {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SBORROW => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedBorrow {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_2COMP => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::Int2Comp { output, input });
+            }
+            Rule::INT_NEGATE => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::IntNegate { output, input });
+            }
+            Rule::INT_XOR => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntXor {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_AND => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntAnd {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_OR => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntOr {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_LEFT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntLeftShift {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_RIGHT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntRightShift {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SRIGHT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedRightShift {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_MULT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntMult {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_DIV => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntDiv {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SDIV => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedDiv {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_REM => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntRem {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::INT_SREM => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::IntSignedRem {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            // boolean ops
+            Rule::BOOL_NEGATE => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::BoolNegate { output, input });
+            }
+            Rule::BOOL_XOR => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::BoolXor {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::BOOL_AND => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::BoolAnd {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::BOOL_OR => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::BoolOr {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            // floating point ops (handle common forms)
+            Rule::FLOAT_EQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_NOTEQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatNotEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_LESS => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatLess {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_LESSEQUAL => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatLessEqual {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_NAN => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatNaN { output, input });
+            }
+            Rule::FLOAT_ADD => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatAdd {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_SUB => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatSub {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_MULT => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatMult {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_DIV => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input0 = parse_varnode(pairs[1].clone(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
+                return Ok(PcodeOperation::FloatDiv {
+                    output,
+                    input0,
+                    input1,
+                });
+            }
+            Rule::FLOAT_NEG => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatNeg { output, input });
+            }
+            Rule::FLOAT_ABS => {
+                let pairs: Vec<_> = pair.into_inner().collect();
+                let output = parse_varnode(pairs[0].clone(), info)?;
+                let input = parse_varnode(pairs[1].clone(), info)?;
+                return Ok(PcodeOperation::FloatAbs { output, input });
+            }
+            // many other pcode rules are possible; fall through to unreachable to catch unhandled ones
             a => {
-                unreachable!()
+                // For debugging, print the rule we hit.
+                dbg!(a);
+                return Err(JingleSleighError::PcodeParseValidation(format!(
+                    "Unhandled pcode rule in parser: {:?}",
+                    a
+                )));
             }
         }
     }
-    todo!()
+    unreachable!()
 }
 
 pub fn parse_varnode(
