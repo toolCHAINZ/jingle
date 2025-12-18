@@ -13,7 +13,7 @@ mod helpers;
 #[grammar = "pcode/parse/grammar.pest"]
 pub struct PcodeParser;
 
-pub fn parse_program<T: AsRef<str>>(
+pub(crate) fn parse_program<T: AsRef<str>>(
     s: T,
     info: SleighArchInfo,
 ) -> Result<Vec<PcodeOperation>, JingleSleighError> {
@@ -26,8 +26,8 @@ pub fn parse_program<T: AsRef<str>>(
                 ops.push(op);
             }
             Rule::LABEL => {
-                warn!("Attempting to parse p-code program with textual labels; this code is brittle and likely does
-                    not work in the general case. Please ensure the parsed p-code's control flow matches what you expect.")
+                warn!("Attempting to parse p-code program with textual labels; the parsing \
+                will fail if the code attempts to branch to a label by name.")
             }
             Rule::EOI => {}
             _ => unreachable!(),
@@ -36,7 +36,7 @@ pub fn parse_program<T: AsRef<str>>(
     Ok(ops)
 }
 
-pub fn parse_pcode(
+pub(crate) fn parse_pcode(
     mut pairs: Pairs<Rule>,
     info: &SleighArchInfo,
 ) -> Result<PcodeOperation, JingleSleighError> {
@@ -68,12 +68,7 @@ pub fn parse_pcode(
     }
 
     match pair.as_rule() {
-        Rule::COPY => {
-            let pairs: Vec<_> = pair.into_inner().collect();
-            let output = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            return Ok(PcodeOperation::Copy { input, output });
-        }
+        Rule::COPY => parse_unop!(Copy),
         Rule::LOAD => {
             let pairs: Vec<_> = pair.into_inner().collect();
             // pairs[0] = output varnode, pairs[1] = reference
@@ -249,12 +244,7 @@ pub fn parse_pcode(
         }
         Rule::PIECE => parse_binop!(Piece),
         Rule::SUBPIECE => parse_binop!(SubPiece),
-        Rule::POPCOUNT => {
-            let pairs: Vec<_> = pair.into_inner().collect();
-            let output = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            return Ok(PcodeOperation::PopCount { input, output });
-        }
+        Rule::POPCOUNT => parse_unop!(PopCount),
         Rule::LZCOUNT => parse_unop!(LzCount),
         // integer comparisons & casts
         Rule::INT_EQUAL => parse_binop!(IntEqual),
@@ -263,18 +253,8 @@ pub fn parse_pcode(
         Rule::INT_SLESS => parse_binop!(IntSignedLess),
         Rule::INT_LESSEQUAL => parse_binop!(IntLessEqual),
         Rule::INT_SLESSEQUAL => parse_binop!(IntSignedLessEqual),
-        Rule::INT_ZEXT => {
-            let pairs: Vec<_> = pair.into_inner().collect();
-            let output = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            return Ok(PcodeOperation::IntZExt { input, output });
-        }
-        Rule::INT_SEXT => {
-            let pairs: Vec<_> = pair.into_inner().collect();
-            let output = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            return Ok(PcodeOperation::IntSExt { input, output });
-        }
+        Rule::INT_ZEXT => parse_unop!(IntZExt),
+        Rule::INT_SEXT => parse_unop!(IntSExt),
         // arithmetic / logical binary ops
         Rule::INT_ADD => parse_binop!(IntAdd),
         Rule::INT_SUB => parse_binop!(IntSub),
