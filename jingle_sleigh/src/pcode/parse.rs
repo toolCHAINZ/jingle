@@ -54,45 +54,36 @@ fn const_to_varnode(s: &str, info: &SleighArchInfo) -> Result<VarNode, JingleSle
     })
 }
 
-/// Parse a reference token of the form "<space>(<varnode_text>)"
+/// Parse a reference pair using grammar pairs (reference = space ~ "(" ~ varnode ~ ")")
 /// Returns the pointer space index and the parsed pointer VarNode; the caller decides access size.
 fn parse_reference_pair(
     pair: Pair<Rule>,
     info: &SleighArchInfo,
 ) -> Result<(usize, VarNode), JingleSleighError> {
-    // The grammar marks `reference` as an atomic token, so we get it as a single string.
-    // Format expected: "<space>(<varnode>)"
-    let s = pair.as_str();
-    let open = s
-        .find('(')
-        .ok_or(JingleSleighError::PcodeParseValidation(format!(
-            "Invalid reference format: {}",
-            s
-        )))?;
-    let close = s
-        .rfind(')')
-        .ok_or(JingleSleighError::PcodeParseValidation(format!(
-            "Invalid reference format: {}",
-            s
-        )))?;
-    if close <= open {
+    // Walk the inner pairs produced by the `reference` rule:
+    // expected sequence: Rule::space, Rule::varnode
+    let mut inner = pair.into_inner();
+    let space_pair = inner.next().ok_or(JingleSleighError::PcodeParseValidation(
+        "Missing space in reference".to_string(),
+    ))?;
+    if space_pair.as_rule() != Rule::space {
         return Err(JingleSleighError::PcodeParseValidation(format!(
-            "Invalid reference format: {}",
-            s
+            "Expected space in reference, got {:?}",
+            space_pair.as_rule()
         )));
     }
-    let space_name = s[..open].trim();
-    let inner = s[(open + 1)..close].trim();
+    let varnode_pair = inner.next().ok_or(JingleSleighError::PcodeParseValidation(
+        "Missing varnode in reference".to_string(),
+    ))?;
+    if varnode_pair.as_rule() != Rule::varnode {
+        return Err(JingleSleighError::PcodeParseValidation(format!(
+            "Expected varnode in reference, got {:?}",
+            varnode_pair.as_rule()
+        )));
+    }
 
-    // parse inner varnode text using the generated parser
-    let mut inner_pairs = PcodeParser::parse(Rule::varnode, inner)?;
-    let inner_pair = inner_pairs
-        .next()
-        .ok_or(JingleSleighError::PcodeParseValidation(format!(
-            "Empty varnode inside reference: {}",
-            s
-        )))?;
-    let pointer_location = parse_varnode(inner_pair, info)?;
+    let space_name = space_pair.as_str();
+    let pointer_location = parse_varnode(varnode_pair, info)?;
     let space =
         info.get_space_by_name(space_name)
             .ok_or(JingleSleighError::PcodeParseValidation(format!(
@@ -224,11 +215,10 @@ pub fn parse_pcode(
                 });
             }
             Rule::SUBPIECE => {
-                let mut pairs: Vec<_> = pair.into_inner().collect();
+                let pairs: Vec<_> = pair.into_inner().collect();
                 let output = parse_varnode(pairs[0].clone(), info)?;
                 let input0 = parse_varnode(pairs[1].clone(), info)?;
-                // pairs[2] is a const token
-                let input1 = const_to_varnode(pairs[2].as_str(), info)?;
+                let input1 = parse_varnode(pairs[2].clone(), info)?;
                 return Ok(PcodeOperation::SubPiece {
                     output,
                     input0,

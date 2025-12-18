@@ -23,7 +23,7 @@ op_name =  { (!quote ~ ANY)* }
 string  = _{ quote ~ op_name ~ quote }
 
 // memory ops
-reference = @{ space ~ "(" ~ varnode ~ ")" }
+reference = ${ space ~ "(" ~ varnode ~ ")" }
 
 callother_operation = { varnode | string }
 
@@ -45,7 +45,7 @@ CALLOTHER = { (varnode ~ "=")? ~ "CALLOTHER" ~ callother_operation ~ ("," ~ varn
 RETURN    = { "RETURN" ~ varnode }
 
 PIECE    = { varnode ~ "=" ~ "PIECE" ~ varnode ~ "," ~ varnode }
-SUBPIECE = { varnode ~ "=" ~ "SUBPIECE" ~ varnode ~ "," ~ const }
+SUBPIECE = { varnode ~ "=" ~ "SUBPIECE" ~ varnode ~ "," ~ varnode }
 POPCOUNT = { varnode ~ "=" ~ "POPCOUNT" ~ varnode }
 LZCOUNT  = { varnode ~ "=" ~ "LZCOUNT" ~ varnode }
 
