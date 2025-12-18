@@ -87,11 +87,28 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A convenient cache of information about a sleigh context
 pub(crate) struct SleighArchInfoInner {
+    /// A mapping of register names to varnodes
     pub(crate) registers_to_vns: HashMap<String, VarNode>,
+    /// A mapping of varnodes to register names
     pub(crate) vns_to_registers: HashMap<VarNode, String>,
+    /// Ordered metadata about the spaces defined in this pcode context
+    /// The order in this vector must match the ordering assumed
+    /// in pcode operations
     pub(crate) spaces: Vec<SpaceInfo>,
+    /// The index of pcode space in which code usually lives
+    /// Used to interpret some pcode branch destinations, as well
+    /// as in some varnode "helpers".
+    ///
+    /// On most platforms (e.g. not Harvard arch), this is just "ram"
     pub(crate) default_code_space: usize,
+    /// A mapping from an index to the name associated with a `CALLOTHER`
+    ///
+    /// The first input varnode of a CALLOTHER is a constant, which can
+    /// be used to index this map. This improves display of CALLOTHER as well
+    /// as for parsing: users need not memorize CALLOTHER arguments.
+    pub(crate) userops: Vec<String>,
 }
 
 impl std::fmt::Debug for SleighArchInfoInner {
@@ -111,7 +128,7 @@ pub struct SleighArchInfo {
 }
 
 impl SleighArchInfo {
-    pub fn new<T: Iterator<Item = (VarNode, String)>, E: Iterator<Item = SpaceInfo>>(
+    fn new<T: Iterator<Item = (VarNode, String)>, E: Iterator<Item = SpaceInfo>>(
         registers: T,
         spaces: E,
         default_code_space: usize,
