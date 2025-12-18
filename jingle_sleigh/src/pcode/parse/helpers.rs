@@ -80,7 +80,7 @@ pub fn parse_varnode(
                 let new_loc = parse_varnode_location(pair)?;
                 loc = Some(new_loc);
             }
-            Rule::size => size = Some(usize::from_str_radix(pair.as_str(), 10).unwrap()),
+            Rule::size => size = Some(pair.as_str().parse().unwrap()),
             Rule::register => {
                 reg = Some(pair.as_str().to_string());
             }
@@ -94,26 +94,24 @@ pub fn parse_varnode(
                     "Invalid space: {}",
                     loc.0
                 )))?;
-        return Ok(VarNode {
+        Ok(VarNode {
             offset: loc.1,
             space_index: space.index,
-            size: size,
-        });
+            size,
+        })
     } else {
         let reg = reg.unwrap();
-        return info
-            .register(&reg)
+        info.register(&reg)
             .cloned()
             .ok_or(JingleSleighError::PcodeParseValidation(format!(
                 "Invalid register: {}",
                 reg
-            )));
+            )))
     }
 }
 
 pub fn parse_varnode_location(pair: Pair<Rule>) -> Result<(String, u64), JingleSleighError> {
-    dbg!(&pair);
-    for pair in pair.into_inner() {
+    if let Some(pair) = pair.into_inner().next() {
         match pair.as_rule() {
             Rule::temporary => {
                 let s = pair.as_span().as_str();
@@ -125,7 +123,7 @@ pub fn parse_varnode_location(pair: Pair<Rule>) -> Result<(String, u64), JingleS
             Rule::r#const => {
                 let s = pair.as_span().as_str();
                 let radix = if s.starts_with("0x") { 16 } else { 10 };
-                let s = s.strip_prefix("0x").unwrap_or(&s);
+                let s = s.strip_prefix("0x").unwrap_or(s);
                 return Ok(("const".to_string(), u64::from_str_radix(s, radix).unwrap()));
             }
             Rule::memory => {
@@ -171,7 +169,7 @@ pub fn parse_callother_operation(
         )));
     }
     dbg!(&pair);
-    for op_inner in pair.into_inner() {
+    if let Some(op_inner) = pair.into_inner().next() {
         match op_inner.as_rule() {
             Rule::varnode => {
                 return parse_varnode(op_inner, info);

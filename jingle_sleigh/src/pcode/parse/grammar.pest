@@ -88,8 +88,8 @@ BOOL_OR     = { varnode ~ "=" ~ "BOOL_OR" ~ varnode ~ "," ~ varnode }
 // floating point ops
 FLOAT_EQUAL     = { varnode ~ "=" ~ "FLOAT_EQUAL" ~ varnode ~ "," ~ varnode }
 FLOAT_NOTEQUAL  = { varnode ~ "=" ~ "FLOAT_NOTEQUAL" ~ varnode ~ "," ~ varnode }
-FLOAT_LESS      = { varnode ~ "=" ~ "FLOAT_LESS" ~ varnode ~ "," ~ varnode }
 FLOAT_LESSEQUAL = { varnode ~ "=" ~ "FLOAT_LESSEQUAL" ~ varnode ~ "," ~ varnode }
+FLOAT_LESS      = { varnode ~ "=" ~ "FLOAT_LESS" ~ varnode ~ "," ~ varnode }
 FLOAT_ADD       = { varnode ~ "=" ~ "FLOAT_ADD" ~ varnode ~ "," ~ varnode }
 FLOAT_SUB       = { varnode ~ "=" ~ "FLOAT_SUB" ~ varnode ~ "," ~ varnode }
 FLOAT_MULT      = { varnode ~ "=" ~ "FLOAT_MULT" ~ varnode ~ "," ~ varnode }
@@ -124,10 +124,10 @@ PCODE = {
   | LZCOUNT
   | INT_EQUAL
   | INT_NOTEQUAL
-  | INT_LESS
-  | INT_SLESS
   | INT_LESSEQUAL
   | INT_SLESSEQUAL
+  | INT_LESS
+  | INT_SLESS
   | INT_ZEXT
   | INT_SEXT
   | INT_ADD
@@ -154,8 +154,8 @@ PCODE = {
   | BOOL_OR
   | FLOAT_EQUAL
   | FLOAT_NOTEQUAL
-  | FLOAT_LESS
   | FLOAT_LESSEQUAL
+  | FLOAT_LESS
   | FLOAT_ADD
   | FLOAT_SUB
   | FLOAT_MULT

@@ -41,7 +41,7 @@ pub enum JingleSleighError {
     #[error("Failure to acquire mutex to sleigh FFI function")]
     SleighCompilerMutexError,
     #[error("Unable to parse pcode from text: {0}")]
-    PcodeParse(pest::error::Error<Rule>),
+    PcodeParse(Box<pest::error::Error<Rule>>),
     #[error("Unable to validate parsed pcode from text: {0}")]
     PcodeParseValidation(String),
 }
@@ -54,7 +54,7 @@ impl From<JingleSleighError> for std::fmt::Error {
 
 impl From<pest::error::Error<Rule>> for JingleSleighError {
     fn from(value: pest::error::Error<Rule>) -> Self {
-        Self::PcodeParse(value)
+        Self::PcodeParse(Box::new(value))
     }
 }
 

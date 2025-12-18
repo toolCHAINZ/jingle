@@ -71,7 +71,7 @@ pub(crate) fn parse_pcode(
             let output = helpers::parse_varnode(pairs[0].clone(), info)?;
             let mut input = helpers::parse_reference_pair(pairs[1].clone(), info)?;
             input.access_size_bytes = output.size;
-            return Ok(PcodeOperation::Load { input, output });
+            Ok(PcodeOperation::Load { input, output })
         }
         Rule::STORE => {
             let pairs: Vec<_> = pair.into_inner().collect();
@@ -79,7 +79,7 @@ pub(crate) fn parse_pcode(
             let mut output = helpers::parse_reference_pair(pairs[0].clone(), info)?;
             let input = helpers::parse_varnode(pairs[1].clone(), info)?;
             output.access_size_bytes = input.size;
-            return Ok(PcodeOperation::Store { output, input });
+            Ok(PcodeOperation::Store { output, input })
         }
         Rule::BRANCH => {
             let mut inner = pair.into_inner();
@@ -87,12 +87,12 @@ pub(crate) fn parse_pcode(
             match dest.as_rule() {
                 Rule::varnode => {
                     let input = helpers::parse_varnode(dest, info)?;
-                    return Ok(PcodeOperation::Branch { input });
+                    Ok(PcodeOperation::Branch { input })
                 }
                 Rule::LABEL => {
-                    return Err(JingleSleighError::PcodeParseValidation(
+                    Err(JingleSleighError::PcodeParseValidation(
                         "BRANCH to textual LABEL not supported".to_string(),
-                    ));
+                    ))
                 }
                 _ => unreachable!(),
             }
@@ -108,7 +108,7 @@ pub(crate) fn parse_pcode(
             }
             let input0 = helpers::parse_varnode(dest_pair, info)?;
             let input1 = helpers::parse_varnode(pairs[1].clone(), info)?;
-            return Ok(PcodeOperation::CBranch { input0, input1 });
+            Ok(PcodeOperation::CBranch { input0, input1 })
         }
         Rule::BRANCHIND => {
             let pairs: Vec<_> = pair.into_inner().collect();
@@ -118,17 +118,17 @@ pub(crate) fn parse_pcode(
                 pointer_location: vn.clone(),
                 access_size_bytes: vn.size,
             };
-            return Ok(PcodeOperation::BranchInd { input });
+            Ok(PcodeOperation::BranchInd { input })
         }
         Rule::CALL => {
             let mut inner = pair.into_inner();
             let dest_pair = inner.next().unwrap();
             let dest = helpers::parse_varnode(dest_pair, info)?;
-            return Ok(PcodeOperation::Call {
+            Ok(PcodeOperation::Call {
                 dest,
                 args: vec![],
                 call_info: None,
-            });
+            })
         }
         Rule::CALLIND => {
             let mut inner = pair.into_inner();
@@ -139,7 +139,7 @@ pub(crate) fn parse_pcode(
                 pointer_location: vn,
                 access_size_bytes: 0,
             };
-            return Ok(PcodeOperation::CallInd { input });
+            Ok(PcodeOperation::CallInd { input })
         }
         Rule::CALLOTHER => {
             let inner = pair.into_inner();
@@ -191,11 +191,11 @@ pub(crate) fn parse_pcode(
             let mut inputs = vec![op_varnode];
             inputs.extend(arguments);
 
-            return Ok(PcodeOperation::CallOther {
+            Ok(PcodeOperation::CallOther {
                 output,
                 inputs,
                 call_info: None,
-            });
+            })
         }
         Rule::RETURN => {
             let mut inner = pair.into_inner();
@@ -206,7 +206,7 @@ pub(crate) fn parse_pcode(
                 pointer_location: vn,
                 access_size_bytes: 0,
             };
-            return Ok(PcodeOperation::Return { input });
+            Ok(PcodeOperation::Return { input })
         }
         Rule::PIECE => parse_binop!(Piece),
         Rule::SUBPIECE => parse_binop!(SubPiece),
@@ -267,10 +267,10 @@ pub(crate) fn parse_pcode(
         // many other pcode rules are possible; fall through to unreachable to catch unhandled ones
         a => {
             // For debugging, print the rule we hit.
-            return Err(JingleSleighError::PcodeParseValidation(format!(
+            Err(JingleSleighError::PcodeParseValidation(format!(
                 "Unhandled pcode rule in parser: {:?}",
                 a
-            )));
+            )))
         }
     }
 }
