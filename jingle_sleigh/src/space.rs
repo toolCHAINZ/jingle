@@ -187,4 +187,21 @@ impl SleighArchInfo {
             size,
         })
     }
+
+    /// Return the list of known userop names (by reference). Order is the
+    /// canonical index order used by CALLOTHER operands.
+    pub fn userops(&self) -> impl Iterator<Item = &String> {
+        self.info.userops.iter()
+    }
+
+    /// Get the userop name for the given index, if it exists.
+    pub fn userop_name(&self, idx: usize) -> Option<&str> {
+        self.info.userops.get(idx).map(|s| s.as_str())
+    }
+
+    /// Find the index of a userop by name. Returns None if not found.
+    pub fn userop_index<T: AsRef<str>>(&self, name: T) -> Option<usize> {
+        let needle = name.as_ref();
+        self.info.userops.iter().position(|s| s == needle)
+    }
 }

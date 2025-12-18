@@ -202,10 +202,9 @@ mod test {
 
         // Access the userops vector stored in the arch info. This is a placeholder
         // assertion; replace with concrete expectations later.
-        let userops = &sleigh.arch_info().info.userops;
+        let name = sleigh.arch_info().userop_name(0);
         // dummy assertion to ensure the API was called and returned a Vec
-        assert!(userops.len() >= 0);
-        assert_eq!(userops[0], "segment");
+        assert_eq!(name, Some("segment"));
     }
 
     #[test]
