@@ -148,23 +148,51 @@ pub(crate) fn parse_pcode(
         Rule::CALLOTHER => {
             let inner = pair.into_inner();
 
-            // Parse optional output varnode
-            let (output, mut remaining) = helpers::parse_callother_output(inner, info)?;
+            let mut output: Option<VarNode> = None;
+            let mut op: Option<VarNode> = None;
+            let mut arguments: Vec<VarNode> = Vec::new();
 
-            // Parse the operation (required)
-            let op_pair = remaining.next().ok_or(JingleSleighError::PcodeParseValidation(
+            // Iterate over all inner pairs to collect components
+            for inner_pair in inner {
+                match inner_pair.as_rule() {
+                    Rule::varnode => {
+                        // First varnode is output, subsequent ones would be in callother_args
+                        if op.is_none() {
+                            // This is the output varnode (before operation)
+                            output = Some(helpers::parse_varnode(inner_pair, info)?);
+                        } else {
+                            // This shouldn't happen as varnodes after op are in callother_args
+                            return Err(JingleSleighError::PcodeParseValidation(
+                                "Unexpected varnode in CALLOTHER".to_string(),
+                            ));
+                        }
+                    }
+                    Rule::callother_operation => {
+                        op = Some(helpers::parse_callother_operation(inner_pair, info)?);
+                    }
+                    Rule::callother_args => {
+                        // Parse the arguments from the callother_args pair
+                        if let Some(args) = helpers::parse_callother_args(Some(inner_pair), info)? {
+                            arguments = args;
+                        }
+                    }
+                    _ => {
+                        return Err(JingleSleighError::PcodeParseValidation(format!(
+                            "Unexpected token in CALLOTHER: {:?}",
+                            inner_pair.as_rule()
+                        )));
+                    }
+                }
+            }
+
+            // Ensure operation is defined
+            let op_varnode = op.ok_or(JingleSleighError::PcodeParseValidation(
                 "Missing callother operation".to_string(),
             ))?;
-            let op_varnode = helpers::parse_callother_operation(op_pair, info)?;
-
-            // Parse optional arguments
-            let args_varnodes = helpers::parse_callother_args(remaining.next(), info)?;
 
             // Build the inputs vector: operation varnode first, then any arguments
             let mut inputs = vec![op_varnode];
-            if let Some(args) = args_varnodes {
-                inputs.extend(args);
-            }
+            inputs.extend(arguments);
 
             return Ok(PcodeOperation::CallOther {
                 output,
@@ -278,7 +306,7 @@ mod tests {
         let cases = vec![
             Case {
                 // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
-                input: "0:1 = CALLOTHER \"segment\", 1:1\n",
+                input: "0:1 = CALLOTHER \"syscall\", 1:1\n",
                 expected: vec![PcodeOperation::Copy {
                     input: VarNode {
                         space_index: 0,

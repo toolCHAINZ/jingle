@@ -170,7 +170,7 @@ pub fn parse_callother_operation(
             pair.as_rule()
         )));
     }
-
+    dbg!(&pair);
     for op_inner in pair.into_inner() {
         match op_inner.as_rule() {
             Rule::varnode => {

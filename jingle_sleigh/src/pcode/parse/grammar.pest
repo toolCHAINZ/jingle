@@ -20,7 +20,7 @@ branch_dest = _{ LABEL | varnode }
 
 quote   = _{ QUOTATION_MARK }
 op_name = _{ (!quote ~ ASCII)+ }
-string  = _{ quote ~ op_name ~ quote }
+string  = { quote ~ op_name ~ quote }
 
 // memory ops
 reference = ${ space ~ "(" ~ varnode ~ ")" }
