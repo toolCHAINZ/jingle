@@ -128,7 +128,7 @@ pub struct SleighArchInfo {
 }
 
 impl SleighArchInfo {
-    fn new<T: Iterator<Item = (VarNode, String)>, E: Iterator<Item = SpaceInfo>>(
+    pub fn new<T: Iterator<Item = (VarNode, String)>, E: Iterator<Item = SpaceInfo>>(
         registers: T,
         spaces: E,
         default_code_space: usize,
