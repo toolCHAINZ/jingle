@@ -42,7 +42,7 @@ CBRANCH   = { "CBRANCH" ~ branch_dest ~ "," ~ varnode }
 BRANCHIND = { "BRANCHIND" ~ varnode }
 CALL      = { "CALL" ~ varnode }
 CALLIND   = { "CALLIND" ~ varnode }
-CALLOTHER = { (varnode ~ "=")? ~ "CALLOTHER" ~ callother_operation ~ callother_args }
+CALLOTHER = { "CALLOTHER" ~ callother_operation ~ callother_args }
 RETURN    = { "RETURN" ~ varnode }
 
 PIECE    = { varnode ~ "=" ~ "PIECE" ~ varnode ~ "," ~ varnode }

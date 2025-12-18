@@ -1,7 +1,4 @@
-use pest::{
-    Parser,
-    iterators::{Pair, Pairs},
-};
+use pest::{Parser, iterators::Pairs};
 use pest_derive::Parser;
 use tracing::warn;
 
@@ -26,8 +23,10 @@ pub(crate) fn parse_program<T: AsRef<str>>(
                 ops.push(op);
             }
             Rule::LABEL => {
-                warn!("Attempting to parse p-code program with textual labels; the parsing \
-                will fail if the code attempts to branch to a label by name.")
+                warn!(
+                    "Attempting to parse p-code program with textual labels; the parsing \
+                will fail if the code attempts to branch to a label by name."
+                )
             }
             Rule::EOI => {}
             _ => unreachable!(),
@@ -47,10 +46,7 @@ pub(crate) fn parse_pcode(
             let pairs: Vec<_> = pair.into_inner().collect();
             let output = helpers::parse_varnode(pairs[0].clone(), info)?;
             let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            Ok(PcodeOperation::$rule {
-                output,
-                input,
-            })
+            Ok(PcodeOperation::$rule { output, input })
         }};
     }
     macro_rules! parse_binop {
@@ -154,10 +150,11 @@ pub(crate) fn parse_pcode(
 
             // Iterate over all inner pairs to collect components
             for inner_pair in inner {
+                dbg!(inner_pair.as_rule());
                 match inner_pair.as_rule() {
                     Rule::varnode => {
                         // First varnode is output, subsequent ones would be in callother_args
-                        if op.is_none() {
+                        if output.is_none() {
                             // This is the output varnode (before operation)
                             output = Some(helpers::parse_varnode(inner_pair, info)?);
                         } else {
@@ -306,18 +303,19 @@ mod tests {
         let cases = vec![
             Case {
                 // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
-                input: "0:1 = CALLOTHER \"syscall\", 1:1\n",
-                expected: vec![PcodeOperation::Copy {
-                    input: VarNode {
+                input: "CALLOTHER \"syscall\", 1:1\n",
+                expected: vec![PcodeOperation::CallOther {
+                    inputs: vec![VarNode {
                         space_index: 0,
-                        offset: 0x11,
-                        size: 1,
-                    },
-                    output: VarNode {
+                        offset: 0x5,
+                        size: 4,
+                    },VarNode {
                         space_index: 0,
-                        offset: 0x10,
+                        offset: 0x1,
                         size: 1,
-                    },
+                    }],
+                    output: None,
+                    call_info: None,
                 }],
             },
             Case {

@@ -1,6 +1,6 @@
-use pest::iterators::Pair;
-use crate::{IndirectVarNode, JingleSleighError, SleighArchInfo, VarNode};
 use crate::parse::Rule;
+use crate::{IndirectVarNode, JingleSleighError, SleighArchInfo, VarNode};
+use pest::iterators::Pair;
 
 pub fn const_to_varnode(s: &str, info: &SleighArchInfo) -> Result<VarNode, JingleSleighError> {
     let s = s.trim();
@@ -182,7 +182,11 @@ pub fn parse_callother_operation(
                 let name = s.trim_matches('\"');
                 if let Some(idx) = info.userop_index(name) {
                     // represent the op index as a const varnode
-                    return Ok(VarNode{space_index: VarNode::CONST_SPACE_INDEX, offset: idx as u64, size: 4});
+                    return Ok(VarNode {
+                        space_index: VarNode::CONST_SPACE_INDEX,
+                        offset: idx as u64,
+                        size: 4,
+                    });
                 } else {
                     return Err(JingleSleighError::PcodeParseValidation(format!(
                         "Unknown CALLOTHER operator: {}",
@@ -231,4 +235,3 @@ pub fn parse_callother_args(
         Ok(None)
     }
 }
-
