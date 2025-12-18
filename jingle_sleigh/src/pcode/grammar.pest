@@ -11,10 +11,10 @@ register  = @{ (ASCII_ALPHANUMERIC | "_")+ }
 // making the * optional because I think that's kind of
 // insane syntax; def seems intended that direct references will almost
 // always be to temporaries, constants, or registers
-memory = @{ "*"? ~ "[" ~ space ~ "]" ~ const }
+memory = ${ "*"? ~ "[" ~ space ~ "]" ~ const }
 
-location =  { temporary | const | memory }
-varnode  = @{ (location ~ ":" ~ size) | register }
+location = ${ temporary | const | memory }
+varnode  = ${ (location ~ ":" ~ size) | register }
 
 branch_dest = _{ LABEL | varnode }
 
@@ -41,7 +41,7 @@ CBRANCH   = { "CBRANCH" ~ branch_dest ~ "," ~ varnode }
 BRANCHIND = { "BRANCHIND" ~ varnode }
 CALL      = { "CALL" ~ varnode }
 CALLIND   = { "CALLIND" ~ varnode }
-CALLOTHER = { (varnode ~ "=")? ~ "CALLOTHER" ~ #op = callother_operation ~ ("," ~ varnode)* }
+CALLOTHER = { (varnode ~ "=")? ~ "CALLOTHER" ~ callother_operation ~ ("," ~ varnode)* }
 RETURN    = { "RETURN" ~ varnode }
 
 PIECE    = { varnode ~ "=" ~ "PIECE" ~ varnode ~ "," ~ varnode }

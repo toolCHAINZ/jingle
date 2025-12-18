@@ -157,6 +157,10 @@ impl SleighArchInfo {
         self.info.spaces.get(idx)
     }
 
+    pub fn get_space_by_name<T: AsRef<str>>(&self, t: T) -> Option<&SpaceInfo> {
+        self.info.spaces.iter().find(|s| s.name.eq(t.as_ref()))
+    }
+
     pub fn spaces(&self) -> &[SpaceInfo] {
         &self.info.spaces
     }
