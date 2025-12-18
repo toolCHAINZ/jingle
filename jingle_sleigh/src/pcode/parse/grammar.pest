@@ -19,13 +19,13 @@ varnode  = ${ (location ~ ":" ~ size) | register }
 branch_dest = _{ LABEL | varnode }
 
 quote   = _{ QUOTATION_MARK }
-op_name = _{ (!quote ~ ASCII)+ }
-string  = { quote ~ op_name ~ quote }
+op_name = _{ (!quote ~ ANY)+ }
+string  =  { quote ~ op_name ~ quote }
 
 // memory ops
 reference = ${ space ~ "(" ~ varnode ~ ")" }
 
-callother_operation = { varnode | string }
+callother_operation = { string | varnode }
 callother_args      = { ("," ~ varnode)* }
 
 // pcode ops
@@ -37,12 +37,12 @@ LOAD  = { varnode ~ "=" ~ "LOAD" ~ reference }
 STORE = { "STORE" ~ reference ~ "," ~ varnode }
 
 // control flow
+BRANCHIND = { "BRANCHIND" ~ varnode }
 BRANCH    = { "BRANCH" ~ branch_dest }
 CBRANCH   = { "CBRANCH" ~ branch_dest ~ "," ~ varnode }
-BRANCHIND = { "BRANCHIND" ~ varnode }
-CALL      = { "CALL" ~ varnode }
-CALLIND   = { "CALLIND" ~ varnode }
 CALLOTHER = { "CALLOTHER" ~ callother_operation ~ callother_args }
+CALLIND   = { "CALLIND" ~ varnode }
+CALL      = { "CALL" ~ varnode }
 RETURN    = { "RETURN" ~ varnode }
 
 PIECE    = { varnode ~ "=" ~ "PIECE" ~ varnode ~ "," ~ varnode }
@@ -111,12 +111,12 @@ PCODE = {
     COPY
   | LOAD
   | STORE
+  | BRANCHIND
   | BRANCH
   | CBRANCH
-  | BRANCHIND
-  | CALL
-  | CALLIND
   | CALLOTHER
+  | CALLIND
+  | CALL
   | RETURN
   | PIECE
   | SUBPIECE

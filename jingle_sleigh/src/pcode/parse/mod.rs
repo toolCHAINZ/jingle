@@ -305,15 +305,18 @@ mod tests {
                 // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
                 input: "CALLOTHER \"syscall\", 1:1\n",
                 expected: vec![PcodeOperation::CallOther {
-                    inputs: vec![VarNode {
-                        space_index: 0,
-                        offset: 0x5,
-                        size: 4,
-                    },VarNode {
-                        space_index: 0,
-                        offset: 0x1,
-                        size: 1,
-                    }],
+                    inputs: vec![
+                        VarNode {
+                            space_index: 0,
+                            offset: 0x5,
+                            size: 4,
+                        },
+                        VarNode {
+                            space_index: 0,
+                            offset: 0x1,
+                            size: 1,
+                        },
+                    ],
                     output: None,
                     call_info: None,
                 }],
@@ -337,7 +340,9 @@ mod tests {
         ];
 
         for case in cases {
-            let got = parse_program(case.input, info.clone()).expect("parsing pcode");
+            let got = parse_program(case.input, info.clone())
+                .map_err(|e| format!("sdf: {}", e))
+                .unwrap();
             assert_eq!(got, case.expected, "source=\n{}", case.input);
         }
     }
