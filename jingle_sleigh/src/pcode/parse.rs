@@ -187,11 +187,89 @@ pub fn parse_pcode(
                 return Ok(PcodeOperation::CallInd { input });
             }
             Rule::CALLOTHER => {
-                todo!("impl callother");
+                // Grammar (updated): (varnode "=")? "CALLOTHER" callother_operation callother_args
+                // callother_operation = varnode | string
+                // callother_args = ("," ~ varnode)*
+
+                let mut inner = pair.into_inner();
+                let mut output: Option<VarNode> = None;
+
+                // First inner could be the optional output varnode or the callother_operation
+                let first = inner.next().ok_or(JingleSleighError::PcodeParseValidation(
+                    "Empty CALLOTHER".to_string(),
+                ))?;
+
+                let op_pair: Pair<Rule>;
+                if first.as_rule() == Rule::varnode {
+                    // optional output present
+                    output = Some(parse_varnode(first.clone(), info)?);
+                    op_pair = inner.next().ok_or(JingleSleighError::PcodeParseValidation(
+                        "Missing callother operation".to_string(),
+                    ))?;
+                } else {
+                    op_pair = first;
+                }
+
+                if op_pair.as_rule() != Rule::callother_operation {
+                    return Err(JingleSleighError::PcodeParseValidation(format!(
+                        "Expected callother_operation, got {:?}",
+                        op_pair.as_rule()
+                    )));
+                }
+
+                let mut inputs: Vec<VarNode> = Vec::new();
+
+                // callother_operation may contain either a varnode or a string
+                for op_inner in op_pair.into_inner() {
+                    match op_inner.as_rule() {
+                        Rule::varnode => {
+                            inputs.push(parse_varnode(op_inner, info)?);
+                        }
+                        Rule::string => {
+                            // string includes quotes from grammar; strip surrounding quotes
+                            let s = op_inner.as_str();
+                            let name = s.trim_matches('\"');
+                            if let Some(idx) = info.userop_index(name) {
+                                // represent the op index as a const varnode
+                                inputs.push(const_to_varnode(&format!("{}", idx), info)?);
+                            } else {
+                                return Err(JingleSleighError::PcodeParseValidation(format!(
+                                    "Unknown CALLOTHER operator: {}",
+                                    name
+                                )));
+                            }
+                        }
+                        a => {
+                            dbg!(a);
+                            return Err(JingleSleighError::PcodeParseValidation(
+                                "Unexpected token in callother_operation".to_string(),
+                            ));
+                        }
+                    }
+                }
+
+                // Remaining inner pair is callother_args, if present
+                if let Some(args_pair) = inner.next() {
+                    if args_pair.as_rule() != Rule::callother_args {
+                        return Err(JingleSleighError::PcodeParseValidation(format!(
+                            "Expected callother_args, got {:?}",
+                            args_pair.as_rule()
+                        )));
+                    }
+                    for arg in args_pair.into_inner() {
+                        if arg.as_rule() != Rule::varnode {
+                            return Err(JingleSleighError::PcodeParseValidation(
+                                "Expected varnode in callother_args".to_string(),
+                            ));
+                        }
+                        inputs.push(parse_varnode(arg, info)?);
+                    }
+                }
+
                 return Ok(PcodeOperation::CallOther {
-                    output: (),
-                    inputs: (),
-                    call_info: (),
+                    output,
+                    inputs,
+                    call_info: None,
                 });
             }
             Rule::RETURN => {
@@ -813,7 +891,7 @@ mod tests {
         let cases = vec![
             Case {
                 // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
-                input: "0x10:1 = COPY 0x11:1\n",
+                input: "0:1 = CALLOTHER \"segment\", 1:1\n",
                 expected: vec![PcodeOperation::Copy {
                     input: VarNode {
                         space_index: 0,

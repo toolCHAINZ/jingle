@@ -19,13 +19,14 @@ varnode  = ${ (location ~ ":" ~ size) | register }
 branch_dest = _{ LABEL | varnode }
 
 quote   = _{ QUOTATION_MARK }
-op_name =  { (!quote ~ ANY)* }
+op_name = _{ (!quote ~ ASCII)+ }
 string  = _{ quote ~ op_name ~ quote }
 
 // memory ops
 reference = ${ space ~ "(" ~ varnode ~ ")" }
 
 callother_operation = { varnode | string }
+callother_args      = { ("," ~ varnode)* }
 
 // pcode ops
 // Basic copy
@@ -41,7 +42,7 @@ CBRANCH   = { "CBRANCH" ~ branch_dest ~ "," ~ varnode }
 BRANCHIND = { "BRANCHIND" ~ varnode }
 CALL      = { "CALL" ~ varnode }
 CALLIND   = { "CALLIND" ~ varnode }
-CALLOTHER = { (varnode ~ "=")? ~ "CALLOTHER" ~ callother_operation ~ ("," ~ varnode)* }
+CALLOTHER = { (varnode ~ "=")? ~ "CALLOTHER" ~ callother_operation ~ callother_args }
 RETURN    = { "RETURN" ~ varnode }
 
 PIECE    = { varnode ~ "=" ~ "PIECE" ~ varnode ~ "," ~ varnode }
