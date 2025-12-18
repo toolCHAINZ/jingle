@@ -141,3 +141,94 @@ pub fn parse_varnode_location(pair: Pair<Rule>) -> Result<(String, u64), JingleS
     }
     unreachable!()
 }
+
+/// Parse the optional output varnode for CALLOTHER operations.
+/// Checks if the first pair is a varnode (indicating output exists).
+/// Returns (output_varnode, remaining_pairs).
+pub fn parse_callother_output<'i>(
+    mut pairs: pest::iterators::Pairs<'i, Rule>,
+    info: &SleighArchInfo,
+) -> Result<(Option<VarNode>, pest::iterators::Pairs<'i, Rule>), JingleSleighError> {
+    if let Some(first) = pairs.peek() {
+        if first.as_rule() == Rule::varnode {
+            let output = parse_varnode(pairs.next().unwrap(), info)?;
+            return Ok((Some(output), pairs));
+        }
+    }
+    Ok((None, pairs))
+}
+
+/// Parse the CALLOTHER operation, which can be either a varnode or a string.
+/// Returns the varnode representing the operation index.
+pub fn parse_callother_operation(
+    pair: Pair<Rule>,
+    info: &SleighArchInfo,
+) -> Result<VarNode, JingleSleighError> {
+    if pair.as_rule() != Rule::callother_operation {
+        return Err(JingleSleighError::PcodeParseValidation(format!(
+            "Expected callother_operation, got {:?}",
+            pair.as_rule()
+        )));
+    }
+
+    for op_inner in pair.into_inner() {
+        match op_inner.as_rule() {
+            Rule::varnode => {
+                return parse_varnode(op_inner, info);
+            }
+            Rule::string => {
+                // string includes quotes from grammar; strip surrounding quotes
+                let s = op_inner.as_str();
+                let name = s.trim_matches('\"');
+                if let Some(idx) = info.userop_index(name) {
+                    // represent the op index as a const varnode
+                    return Ok(VarNode{space_index: VarNode::CONST_SPACE_INDEX, offset: idx as u64, size: 4});
+                } else {
+                    return Err(JingleSleighError::PcodeParseValidation(format!(
+                        "Unknown CALLOTHER operator: {}",
+                        name
+                    )));
+                }
+            }
+            _ => {
+                return Err(JingleSleighError::PcodeParseValidation(
+                    "Unexpected token in callother_operation".to_string(),
+                ));
+            }
+        }
+    }
+
+    Err(JingleSleighError::PcodeParseValidation(
+        "Empty callother_operation".to_string(),
+    ))
+}
+
+/// Parse the optional callother arguments.
+/// Returns None if no arguments pair exists, otherwise returns the parsed varnodes.
+pub fn parse_callother_args(
+    pair: Option<Pair<Rule>>,
+    info: &SleighArchInfo,
+) -> Result<Option<Vec<VarNode>>, JingleSleighError> {
+    if let Some(args_pair) = pair {
+        if args_pair.as_rule() != Rule::callother_args {
+            return Err(JingleSleighError::PcodeParseValidation(format!(
+                "Expected callother_args, got {:?}",
+                args_pair.as_rule()
+            )));
+        }
+
+        let mut args = Vec::new();
+        for arg in args_pair.into_inner() {
+            if arg.as_rule() != Rule::varnode {
+                return Err(JingleSleighError::PcodeParseValidation(
+                    "Expected varnode in callother_args".to_string(),
+                ));
+            }
+            args.push(parse_varnode(arg, info)?);
+        }
+        Ok(Some(args))
+    } else {
+        Ok(None)
+    }
+}
+

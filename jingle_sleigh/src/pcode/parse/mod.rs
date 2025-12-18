@@ -146,83 +146,24 @@ pub(crate) fn parse_pcode(
             return Ok(PcodeOperation::CallInd { input });
         }
         Rule::CALLOTHER => {
-            // Grammar (updated): (varnode "=")? "CALLOTHER" callother_operation callother_args
-            // callother_operation = varnode | string
-            // callother_args = ("," ~ varnode)*
+            let inner = pair.into_inner();
 
-            let mut inner = pair.into_inner();
-            let mut output: Option<VarNode> = None;
+            // Parse optional output varnode
+            let (output, mut remaining) = helpers::parse_callother_output(inner, info)?;
 
-            // First inner could be the optional output varnode or the callother_operation
-            let first = inner.next().ok_or(JingleSleighError::PcodeParseValidation(
-                "Empty CALLOTHER".to_string(),
+            // Parse the operation (required)
+            let op_pair = remaining.next().ok_or(JingleSleighError::PcodeParseValidation(
+                "Missing callother operation".to_string(),
             ))?;
+            let op_varnode = helpers::parse_callother_operation(op_pair, info)?;
 
-            let op_pair: Pair<Rule>;
-            if first.as_rule() == Rule::varnode {
-                // optional output present
-                output = Some(helpers::parse_varnode(first.clone(), info)?);
-                op_pair = inner.next().ok_or(JingleSleighError::PcodeParseValidation(
-                    "Missing callother operation".to_string(),
-                ))?;
-            } else {
-                op_pair = first;
-            }
+            // Parse optional arguments
+            let args_varnodes = helpers::parse_callother_args(remaining.next(), info)?;
 
-            if op_pair.as_rule() != Rule::callother_operation {
-                return Err(JingleSleighError::PcodeParseValidation(format!(
-                    "Expected callother_operation, got {:?}",
-                    op_pair.as_rule()
-                )));
-            }
-
-            let mut inputs: Vec<VarNode> = Vec::new();
-
-            // callother_operation may contain either a varnode or a string
-            for op_inner in op_pair.into_inner() {
-                match op_inner.as_rule() {
-                    Rule::varnode => {
-                        inputs.push(helpers::parse_varnode(op_inner, info)?);
-                    }
-                    Rule::string => {
-                        // string includes quotes from grammar; strip surrounding quotes
-                        let s = op_inner.as_str();
-                        let name = s.trim_matches('\"');
-                        if let Some(idx) = info.userop_index(name) {
-                            // represent the op index as a const varnode
-                            inputs.push(helpers::const_to_varnode(&format!("{}", idx), info)?);
-                        } else {
-                            return Err(JingleSleighError::PcodeParseValidation(format!(
-                                "Unknown CALLOTHER operator: {}",
-                                name
-                            )));
-                        }
-                    }
-                    a => {
-                        dbg!(a);
-                        return Err(JingleSleighError::PcodeParseValidation(
-                            "Unexpected token in callother_operation".to_string(),
-                        ));
-                    }
-                }
-            }
-
-            // Remaining inner pair is callother_args, if present
-            if let Some(args_pair) = inner.next() {
-                if args_pair.as_rule() != Rule::callother_args {
-                    return Err(JingleSleighError::PcodeParseValidation(format!(
-                        "Expected callother_args, got {:?}",
-                        args_pair.as_rule()
-                    )));
-                }
-                for arg in args_pair.into_inner() {
-                    if arg.as_rule() != Rule::varnode {
-                        return Err(JingleSleighError::PcodeParseValidation(
-                            "Expected varnode in callother_args".to_string(),
-                        ));
-                    }
-                    inputs.push(helpers::parse_varnode(arg, info)?);
-                }
+            // Build the inputs vector: operation varnode first, then any arguments
+            let mut inputs = vec![op_varnode];
+            if let Some(args) = args_varnodes {
+                inputs.extend(args);
             }
 
             return Ok(PcodeOperation::CallOther {
