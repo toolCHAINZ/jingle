@@ -41,9 +41,9 @@ pub trait ModelingContext: Debug + Sized {
     /// Used for building assertions about branch reachability
     fn get_address(&self) -> u64;
 
-    /// Get the [State] associated with the precondition of this trace
+    /// Get the `State` associated with the precondition of this trace
     fn get_original_state(&self) -> &State;
-    /// Get the [State] associated with the postcondition of this trace
+    /// Get the `State` associated with the postcondition of this trace
     fn get_final_state(&self) -> &State;
 
     /// Get a vec of the operations associated with this trace
@@ -53,13 +53,13 @@ pub trait ModelingContext: Debug + Sized {
     /// Get a hashset of the addresses read by this trace. The values returned in this hashset are
     /// fully modeled: a read from a given varnode will evaluate to its value at the stage in the
     /// computation that the read was performed. Because of this, these should always be read
-    /// from the [State] returned by [get_final_state], as it is guaranteed to have a handle to
+    /// from the `State` returned by `get_final_state`, as it is guaranteed to have a handle to
     /// all intermediate spaces that may be referenced
     fn get_inputs(&self) -> HashSet<ResolvedVarnode>;
     /// Get a hashset of the addresses written by this trace. The values returned in this hashset
     /// are fully modeled: a read from a given varnode will evaluate to its value at the stage in
     /// the computation that the read was performed. Because of this, these should always be read
-    /// from the [State] returned by [get_final_state], as it is guaranteed to have a handle to
+    /// from the `State` returned by `get_final_state`, as it is guaranteed to have a handle to
     /// all intermediate spaces that may be referenced
     fn get_outputs(&self) -> HashSet<ResolvedVarnode>;
 
@@ -84,11 +84,11 @@ pub trait ModelingContext: Debug + Sized {
         }
     }
 
-    /// Returns a [Bool] assertion that [self] upholds the postconditions of [other]
-    /// This is done by iterating over all fully-modeled constraining outputs of [other] and
-    /// enforcing that the same locations in [self] are equal.
+    /// Returns a `Bool` assertion that `self` upholds the postconditions of `other`.
+    /// This is done by iterating over all fully-modeled constraining outputs of `other` and
+    /// enforcing that the same locations in `self` are equal.
     /// In our procedure, this is only ever called on contexts that we have already verified write
-    /// to all outputs that [other] did, eliminating the risk of spurious false positives
+    /// to all outputs that `other` did, eliminating the risk of spurious false positives
     fn upholds_postcondition<T: ModelingContext>(&self, other: &T) -> Result<Bool, JingleError> {
         let mut output_terms = vec![];
         for vn in other
@@ -110,15 +110,15 @@ pub trait ModelingContext: Debug + Sized {
         Ok(outputs_pairwise_equal)
     }
 
-    /// Returns an assertion that the final state of [self] and the first state of [other] are
+    /// Returns an assertion that the final state of `self` and the first state of `other` are
     /// equal. This allows for concatenating two traces into one for the purposes of modeling.
     fn assert_concat<T: ModelingContext>(&self, other: &T) -> Result<Bool, JingleError> {
         self.get_final_state()._eq(other.get_original_state())
     }
 
-    /// Returns an assertion that [other]'s end-branch behavior is able to branch to the same
-    /// destination as [self], given that [self] has branching behavior
-    /// todo: should swap self and other to make this align better with [upholds_postcondition]
+    /// Returns an assertion that `other`'s end-branch behavior is able to branch to the same
+    /// destination as `self`, given that `self` has branching behavior.
+    /// todo: should swap `self` and `other` to make this align better with `upholds_postcondition`
     #[deprecated]
     #[expect(deprecated)]
     fn branch_comparison<T: ModelingContext>(
@@ -152,8 +152,8 @@ pub trait ModelingContext: Debug + Sized {
         }
     }
 
-    /// Returns a [Bool] assertion that the given trace's end-branch behavior is able to
-    /// branch to the given [u64]
+    /// Returns a `Bool` assertion that the given trace's end-branch behavior is able to
+    /// branch to the given `u64`.
     #[expect(deprecated)]
     fn can_branch_to_address(&self, addr: u64) -> Result<Bool, JingleError> {
         let branch_constraint = self.get_branch_constraint().build_bv(self)?;
