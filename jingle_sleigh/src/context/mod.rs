@@ -23,10 +23,69 @@ use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
+#[non_exhaustive]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SideEffect {
+    /// Increment the given register by a given amount
+    /// Decrement the given register by a given amount
+    RegisterIncrement(String, u8),
+    RegisterDecrement(String, u8),
+}
+
+pub struct ModelingSummary {}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+/// A flag indicating how to model a function call
+pub enum ModelingBehavior {
+    /// Treat this function call as a branch to some terminating
+    /// piece of code
+    Terminate,
+    /// This function call should be inlined directly into the CFG during
+    /// modeling (still a todo, will require restructuring built CFGs)
+    Inline,
+    /// The default behavior: model the side-effects of a function with a
+    /// user-supplied set of side-effects
+    Summary(Vec<SideEffect>),
+}
+
+impl Default for ModelingBehavior {
+    fn default() -> Self {
+        Self::Summary(Vec::new())
+    }
+}
+
+/// A naive representation of the effects of a function
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallInfo {
+    pub args: Vec<VarNode>,
+    pub outputs: Option<Vec<VarNode>>,
+    pub model_behavior: ModelingBehavior,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ModelingMetadata {
+    pub(crate) func_info: HashMap<u64, CallInfo>,
+    pub(crate) callother_info: HashMap<Vec<VarNode>, CallInfo>,
+}
+
+impl ModelingMetadata {
+    pub(crate) fn add_call_def(&mut self, addr: u64, info: CallInfo) {
+        self.func_info.insert(addr, info);
+    }
+    pub(crate) fn add_callother_def(&mut self, sig: &[VarNode], info: CallInfo) {
+        self.callother_info.insert(sig.to_vec(), info);
+    }
+}
+
+/// A sleigh context contains the parsed sleigh state as well as
+/// modeling metadata for analysis consumers.
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
     language_id: String,
     arch_info: SleighArchInfo,
+    pub(crate) metadata: ModelingMetadata,
 }
 
 impl Debug for SleighContext {
@@ -81,6 +140,7 @@ impl SleighContext {
                     ctx,
                     arch_info,
                     language_id: language_def.id.clone(),
+                    metadata: Default::default(),
                 })
             }
             Err(_) => Err(SleighCompilerMutexError),

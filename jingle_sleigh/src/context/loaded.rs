@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 use crate::JingleSleighError::ImageLoadError;
+use crate::context::CallInfo;
 use crate::context::SleighContext;
 use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
@@ -8,66 +7,9 @@ use crate::ffi::context_ffi::ImageFFI;
 use crate::{Instruction, JingleSleighError, VarNode};
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-
-#[non_exhaustive]
-#[cfg_attr(feature = "pyo3", pyclass)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SideEffect {
-    /// Increment the given register by a given amount
-    /// Decrement the given register by a given amount
-    RegisterIncrement(String, u8),
-    RegisterDecrement(String, u8),
-}
-
-pub struct ModelingSummary {}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-/// A flag indicating how to model a function call
-pub enum ModelingBehavior {
-    /// Treat this function call as a branch to some terminating
-    /// piece of code
-    Terminate,
-    /// This function call should be inlined directly into the CFG during
-    /// modeling (still a todo, will require restructuring built CFGs)
-    Inline,
-    /// The default behavior: model the side-effects of a function with a
-    /// user-supplied set of side-effects
-    Summary(Vec<SideEffect>),
-}
-
-impl Default for ModelingBehavior {
-    fn default() -> Self {
-        Self::Summary(Vec::new())
-    }
-}
-
-/// A naive representation of the effects of a function
-#[cfg_attr(feature = "pyo3", pyclass)]
-#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CallInfo {
-    pub args: Vec<VarNode>,
-    pub outputs: Option<Vec<VarNode>>,
-    pub model_behavior: ModelingBehavior,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ModelingMetadata {
-    pub(crate) func_info: HashMap<u64, CallInfo>,
-    pub(crate) callother_info: HashMap<Vec<VarNode>, CallInfo>,
-}
-
-impl ModelingMetadata {
-    pub(crate) fn add_call_def(&mut self, addr: u64, info: CallInfo) {
-        self.func_info.insert(addr, info);
-    }
-    pub(crate) fn add_callother_def(&mut self, sig: &[VarNode], info: CallInfo) {
-        self.callother_info.insert(sig.to_vec(), info);
-    }
-}
 
 /// A guard type representing a sleigh context initialized with an image.
 /// In addition to the methods in [SleighContext], is able to
@@ -78,7 +20,6 @@ pub struct LoadedSleighContext<'a> {
     sleigh: SleighContext,
     /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
-    pub(crate) metadata: ModelingMetadata,
 }
 
 impl Debug for LoadedSleighContext<'_> {
@@ -115,7 +56,6 @@ impl<'a> LoadedSleighContext<'a> {
         let mut s = Self {
             sleigh: sleigh_context,
             img,
-            metadata: Default::default(),
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
@@ -133,7 +73,7 @@ impl<'a> LoadedSleighContext<'a> {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        instr.augment_with_metadata(&self.metadata);
+        instr.augment_with_metadata(&self.sleigh.metadata);
         let vn = VarNode {
             space_index: self.sleigh.arch_info().default_code_space_index(),
             size: instr.length,
@@ -211,11 +151,11 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     pub fn add_call_metadata(&mut self, addr: u64, info: CallInfo) {
-        self.metadata.add_call_def(addr, info);
+        self.sleigh.metadata.add_call_def(addr, info);
     }
 
     pub fn add_callother_metadata(&mut self, sig: &[VarNode], info: CallInfo) {
-        self.metadata.add_callother_def(sig, info);
+        self.sleigh.metadata.add_callother_def(sig, info);
     }
 
     // todo: properly account for spaces with non-byte-based indexing
