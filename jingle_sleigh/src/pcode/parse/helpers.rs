@@ -2,26 +2,6 @@ use crate::parse::Rule;
 use crate::{IndirectVarNode, JingleSleighError, SleighArchInfo, VarNode};
 use pest::iterators::Pair;
 
-pub fn const_to_varnode(s: &str, info: &SleighArchInfo) -> Result<VarNode, JingleSleighError> {
-    let s = s.trim();
-    let radix = if s.starts_with("0x") { 16 } else { 10 };
-    let s = s.strip_prefix("0x").unwrap_or(s);
-    let offset = u64::from_str_radix(s, radix).map_err(|_| {
-        JingleSleighError::PcodeParseValidation(format!("Invalid const literal: {}", s))
-    })?;
-    let space = info
-        .get_space_by_name("const")
-        .ok_or(JingleSleighError::PcodeParseValidation(
-            "Missing const space in arch info".to_string(),
-        ))?;
-    // We don't have a size for these plain const tokens in the grammar; choose 0 to indicate "constant"
-    Ok(VarNode {
-        offset,
-        space_index: space.index,
-        size: 0,
-    })
-}
-
 /// Parse a reference pair using grammar pairs (reference = space ~ "(" ~ varnode ~ ")")
 /// Returns a parsed IndirectVarNode with the pointer space and pointer location set.
 /// The access size is left as 0 for the caller to decide.
@@ -138,22 +118,6 @@ pub fn parse_varnode_location(pair: Pair<Rule>) -> Result<(String, u64), JingleS
         }
     }
     unreachable!()
-}
-
-/// Parse the optional output varnode for CALLOTHER operations.
-/// Checks if the first pair is a varnode (indicating output exists).
-/// Returns (output_varnode, remaining_pairs).
-pub fn parse_callother_output<'i>(
-    mut pairs: pest::iterators::Pairs<'i, Rule>,
-    info: &SleighArchInfo,
-) -> Result<(Option<VarNode>, pest::iterators::Pairs<'i, Rule>), JingleSleighError> {
-    if let Some(first) = pairs.peek() {
-        if first.as_rule() == Rule::varnode {
-            let output = parse_varnode(pairs.next().unwrap(), info)?;
-            return Ok((Some(output), pairs));
-        }
-    }
-    Ok((None, pairs))
 }
 
 /// Parse the CALLOTHER operation, which can be either a varnode or a string.

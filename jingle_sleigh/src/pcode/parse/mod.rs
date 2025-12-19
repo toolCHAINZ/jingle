@@ -338,7 +338,7 @@ mod tests {
         ];
 
         for case in cases {
-            let got = parse_program(case.input, info.clone())
+            let got = parse_program(case.input, &info)
                 .map_err(|e| format!("sdf: {}", e))
                 .unwrap();
             assert_eq!(got, case.expected, "source=\n{}", case.input);
