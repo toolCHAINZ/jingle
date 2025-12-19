@@ -16,13 +16,14 @@ pub mod pcode_store;
 pub mod unwinding;
 pub mod varnode;
 
-/// A compatibility wrapper around [CPAs]. The intent here is to provide some structure
-/// for running and combining CPAs. The output of the CPA is often not exactly in a format
-/// that is easily used, and they can require some setup. This trait allows for specifying
-/// a way to define the CPA's input (assuming a [PcodeCfg](crate::cfg::PcodeCfg), indexed by
-/// [ConcretePcodeAddress]es), and process its output. A PCodeCFG can then run any type
-/// implementing Analysis without a lot of wrangling stuff around. Analyses can also output
-/// new PCodeCfgs or related types with additional information.
+/// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
+/// The intent here is to provide some structure for running and combining CPAs. The output of the CPA
+/// is often not exactly in a format that is easily used, and they can require some setup. This trait
+/// allows for specifying a way to define the CPA's input (assuming a
+/// [`crate::analysis::cfg::PcodeCfg`], indexed by
+/// [`crate::modeling::machine::cpu::concrete::ConcretePcodeAddress`]s), and process its output. A
+/// Pcode CFG can then run any type implementing `Analysis` without a lot of wrangling. Analyses can
+/// also output new PcodeCfgs or related types with additional information.
 pub trait Analysis {
     /// The output type of the analysis; may or may not be the CPA's result
     type Output;

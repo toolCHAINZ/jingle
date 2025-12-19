@@ -11,7 +11,7 @@ pub trait JoinSemiLattice: Eq + PartialOrd {
 /// This trait exists to allow defining types that are
 /// "lattice-y" without requiring that they specify a Top element.
 /// Types implementing this trait can be used to construct
-/// an actual Lattice using [super::simple_lattice::SimpleLattice]
+/// an actual Lattice using [`crate::analysis::cpa::lattice::simple::SimpleLattice`]
 pub trait PartialJoinSemiLattice: Eq + PartialOrd + Sized {
     fn partial_join(&self, other: &Self) -> Option<Self>;
 }
