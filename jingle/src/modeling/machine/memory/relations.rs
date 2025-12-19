@@ -1,7 +1,7 @@
 use crate::JingleError;
 use crate::modeling::machine::memory::MemoryState;
 use jingle_sleigh::PcodeOperation;
-use jingle_sleigh::context::loaded::{ModelingBehavior, SideEffect};
+use jingle_sleigh::context::{ModelingBehavior, SideEffect};
 use std::cmp::{Ordering, min};
 use std::ops::{Add, Neg};
 use z3::ast::BV;

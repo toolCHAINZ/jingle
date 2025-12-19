@@ -87,11 +87,28 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A convenient cache of information about a sleigh context
 pub(crate) struct SleighArchInfoInner {
+    /// A mapping of register names to varnodes
     pub(crate) registers_to_vns: HashMap<String, VarNode>,
+    /// A mapping of varnodes to register names
     pub(crate) vns_to_registers: HashMap<VarNode, String>,
+    /// Ordered metadata about the spaces defined in this pcode context
+    /// The order in this vector must match the ordering assumed
+    /// in pcode operations
     pub(crate) spaces: Vec<SpaceInfo>,
+    /// The index of pcode space in which code usually lives
+    /// Used to interpret some pcode branch destinations, as well
+    /// as in some varnode "helpers".
+    ///
+    /// On most platforms (e.g. not Harvard arch), this is just "ram"
     pub(crate) default_code_space: usize,
+    /// A mapping from an index to the name associated with a `CALLOTHER`
+    ///
+    /// The first input varnode of a CALLOTHER is a constant, which can
+    /// be used to index this map. This improves display of CALLOTHER as well
+    /// as for parsing: users need not memorize CALLOTHER arguments.
+    pub(crate) userops: Vec<String>,
 }
 
 impl std::fmt::Debug for SleighArchInfoInner {
@@ -115,6 +132,7 @@ impl SleighArchInfo {
         registers: T,
         spaces: E,
         default_code_space: usize,
+        userops: Vec<String>,
     ) -> Self {
         let mut registers_to_vns = HashMap::new();
         let mut vns_to_registers = HashMap::new();
@@ -130,12 +148,17 @@ impl SleighArchInfo {
                 vns_to_registers,
                 spaces: spaces.collect(),
                 default_code_space,
+                userops,
             }),
         }
     }
 
     pub fn get_space(&self, idx: usize) -> Option<&SpaceInfo> {
         self.info.spaces.get(idx)
+    }
+
+    pub fn get_space_by_name<T: AsRef<str>>(&self, t: T) -> Option<&SpaceInfo> {
+        self.info.spaces.iter().find(|s| s.name.eq(t.as_ref()))
     }
 
     pub fn spaces(&self) -> &[SpaceInfo] {
@@ -167,5 +190,22 @@ impl SleighArchInfo {
             offset,
             size,
         })
+    }
+
+    /// Return the list of known userop names (by reference). Order is the
+    /// canonical index order used by CALLOTHER operands.
+    pub fn userops(&self) -> impl Iterator<Item = &String> {
+        self.info.userops.iter()
+    }
+
+    /// Get the userop name for the given index, if it exists.
+    pub fn userop_name(&self, idx: usize) -> Option<&str> {
+        self.info.userops.get(idx).map(|s| s.as_str())
+    }
+
+    /// Find the index of a userop by name. Returns None if not found.
+    pub fn userop_index<T: AsRef<str>>(&self, name: T) -> Option<usize> {
+        let needle = name.as_ref();
+        self.info.userops.iter().position(|s| s == needle)
     }
 }

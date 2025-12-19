@@ -4,6 +4,8 @@ use pyo3::PyErr;
 use pyo3::exceptions::PyRuntimeError;
 use thiserror::Error;
 
+use crate::parse::Rule;
+
 /// An error (usually from across the FFI boundary) in something involving sleigh
 #[derive(Debug, Error)]
 pub enum JingleSleighError {
@@ -38,11 +40,21 @@ pub enum JingleSleighError {
     EmptyInstruction,
     #[error("Failure to acquire mutex to sleigh FFI function")]
     SleighCompilerMutexError,
+    #[error("Unable to parse pcode from text: {0}")]
+    PcodeParse(Box<pest::error::Error<Rule>>),
+    #[error("Unable to validate parsed pcode from text: {0}")]
+    PcodeParseValidation(String),
 }
 
 impl From<JingleSleighError> for std::fmt::Error {
     fn from(_value: JingleSleighError) -> Self {
         std::fmt::Error
+    }
+}
+
+impl From<pest::error::Error<Rule>> for JingleSleighError {
+    fn from(value: pest::error::Error<Rule>) -> Self {
+        Self::PcodeParse(Box::new(value))
     }
 }
 

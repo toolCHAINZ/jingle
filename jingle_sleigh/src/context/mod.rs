@@ -8,25 +8,88 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
+use crate::parse::parse_program;
 use crate::space::{SleighArchInfo, SleighArchInfoInner, SpaceInfo};
 pub use builder::SleighContextBuilder;
 use std::collections::HashMap;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
-use crate::VarNode;
 use crate::context::builder::language_def::Language;
 use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
+use crate::{PcodeOperation, VarNode};
 use cxx::{SharedPtr, UniquePtr};
+#[cfg(feature = "pyo3")]
+use pyo3::pyclass;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
+#[non_exhaustive]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SideEffect {
+    /// Increment the given register by a given amount
+    /// Decrement the given register by a given amount
+    RegisterIncrement(String, u8),
+    RegisterDecrement(String, u8),
+}
+
+pub struct ModelingSummary {}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+/// A flag indicating how to model a function call
+pub enum ModelingBehavior {
+    /// Treat this function call as a branch to some terminating
+    /// piece of code
+    Terminate,
+    /// This function call should be inlined directly into the CFG during
+    /// modeling (still a todo, will require restructuring built CFGs)
+    Inline,
+    /// The default behavior: model the side-effects of a function with a
+    /// user-supplied set of side-effects
+    Summary(Vec<SideEffect>),
+}
+
+impl Default for ModelingBehavior {
+    fn default() -> Self {
+        Self::Summary(Vec::new())
+    }
+}
+
+/// A naive representation of the effects of a function
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "pyo3", pyclass)]
+pub struct CallInfo {
+    pub args: Vec<VarNode>,
+    pub outputs: Option<Vec<VarNode>>,
+    pub model_behavior: ModelingBehavior,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ModelingMetadata {
+    pub(crate) func_info: HashMap<u64, CallInfo>,
+    pub(crate) callother_info: HashMap<Vec<VarNode>, CallInfo>,
+}
+
+impl ModelingMetadata {
+    pub(crate) fn add_call_def(&mut self, addr: u64, info: CallInfo) {
+        self.func_info.insert(addr, info);
+    }
+    pub(crate) fn add_callother_def(&mut self, sig: &[VarNode], info: CallInfo) {
+        self.callother_info.insert(sig.to_vec(), info);
+    }
+}
+
+/// A sleigh context contains the parsed sleigh state as well as
+/// modeling metadata for analysis consumers.
 pub struct SleighContext {
     ctx: UniquePtr<ContextFFI>,
     language_id: String,
     arch_info: SleighArchInfo,
+    pub(crate) metadata: ModelingMetadata,
 }
 
 impl Debug for SleighContext {
@@ -59,6 +122,8 @@ impl SleighContext {
                     vns_to_registers.insert(vn, info.name);
                 }
 
+                let userops = ctx.getUserOps();
+
                 let arch_info = SleighArchInfo {
                     info: Arc::new(SleighArchInfoInner {
                         registers_to_vns,
@@ -71,6 +136,7 @@ impl SleighContext {
                             .getDefaultCodeSpace()
                             .getIndex() as usize,
                         spaces: spaces.clone(),
+                        userops,
                     }),
                 };
 
@@ -78,6 +144,7 @@ impl SleighContext {
                     ctx,
                     arch_info,
                     language_id: language_def.id.clone(),
+                    metadata: Default::default(),
                 })
             }
             Err(_) => Err(SleighCompilerMutexError),
@@ -109,6 +176,21 @@ impl SleighContext {
 
     pub fn arch_info(&self) -> &SleighArchInfo {
         &self.arch_info
+    }
+
+    pub fn add_call_metadata(&mut self, addr: u64, info: CallInfo) {
+        self.metadata.add_call_def(addr, info);
+    }
+
+    pub fn add_callother_metadata(&mut self, sig: &[VarNode], info: CallInfo) {
+        self.metadata.add_callother_def(sig, info);
+    }
+
+    pub fn parse_pcode_listing<T: AsRef<str>>(
+        &self,
+        s: T,
+    ) -> Result<Vec<PcodeOperation>, JingleSleighError> {
+        parse_program(s, &self.arch_info)
     }
 
     pub fn initialize_with_image<'b, T: ImageProvider + 'b>(
@@ -189,6 +271,19 @@ mod test {
             }),
             None
         );
+    }
+
+    #[test]
+    fn get_user_ops() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        // Access the userops vector stored in the arch info. This is a placeholder
+        // assertion; replace with concrete expectations later.
+        let name = sleigh.arch_info().userop_name(0);
+        // dummy assertion to ensure the API was called and returned a Vec
+        assert_eq!(name, Some("segment"));
     }
 
     #[test]

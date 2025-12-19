@@ -69,7 +69,7 @@ pub trait AbstractState: JoinSemiLattice + Clone {
     /// states, and is usually done with respect to the [JoinSemiLattice] defined over abstract states.
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool;
 
-    /// A naive implementation of [stop] which checks for state covering in a piecewise manner.
+    /// A naive implementation of `stop` which checks for state covering in a piecewise manner.
     fn stop_sep<'a, T: Iterator<Item = &'a Self>>(&'a self, mut states: T) -> bool {
         states.any(|s| self <= s)
     }

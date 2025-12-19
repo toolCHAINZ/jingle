@@ -1,12 +1,13 @@
 pub mod branch;
+pub(crate) mod parse;
 
-use crate::context::loaded::CallInfo;
+use crate::context::CallInfo;
 use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,
-    CallOther, Cast, Copy, Extract, FloatAbs, FloatAdd, FloatCeil, FloatDiv, FloatEqual,
-    FloatFloatToFloat, FloatFloor, FloatIntToFloat, FloatLess, FloatLessEqual, FloatMult, FloatNaN,
-    FloatNeg, FloatNotEqual, FloatRound, FloatSqrt, FloatSub, FloatTrunc, Indirect, Insert,
-    Int2Comp, IntAdd, IntAnd, IntCarry, IntDiv, IntEqual, IntLeftShift, IntLess, IntLessEqual,
+    CallOther, Cast, Copy, Extract, Float2Float, FloatAbs, FloatAdd, FloatCeil, FloatDiv,
+    FloatEqual, FloatFloor, FloatLess, FloatLessEqual, FloatMult, FloatNaN, FloatNeg,
+    FloatNotEqual, FloatRound, FloatSqrt, FloatSub, FloatTrunc, Indirect, Insert, Int2Comp,
+    Int2Float, IntAdd, IntAnd, IntCarry, IntDiv, IntEqual, IntLeftShift, IntLess, IntLessEqual,
     IntMult, IntNegate, IntNotEqual, IntOr, IntRem, IntRightShift, IntSExt, IntSignedBorrow,
     IntSignedCarry, IntSignedDiv, IntSignedLess, IntSignedLessEqual, IntSignedRem,
     IntSignedRightShift, IntSub, IntXor, IntZExt, Load, LzCount, MultiEqual, New, Piece, PopCount,
@@ -267,11 +268,11 @@ pub enum PcodeOperation {
         output: VarNode,
         input: VarNode,
     },
-    FloatIntToFloat {
+    Int2Float {
         output: VarNode,
         input: VarNode,
     },
-    FloatFloatToFloat {
+    Float2Float {
         output: VarNode,
         input: VarNode,
     },
@@ -562,10 +563,10 @@ impl PcodeOperation {
             FloatSqrt { input, .. } => {
                 vec![input.into()]
             }
-            FloatIntToFloat { input, .. } => {
+            Int2Float { input, .. } => {
                 vec![input.into()]
             }
-            FloatFloatToFloat { input, .. } => {
+            Float2Float { input, .. } => {
                 vec![input.into()]
             }
             FloatTrunc { input, .. } => {
@@ -678,8 +679,8 @@ impl PcodeOperation {
             FloatNeg { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatAbs { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatSqrt { output, .. } => Some(GeneralizedVarNode::from(output)),
-            FloatIntToFloat { output, .. } => Some(GeneralizedVarNode::from(output)),
-            FloatFloatToFloat { output, .. } => Some(GeneralizedVarNode::from(output)),
+            Int2Float { output, .. } => Some(GeneralizedVarNode::from(output)),
+            Float2Float { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatTrunc { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatCeil { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatFloor { output, .. } => Some(GeneralizedVarNode::from(output)),
@@ -848,8 +849,8 @@ impl From<RawPcodeOp> for PcodeOperation {
             OpCode::CPUI_FLOAT_NEG => one_in_one_out!(FloatNeg),
             OpCode::CPUI_FLOAT_ABS => one_in_one_out!(FloatAbs),
             OpCode::CPUI_FLOAT_SQRT => one_in_one_out!(FloatSqrt),
-            OpCode::CPUI_FLOAT_INT2FLOAT => one_in_one_out!(FloatIntToFloat),
-            OpCode::CPUI_FLOAT_FLOAT2FLOAT => one_in_one_out!(FloatFloatToFloat),
+            OpCode::CPUI_FLOAT_INT2FLOAT => one_in_one_out!(Int2Float),
+            OpCode::CPUI_FLOAT_FLOAT2FLOAT => one_in_one_out!(Float2Float),
             OpCode::CPUI_FLOAT_TRUNC => one_in_one_out!(FloatTrunc),
             OpCode::CPUI_FLOAT_CEIL => one_in_one_out!(FloatCeil),
             OpCode::CPUI_FLOAT_FLOOR => one_in_one_out!(FloatFloor),
@@ -973,8 +974,8 @@ impl From<&PcodeOperation> for OpCode {
             FloatNeg { .. } => OpCode::CPUI_FLOAT_NEG,
             FloatAbs { .. } => OpCode::CPUI_FLOAT_ABS,
             FloatSqrt { .. } => OpCode::CPUI_FLOAT_SQRT,
-            FloatIntToFloat { .. } => OpCode::CPUI_FLOAT_INT2FLOAT,
-            FloatFloatToFloat { .. } => OpCode::CPUI_FLOAT_FLOAT2FLOAT,
+            Int2Float { .. } => OpCode::CPUI_FLOAT_INT2FLOAT,
+            Float2Float { .. } => OpCode::CPUI_FLOAT_FLOAT2FLOAT,
             FloatTrunc { .. } => OpCode::CPUI_FLOAT_TRUNC,
             FloatCeil { .. } => OpCode::CPUI_FLOAT_CEIL,
             FloatFloor { .. } => OpCode::CPUI_FLOAT_FLOOR,

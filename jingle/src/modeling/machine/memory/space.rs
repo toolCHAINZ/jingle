@@ -64,7 +64,7 @@ impl BMCModeledSpace {
     pub fn get_space(&self) -> &Array {
         &self.data
     }
-    /// Read [size_bytes] bytes of data from the given BV [offset], using the endianness
+    /// Read `size_bytes` bytes of data from the given BV `offset`, using the endianness
     /// of the space
     pub fn read(&self, offset: &BV, size_bytes: usize) -> Result<BV, JingleError> {
         if offset.get_size() != self.index_size_bytes * 8 {

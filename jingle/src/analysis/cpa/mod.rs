@@ -14,7 +14,8 @@ CPA contained in Chapter 16 of
 [The Handbook of Model Checking](https://link.springer.com/book/10.1007/978-3-319-10575-8)
 
 CPA operates on abstract states, which are required to form a Lattice, specifically a
-[JoinSemiLattice] (which requires a [join](JoinSemiLattice::join) operation). CPA applies
+[`JoinSemiLattice`](crate::analysis::cpa::lattice::JoinSemiLattice) (which requires a
+[`join`](crate::analysis::cpa::lattice::JoinSemiLattice::join) operation). CPA applies
 concrete transitions to abstract states, producing more abstract states. These states can
 be merged when control flow merges (potentially losing information) or kept separate, providing
 a large degree of flexibility. The algorithm terminates when no reached abstract state produces any

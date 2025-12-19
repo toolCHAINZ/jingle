@@ -67,6 +67,19 @@ rust::Vec<RegisterInfoFFI> ContextFFI::getRegisters() const {
   return v;
 }
 
+ // Return the list of user-defined p-code userop names
+rust::Vec<rust::String> ContextFFI::getUserOps() const {
+  rust::Vec<rust::String> v;
+  // Pull the names directly from Sleigh/SleighBase via getUserOpNames
+  std::vector<std::string> names;
+  sleigh.getUserOpNames(names);
+  v.reserve(names.size());
+  for (const auto &n : names) {
+    v.emplace_back(rust::String(n));
+  }
+  return v;
+}
+
 void ContextFFI::setImage(ImageFFI const &img) {
   sleigh.reset(new RustLoadImage(img), &c_db);
   ghidra::DocumentStorage documentStorage = ghidra::DocumentStorage();

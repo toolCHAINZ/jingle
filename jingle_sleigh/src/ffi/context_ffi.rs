@@ -45,6 +45,8 @@ pub(crate) mod bridge {
 
         pub(crate) fn getRegisters(&self) -> Vec<RegisterInfoFFI>;
 
+        pub(crate) fn getUserOps(&self) -> Vec<String>;
+
         pub(crate) fn setImage(self: Pin<&mut ContextFFI>, img: &ImageFFI) -> Result<()>;
     }
 
