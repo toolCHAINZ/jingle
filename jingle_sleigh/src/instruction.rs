@@ -3,7 +3,7 @@ use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
-use crate::{JingleSleighError::EmptyInstruction, context::loaded::ModelingMetadata};
+use crate::{JingleSleighError::EmptyInstruction, context::ModelingMetadata};
 use serde::{Deserialize, Serialize};
 
 /// A rust representation of a SLEIGH assembly instruction

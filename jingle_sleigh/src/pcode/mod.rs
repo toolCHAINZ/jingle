@@ -1,7 +1,7 @@
 pub mod branch;
 pub mod parse;
 
-use crate::context::loaded::CallInfo;
+use crate::context::CallInfo;
 use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,
     CallOther, Cast, Copy, Extract, Float2Float, FloatAbs, FloatAdd, FloatCeil, FloatDiv,

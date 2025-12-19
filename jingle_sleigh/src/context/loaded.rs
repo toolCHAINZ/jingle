@@ -1,12 +1,9 @@
 use crate::JingleSleighError::ImageLoadError;
-use crate::context::CallInfo;
 use crate::context::SleighContext;
 use crate::context::image::{ImageProvider, ImageSection};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::{Instruction, JingleSleighError, VarNode};
-#[cfg(feature = "pyo3")]
-use pyo3::pyclass;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -148,14 +145,6 @@ impl<'a> LoadedSleighContext<'a> {
     /// Get the current base address
     pub fn get_base_address(&self) -> u64 {
         self.img.get_base_address()
-    }
-
-    pub fn add_call_metadata(&mut self, addr: u64, info: CallInfo) {
-        self.sleigh.metadata.add_call_def(addr, info);
-    }
-
-    pub fn add_callother_metadata(&mut self, sig: &[VarNode], info: CallInfo) {
-        self.sleigh.metadata.add_callother_def(sig, info);
     }
 
     // todo: properly account for spaces with non-byte-based indexing

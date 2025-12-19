@@ -8,17 +8,20 @@ use crate::error::JingleSleighError;
 use crate::error::JingleSleighError::{LanguageSpecRead, SleighInitError};
 use crate::ffi::addrspace::bridge::AddrSpaceHandle;
 use crate::ffi::context_ffi::bridge::ContextFFI;
+use crate::parse::parse_program;
 use crate::space::{SleighArchInfo, SleighArchInfoInner, SpaceInfo};
 pub use builder::SleighContextBuilder;
 use std::collections::HashMap;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
-use crate::VarNode;
 use crate::context::builder::language_def::Language;
 use crate::context::image::ImageProvider;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
+use crate::{PcodeOperation, VarNode};
 use cxx::{SharedPtr, UniquePtr};
+#[cfg(feature = "pyo3")]
+use pyo3::pyclass;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
@@ -58,6 +61,7 @@ impl Default for ModelingBehavior {
 
 /// A naive representation of the effects of a function
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[pyclass]
 pub struct CallInfo {
     pub args: Vec<VarNode>,
     pub outputs: Option<Vec<VarNode>>,
@@ -172,6 +176,21 @@ impl SleighContext {
 
     pub fn arch_info(&self) -> &SleighArchInfo {
         &self.arch_info
+    }
+
+    pub fn add_call_metadata(&mut self, addr: u64, info: CallInfo) {
+        self.metadata.add_call_def(addr, info);
+    }
+
+    pub fn add_callother_metadata(&mut self, sig: &[VarNode], info: CallInfo) {
+        self.metadata.add_callother_def(sig, info);
+    }
+
+    pub fn parse_pcode_listing<T: AsRef<str>>(
+        &self,
+        s: T,
+    ) -> Result<Vec<PcodeOperation>, JingleSleighError> {
+        parse_program(s, &self.arch_info)
     }
 
     pub fn initialize_with_image<'b, T: ImageProvider + 'b>(

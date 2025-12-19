@@ -12,14 +12,14 @@ pub struct PcodeParser;
 
 pub(crate) fn parse_program<T: AsRef<str>>(
     s: T,
-    info: SleighArchInfo,
+    info: &SleighArchInfo,
 ) -> Result<Vec<PcodeOperation>, JingleSleighError> {
     let pairs = PcodeParser::parse(Rule::PROGRAM, s.as_ref())?;
     let mut ops = vec![];
     for pair in pairs {
         match pair.as_rule() {
             Rule::PCODE => {
-                let op = parse_pcode(pair.into_inner(), &info)?;
+                let op = parse_pcode(pair.into_inner(), info)?;
                 ops.push(op);
             }
             Rule::LABEL => {
@@ -89,11 +89,9 @@ pub(crate) fn parse_pcode(
                     let input = helpers::parse_varnode(dest, info)?;
                     Ok(PcodeOperation::Branch { input })
                 }
-                Rule::LABEL => {
-                    Err(JingleSleighError::PcodeParseValidation(
-                        "BRANCH to textual LABEL not supported".to_string(),
-                    ))
-                }
+                Rule::LABEL => Err(JingleSleighError::PcodeParseValidation(
+                    "BRANCH to textual LABEL not supported".to_string(),
+                )),
                 _ => unreachable!(),
             }
         }
