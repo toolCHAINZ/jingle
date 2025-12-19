@@ -111,6 +111,7 @@ pub fn parse_varnode_location(pair: Pair<Rule>) -> Result<(String, u64), JingleS
                 let space = pairs[0].as_str().to_string();
                 let offset = pairs[1].as_str();
                 let radix = if offset.starts_with("0x") { 16 } else { 10 };
+                let offset = offset.strip_prefix("0x").unwrap_or(offset);
                 let offset = u64::from_str_radix(offset, radix).unwrap();
                 return Ok((space, offset));
             }

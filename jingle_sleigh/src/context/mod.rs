@@ -61,7 +61,7 @@ impl Default for ModelingBehavior {
 
 /// A naive representation of the effects of a function
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[pyclass]
+#[cfg_attr(feature = "pyo3", pyclass)]
 pub struct CallInfo {
     pub args: Vec<VarNode>,
     pub outputs: Option<Vec<VarNode>>,
