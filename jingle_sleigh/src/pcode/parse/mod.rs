@@ -28,6 +28,7 @@ pub(crate) fn parse_program<T: AsRef<str>>(
                 will fail if the code attempts to branch to a label by name."
                 )
             }
+            Rule::BLANK_LINE => {}
             Rule::EOI => {}
             _ => unreachable!(),
         }
@@ -321,7 +322,7 @@ mod tests {
             },
             Case {
                 // temporary style varnode (hex) - parser should accept temporaries like $U1 as well
-                input: "$U8000:8 = COPY RAX\n",
+                input: "\n\n    $U8000:8 = COPY RAX\n",
                 expected: vec![PcodeOperation::Copy {
                     input: VarNode {
                         space_index: 4,

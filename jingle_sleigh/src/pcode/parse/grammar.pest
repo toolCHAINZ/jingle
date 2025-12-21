@@ -172,7 +172,8 @@ PCODE = {
   | TRUNC
 }
 
-LINE  = _{ LABEL | PCODE }
-LINES = _{ LINE ~ (NEWLINE+ ~ LINE)* }
+BLANK_LINE =  { WHITESPACE* }
+LINE       = _{ LABEL | PCODE | BLANK_LINE }
+LINES      = _{ LINE ~ (NEWLINE+ ~ LINE)* }
 
 PROGRAM = _{ SOI ~ LINES ~ NEWLINE* ~ EOI }
