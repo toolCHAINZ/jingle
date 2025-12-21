@@ -7,7 +7,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum JingleError {
-    #[error("Error talking to Sleigh")]
+    #[error("Error constructing p-code: {0}")]
     Sleigh(#[from] JingleSleighError),
     #[error("Given address disassembles cleanly but does not terminate within the given bound")]
     DisassemblyLengthBound,
