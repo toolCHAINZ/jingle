@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.0...jingle_sleigh-v0.4.1) - 2025-12-21
+
+### Fixed
+
+- allow blank lines and extra whitespace in pcode parsing ([#125](https://github.com/toolCHAINZ/jingle/pull/125))
+
 ## [0.4.0](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.3.3...jingle_sleigh-v0.4.0) - 2025-12-19
 
 ### Added
