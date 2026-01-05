@@ -33,7 +33,7 @@ pub trait SleighImage {
 }
 
 /// An image that can also inform sleigh about its architecture
-pub trait SleighArchImage: SleighImage{
+pub trait SleighArchImage: SleighImage {
     fn architecture_id(&self) -> Result<&str, JingleSleighError>;
 }
 
@@ -119,7 +119,7 @@ impl SleighImage for Vec<u8> {
     }
 }
 
-impl<T: SleighImage> SleighImage for &T{
+impl<T: SleighImage> SleighImage for &T {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         (*self).load(vn, output)
     }
@@ -134,6 +134,12 @@ impl<T: SleighImage> SleighImage for &T{
 
     fn resolve(&self, t: &str) -> Option<SymbolInfo> {
         (*self).resolve(t)
+    }
+}
+
+impl<T: SleighArchImage> SleighArchImage for &T {
+    fn architecture_id(&self) -> Result<&str, JingleSleighError> {
+        (*self).architecture_id()
     }
 }
 
@@ -183,7 +189,7 @@ pub struct ImageSection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::context::image::{SleighImage, ImageSection};
+    use crate::context::image::{ImageSection, SleighImage};
     #[test]
     fn test_vec_sections() {
         let data: Vec<u8> = vec![1, 2, 3];

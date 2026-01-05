@@ -1,7 +1,7 @@
 use crate::JingleSleighError::ImageLoadError;
-use crate::context::{SleighContext, SleighContextBuilder};
-use crate::context::image::{SleighImage, ImageSection, SleighArchImage};
+use crate::context::image::{ImageSection, SleighArchImage, SleighImage};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
+use crate::context::{SleighContext, SleighContextBuilder};
 use crate::ffi::context_ffi::ImageFFI;
 use crate::{Instruction, JingleSleighError, VarNode};
 use std::fmt::{Debug, Formatter};
@@ -172,9 +172,11 @@ impl<'a> LoadedSleighContext<'a> {
         }
     }
 
-    pub fn load<I: SleighArchImage + 'a, P: AsRef<str>>(img: I, ghidra_path: P) -> Result<Self, JingleSleighError> {
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation(ghidra_path.as_ref())?;
+    pub fn load<I: SleighArchImage + 'a, P: AsRef<str>>(
+        img: I,
+        ghidra_path: P,
+    ) -> Result<Self, JingleSleighError> {
+        let ctx_builder = SleighContextBuilder::load_ghidra_installation(ghidra_path.as_ref())?;
         let sleigh = ctx_builder.build(img.architecture_id()?)?;
         Self::new(sleigh, img)
     }
@@ -185,7 +187,9 @@ mod tests {
     use crate::PcodeOperation::Branch;
     use crate::VarNode;
     use crate::context::SleighContextBuilder;
+    
     use crate::tests::SLEIGH_ARCH;
+    
 
     #[test]
     fn test_adjust_vma() {
@@ -296,11 +300,13 @@ mod tests {
                         assert_eq!(instr1.disassembly.mnemonic, "MOV");
 
                         // Read bytes from multiple offsets
-                        let bytes = loaded_ref.read_bytes(&VarNode {
-                            space_index: 3,
-                            size: 6,
-                            offset: 0,
-                        }).unwrap();
+                        let bytes = loaded_ref
+                            .read_bytes(&VarNode {
+                                space_index: 3,
+                                size: 6,
+                                offset: 0,
+                            })
+                            .unwrap();
                         assert_eq!(bytes.len(), 6);
                         assert_eq!(bytes[0], 0x55);
                         assert_eq!(bytes[5], 0x90);
@@ -315,9 +321,7 @@ mod tests {
             }
 
             // Wait for all threads to complete and collect results
-            let results: Vec<_> = handles.into_iter()
-                .map(|h| h.join().unwrap())
-                .collect();
+            let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
             // Verify all threads completed successfully
             assert_eq!(results.len(), NUM_THREADS);

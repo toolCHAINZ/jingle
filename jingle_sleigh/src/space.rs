@@ -230,7 +230,7 @@ mod tests {
     fn test_space_info_make_varnode() {
         let space = create_test_space_info("ram", 3, SleighEndianness::Little);
         let vn = space.make_varnode(0x1000, 4);
-        
+
         assert_eq!(vn.space_index, 3);
         assert_eq!(vn.offset, 0x1000);
         assert_eq!(vn.size, 4);
@@ -243,18 +243,13 @@ mod tests {
             create_test_space_info("unique", 1, SleighEndianness::Little),
             create_test_space_info("ram", 2, SleighEndianness::Little),
         ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            spaces.into_iter(),
-            2,
-            vec![],
-        );
-        
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), spaces.into_iter(), 2, vec![]);
+
         let space = arch_info.get_space(1).unwrap();
         assert_eq!(space.name, "unique");
         assert_eq!(space.index, 1);
-        
+
         assert!(arch_info.get_space(10).is_none());
     }
 
@@ -264,17 +259,12 @@ mod tests {
             create_test_space_info("const", 0, SleighEndianness::Little),
             create_test_space_info("ram", 1, SleighEndianness::Little),
         ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            spaces.into_iter(),
-            1,
-            vec![],
-        );
-        
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), spaces.into_iter(), 1, vec![]);
+
         let space = arch_info.get_space_by_name("ram").unwrap();
         assert_eq!(space.index, 1);
-        
+
         assert!(arch_info.get_space_by_name("nonexistent").is_none());
     }
 
@@ -284,14 +274,9 @@ mod tests {
             create_test_space_info("const", 0, SleighEndianness::Little),
             create_test_space_info("ram", 1, SleighEndianness::Little),
         ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            spaces.into_iter(),
-            1,
-            vec![],
-        );
-        
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), spaces.into_iter(), 1, vec![]);
+
         let all_spaces = arch_info.spaces();
         assert_eq!(all_spaces.len(), 2);
         assert_eq!(all_spaces[0].name, "const");
@@ -301,55 +286,62 @@ mod tests {
     #[test]
     fn test_sleigh_arch_info_registers() {
         let registers = vec![
-            (VarNode { space_index: 1, offset: 0, size: 8 }, "rax".to_string()),
-            (VarNode { space_index: 1, offset: 8, size: 8 }, "rbx".to_string()),
+            (
+                VarNode {
+                    space_index: 1,
+                    offset: 0,
+                    size: 8,
+                },
+                "rax".to_string(),
+            ),
+            (
+                VarNode {
+                    space_index: 1,
+                    offset: 8,
+                    size: 8,
+                },
+                "rbx".to_string(),
+            ),
         ];
-        
-        let arch_info = SleighArchInfo::new(
-            registers.into_iter(),
-            std::iter::empty(),
-            1,
-            vec![],
-        );
-        
+
+        let arch_info = SleighArchInfo::new(registers.into_iter(), std::iter::empty(), 1, vec![]);
+
         let regs: Vec<_> = arch_info.registers().collect();
         assert_eq!(regs.len(), 2);
     }
 
     #[test]
     fn test_sleigh_arch_info_register_name() {
-        let rax_vn = VarNode { space_index: 1, offset: 0, size: 8 };
-        let registers = vec![
-            (rax_vn.clone(), "rax".to_string()),
-        ];
-        
-        let arch_info = SleighArchInfo::new(
-            registers.into_iter(),
-            std::iter::empty(),
-            1,
-            vec![],
-        );
-        
+        let rax_vn = VarNode {
+            space_index: 1,
+            offset: 0,
+            size: 8,
+        };
+        let registers = vec![(rax_vn.clone(), "rax".to_string())];
+
+        let arch_info = SleighArchInfo::new(registers.into_iter(), std::iter::empty(), 1, vec![]);
+
         assert_eq!(arch_info.register_name(&rax_vn), Some("rax"));
-        
-        let unknown_vn = VarNode { space_index: 1, offset: 100, size: 8 };
+
+        let unknown_vn = VarNode {
+            space_index: 1,
+            offset: 100,
+            size: 8,
+        };
         assert_eq!(arch_info.register_name(&unknown_vn), None);
     }
 
     #[test]
     fn test_sleigh_arch_info_register() {
-        let rax_vn = VarNode { space_index: 1, offset: 0, size: 8 };
-        let registers = vec![
-            (rax_vn.clone(), "rax".to_string()),
-        ];
-        
-        let arch_info = SleighArchInfo::new(
-            registers.into_iter(),
-            std::iter::empty(),
-            1,
-            vec![],
-        );
-        
+        let rax_vn = VarNode {
+            space_index: 1,
+            offset: 0,
+            size: 8,
+        };
+        let registers = vec![(rax_vn.clone(), "rax".to_string())];
+
+        let arch_info = SleighArchInfo::new(registers.into_iter(), std::iter::empty(), 1, vec![]);
+
         assert_eq!(arch_info.register("rax"), Some(&rax_vn));
         assert_eq!(arch_info.register("rbx"), None);
     }
@@ -360,48 +352,30 @@ mod tests {
             create_test_space_info("ram", 0, SleighEndianness::Little),
             create_test_space_info("unique", 1, SleighEndianness::Little),
         ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            spaces.into_iter(),
-            0,
-            vec![],
-        );
-        
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), spaces.into_iter(), 0, vec![]);
+
         let vn = arch_info.varnode("ram", 0x1000, 4).unwrap();
         assert_eq!(vn.space_index, 0);
         assert_eq!(vn.offset, 0x1000);
         assert_eq!(vn.size, 4);
-        
+
         assert!(arch_info.varnode("nonexistent", 0, 4).is_none());
     }
 
     #[test]
     fn test_sleigh_arch_info_default_code_space_index() {
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            std::iter::empty(),
-            3,
-            vec![],
-        );
-        
+        let arch_info = SleighArchInfo::new(std::iter::empty(), std::iter::empty(), 3, vec![]);
+
         assert_eq!(arch_info.default_code_space_index(), 3);
     }
 
     #[test]
     fn test_sleigh_arch_info_userops() {
-        let userops = vec![
-            "syscall".to_string(),
-            "cpuid".to_string(),
-        ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            std::iter::empty(),
-            0,
-            userops,
-        );
-        
+        let userops = vec!["syscall".to_string(), "cpuid".to_string()];
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), std::iter::empty(), 0, userops);
+
         let ops: Vec<_> = arch_info.userops().collect();
         assert_eq!(ops.len(), 2);
         assert_eq!(ops[0], "syscall");
@@ -410,18 +384,10 @@ mod tests {
 
     #[test]
     fn test_sleigh_arch_info_userop_name() {
-        let userops = vec![
-            "syscall".to_string(),
-            "cpuid".to_string(),
-        ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            std::iter::empty(),
-            0,
-            userops,
-        );
-        
+        let userops = vec!["syscall".to_string(), "cpuid".to_string()];
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), std::iter::empty(), 0, userops);
+
         assert_eq!(arch_info.userop_name(0), Some("syscall"));
         assert_eq!(arch_info.userop_name(1), Some("cpuid"));
         assert_eq!(arch_info.userop_name(2), None);
@@ -429,18 +395,10 @@ mod tests {
 
     #[test]
     fn test_sleigh_arch_info_userop_index() {
-        let userops = vec![
-            "syscall".to_string(),
-            "cpuid".to_string(),
-        ];
-        
-        let arch_info = SleighArchInfo::new(
-            std::iter::empty(),
-            std::iter::empty(),
-            0,
-            userops,
-        );
-        
+        let userops = vec!["syscall".to_string(), "cpuid".to_string()];
+
+        let arch_info = SleighArchInfo::new(std::iter::empty(), std::iter::empty(), 0, userops);
+
         assert_eq!(arch_info.userop_index("syscall"), Some(0));
         assert_eq!(arch_info.userop_index("cpuid"), Some(1));
         assert_eq!(arch_info.userop_index("nonexistent"), None);
@@ -458,7 +416,7 @@ mod tests {
         let space1 = create_test_space_info("ram", 1, SleighEndianness::Little);
         let space2 = create_test_space_info("ram", 1, SleighEndianness::Little);
         let space3 = create_test_space_info("rom", 1, SleighEndianness::Little);
-        
+
         assert_eq!(space1, space2);
         assert_ne!(space1, space3);
     }
