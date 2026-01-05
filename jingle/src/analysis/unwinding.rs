@@ -1,7 +1,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::back_edge::{BackEdge, BackEdgeAnalysis, BackEdges};
 use crate::analysis::cfg::{CfgState, PcodeCfg, ModeledPcodeCfg};
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
@@ -214,24 +214,20 @@ impl CfgState for UnwoundLocation {
 
 pub type UnwoundPcodeCfg = ModeledPcodeCfg<UnwoundLocation, PcodeOperation>;
 
-struct UnwoundLocationCPA<T: PcodeStore> {
-    source_cfg: T,
+struct UnwoundLocationCPA {
     unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,
 }
 
-impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
+impl ConfigurableProgramAnalysis for UnwoundLocationCPA {
     type State = SimpleLattice<UnwindingCpaState>;
 
-    fn get_pcode_store(&self) -> &impl PcodeStore {
-        &self.source_cfg
-    }
 
-    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
+    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State, op: &Option<PcodeOperation>) {
         if let SimpleLattice::Value(a) = state {
             let a = UnwoundLocation::from_cpa_state(a, a.max);
             self.unwound_cfg.add_node(&a);
             if !a.is_unwind_error() {
-                if let Some(op) = self.source_cfg.get_pcode_op_at(a.location()) {
+                if let Some(op) = op {
                     let dest = UnwoundLocation::from_cpa_state(
                         dest_state.value().unwrap(),
                         dest_state.value().unwrap().max,
@@ -247,6 +243,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
         state: &Self::State,
         dest_state: &Self::State,
         merged_state: &Self::State,
+        op: &Option<PcodeOperation>,
     ) {
         // Convert lattice states to UnwoundLocation
         let src =
@@ -259,7 +256,7 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
             merged_state.value().unwrap(),
             merged_state.value().unwrap().max,
         );
-        let op = self.source_cfg.get_pcode_op_at(src.location()).unwrap();
+        let op = op.clone().unwrap();
         // Find node indices
         let src_idx = match self.unwound_cfg.indices.get(&src) {
             Some(idx) => *idx,
@@ -317,12 +314,12 @@ impl Analysis for UnwindingAnalysis {
         let bes = BackEdgeAnalysis.make_initial_state(addr);
         let back_edges = BackEdgeAnalysis.run(&store, bes);
         let info = store.info();
+        let init_state = UnwindingCpaState::new(addr, back_edges, self.unwinding_bound, self.max_step_bound);
+
         let mut cpa = UnwoundLocationCPA {
-            source_cfg: store,
             unwound_cfg: PcodeCfg::new(info),
         };
-        let init_state = UnwindingCpaState::new(addr, back_edges, self.unwinding_bound, self.max_step_bound);
-        let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
+        let _ = cpa.run_cpa(&SimpleLattice::Value(init_state), &store);
 
         let graph = &mut cpa.unwound_cfg.graph;
         // For each node, process outgoing edges

@@ -1,51 +1,41 @@
 use crate::analysis::Analysis;
 use crate::analysis::cfg::PcodeCfg;
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 
-pub struct DirectLocationCPA<T> {
-    pcode: T,
+pub struct DirectLocationCPA {
     cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation>,
 }
 
-impl<T> DirectLocationCPA<T> {
+impl DirectLocationCPA {
     pub fn cfg(&self) -> &PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
         &self.cfg
     }
+
+
 }
 
 pub struct DirectLocationAnalysis;
 
-impl<T: PcodeStore> DirectLocationCPA<T> {
-    pub fn new(pcode: T) -> Self {
+impl DirectLocationCPA {
+    pub fn new<T: PcodeStore>(pcode: &T) -> Self {
         let info = pcode.info();
         Self {
-            pcode,
             cfg: PcodeCfg::new(info),
         }
     }
 
-    pub fn pcode_at(
-        &self,
-        state: &<DirectLocationCPA<T> as ConfigurableProgramAnalysis>::State,
-    ) -> Option<PcodeOperation> {
-        state.value().and_then(|a| self.pcode.get_pcode_op_at(*a))
-    }
 }
-impl<T: PcodeStore> ConfigurableProgramAnalysis for DirectLocationCPA<T> {
+impl ConfigurableProgramAnalysis for DirectLocationCPA {
     type State = PcodeAddressLattice;
 
-    fn get_pcode_store(&self) -> &impl PcodeStore {
-        &self.pcode
-    }
-
-    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State) {
+    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State, op: &Option<PcodeOperation>) {
         if let PcodeAddressLattice::Value(state) = state {
             self.cfg.add_node(state);
-            if let Some(op) = self.pcode.get_pcode_op_at(state) {
+            if let Some(op) = op {
                 if let PcodeAddressLattice::Value(dest_state) = dest_state {
                     self.cfg.add_edge(state, dest_state, op.clone());
                 }
@@ -65,8 +55,8 @@ impl Analysis for DirectLocationAnalysis {
     ) -> Self::Output {
         let initial_state = initial_state.into();
         let lattice = PcodeAddressLattice::Value(initial_state);
-        let mut cpa = DirectLocationCPA::new(store);
-        let _ = cpa.run_cpa(lattice);
+        let mut cpa = DirectLocationCPA::new(&store);
+        let _ = cpa.run_cpa(lattice, &store);
         cpa.cfg
     }
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {

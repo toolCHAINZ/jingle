@@ -6,6 +6,7 @@ use crate::analysis::pcode_store::PcodeStore;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
+use jingle_sleigh::PcodeOperation;
 
 /**
 A trait representing Configurable Program Analysis, a tunable unified framework for
@@ -24,10 +25,9 @@ As the abstract states form a lattice, this algorithm is guaranteed to terminate
 set of abstract states.
 */
 pub trait ConfigurableProgramAnalysis {
-    /// An abstract state. Usually (but not necessarily) represents a single program location.
-    type State: LocationState + Debug;
+    /// An abstract state.
+    type State: AbstractState + Debug;
 
-    fn get_pcode_store(&self) -> &impl PcodeStore;
 
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
@@ -44,7 +44,7 @@ pub trait ConfigurableProgramAnalysis {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State) {}
+    fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State, op: &Option<PcodeOperation>) {}
 
     /// A hook for when two abstract states are merged.
     fn merged(
@@ -52,25 +52,40 @@ pub trait ConfigurableProgramAnalysis {
         _curr_state: &Self::State,
         _dest_state: &Self::State,
         _merged_state: &Self::State,
+        _op: &Option<PcodeOperation>,
     ) {
     }
+}
 
+/**
+An extension trait for [`ConfigurableProgramAnalysis`] that provides the `run_cpa` algorithm.
+This trait is only implemented for CPAs whose states are [`LocationState`]s, which enables
+the standard CPA algorithm to retrieve operations from program locations.
+*/
+pub trait RunnableConfigurableProgramAnalysis: ConfigurableProgramAnalysis
+where
+    Self::State: LocationState,
+{
     /// The CPA algorithm. Implementors should not need to customize this function.
     ///
     /// Returns an iterator over abstract states reached from the initial abstract state.
-    fn run_cpa<I: Borrow<Self::State>>(&mut self, initial: I) -> impl Iterator<Item = Self::State> {
+    fn run_cpa<I: Borrow<Self::State>, P: PcodeStore>(
+        &mut self,
+        initial: I,
+        pcode_store: &P,
+    ) -> impl Iterator<Item = Self::State> {
         let initial = initial.borrow();
         let mut waitlist: VecDeque<Self::State> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
         waitlist.push_front(initial.clone());
         reached.push_front(initial.clone());
         while let Some(state) = waitlist.pop_front() {
-            let op = state.get_operation(self.get_pcode_store());
+            let op = state.get_operation(pcode_store);
             for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
-                self.reduce(&state, &dest_state);
+                self.reduce(&state, &dest_state, &op);
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {
-                        self.merged(&state, &dest_state, reached_state);
+                        self.merged(&state, &dest_state, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                     }
                 }
@@ -84,3 +99,12 @@ pub trait ConfigurableProgramAnalysis {
         reached.into_iter()
     }
 }
+
+// Blanket implementation: any CPA with LocationState automatically gets RunnableConfigurableProgramAnalysis
+impl<T> RunnableConfigurableProgramAnalysis for T
+where
+    T: ConfigurableProgramAnalysis,
+    T::State: LocationState,
+{
+}
+

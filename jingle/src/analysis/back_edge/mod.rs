@@ -1,5 +1,5 @@
 use crate::analysis::Analysis;
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
@@ -111,28 +111,25 @@ impl LocationState for BackEdgeState {
     }
 }
 
-struct BackEdgeCPA<T: PcodeStore> {
-    location: DirectLocationCPA<T>,
+struct BackEdgeCPA {
+    location: DirectLocationCPA,
     pub back_edges: Vec<(PcodeAddressLattice, PcodeAddressLattice)>,
 }
 
-impl<T: PcodeStore> BackEdgeCPA<T> {
-    pub fn new(pcode: T) -> Self {
+impl BackEdgeCPA {
+    pub fn new<T: PcodeStore>(pcode: &T) -> Self {
         Self {
-            location: DirectLocationCPA::new(pcode),
+            location: DirectLocationCPA::new(&pcode),
             back_edges: Vec::new(),
         }
     }
 }
 
-impl<T: PcodeStore> ConfigurableProgramAnalysis for BackEdgeCPA<T> {
+impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
 
-    fn get_pcode_store(&self) -> &impl PcodeStore {
-        self.location.get_pcode_store()
-    }
 
-    fn reduce(&mut self, old_state: &Self::State, new_state: &Self::State) {
+    fn reduce(&mut self, old_state: &Self::State, new_state: &Self::State, op: &Option<PcodeOperation>) {
         if old_state.path_visits.contains(&new_state.location) {
             self.back_edges
                 .push((old_state.location, new_state.location))
@@ -152,8 +149,8 @@ impl Analysis for BackEdgeAnalysis {
         initial_state: I,
     ) -> Self::Output {
         let initial_state = initial_state.into();
-        let mut cpa = BackEdgeCPA::new(store);
-        let _ = cpa.run_cpa(initial_state);
+        let mut cpa = BackEdgeCPA::new(&store);
+        let _ = cpa.run_cpa(initial_state, &store);
         let mut b = BackEdges::default();
         for (from, to) in cpa.back_edges {
             if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {

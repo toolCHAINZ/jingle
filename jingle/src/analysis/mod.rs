@@ -15,7 +15,6 @@ mod path;
 pub mod pcode_store;
 pub mod unwinding;
 pub mod varnode;
-mod simple_value;
 mod stack_offset;
 
 /// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
