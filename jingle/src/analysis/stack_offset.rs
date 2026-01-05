@@ -8,8 +8,11 @@
 //! This CPA is designed to be used in a compound analysis with location tracking,
 //! so it does not track program locations itself.
 
+use crate::analysis::compound::{Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::unwinding::UnwindingCpaState;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -130,9 +133,7 @@ impl JoinSemiLattice for StackOffsetLattice {
             (Offset(v), Range(min, max)) | (Range(min, max), Offset(v)) => {
                 Range((*v).min(*min), (*v).max(*max))
             }
-            (Range(min1, max1), Range(min2, max2)) => {
-                Range((*min1).min(*min2), (*max1).max(*max2))
-            }
+            (Range(min1, max1), Range(min2, max2)) => Range((*min1).min(*min2), (*max1).max(*max2)),
         };
     }
 }
@@ -182,7 +183,11 @@ impl StackOffsetState {
     fn transfer_impl(&self, op: &PcodeOperation) -> StackOffsetLattice {
         match op {
             // Stack pointer arithmetic: SP = SP + constant
-            PcodeOperation::IntAdd { output, input0, input1 } => {
+            PcodeOperation::IntAdd {
+                output,
+                input0,
+                input1,
+            } => {
                 if output == &self.stack_pointer && input0 == &self.stack_pointer {
                     if let Some(delta) = Self::extract_constant(input1) {
                         return self.offset.add(delta);
@@ -200,7 +205,11 @@ impl StackOffsetState {
             }
 
             // Stack pointer arithmetic: SP = SP - constant
-            PcodeOperation::IntSub { output, input0, input1 } => {
+            PcodeOperation::IntSub {
+                output,
+                input0,
+                input1,
+            } => {
                 if output == &self.stack_pointer && input0 == &self.stack_pointer {
                     if let Some(delta) = Self::extract_constant(input1) {
                         return self.offset.sub(delta);
@@ -256,9 +265,7 @@ impl StackOffsetState {
     /// Check if an operation writes to a specific varnode
     fn writes_to_varnode(op: &PcodeOperation, v: &VarNode) -> bool {
         match op.output() {
-            Some(GeneralizedVarNode::Direct(vn)) => {
-                v == &vn
-            }
+            Some(GeneralizedVarNode::Direct(vn)) => v == &vn,
             _ => false,
         }
     }
@@ -292,7 +299,7 @@ impl AbstractState for StackOffsetState {
         self.merge_join(other)
     }
 
-    fn stop<'a, T: Iterator<Item=&'a Self>>(&'a self, states: T) -> bool {
+    fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
         self.stop_sep(states)
     }
 
@@ -352,3 +359,6 @@ mod tests {
     }
 }
 
+impl Strengthen<PcodeAddressLattice> for StackOffsetState {}
+
+impl Strengthen<UnwindingCpaState> for StackOffsetState {}
