@@ -1,5 +1,5 @@
 use crate::VarNode;
-use crate::context::image::ImageProvider;
+use crate::context::image::SleighImage;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use bridge::ContextFFI;
@@ -60,7 +60,7 @@ pub(crate) mod bridge {
 
 pub(crate) struct ImageFFI<'a> {
     /// A thing that has bytes at addresses
-    pub(crate) provider: Box<dyn ImageProvider + 'a>,
+    pub(crate) provider: Box<dyn SleighImage + 'a>,
     /// The current virtual base address for the image loaded by this context.
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
@@ -69,7 +69,7 @@ pub(crate) struct ImageFFI<'a> {
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: ImageProvider + 'a>(provider: T, idx: usize) -> Self {
+    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: usize) -> Self {
         Self {
             provider: Box::new(provider),
             base_offset: 0,

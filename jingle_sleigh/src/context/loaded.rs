@@ -1,6 +1,6 @@
 use crate::JingleSleighError::ImageLoadError;
-use crate::context::SleighContext;
-use crate::context::image::{ImageProvider, ImageSection};
+use crate::context::{SleighContext, SleighContextBuilder};
+use crate::context::image::{SleighImage, ImageSection, SleighArchImage};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::ffi::context_ffi::ImageFFI;
 use crate::{Instruction, JingleSleighError, VarNode};
@@ -19,11 +19,15 @@ pub struct LoadedSleighContext<'a> {
     img: Pin<Box<ImageFFI<'a>>>,
 }
 
+unsafe impl<'a> Send for LoadedSleighContext<'a> {}
+unsafe impl<'a> Sync for LoadedSleighContext<'a> {}
+
 impl Debug for LoadedSleighContext<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         self.sleigh.fmt(f)
     }
 }
+
 impl Deref for LoadedSleighContext<'_> {
     type Target = SleighContext;
 
@@ -42,7 +46,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// Consumes a [SleighContext] and an image provider, initializes
     /// sleigh with the image provider, and combines them into a single
     /// [LoadedSleigh*Context] guard value.
-    pub(crate) fn new<T: ImageProvider + Sized + 'a>(
+    pub(crate) fn new<T: SleighImage + Sized + 'a>(
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
@@ -56,6 +60,8 @@ impl<'a> LoadedSleighContext<'a> {
         };
         let (ctx, img) = s.borrow_parts();
         ctx.ctx
+            .lock()
+            .unwrap()
             .pin_mut()
             .setImage(img)
             .map_err(|_| ImageLoadError)?;
@@ -67,12 +73,14 @@ impl<'a> LoadedSleighContext<'a> {
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
         let mut instr = self
             .ctx
+            .lock()
+            .unwrap()
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        instr.augment_with_metadata(&self.sleigh.metadata);
+        instr.augment_with_metadata(&self.metadata);
         let vn = VarNode {
-            space_index: self.sleigh.arch_info().default_code_space_index(),
+            space_index: self.arch_info.default_code_space_index(),
             size: instr.length,
             offset,
         };
@@ -112,7 +120,7 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Re-initialize `sleigh` with a new image, without re-parsing the `.sla` definitions. This
     /// is _much_ faster than generating a new context.
-    pub fn set_image<T: ImageProvider + Sized + 'a>(
+    pub fn set_image<T: SleighImage + Sized + 'a>(
         &mut self,
         img: T,
     ) -> Result<(), JingleSleighError> {
@@ -120,6 +128,8 @@ impl<'a> LoadedSleighContext<'a> {
         *img_ref = ImageFFI::new(img, sleigh.arch_info().default_code_space_index());
         sleigh
             .ctx
+            .lock()
+            .unwrap()
             .pin_mut()
             .setImage(img_ref)
             .map_err(|_| ImageLoadError)
@@ -138,6 +148,7 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     /// Rebase the loaded image to `offset`
+    /// Rebase the loaded image to `offset`
     pub fn set_base_address(&mut self, offset: u64) {
         self.img.set_base_address(offset);
     }
@@ -154,6 +165,13 @@ impl<'a> LoadedSleighContext<'a> {
             size: vn.size,
             offset: vn.offset.wrapping_sub(self.get_base_address()),
         }
+    }
+
+    pub fn load<I: SleighArchImage + 'a, P: AsRef<str>>(img: I, ghidra_path: P) -> Result<Self, JingleSleighError> {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation(ghidra_path.as_ref())?;
+        let sleigh = ctx_builder.build(img.architecture_id()?)?;
+        Self::new(sleigh, img)
     }
 }
 
@@ -237,5 +255,70 @@ mod tests {
                 }
             }
         );
+    }
+
+    #[test]
+    pub fn multithreaded_instruction_fetch() {
+        use std::thread;
+
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+
+        // Create a small program with multiple instructions
+        // PUSH RBP (0x55), MOV RBP,RSP (0x48 0x89 0xe5), PUSH RBX (0x53), NOP (0x90)
+        let img: Vec<u8> = vec![0x55, 0x48, 0x89, 0xe5, 0x53, 0x90];
+        let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
+
+        const NUM_THREADS: usize = 8;
+        const ITERATIONS_PER_THREAD: usize = 100;
+
+        // Use scoped threads to allow borrowing from the parent thread
+        thread::scope(|s| {
+            let mut handles = vec![];
+
+            for thread_id in 0..NUM_THREADS {
+                let tid = thread_id;
+                let loaded_ref = &loaded;
+                let handle = s.spawn(move || {
+                    for _i in 0..ITERATIONS_PER_THREAD {
+                        // Fetch instruction at offset 0 (PUSH RBP)
+                        let instr0 = loaded_ref.instruction_at(0).unwrap();
+                        assert_eq!(instr0.disassembly.mnemonic, "PUSH");
+
+                        // Fetch instruction at offset 1 (MOV RBP,RSP)
+                        let instr1 = loaded_ref.instruction_at(1).unwrap();
+                        assert_eq!(instr1.disassembly.mnemonic, "MOV");
+
+                        // Read bytes from multiple offsets
+                        let bytes = loaded_ref.read_bytes(&VarNode {
+                            space_index: 3,
+                            size: 6,
+                            offset: 0,
+                        }).unwrap();
+                        assert_eq!(bytes.len(), 6);
+                        assert_eq!(bytes[0], 0x55);
+                        assert_eq!(bytes[5], 0x90);
+
+                        // Use read iterator
+                        let instrs: Vec<_> = loaded_ref.read(0, 4).collect();
+                        assert!(instrs.len() >= 2);
+                    }
+                    tid
+                });
+                handles.push(handle);
+            }
+
+            // Wait for all threads to complete and collect results
+            let results: Vec<_> = handles.into_iter()
+                .map(|h| h.join().unwrap())
+                .collect();
+
+            // Verify all threads completed successfully
+            assert_eq!(results.len(), NUM_THREADS);
+            for (i, &result) in results.iter().enumerate() {
+                assert_eq!(result, i);
+            }
+        });
     }
 }

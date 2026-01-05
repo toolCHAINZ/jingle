@@ -39,6 +39,8 @@ impl Iterator for SleighContextInstructionIterator<'_> {
         let mut instr = self
             .sleigh
             .ctx
+            .lock()
+            .unwrap()
             .get_one_instruction(self.offset)
             .map(Instruction::from)
             .ok()?;
