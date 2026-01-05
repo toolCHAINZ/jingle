@@ -9,6 +9,9 @@ license = "MIT"
 [lib]
 name = "jingle_python"
 crate-type = ["cdylib"]
+test = false
+bench = false
+doctest = false
 
 [features]
 extension-module = ["pyo3/extension-module"]
