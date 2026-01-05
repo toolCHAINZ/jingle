@@ -119,7 +119,7 @@ impl SleighImage for Vec<u8> {
     }
 }
 
-impl<T: SleighImage> SleighImage for &T {
+impl<T: SleighImage> SleighImage for &T{
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         (*self).load(vn, output)
     }
@@ -130,6 +130,10 @@ impl<T: SleighImage> SleighImage for &T {
 
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         (*self).get_section_info()
+    }
+
+    fn resolve(&self, t: &str) -> Option<SymbolInfo> {
+        (*self).resolve(t)
     }
 }
 

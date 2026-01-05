@@ -179,6 +179,12 @@ impl SleighArchImage for File<'_> {
     }
 }
 
+impl<T: SleighArchImage> SleighArchImage for &T{
+    fn architecture_id(&self) -> Result<&str, JingleSleighError> {
+        (*self).architecture_id()
+    }
+}
+
 pub fn map_gimli_architecture(file: &File) -> Option<&'static str> {
     match &file.architecture() {
         Architecture::Unknown => None,
