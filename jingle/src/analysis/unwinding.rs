@@ -1,6 +1,6 @@
 use crate::analysis::Analysis;
 use crate::analysis::back_edge::{BackEdge, BackEdgeAnalysis, BackEdges};
-use crate::analysis::cfg::{CfgState, PcodeCfg};
+use crate::analysis::cfg::{CfgState, PcodeCfg, ModeledPcodeCfg};
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
@@ -203,7 +203,7 @@ impl CfgState for UnwoundLocation {
     }
 }
 
-pub type UnwoundPcodeCfg = PcodeCfg<UnwoundLocation, PcodeOperation>;
+pub type UnwoundPcodeCfg = ModeledPcodeCfg<UnwoundLocation, PcodeOperation>;
 
 struct UnwoundLocationCPA<T: PcodeStore> {
     source_cfg: T,
@@ -278,12 +278,12 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
 }
 
 pub struct UnwindingAnalysis {
-    max: usize,
+    unwinding_bound: usize,
 }
 
 impl UnwindingAnalysis {
     pub fn new(max: usize) -> Self {
-        Self { max }
+        Self { unwinding_bound: max }
     }
 }
 impl Analysis for UnwindingAnalysis {
@@ -303,7 +303,7 @@ impl Analysis for UnwindingAnalysis {
             source_cfg: store,
             unwound_cfg: PcodeCfg::new(info),
         };
-        let init_state = UnwindingCpaState::new(addr, back_edges, self.max);
+        let init_state = UnwindingCpaState::new(addr, back_edges, self.unwinding_bound);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
 
         let graph = &mut cpa.unwound_cfg.graph;

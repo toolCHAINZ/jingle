@@ -32,6 +32,7 @@ fn main() {
 
     let mut direct = UnwindingAnalysis::new(10);
     let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
+    let pcode_graph = pcode_graph.smt_model();
     // let pcode_graph = pcode_graph.basic_blocks();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
