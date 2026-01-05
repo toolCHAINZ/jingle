@@ -16,6 +16,7 @@ pub mod pcode_store;
 pub mod unwinding;
 pub mod varnode;
 mod stack_offset;
+pub mod compound;
 
 /// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
 /// The intent here is to provide some structure for running and combining CPAs. The output of the CPA
