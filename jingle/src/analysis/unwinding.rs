@@ -43,14 +43,18 @@ pub struct UnwindingCpaState {
     location: ConcretePcodeAddress,
     back_edge_visits: HashMap<(ConcretePcodeAddress, ConcretePcodeAddress), usize>,
     max: usize,
+    step_count: usize,
+    max_steps: Option<usize>,
 }
 
 impl UnwindingCpaState {
-    pub fn new(location: ConcretePcodeAddress, back_edges: BackEdges, max: usize) -> Self {
+    pub fn new(location: ConcretePcodeAddress, back_edges: BackEdges, max: usize, max_steps: Option<usize>) -> Self {
         UnwindingCpaState {
             location,
             back_edge_visits: back_edges.iter().map(|k| (k, 0)).collect(),
             max,
+            step_count: 0,
+            max_steps,
         }
     }
 
@@ -81,7 +85,9 @@ impl UnwindingCpaState {
     }
 
     pub fn terminated(&self) -> bool {
-        self.back_edge_visits.values().any(|b| b >= &self.max)
+        let back_edge_limit = self.back_edge_visits.values().any(|b| b >= &self.max);
+        let step_limit = self.max_steps.map_or(false, |max| self.step_count >= max);
+        back_edge_limit || step_limit
     }
 
     pub fn same_visit_counts(&self, other: &UnwindingCpaState) -> bool {
@@ -117,6 +123,8 @@ impl PartialJoinSemiLattice for UnwindingCpaState {
                 location: self.location,
                 back_edge_visits: visits,
                 max: self.max,
+                step_count: self.step_count.min(other.step_count),
+                max_steps: self.max_steps,
             };
             Some(s)
         } else {
@@ -155,6 +163,7 @@ impl AbstractState for UnwindingCpaState {
                 let mut next = self.clone();
                 next.location = location;
                 next.increment_back_edge_count((self.location, location));
+                next.step_count += 1;
                 next
             })
             .into()
@@ -279,11 +288,20 @@ impl<T: PcodeStore> ConfigurableProgramAnalysis for UnwoundLocationCPA<T> {
 
 pub struct UnwindingAnalysis {
     unwinding_bound: usize,
+    max_step_bound: Option<usize>,
 }
 
 impl UnwindingAnalysis {
     pub fn new(max: usize) -> Self {
-        Self { unwinding_bound: max }
+        Self {
+            unwinding_bound: max,
+            max_step_bound: None,
+        }
+    }
+
+    pub fn with_step_bound(mut self, max_steps: usize) -> Self {
+        self.max_step_bound = Some(max_steps);
+        self
     }
 }
 impl Analysis for UnwindingAnalysis {
@@ -303,7 +321,7 @@ impl Analysis for UnwindingAnalysis {
             source_cfg: store,
             unwound_cfg: PcodeCfg::new(info),
         };
-        let init_state = UnwindingCpaState::new(addr, back_edges, self.unwinding_bound);
+        let init_state = UnwindingCpaState::new(addr, back_edges, self.unwinding_bound, self.max_step_bound);
         let _ = cpa.run_cpa(&SimpleLattice::Value(init_state));
 
         let graph = &mut cpa.unwound_cfg.graph;
