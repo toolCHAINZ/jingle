@@ -44,6 +44,20 @@ where
 {
 }
 
+/// Blanket implementation: If A's state can be strengthened by CompoundState<B::State, C::State>,
+/// and (B, C) is a valid CPA, then A implements CompoundAnalysis<(B, C)>.
+/// This allows nesting compound analyses.
+impl<A, B, C> CompoundAnalysis<(B, C)> for A
+where
+    A: ConfigurableProgramAnalysis,
+    B: ConfigurableProgramAnalysis,
+    C: ConfigurableProgramAnalysis,
+    B: CompoundAnalysis<C>,
+    B::State: Strengthen<C::State>,
+    A::State: Strengthen<CompoundState<B::State, C::State>>,
+{
+}
+
 /// A state that combines two abstract states from different CPAs.
 #[derive(Debug, Clone)]
 pub struct CompoundState<S1, S2> {
@@ -179,13 +193,13 @@ impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S
 /// Auto-implementation of Analysis for tuple-based compound CPAs.
 /// This allows (A, B) to automatically implement Analysis when:
 /// - A implements Analysis and CompoundAnalysis<B>
-/// - B implements Analysis
+/// - B implements ConfigurableProgramAnalysis (may or may not implement Analysis)
 /// - A::State implements Strengthen<B::State>
 /// The output is a Vec of compound states.
 impl<A, B> crate::analysis::Analysis for (A, B)
 where
     A: crate::analysis::Analysis + CompoundAnalysis<B>,
-    B: crate::analysis::Analysis,
+    B: ConfigurableProgramAnalysis,
     A::State: Strengthen<B::State> + LocationState,
     B::State: AbstractState,
     CompoundState<A::State, B::State>: LocationState,
@@ -204,6 +218,7 @@ where
         states
     }
 }
+
 
 // Specific From implementation for DirectLocationAnalysis + StackOffsetAnalysis compound
 impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
@@ -225,5 +240,32 @@ impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
         };
 
         CompoundState::new(addr, StackOffsetState::new(stack_pointer))
+    }
+}
+
+// From implementation for DirectLocationAnalysis + (StackOffsetAnalysis, DirectValuationAnalysis) compound
+impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
+    for CompoundState<
+        crate::analysis::cpa::lattice::pcode::PcodeAddressLattice,
+        CompoundState<crate::analysis::stack_offset::StackOffsetState, crate::analysis::direct_valuation::DirectValuationState>
+    >
+{
+    fn from(addr: crate::analysis::cpa::lattice::pcode::PcodeAddressLattice) -> Self {
+        use crate::analysis::stack_offset::StackOffsetState;
+        use crate::analysis::direct_valuation::DirectValuationState;
+        use jingle_sleigh::VarNode;
+
+        // Create a default stack pointer varnode (this is architecture-specific)
+        let stack_pointer = VarNode {
+            space_index: 4, // Register space
+            offset: 8,      // RSP offset on x86-64
+            size: 8,        // 8 bytes for 64-bit
+        };
+
+        let stack_state = StackOffsetState::new(stack_pointer);
+        let valuation_state = DirectValuationState::new();
+        let right = CompoundState::new(stack_state, valuation_state);
+
+        CompoundState::new(addr, right)
     }
 }

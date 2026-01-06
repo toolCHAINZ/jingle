@@ -369,6 +369,92 @@ impl Strengthen<PcodeAddressLattice> for StackOffsetState {}
 
 impl Strengthen<UnwindingCpaState> for StackOffsetState {}
 
+impl Strengthen<crate::analysis::direct_valuation::DirectValuationState> for StackOffsetState {
+    fn strengthen(
+        &mut self,
+        original: &Self,
+        valuation: &crate::analysis::direct_valuation::DirectValuationState,
+        op: &PcodeOperation,
+    ) -> StrengthenOutcome {
+        use crate::analysis::direct_valuation::VarnodeValue;
+
+        // Try to refine the stack offset using known constant values from direct valuation
+        let refined_offset = match op {
+            // Stack pointer arithmetic: SP = SP + constant
+            PcodeOperation::IntAdd {
+                output,
+                input0,
+                input1,
+            } => {
+                if output == &self.stack_pointer && input0 == &self.stack_pointer {
+                    // SP = SP + input1, check if input1 has a known constant value
+                    if let Some(VarnodeValue::DirectConstant(delta)) = valuation.get_value(input1) {
+                        Some(original.offset.add(*delta as i64))
+                    } else {
+                        None
+                    }
+                } else if output == &self.stack_pointer && input1 == &self.stack_pointer {
+                    // SP = input0 + SP, check if input0 has a known constant value
+                    if let Some(VarnodeValue::DirectConstant(delta)) = valuation.get_value(input0) {
+                        Some(original.offset.add(*delta as i64))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+
+            // Stack pointer arithmetic: SP = SP - constant
+            PcodeOperation::IntSub {
+                output,
+                input0,
+                input1,
+            } => {
+                if output == &self.stack_pointer && input0 == &self.stack_pointer {
+                    // SP = SP - input1, check if input1 has a known constant value
+                    if let Some(VarnodeValue::DirectConstant(delta)) = valuation.get_value(input1) {
+                        Some(original.offset.sub(*delta as i64))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+
+            // Copy to stack pointer: SP = input
+            PcodeOperation::Copy { output, input } => {
+                if output == &self.stack_pointer {
+                    // Check if the input has a known constant value
+                    // This could represent setting SP to an absolute value
+                    // For now, we don't handle this case as it's unusual
+                    // But we could extend this if needed
+                    None
+                } else {
+                    None
+                }
+            }
+
+            _ => None,
+        };
+
+        // If we found a refined offset, update the state
+        if let Some(new_offset) = refined_offset {
+            // Check if the new offset is more precise than the current one
+            if let Some(ordering) = new_offset.partial_cmp(&self.offset) {
+                if ordering == Ordering::Less {
+                    // New offset is more precise (lower in lattice)
+                    self.offset = new_offset;
+                    return StrengthenOutcome::Changed;
+                }
+            }
+        }
+
+        StrengthenOutcome::Unchanged
+    }
+}
+
 pub struct StackOffsetAnalysis;
 
 impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
@@ -389,7 +475,11 @@ impl crate::analysis::Analysis for StackOffsetAnalysis {
         };
         StackOffsetState::new(stack_pointer)
     }
-    
+
     // Default implementation: just returns the states
     // Consumers can extract stack offset information from the states as needed
 }
+
+// Enable compound analysis: StackOffsetAnalysis can be strengthened by DirectValuationAnalysis
+impl crate::analysis::compound::CompoundAnalysis<crate::analysis::direct_valuation::DirectValuationAnalysis> for StackOffsetAnalysis {}
+

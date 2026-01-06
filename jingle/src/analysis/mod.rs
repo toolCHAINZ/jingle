@@ -19,7 +19,7 @@ pub mod unwinding;
 pub mod varnode;
 pub mod stack_offset;
 pub mod compound;
-mod direct_valuation;
+pub mod direct_valuation;
 
 /// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
 /// The intent here is to provide some structure for running and combining CPAs. This trait
