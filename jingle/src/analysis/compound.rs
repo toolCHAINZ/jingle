@@ -225,7 +225,7 @@ where
 impl crate::analysis::Analysis for (crate::analysis::direct_location::DirectLocationAnalysis, crate::analysis::direct_valuation::DirectValuationAnalysis)
 {
     type Input = CompoundState<
-        crate::analysis::cpa::lattice::pcode::PcodeAddressLattice,
+        crate::analysis::direct_location::DirectLocationState,
         crate::analysis::direct_valuation::DirectValuationState
     >;
 

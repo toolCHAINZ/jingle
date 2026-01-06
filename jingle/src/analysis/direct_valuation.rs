@@ -43,11 +43,13 @@ use crate::analysis::Analysis;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::Formatter;
 
 /// Represents the abstract value of a varnode in the analysis
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -167,6 +169,27 @@ impl VarnodeValue {
             (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a ^ b),
             (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
             _ => VarnodeValue::Top,
+        }
+    }
+}
+
+impl JingleDisplayable for VarnodeValue {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        match self {
+            VarnodeValue::Bottom => write!(f, "⊥"),
+            VarnodeValue::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
+            VarnodeValue::Offset(vn, offset) => {
+                if *offset >= 0 {
+                    write!(f, "{}+{:#x}", vn.display(info), offset)
+                } else {
+                    write!(f, "{}-{:#x}", vn.display(info), offset)
+                }
+            }
+            VarnodeValue::Const(val) => write!(f, "{:#x}", val),
+            VarnodeValue::Loaded(ptr_val) => {
+                write!(f, "Load({})", ptr_val.display(info))
+            }
+            VarnodeValue::Top => write!(f, "⊤"),
         }
     }
 }
@@ -1098,5 +1121,48 @@ mod tests {
 
         // Internal space varnodes should be cleared
         assert_eq!(new_state.get_value(&unique_vn), None);
+    }
+
+    #[test]
+    fn test_varnode_value_display() {
+        let info = mock_arch_info();
+
+        // Test Bottom
+        let bottom = VarnodeValue::Bottom;
+        assert_eq!(format!("{}", bottom.display(&info)), "⊥");
+
+        // Test Top
+        let top = VarnodeValue::Top;
+        assert_eq!(format!("{}", top.display(&info)), "⊤");
+
+        // Test Const
+        let const_val = VarnodeValue::Const(0x42);
+        assert_eq!(format!("{}", const_val.display(&info)), "0x42");
+
+        // Test Entry
+        let reg_vn = VarNode {
+            space_index: 2,
+            offset: 8,
+            size: 8,
+        };
+        let entry = VarnodeValue::Entry(reg_vn.clone());
+        let display_str = format!("{}", entry.display(&info));
+        assert!(display_str.contains("Entry"));
+
+        // Test Offset with positive offset
+        let offset_pos = VarnodeValue::Offset(reg_vn.clone(), 16);
+        let display_str = format!("{}", offset_pos.display(&info));
+        assert!(display_str.contains("+0x10"));
+
+        // Test Offset with negative offset
+        let offset_neg = VarnodeValue::Offset(reg_vn.clone(), -8);
+        let display_str = format!("{}", offset_neg.display(&info));
+        assert!(display_str.contains("-0x8") || display_str.contains("0xfffffffffffffff8"));
+
+        // Test Loaded
+        let loaded = VarnodeValue::Loaded(Box::new(VarnodeValue::Const(0x1000)));
+        let display_str = format!("{}", loaded.display(&info));
+        assert!(display_str.contains("Load"));
+        assert!(display_str.contains("0x1000"));
     }
 }

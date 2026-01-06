@@ -65,7 +65,7 @@ fn main() {
 
     for state in &compound_states {
         // Extract location from the outermost left (PcodeAddressLattice)
-        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left {
+        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left.inner() {
             // state.right is DirectValuationState
             // Extract stack pointer offset if available
             if let Some(sp_value) = state.right.get_value(&stack_pointer) {
