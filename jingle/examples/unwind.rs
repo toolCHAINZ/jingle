@@ -32,7 +32,7 @@ fn main() {
 
     let mut direct = UnwindingAnalysis::new_with_bounds(&loaded, 10);
     let _states = direct.run_with_back_edges(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
-    let pcode_graph = direct.unwound_cfg.clone();
+    let pcode_graph = direct.take_cfg();
     let pcode_graph = pcode_graph.smt_model();
     // let pcode_graph = pcode_graph.basic_blocks();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();

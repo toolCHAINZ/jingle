@@ -256,6 +256,12 @@ impl UnwoundLocationCPA {
             max_step_bound,
         }
     }
+    
+    /// Take ownership of the built unwound CFG, replacing it with an empty one
+    pub fn take_cfg(&mut self) -> PcodeCfg<UnwoundLocation, PcodeOperation> {
+        let info = self.unwound_cfg.info.clone();
+        std::mem::replace(&mut self.unwound_cfg, PcodeCfg::new(info))
+    }
 }
 
 impl ConfigurableProgramAnalysis for UnwoundLocationCPA {
