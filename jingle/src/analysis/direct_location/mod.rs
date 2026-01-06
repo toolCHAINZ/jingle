@@ -6,11 +6,11 @@ use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 
-pub struct DirectLocationCPA {
+pub struct DirectLocationAnalysis {
     cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation>,
 }
 
-impl DirectLocationCPA {
+impl DirectLocationAnalysis {
     pub fn cfg(&self) -> &PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
         &self.cfg
     }
@@ -28,7 +28,7 @@ impl DirectLocationCPA {
     }
 }
 
-impl ConfigurableProgramAnalysis for DirectLocationCPA {
+impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
     type State = PcodeAddressLattice;
 
     fn reduce(&mut self, state: &Self::State, dest_state: &Self::State, op: &Option<PcodeOperation>) {
@@ -43,7 +43,7 @@ impl ConfigurableProgramAnalysis for DirectLocationCPA {
     }
 }
 
-impl Analysis for DirectLocationCPA {
+impl Analysis for DirectLocationAnalysis {
     type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
     type Input = PcodeAddressLattice;
 
@@ -55,7 +55,4 @@ impl Analysis for DirectLocationCPA {
         self.take_cfg()
     }
 }
-
-// Implement CompoundAnalysis to allow composition with StackOffsetCPA
-impl crate::analysis::compound::CompoundAnalysis<crate::analysis::stack_offset::StackOffsetCPA> for DirectLocationCPA {}
 
