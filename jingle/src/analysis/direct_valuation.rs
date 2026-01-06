@@ -21,7 +21,7 @@
 //!
 //! // Create a compound analysis: location tracking + direct valuation
 //! let location_analysis = DirectLocationAnalysis::new(&loaded);
-//! let valuation_analysis = DirectValuationAnalysis::new(stack_pointer_varnode);
+//! let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(loaded.info.clone(), stack_pointer_varnode);
 //!
 //! let mut compound_analysis = (location_analysis, valuation_analysis);
 //!
@@ -44,7 +44,7 @@ use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, VarNode};
+use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -206,13 +206,16 @@ impl JoinSemiLattice for VarnodeValue {
 pub struct DirectValuationState {
     /// Map of written varnodes to their values
     written_locations: HashMap<VarNode, VarnodeValue>,
+    /// Architecture information for space type lookups
+    arch_info: SleighArchInfo,
 }
 
 impl DirectValuationState {
     /// Create a new empty direct valuation state
-    pub fn new() -> Self {
+    pub fn new(arch_info: SleighArchInfo) -> Self {
         Self {
             written_locations: HashMap::new(),
+            arch_info,
         }
     }
 
@@ -616,15 +619,36 @@ impl DirectValuationState {
             }
         }
 
+        // Clear internal space varnodes on control flow operations to non-const destinations
+        match op {
+            PcodeOperation::Branch { input } | PcodeOperation::CBranch { input0: input, .. } => {
+                // Check if the branch destination is NOT in the const space
+                if input.space_index != VarNode::CONST_SPACE_INDEX {
+                    // Clear all varnodes in internal spaces
+                    new_state.written_locations.retain(|vn, _| {
+                        self.arch_info
+                            .get_space(vn.space_index)
+                            .map(|space| space._type != SpaceType::IPTR_INTERNAL)
+                            .unwrap_or(true) // Keep if space info not found
+                    });
+                }
+            }
+            PcodeOperation::BranchInd { .. } => {
+                // Indirect branches always go to non-const space, so clear internal varnodes
+                new_state.written_locations.retain(|vn, _| {
+                    self.arch_info
+                        .get_space(vn.space_index)
+                        .map(|space| space._type != SpaceType::IPTR_INTERNAL)
+                        .unwrap_or(true)
+                });
+            }
+            _ => {}
+        }
+
         new_state
     }
 }
 
-impl Default for DirectValuationState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl PartialOrd for DirectValuationState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -690,39 +714,7 @@ impl AbstractState for DirectValuationState {
 
 // Strengthen implementations for compound analysis
 impl crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice> for DirectValuationState {
-    fn strengthen(&mut self, _original: &Self, location: &crate::analysis::cpa::lattice::pcode::PcodeAddressLattice, op: &jingle_sleigh::PcodeOperation) -> crate::analysis::compound::StrengthenOutcome {
-        use crate::analysis::cpa::lattice::flat::FlatLattice;
-
-        // When we have location information and this is a branch to a different machine address,
-        // we can clear internal space varnodes
-
-        // Check if this is a cross-machine branch
-        if let FlatLattice::Value(addr) = location {
-            let is_cross_machine_branch = match op {
-                jingle_sleigh::PcodeOperation::Branch { input } => {
-                    !input.is_const() && input.offset != addr.machine()
-                }
-                jingle_sleigh::PcodeOperation::Call { dest, .. } => {
-                    dest.offset != addr.machine()
-                }
-                jingle_sleigh::PcodeOperation::CBranch { input0, .. } => {
-                    !input0.is_const() && input0.offset != addr.machine()
-                }
-                _ => false,
-            };
-
-            if is_cross_machine_branch {
-                // Clear varnodes in internal spaces
-                // Note: We don't have access to SpaceInfo here to check space types,
-                // so this is a placeholder for future enhancement
-                // In practice, you would need to pass SpaceInfo through the analysis
-                // or store it in the state
-
-                // For now, just return Unchanged as we can't determine space types
-                // TODO: Add SpaceInfo access to properly clear internal space varnodes
-            }
-        }
-
+    fn strengthen(&mut self, _original: &Self, _: &crate::analysis::cpa::lattice::pcode::PcodeAddressLattice, _op: &PcodeOperation) -> crate::analysis::compound::StrengthenOutcome {
         crate::analysis::compound::StrengthenOutcome::Unchanged
     }
 }
@@ -737,28 +729,26 @@ impl crate::analysis::compound::Strengthen<crate::analysis::unwinding::Unwinding
 pub struct DirectValuationAnalysis {
     /// Optional varnode to track as an entry value (e.g., stack pointer)
     entry_varnode: Option<VarNode>,
+    /// Architecture information for space type lookups
+    arch_info: SleighArchInfo,
 }
 
 impl DirectValuationAnalysis {
     /// Create a new DirectValuationAnalysis without any entry varnode
-    pub fn new() -> Self {
+    pub fn new(arch_info: SleighArchInfo) -> Self {
         Self {
             entry_varnode: None,
+            arch_info,
         }
     }
 
     /// Create a new DirectValuationAnalysis with a specific entry varnode
     /// (e.g., stack pointer that starts at Entry value)
-    pub fn with_entry_varnode(entry_varnode: VarNode) -> Self {
+    pub fn with_entry_varnode(arch_info: SleighArchInfo, entry_varnode: VarNode) -> Self {
         Self {
             entry_varnode: Some(entry_varnode),
+            arch_info,
         }
-    }
-}
-
-impl Default for DirectValuationAnalysis {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -770,7 +760,7 @@ impl Analysis for DirectValuationAnalysis {
     type Input = DirectValuationState;
 
     fn make_initial_state(&self, _addr: ConcretePcodeAddress) -> Self::Input {
-        let mut state = DirectValuationState::new();
+        let mut state = DirectValuationState::new(self.arch_info.clone());
 
         // If we have an entry varnode, initialize it
         if let Some(ref entry_vn) = self.entry_varnode {
@@ -787,6 +777,46 @@ impl Analysis for DirectValuationAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jingle_sleigh::{SpaceInfo, SleighEndianness};
+
+    // Helper to create a mock SleighArchInfo for testing
+    fn mock_arch_info() -> SleighArchInfo {
+        let spaces = vec![
+            SpaceInfo {
+                name: "const".to_string(),
+                index: 0,
+                index_size_bytes: 8,
+                word_size_bytes: 1,
+                _type: SpaceType::IPTR_CONSTANT,
+                endianness: SleighEndianness::Little,
+            },
+            SpaceInfo {
+                name: "ram".to_string(),
+                index: 1,
+                index_size_bytes: 8,
+                word_size_bytes: 1,
+                _type: SpaceType::IPTR_PROCESSOR,
+                endianness: SleighEndianness::Little,
+            },
+            SpaceInfo {
+                name: "register".to_string(),
+                index: 2,
+                index_size_bytes: 8,
+                word_size_bytes: 1,
+                _type: SpaceType::IPTR_PROCESSOR,
+                endianness: SleighEndianness::Little,
+            },
+            SpaceInfo {
+                name: "unique".to_string(),
+                index: 3,
+                index_size_bytes: 8,
+                word_size_bytes: 1,
+                _type: SpaceType::IPTR_INTERNAL,
+                endianness: SleighEndianness::Little,
+            },
+        ];
+        SleighArchInfo::new(std::iter::empty(), spaces.into_iter(), 1, vec![])
+    }
 
     #[test]
     fn test_varnode_value_ordering() {
@@ -816,7 +846,7 @@ mod tests {
 
     #[test]
     fn test_copy_from_constant() {
-        let state = DirectValuationState::new();
+        let state = DirectValuationState::new(mock_arch_info());
         let output = VarNode {
             space_index: 1,
             offset: 100,
@@ -841,7 +871,7 @@ mod tests {
 
     #[test]
     fn test_copy_from_non_constant() {
-        let state = DirectValuationState::new();
+        let state = DirectValuationState::new(mock_arch_info());
         let output = VarNode {
             space_index: 1,
             offset: 100,
@@ -859,6 +889,112 @@ mod tests {
 
         let new_state = state.transfer_impl(&op);
         assert_eq!(new_state.get_value(&output), Some(&VarnodeValue::Top));
+    }
+
+    #[test]
+    fn test_branch_clears_internal_space() {
+        let mut state = DirectValuationState::new(mock_arch_info());
+
+        // Add some tracked varnodes in different spaces
+        let ram_vn = VarNode {
+            space_index: 1,  // ram (PROCESSOR space)
+            offset: 100,
+            size: 8,
+        };
+        let reg_vn = VarNode {
+            space_index: 2,  // register (PROCESSOR space)
+            offset: 8,
+            size: 8,
+        };
+        let unique_vn = VarNode {
+            space_index: 3,  // unique (INTERNAL space)
+            offset: 0x1000,
+            size: 8,
+        };
+
+        state.written_locations.insert(ram_vn.clone(), VarnodeValue::Const(42));
+        state.written_locations.insert(reg_vn.clone(), VarnodeValue::Const(100));
+        state.written_locations.insert(unique_vn.clone(), VarnodeValue::Const(200));
+
+        // Branch to a non-const destination (ram space)
+        let branch_dest = VarNode {
+            space_index: 1,  // ram space
+            offset: 0x1000,
+            size: 8,
+        };
+        let branch_op = PcodeOperation::Branch {
+            input: branch_dest,
+        };
+
+        let new_state = state.transfer_impl(&branch_op);
+
+        // Processor space varnodes should be retained
+        assert_eq!(new_state.get_value(&ram_vn), Some(&VarnodeValue::Const(42)));
+        assert_eq!(new_state.get_value(&reg_vn), Some(&VarnodeValue::Const(100)));
+
+        // Internal space varnodes should be cleared
+        assert_eq!(new_state.get_value(&unique_vn), None);
+    }
+
+    #[test]
+    fn test_branch_to_const_does_not_clear() {
+        let mut state = DirectValuationState::new(mock_arch_info());
+
+        // Add a tracked varnode in internal space
+        let unique_vn = VarNode {
+            space_index: 3,  // unique (INTERNAL space)
+            offset: 0x1000,
+            size: 8,
+        };
+        state.written_locations.insert(unique_vn.clone(), VarnodeValue::Const(200));
+
+        // Branch to a const space destination (e.g., for relative branching within an instruction)
+        let branch_dest = VarNode {
+            space_index: VarNode::CONST_SPACE_INDEX,
+            offset: 0x10,
+            size: 8,
+        };
+        let branch_op = PcodeOperation::Branch {
+            input: branch_dest,
+        };
+
+        let new_state = state.transfer_impl(&branch_op);
+
+        // Internal space varnodes should NOT be cleared for const-space branches
+        assert_eq!(new_state.get_value(&unique_vn), Some(&VarnodeValue::Const(200)));
+    }
+
+    #[test]
+    fn test_cbranch_clears_internal_space() {
+        let mut state = DirectValuationState::new(mock_arch_info());
+
+        let unique_vn = VarNode {
+            space_index: 3,  // unique (INTERNAL space)
+            offset: 0x1000,
+            size: 8,
+        };
+        state.written_locations.insert(unique_vn.clone(), VarnodeValue::Const(200));
+
+        // Conditional branch to a non-const destination
+        let branch_dest = VarNode {
+            space_index: 1,  // ram space
+            offset: 0x1000,
+            size: 8,
+        };
+        let condition = VarNode {
+            space_index: 2,
+            offset: 0,
+            size: 1,
+        };
+        let cbranch_op = PcodeOperation::CBranch {
+            input0: branch_dest,
+            input1: condition,
+        };
+
+        let new_state = state.transfer_impl(&cbranch_op);
+
+        // Internal space varnodes should be cleared
+        assert_eq!(new_state.get_value(&unique_vn), None);
     }
 }
 

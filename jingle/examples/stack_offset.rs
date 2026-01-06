@@ -43,7 +43,7 @@ fn main() {
     // Create a compound analysis: DirectLocationAnalysis + DirectValuationAnalysis
     // DirectValuationAnalysis will track the stack pointer as an Entry value
     let location_analysis = DirectLocationAnalysis::new(&loaded);
-    let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(stack_pointer.clone());
+    let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(loaded.arch_info().clone(), stack_pointer.clone());
 
     let mut compound_analysis = (location_analysis, valuation_analysis);
 
