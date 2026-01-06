@@ -2,6 +2,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -21,6 +22,14 @@ impl BoundedStepsState {
             max_count,
             branch_count: 0,
         }
+    }
+}
+
+impl From<ConcretePcodeAddress> for BoundedStepsState {
+    fn from(addr: ConcretePcodeAddress) -> Self {
+        // Default max_count - this is a problem since we need max_count from somewhere
+        // For now, use a large default
+        Self::new(PcodeAddressLattice::Value(addr), 1000)
     }
 }
 

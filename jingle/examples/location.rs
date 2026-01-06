@@ -18,8 +18,8 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = BoundedStepLocationAnalysis::new(20);
-    let pcode_graph = direct.run(loaded, direct.make_initial_state(FUNC_SWITCH.into()));
+    let mut direct = BoundedStepLocationAnalysis::new(&loaded, 20);
+    let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_SWITCH.into()));
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
         println!("{:x}", addr);

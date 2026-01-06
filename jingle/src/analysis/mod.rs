@@ -33,20 +33,20 @@ pub trait Analysis: RunnableConfigurableProgramAnalysis where Self::State : Loca
     type Output;
     /// The input type of the analysis, must be derivable from a [ConcretePcodeAddress] and
     /// any state in the type implementing [Analysis]
-    type Input: Into<Self::State> + From<ConcretePcodeAddress>;
+    type Input: Into<Self::State>;
 
     /// Given an initial [ConcretePcodeAddress], derive the [Input](Self::Input) state for
     /// a CPA
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;
 
     /// Produce the output of hte analysis
-    fn make_output(&self) -> Self::Output;
+    fn make_output(&mut self, states: &[Self::State] ) -> Self::Output;
 
     /// Run the [Analysis] and return its [Output](Self::Output)
     fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
         let initial_state = initial_state.into();
-        let _ = self.run_cpa(initial_state.into(), &store);
-        self.make_output()
+        let i = self.run_cpa(initial_state.into(), &store);
+        self.make_output(&i)
     }
 }
 
@@ -55,8 +55,10 @@ pub trait AnalyzableBase: PcodeStore + Sized {
         &self,
         entry: S,
         mut t: T,
-    ) -> T::Output where <T as ConfigurableProgramAnalysis>::State: LocationState {;
-        t.run(self, entry.into())
+    ) -> T::Output where <T as ConfigurableProgramAnalysis>::State: LocationState {
+        let addr = entry.into();
+        let entry = t.make_initial_state(addr);
+        t.run(self, entry)
     }
 }
 

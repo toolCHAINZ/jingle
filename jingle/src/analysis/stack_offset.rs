@@ -8,15 +8,18 @@
 //! This CPA is designed to be used in a compound analysis with location tracking,
 //! so it does not track program locations itself.
 
+use crate::analysis::Analysis;
 use crate::analysis::compound::{Strengthen, StrengthenOutcome};
+use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::unwinding::UnwindingCpaState;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
+use std::collections::HashMap;
 
 /// Represents a range of possible stack offset values
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -364,8 +367,7 @@ impl Strengthen<PcodeAddressLattice> for StackOffsetState {}
 
 impl Strengthen<UnwindingCpaState> for StackOffsetState {}
 
-
-struct StackOffsetAnalysis {
+pub struct StackOffsetAnalysis {
     unwinding_bound: usize,
     max_step_bound: usize,
 }
@@ -382,3 +384,4 @@ impl StackOffsetAnalysis {
 impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
     type State = StackOffsetState;
 }
+

@@ -1,17 +1,19 @@
 #![allow(unused)]
 
 use jingle::analysis::Analysis;
-use jingle::analysis::back_edge::{BackEdgeAnalysis, BackEdges};
 use jingle::analysis::cfg::PcodeCfg;
 use jingle::analysis::compound::CompoundState;
 use jingle::analysis::cpa::lattice::simple::SimpleLattice;
-use jingle::analysis::cpa::state::AbstractState;
 use jingle::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::pcode_store::PcodeStore;
-use jingle::analysis::stack_offset::StackOffsetState;
+use jingle::analysis::stack_offset::{StackOffsetState, StackOffsetLattice};
 use jingle::analysis::unwinding::{UnwindingCpaState, UnwoundLocation};
+use jingle::analysis::back_edge::{BackEdgeCPA, BackEdgeState, BackEdges};
+use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use std::collections::HashMap;
 use std::env;
 
 const FUNC_LINE: u64 = 0x100000460;
@@ -22,94 +24,69 @@ const FUNC_NESTED: u64 = 0x100000588;
 const FUNC_GOTO: u64 = 0x100000610;
 
 
-
-impl Analysis for (Unwou) {
-    type Output = PcodeCfg<UnwoundLocation, (PcodeOperation, i64)>;
-    type Input = jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-
-    fn run<T: PcodeStore, I: Into<Self::Input>>(
-        &mut self,
-        store: T,
-        initial_state: I,
-    ) -> Self::Output {
-        use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-
-        let addr: ConcretePcodeAddress = initial_state.into();
-        let info = store.info();
-
-        // Get back edges for unwinding
-        let bes = BackEdgeAnalysis.make_initial_state(addr);
-        let back_edges = BackEdgeAnalysis.run(&store, bes);
-
-        // Get stack pointer varnode for this architecture
-        // Common stack pointer register names by architecture
-        let stack_pointer = info
-            .register("RSP")  // x86-64
-            .or_else(|| info.register("ESP"))  // x86-32
-            .or_else(|| info.register("SP"))   // ARM, MIPS, etc.
-            .or_else(|| info.register("r13"))  // ARM alternative
-            .cloned()
-            .expect("Could not find stack pointer register");
-
-        // Create initial compound state
-        let unwinding_state =
-            UnwindingCpaState::new(addr, back_edges, self.unwinding_bound, self.max_step_bound);
-        let stack_state = StackOffsetState::new(stack_pointer);
-
-        let initial = CompoundState::new(
-            SimpleLattice::Value(unwinding_state),
-            stack_state,
-        );
-
-        // Run the compound CPA
-        let mut cpa = CompoundStackOffsetCPA::new(info.clone());
-        let _ = cpa.run_cpa(&initial, &store);
-
-        cpa.cfg
-    }
-
-    fn make_initial_state(&self, addr: Self::Input) -> Self::Input {
-        addr
-    }
-}
-
 fn main() {
     let bin_path = env::home_dir()
         .unwrap()
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    // Run the compound analysis
-    let mut analysis = CompoundStackOffsetAnalysis::new(10);
-    let result = analysis.run(&loaded, analysis.make_initial_state(FUNC_NESTED.into()));
+    // Create and run the compound analysis
+    let mut analysis = CompoundStackOffsetCPA::new(
+        loaded.info(),
+        10,  // unwinding bound
+        Some(100),  // max steps
+    );
+    
+    let (cfg, stack_offsets) = analysis.run(&loaded, analysis.make_initial_state(FUNC_NESTED.into()));
 
     // Print results
     println!("Stack Offset Analysis Results:");
     println!("==============================\n");
 
-    let nodes: Vec<_> = result.nodes().collect();
-    for node in &nodes {
-        println!("Location: {:x}", node.location());
+    // Collect and sort locations for consistent output
+    let mut locations: Vec<_> = cfg.nodes().collect();
+    locations.sort_by_key(|loc| *loc.location());
+
+    println!("Locations and their stack offsets:");
+    for loc in &locations {
+        let offset_str = stack_offsets
+            .get(loc)
+            .map(|off| format!("{:+}", off))
+            .unwrap_or_else(|| "unknown".to_string());
+        println!("  {:x}: stack offset = {}", loc.location(), offset_str);
     }
 
-    println!("\nEdges with stack offsets:");
-    for edge in result.graph().edge_references() {
-        let source = result.graph().node_weight(edge.source()).unwrap();
-        let target = result.graph().node_weight(edge.target()).unwrap();
-        let (op, offset) = edge.weight();
+    println!("\nEdges in the CFG:");
+    for edge in cfg.graph().edge_references() {
+        let source = cfg.graph().node_weight(edge.source()).unwrap();
+        let target = cfg.graph().node_weight(edge.target()).unwrap();
+        let op = edge.weight();
+        
+        let src_offset = stack_offsets.get(source)
+            .map(|off| format!("{:+}", off))
+            .unwrap_or_else(|| "?".to_string());
+        let tgt_offset = stack_offsets.get(target)
+            .map(|off| format!("{:+}", off))
+            .unwrap_or_else(|| "?".to_string());
+            
         println!(
-            "{:x} -> {:x}: {} (stack offset: {})",
+            "  {:x} ({}) -> {:x} ({}): {}",
             source.location(),
+            src_offset,
             target.location(),
-            op,
-            offset
+            tgt_offset,
+            op
         );
     }
 
-    let leaf_nodes: Vec<_> = result.leaf_nodes().collect();
+    let leaf_nodes: Vec<_> = cfg.leaf_nodes().collect();
     println!("\nLeaf nodes: {} total", leaf_nodes.len());
     for leaf in &leaf_nodes {
-        println!("  {:x}", leaf.location());
+        let offset_str = stack_offsets
+            .get(leaf)
+            .map(|off| format!("{:+}", off))
+            .unwrap_or_else(|| "unknown".to_string());
+        println!("  {:x}: stack offset = {}", leaf.location(), offset_str);
     }
 }
 

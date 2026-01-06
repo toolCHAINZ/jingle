@@ -73,7 +73,7 @@ where
         &mut self,
         initial: I,
         pcode_store: &P,
-    ) -> impl Iterator<Item = Self::State> {
+    ) -> Vec<Self::State> {
         let initial = initial.borrow();
         let mut waitlist: VecDeque<Self::State> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
@@ -96,7 +96,7 @@ where
                 }
             }
         }
-        reached.into_iter()
+        reached.into()
     }
 }
 

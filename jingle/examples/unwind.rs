@@ -30,7 +30,7 @@ fn main() {
     z3::set_global_param("trace", "true");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = UnwindingAnalysis::new(10);
+    let mut direct = UnwindingAnalysis::new_with_bounds(&loaded, 10);
     let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
     let pcode_graph = pcode_graph.smt_model();
     // let pcode_graph = pcode_graph.basic_blocks();

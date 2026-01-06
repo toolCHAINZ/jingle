@@ -1,7 +1,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
+use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -15,20 +15,19 @@ impl DirectLocationCPA {
         &self.cfg
     }
 
+    pub fn take_cfg(&mut self) -> PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
+        let info = self.cfg.info.clone();
+        std::mem::replace(&mut self.cfg, PcodeCfg::new(info))
+    }
 
-}
-
-pub struct DirectLocationAnalysis;
-
-impl DirectLocationCPA {
     pub fn new<T: PcodeStore>(pcode: &T) -> Self {
         let info = pcode.info();
         Self {
             cfg: PcodeCfg::new(info),
         }
     }
-
 }
+
 impl ConfigurableProgramAnalysis for DirectLocationCPA {
     type State = PcodeAddressLattice;
 
@@ -44,22 +43,15 @@ impl ConfigurableProgramAnalysis for DirectLocationCPA {
     }
 }
 
-impl Analysis for DirectLocationAnalysis {
+impl Analysis for DirectLocationCPA {
     type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
-    type Input = ConcretePcodeAddress;
+    type Input = PcodeAddressLattice;
 
-    fn run<T: PcodeStore, I: Into<Self::Input>>(
-        &mut self,
-        store: T,
-        initial_state: I,
-    ) -> Self::Output {
-        let initial_state = initial_state.into();
-        let lattice = PcodeAddressLattice::Value(initial_state);
-        let mut cpa = DirectLocationCPA::new(&store);
-        let _ = cpa.run_cpa(lattice, &store);
-        cpa.cfg
-    }
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        addr
+        PcodeAddressLattice::Value(addr)
+    }
+
+    fn make_output(&mut self, _: &[Self::State]) -> Self::Output {
+        self.take_cfg()
     }
 }
