@@ -329,7 +329,7 @@ impl Analysis for UnwoundLocationCPA {
         ))
     }
 
-    fn make_output(&mut self, _: &[Self::State]) -> Self::Output {
+    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
         let info = self.unwound_cfg.info.clone();
         std::mem::replace(&mut self.unwound_cfg, PcodeCfg::new(info))
     }

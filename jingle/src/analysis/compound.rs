@@ -1,6 +1,7 @@
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -20,7 +21,24 @@ pub trait Strengthen<O: AbstractState>: AbstractState {
 ///
 /// If `A` is `CompoundAnalysis<B>`, then `A` and `B` are both CPAs,
 /// and `A` can be strengthened using information from `B`'s states.
-trait CompoundAnalysis<O: ConfigurableProgramAnalysis>: ConfigurableProgramAnalysis
+///
+/// # Example
+///
+/// ```ignore
+/// // Given two CPAs where A implements Analysis and CompoundAnalysis<B>
+/// struct MyCPA { /* ... */ }
+/// struct AuxiliaryCPA { /* ... */ }
+///
+/// impl CompoundAnalysis<AuxiliaryCPA> for MyCPA {
+///     // CompoundAnalysis is a marker trait with no methods
+/// }
+///
+/// // The tuple (MyCPA, AuxiliaryCPA) will automatically implement Analysis
+/// // by delegating to MyCPA's Analysis implementation
+/// let compound = (my_cpa, auxiliary_cpa);
+/// let result = compound.run(&store, initial_state);
+/// ```
+pub trait CompoundAnalysis<O: ConfigurableProgramAnalysis>: ConfigurableProgramAnalysis
 where
     Self::State: Strengthen<O::State>,
 {
@@ -149,5 +167,42 @@ where
             &merged_state.right,
             op,
         );
+    }
+}
+
+/// Implementation of LocationState for CompoundState.
+/// The location information comes from the left component.
+impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S2> where S1: Strengthen<S2> {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+        self.left.get_operation(t)
+    }
+}
+
+/// Auto-implementation of Analysis for tuple-based compound CPAs.
+/// This allows (A, B) to automatically implement Analysis when:
+/// - A implements Analysis and CompoundAnalysis<B>
+/// - B implements ConfigurableProgramAnalysis
+/// - A::State implements Strengthen<B::State>
+impl<A, B> crate::analysis::Analysis for (A, B)
+where
+    A: crate::analysis::Analysis + CompoundAnalysis<B>,
+    B: ConfigurableProgramAnalysis,
+    A::State: Strengthen<B::State> + LocationState,
+    B::State: AbstractState,
+    CompoundState<A::State, B::State>: LocationState,
+    A::Input: Into<A::State>,
+    CompoundState<A::State, B::State>: From<A::Input>,
+{
+    type Output = A::Output;
+    type Input = A::Input;
+
+    fn make_initial_state(&self, addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress) -> Self::Input {
+        self.0.make_initial_state(addr)
+    }
+
+    fn make_output(&mut self, states: &[Self::State]) -> Self::Output {
+        // Extract the left states from the compound states
+        let left_states: Vec<A::State> = states.iter().map(|s| s.left.clone()).collect();
+        self.0.make_output(&left_states)
     }
 }
