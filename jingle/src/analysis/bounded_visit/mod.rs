@@ -56,7 +56,7 @@ impl Analysis for BoundedStepsCpa {
         BoundedStepsState::new(addr.into(), self.max_steps)
     }
 
-    fn make_output(&mut self, _: &[Self::State]) -> Self::Output {
+    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
         self.take_cfg()
     }
 }

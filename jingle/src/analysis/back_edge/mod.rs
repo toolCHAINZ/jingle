@@ -152,7 +152,7 @@ impl Analysis for BackEdgeCPA {
         BackEdgeState::new(PcodeAddressLattice::Value(addr))
     }
 
-    fn make_output(&mut self, _: &[Self::State]) -> Self::Output {
+    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
         let mut b = BackEdges::default();
         for (from, to) in &self.back_edges {
             if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {

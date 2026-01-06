@@ -51,7 +51,11 @@ impl Analysis for DirectLocationCPA {
         PcodeAddressLattice::Value(addr)
     }
 
-    fn make_output(&mut self, _: &[Self::State]) -> Self::Output {
+    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
         self.take_cfg()
     }
 }
+
+// Implement CompoundAnalysis to allow composition with StackOffsetCPA
+impl crate::analysis::compound::CompoundAnalysis<crate::analysis::stack_offset::StackOffsetCPA> for DirectLocationCPA {}
+
