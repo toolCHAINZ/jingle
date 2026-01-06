@@ -93,11 +93,10 @@ impl<S1: JoinSemiLattice, S2: JoinSemiLattice> JoinSemiLattice for CompoundState
 impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S2> where S1: Strengthen<S2> {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         let outcome_left = self.left.merge(&other.left);
-        let outcome_right = self.right.merge(&other.right);
-
-        if outcome_left.merged() || outcome_right.merged() {
+        if outcome_left.merged(){
+            self.right.merge(&other.right);
             MergeOutcome::Merged
-        } else {
+        }else {
             MergeOutcome::NoOp
         }
     }
@@ -109,7 +108,6 @@ impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S
 
         let stop_left = self.left.stop(states_vec.iter().map(|s| &s.left));
         let stop_right = self.right.stop(states_vec.iter().map(|s| &s.right));
-
         stop_left && stop_right
     }
 
@@ -181,19 +179,20 @@ impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S
 /// Auto-implementation of Analysis for tuple-based compound CPAs.
 /// This allows (A, B) to automatically implement Analysis when:
 /// - A implements Analysis and CompoundAnalysis<B>
-/// - B implements ConfigurableProgramAnalysis
+/// - B implements Analysis (changed from ConfigurableProgramAnalysis)
 /// - A::State implements Strengthen<B::State>
+/// The output is a tuple of both analyses' outputs: (A::Output, B::Output)
 impl<A, B> crate::analysis::Analysis for (A, B)
 where
     A: crate::analysis::Analysis + CompoundAnalysis<B>,
-    B: ConfigurableProgramAnalysis,
+    B: crate::analysis::Analysis,
     A::State: Strengthen<B::State> + LocationState,
     B::State: AbstractState,
     CompoundState<A::State, B::State>: LocationState,
     A::Input: Into<A::State>,
     CompoundState<A::State, B::State>: From<A::Input>,
 {
-    type Output = A::Output;
+    type Output = (A::Output, B::Output);
     type Input = A::Input;
 
     fn make_initial_state(&self, addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress) -> Self::Input {
@@ -203,7 +202,12 @@ where
     fn make_output(&mut self, states: &[Self::State]) -> Self::Output {
         // Extract the left states from the compound states
         let left_states: Vec<A::State> = states.iter().map(|s| s.left.clone()).collect();
-        self.0.make_output(&left_states)
+        let right_states: Vec<B::State> = states.iter().map(|s| s.right.clone()).collect();
+
+        let left_output = self.0.make_output(&left_states);
+        let right_output = self.1.make_output(&right_states);
+
+        (left_output, right_output)
     }
 }
 
@@ -221,8 +225,8 @@ impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
         // Create a default stack pointer varnode (this is architecture-specific)
         // In practice, this should be obtained from SleighArchInfo
         let stack_pointer = VarNode {
-            space_index: 0, // Register space
-            offset: 0x20,   // RSP offset on x86-64
+            space_index: 4, // Register space
+            offset: 8,   // RSP offset on x86-64
             size: 8,        // 8 bytes for 64-bit
         };
 

@@ -216,6 +216,7 @@ impl StackOffsetState {
             } => {
                 if output == &self.stack_pointer && input0 == &self.stack_pointer {
                     if let Some(delta) = Self::extract_constant(input1) {
+                        dbg!(output, &self.stack_pointer);
                         return self.offset.sub(delta);
                     }
                 }
@@ -309,6 +310,7 @@ impl AbstractState for StackOffsetState {
 
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
         let new_offset = self.transfer_impl(opcode.borrow());
+        dbg!(&new_offset);
         let next_state = Self {
             offset: new_offset,
             stack_pointer: self.stack_pointer.clone(),
@@ -367,26 +369,14 @@ impl Strengthen<PcodeAddressLattice> for StackOffsetState {}
 
 impl Strengthen<UnwindingCpaState> for StackOffsetState {}
 
-pub struct StackOffsetAnalysis {
-    unwinding_bound: usize,
-    max_step_bound: usize,
-}
-
-impl StackOffsetAnalysis {
-    pub fn new(unwinding_bound: usize, max_step_bound: usize) -> Self {
-        Self {
-            unwinding_bound,
-            max_step_bound,
-        }
-    }
-}
+pub struct StackOffsetAnalysis;
 
 impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
     type State = StackOffsetState;
 }
 
 impl crate::analysis::Analysis for StackOffsetAnalysis {
-    type Output = std::collections::HashMap<ConcretePcodeAddress, StackOffsetLattice>;
+    type Output = Vec<StackOffsetState>;
     type Input = StackOffsetState;
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
@@ -395,7 +385,7 @@ impl crate::analysis::Analysis for StackOffsetAnalysis {
         use jingle_sleigh::VarNode;
         let stack_pointer = VarNode {
             space_index: 4, // Register space
-            offset: 8,   // RSP offset on x86-64
+            offset: 8,      // RSP offset on x86-64
             size: 8,        // 8 bytes for 64-bit
         };
         StackOffsetState::new(stack_pointer)
@@ -405,6 +395,6 @@ impl crate::analysis::Analysis for StackOffsetAnalysis {
         // Create a map from program locations to stack offsets
         // Note: Since StackOffsetState doesn't track location, we can't easily map
         // For now, we return an empty map. This should be enhanced to track locations.
-        std::collections::HashMap::new()
+        states.to_vec()
     }
 }

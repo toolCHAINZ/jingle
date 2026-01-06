@@ -79,23 +79,65 @@ where
         let mut reached: VecDeque<Self::State> = VecDeque::new();
         waitlist.push_front(initial.clone());
         reached.push_front(initial.clone());
+
+        tracing::debug!("CPA started with initial state: {:?}", initial);
+        tracing::debug!("Initial waitlist size: 1, reached size: 1");
+
+        let mut iteration = 0;
         while let Some(state) = waitlist.pop_front() {
+            iteration += 1;
+            tracing::trace!("Iteration {}: Processing state {:?}", iteration, state);
+            tracing::trace!("  Waitlist size: {}, Reached size: {}", waitlist.len(), reached.len());
+
             let op = state.get_operation(pcode_store);
+            tracing::trace!("  Operation at state: {:?}", op);
+
+            let mut new_states = 0;
+            let mut merged_states = 0;
+            let mut stopped_states = 0;
+
             for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
+                tracing::trace!("    Transfer produced dest_state: {:?}", dest_state);
                 self.reduce(&state, &dest_state, &op);
+
+                let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {
+                        tracing::trace!("    Merged dest_state into existing reached_state");
+                        tracing::trace!("      Merged state: {:?}", reached_state);
                         self.merged(&state, &dest_state, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
+                        merged_states += 1;
+                        was_merged = true;
                     }
                 }
 
                 if !dest_state.stop(reached.iter()) {
+                    tracing::trace!("    Adding new state to waitlist and reached");
                     waitlist.push_back(dest_state.clone());
                     reached.push_back(dest_state.clone());
+                    new_states += 1;
+                } else {
+                    if !was_merged {
+                        tracing::trace!("    State stopped (already covered)");
+                        stopped_states += 1;
+                    }
                 }
             }
+
+            if new_states > 0 || merged_states > 0 || stopped_states > 0 {
+                tracing::debug!(
+                    "Iteration {} summary: {} new state(s), {} merge(s), {} stopped",
+                    iteration, new_states, merged_states, stopped_states
+                );
+            }
         }
+
+        tracing::debug!(
+            "CPA completed after {} iterations. Total states reached: {}",
+            iteration, reached.len()
+        );
+
         reached.into()
     }
 }

@@ -41,5 +41,8 @@ bin = ["dep:clap", "dep:confy", "dep:hex", "dep:anyhow"]
 gimli = ["jingle_sleigh/gimli"]
 pyo3 = ["dep:pyo3", "jingle_sleigh/pyo3", "dep:z3-sys"]
 
+[dev-dependencies]
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
 [[example]]
 name = "location"

@@ -6,6 +6,7 @@ use jingle::analysis::stack_offset::StackOffsetAnalysis;
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use std::env;
+use tracing_subscriber;
 
 const FUNC_LINE: u64 = 0x100000460;
 const FUNC_BRANCH: u64 = 0x100000480;
@@ -15,21 +16,38 @@ const FUNC_NESTED: u64 = 0x100000588;
 const FUNC_GOTO: u64 = 0x100000610;
 
 fn main() {
+    // Initialize tracing with TRACE level
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .with_target(false)
+        .with_thread_ids(false)
+        .with_line_number(true)
+        .init();
+
+    tracing::info!("Starting compound analysis example");
+
     let bin_path = env::home_dir()
         .unwrap()
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
+    tracing::info!("Binary loaded successfully");
+
     // Create the compound analysis: DirectLocationAnalysis + StackOffsetAnalysis
     // DirectLocationAnalysis tracks program locations and builds a CFG
     // StackOffsetAnalysis tracks stack pointer offsets
     let location_analysis = DirectLocationAnalysis::new(&loaded);
-    let stack_analysis = StackOffsetAnalysis::new(10, 100);
+    let stack_analysis = StackOffsetAnalysis;
 
     let mut compound_analysis = (location_analysis, stack_analysis);
 
+    tracing::info!("Starting compound analysis run at address 0x{:x}", FUNC_NESTED);
+
     // Run the compound analysis - now returns a tuple of both outputs
     let (cfg, stack_offsets) = compound_analysis.run(&loaded, compound_analysis.make_initial_state(FUNC_NESTED.into()));
+
+    tracing::info!("Analysis completed");
+
 
     // Print results
     println!("Compound Analysis Results (DirectLocation + StackOffset):");
@@ -38,6 +56,7 @@ fn main() {
     // Collect and sort locations for consistent output
     let mut locations = cfg.nodes().collect::<Vec<_>>();
     locations.sort();
+    dbg!(&stack_offsets);
 
     println!("CFG nodes (program locations): {}", locations.len());
     for loc in &locations {
