@@ -132,6 +132,7 @@ impl SleighContext {
 
                 let arch_info = SleighArchInfo {
                     info: Arc::new(SleighArchInfoInner {
+                        language_id: language_def.id.clone(),
                         registers_to_vns,
                         vns_to_registers,
                         // todo: this is weird, should probably clean up

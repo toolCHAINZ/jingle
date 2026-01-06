@@ -815,7 +815,7 @@ mod tests {
                 endianness: SleighEndianness::Little,
             },
         ];
-        SleighArchInfo::new(std::iter::empty(), spaces.into_iter(), 1, vec![])
+        SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), spaces.into_iter(), 1, vec![])
     }
 
     #[test]
