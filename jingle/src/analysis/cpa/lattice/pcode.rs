@@ -39,3 +39,4 @@ impl LocationState for PcodeAddressLattice {
 // Implement Strengthen for PcodeAddressLattice to support compound analysis
 impl crate::analysis::compound::Strengthen<crate::analysis::stack_offset::StackOffsetState> for PcodeAddressLattice {}
 
+impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState> for PcodeAddressLattice {}
