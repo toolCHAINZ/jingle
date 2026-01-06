@@ -234,7 +234,7 @@ impl DirectValuationState {
         self.written_locations
             .get(varnode)
             .cloned()
-            .unwrap_or(VarnodeValue::Top)
+            .unwrap_or(VarnodeValue::Entry(varnode.clone()))
     }
 
     /// Extract constant value from a varnode (either from state or const space)
