@@ -12,7 +12,7 @@ pub enum StrengthenOutcome {
 }
 
 pub trait Strengthen<O: AbstractState>: AbstractState {
-    fn strengthen(&mut self, other: &O, op: &PcodeOperation) -> StrengthenOutcome{
+    fn strengthen(&mut self, original: &Self, other: &O, op: &PcodeOperation) -> StrengthenOutcome{
         StrengthenOutcome::Unchanged
     }
 }
@@ -122,9 +122,9 @@ impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S
         let mut result = Vec::new();
         for left in successors_left {
             for right in &successors_right {
-                let mut left = left.clone();
-                left.strengthen(&right, opcode_ref);
-                result.push(CompoundState::new(left, right.clone()));
+                let mut new_left = left.clone();
+                new_left.strengthen(&left, &right, opcode_ref);
+                result.push(CompoundState::new(new_left, right.clone()));
             }
         }
 

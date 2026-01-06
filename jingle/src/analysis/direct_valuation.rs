@@ -264,19 +264,38 @@ impl AbstractState for DirectValuationState {
 
 // Strengthen implementations for compound analysis
 impl crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice> for DirectValuationState {
-    fn strengthen(&mut self, location: &crate::analysis::cpa::lattice::pcode::PcodeAddressLattice, op: &jingle_sleigh::PcodeOperation) -> crate::analysis::compound::StrengthenOutcome {
+    fn strengthen(&mut self, original: &Self, location: &crate::analysis::cpa::lattice::pcode::PcodeAddressLattice, op: &jingle_sleigh::PcodeOperation) -> crate::analysis::compound::StrengthenOutcome {
         use crate::analysis::cpa::lattice::flat::FlatLattice;
         
         // When we have location information and this is a branch to a different machine address,
         // we can clear internal space varnodes
-        // For now, we don't have the space info to check space types, so we return Unchanged
-        // This could be enhanced by having access to SpaceInfo through the location state
         
-        // Example of how this could be used:
-        // if let FlatLattice::Value(addr) = location {
-        //     // Check if op is a cross-machine branch
-        //     // If so, clear internal space varnodes using space info
-        // }
+        // Check if this is a cross-machine branch
+        if let FlatLattice::Value(addr) = location {
+            let is_cross_machine_branch = match op {
+                jingle_sleigh::PcodeOperation::Branch { input } => {
+                    !input.is_const() && input.offset != addr.machine()
+                }
+                jingle_sleigh::PcodeOperation::Call { dest, .. } => {
+                    dest.offset != addr.machine()
+                }
+                jingle_sleigh::PcodeOperation::CBranch { input0, .. } => {
+                    !input0.is_const() && input0.offset != addr.machine()
+                }
+                _ => false,
+            };
+            
+            if is_cross_machine_branch {
+                // Clear varnodes in internal spaces
+                // Note: We don't have access to SpaceInfo here to check space types,
+                // so this is a placeholder for future enhancement
+                // In practice, you would need to pass SpaceInfo through the analysis
+                // or store it in the state
+                
+                // For now, just return Unchanged as we can't determine space types
+                // TODO: Add SpaceInfo access to properly clear internal space varnodes
+            }
+        }
         
         crate::analysis::compound::StrengthenOutcome::Unchanged
     }
