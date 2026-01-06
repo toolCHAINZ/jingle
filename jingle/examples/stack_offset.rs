@@ -2,10 +2,10 @@
 
 use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::analysis::direct_location::DirectLocationAnalysis;
-use jingle::analysis::direct_valuation::{DirectValuationAnalysis, DirectValuationState};
-use jingle::analysis::stack_offset::StackOffsetAnalysis;
+use jingle::analysis::direct_valuation::{DirectValuationAnalysis, DirectValuationState, VarnodeValue};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
+use jingle_sleigh::VarNode;
 use std::env;
 use tracing_subscriber;
 
@@ -25,7 +25,7 @@ fn main() {
         .with_line_number(true)
         .init();
 
-    tracing::info!("Starting compound analysis example with direct valuation strengthening");
+    tracing::info!("Starting stack offset analysis using DirectValuationAnalysis");
 
     let bin_path = env::home_dir()
         .unwrap()
@@ -34,21 +34,21 @@ fn main() {
 
     tracing::info!("Binary loaded successfully");
 
-    // Create a compound analysis: (DirectLocationAnalysis + StackOffsetAnalysis) strengthened by DirectValuationAnalysis
-    // This demonstrates how direct valuation can refine stack offset analysis
-    //
-    // The analysis pipeline:
-    // 1. DirectLocationAnalysis tracks program locations and builds a CFG
-    // 2. StackOffsetAnalysis tracks stack pointer offsets
-    // 3. DirectValuationAnalysis tracks constant writes to varnodes
-    // 4. StackOffsetAnalysis is strengthened by DirectValuationAnalysis to use known constants
+    // Create the stack pointer varnode (RSP on x86-64)
+    let stack_pointer = VarNode {
+        space_index: 4, // Register space
+        offset: 8,      // RSP offset on x86-64
+        size: 8,        // 8 bytes for 64-bit
+    };
 
+    // Create a compound analysis: DirectLocationAnalysis + DirectValuationAnalysis
+    // DirectValuationAnalysis will track the stack pointer as an Entry value
     let location_analysis = DirectLocationAnalysis::new(&loaded);
-    let stack_and_valuation = (StackOffsetAnalysis, DirectValuationAnalysis);
+    let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(stack_pointer.clone());
 
-    let mut compound_analysis = (location_analysis, stack_and_valuation);
+    let mut compound_analysis = (location_analysis, valuation_analysis);
 
-    tracing::info!("Starting compound analysis run at address 0x{:x}", FUNC_NESTED);
+    tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 
     // Run the compound analysis - returns Vec of compound states
     let compound_states = compound_analysis.run(&loaded, compound_analysis.make_initial_state(FUNC_NESTED.into()));
@@ -58,7 +58,7 @@ fn main() {
     // Extract the CFG from the DirectLocationAnalysis (left side of compound)
     let cfg = compound_analysis.0.take_cfg();
 
-    // Extract stack offset and valuation information from the compound states
+    // Extract valuation information from the compound states
     use std::collections::HashMap;
     use jingle::analysis::compound::CompoundState;
     let mut stack_offsets = HashMap::new();
@@ -67,15 +67,18 @@ fn main() {
     for state in &compound_states {
         // Extract location from the outermost left (PcodeAddressLattice)
         if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left {
-            // state.right is CompoundState<StackOffsetState, DirectValuationState>
-            stack_offsets.insert(*addr, state.right.left.offset().clone());
-            direct_valuations.insert(*addr, state.right.right.clone());
+            // state.right is DirectValuationState
+            // Extract stack pointer offset if available
+            if let Some(sp_value) = state.right.get_value(&stack_pointer) {
+                stack_offsets.insert(*addr, sp_value.clone());
+            }
+            direct_valuations.insert(*addr, state.right.clone());
         }
     }
 
     // Print results
-    println!("Compound Analysis Results (DirectLocation + (StackOffset strengthened by DirectValuation)):");
-    println!("========================================================================================\n");
+    println!("Stack Offset Analysis Results using DirectValuationAnalysis:");
+    println!("=============================================================\n");
 
     // Collect and sort locations for consistent output
     let mut locations = cfg.nodes().collect::<Vec<_>>();
@@ -85,11 +88,12 @@ fn main() {
     for loc in &locations {
         let offset_info = stack_offsets
             .get(loc)
-            .map(|offset| match offset {
-                jingle::analysis::stack_offset::StackOffsetLattice::Offset(v) => format!(" [stack: {:+}]", v),
-                jingle::analysis::stack_offset::StackOffsetLattice::Range(min, max) => format!(" [stack: {:+}..{:+}]", min, max),
-                jingle::analysis::stack_offset::StackOffsetLattice::Top => " [stack: unknown]".to_string(),
-                jingle::analysis::stack_offset::StackOffsetLattice::Bottom => " [stack: bottom]".to_string(),
+            .map(|value| match value {
+                VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
+                VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
+                VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
+                VarnodeValue::Top => " [stack: unknown]".to_string(),
+                VarnodeValue::Bottom => " [stack: bottom]".to_string(),
             })
             .unwrap_or_default();
 
@@ -99,7 +103,7 @@ fn main() {
             .map(|v: &DirectValuationState| v.written_locations().len())
             .unwrap_or(0);
         let val_info = if val_count > 0 {
-            format!(" [tracked constants: {}]", val_count)
+            format!(" [tracked varnodes: {}]", val_count)
         } else {
             String::new()
         };
@@ -125,11 +129,12 @@ fn main() {
     for leaf in &leaf_nodes {
         let offset_info = stack_offsets
             .get(leaf)
-            .map(|offset| match offset {
-                jingle::analysis::stack_offset::StackOffsetLattice::Offset(v) => format!(" [stack: {:+}]", v),
-                jingle::analysis::stack_offset::StackOffsetLattice::Range(min, max) => format!(" [stack: {:+}..{:+}]", min, max),
-                jingle::analysis::stack_offset::StackOffsetLattice::Top => " [stack: unknown]".to_string(),
-                jingle::analysis::stack_offset::StackOffsetLattice::Bottom => " [stack: bottom]".to_string(),
+            .map(|value| match value {
+                VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
+                VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
+                VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
+                VarnodeValue::Top => " [stack: unknown]".to_string(),
+                VarnodeValue::Bottom => " [stack: bottom]".to_string(),
             })
             .unwrap_or_default();
         println!("  0x{:x}{}", leaf, offset_info);
@@ -141,16 +146,17 @@ fn main() {
     // Count how many locations have concrete stack offsets
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|o| matches!(o, jingle::analysis::stack_offset::StackOffsetLattice::Offset(_)))
+        .filter(|v| matches!(v, VarnodeValue::Entry(_) | VarnodeValue::Offset(_, _)))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);
-    println!("  Total tracked constant values across all locations: {}",
+    println!("  Total tracked varnodes across all locations: {}",
         direct_valuations.values().map(|v: &DirectValuationState| v.written_locations().len()).sum::<usize>());
 
-    println!("\n  The StackOffsetAnalysis is strengthened by DirectValuationAnalysis,");
-    println!("  which means when a stack operation uses a varnode with a known constant");
-    println!("  value (tracked by DirectValuation), that constant is used to refine the");
-    println!("  stack offset calculation, potentially resulting in more precise offsets.");
+    println!("\n  DirectValuationAnalysis acts as a lightweight pcode interpreter that tracks");
+    println!("  all directly-written varnodes. The stack pointer is initialized as an Entry");
+    println!("  value, and the analysis tracks how it changes through the program as");
+    println!("  Offset(sp, delta) values. This replaces the need for a separate");
+    println!("  StackOffsetAnalysis.");
 }
 

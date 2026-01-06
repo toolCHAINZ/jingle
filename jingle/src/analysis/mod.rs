@@ -17,7 +17,7 @@ mod path;
 pub mod pcode_store;
 pub mod unwinding;
 pub mod varnode;
-pub mod stack_offset;
+// pub mod stack_offset;
 pub mod compound;
 pub mod direct_valuation;
 
@@ -51,15 +51,15 @@ pub trait Analysis: ConfigurableProgramAnalysis {
 
 /// A trait for analyses that can be run. This is automatically implemented for all
 /// [`Analysis`] types whose CPA state implements [`LocationState`].
-/// 
+///
 /// Types can override the default `run` implementation to provide custom behavior.
-pub trait RunnableAnalysis: Analysis 
-where 
+pub trait RunnableAnalysis: Analysis
+where
     Self: RunnableConfigurableProgramAnalysis,
     Self::State: LocationState,
 {
     /// Run the [Analysis] and return the reached states
-    /// 
+    ///
     /// The default implementation uses the standard CPA algorithm and delegates
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
@@ -86,8 +86,8 @@ pub trait AnalyzableBase: PcodeStore + Sized {
         entry: S,
         mut t: T,
     ) -> Vec<T::State>
-    where 
-        <T as ConfigurableProgramAnalysis>::State: LocationState 
+    where
+        <T as ConfigurableProgramAnalysis>::State: LocationState
     {
         let addr = entry.into();
         let entry = t.make_initial_state(addr);
@@ -97,8 +97,8 @@ pub trait AnalyzableBase: PcodeStore + Sized {
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
     fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
-    where 
-        <T as ConfigurableProgramAnalysis>::State: LocationState 
+    where
+        <T as ConfigurableProgramAnalysis>::State: LocationState
     {
         let entry = t.make_initial_state(self.get_entry());
         t.run(self, entry)

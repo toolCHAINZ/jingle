@@ -219,53 +219,22 @@ where
     }
 }
 
-
-// Specific From implementation for DirectLocationAnalysis + StackOffsetAnalysis compound
-impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
-    for CompoundState<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice, crate::analysis::stack_offset::StackOffsetState>
+// Custom Analysis implementation for DirectLocationAnalysis + DirectValuationAnalysis
+// This is needed because the DirectValuationAnalysis needs to initialize its entry varnode
+impl crate::analysis::Analysis for (crate::analysis::direct_location::DirectLocationAnalysis, crate::analysis::direct_valuation::DirectValuationAnalysis)
 {
-    fn from(addr: crate::analysis::cpa::lattice::pcode::PcodeAddressLattice) -> Self {
-        // We need to create a StackOffsetState with the appropriate stack pointer
-        // For now, we'll use a placeholder that will be properly initialized when the analysis runs
-        // This is a limitation - ideally we'd have access to SleighArchInfo here
-        use crate::analysis::stack_offset::StackOffsetState;
-        use jingle_sleigh::VarNode;
-
-        // Create a default stack pointer varnode (this is architecture-specific)
-        // In practice, this should be obtained from SleighArchInfo
-        let stack_pointer = VarNode {
-            space_index: 4, // Register space
-            offset: 8,   // RSP offset on x86-64
-            size: 8,        // 8 bytes for 64-bit
-        };
-
-        CompoundState::new(addr, StackOffsetState::new(stack_pointer))
-    }
-}
-
-// From implementation for DirectLocationAnalysis + (StackOffsetAnalysis, DirectValuationAnalysis) compound
-impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
-    for CompoundState<
+    type Input = CompoundState<
         crate::analysis::cpa::lattice::pcode::PcodeAddressLattice,
-        CompoundState<crate::analysis::stack_offset::StackOffsetState, crate::analysis::direct_valuation::DirectValuationState>
-    >
-{
-    fn from(addr: crate::analysis::cpa::lattice::pcode::PcodeAddressLattice) -> Self {
-        use crate::analysis::stack_offset::StackOffsetState;
-        use crate::analysis::direct_valuation::DirectValuationState;
-        use jingle_sleigh::VarNode;
+        crate::analysis::direct_valuation::DirectValuationState
+    >;
 
-        // Create a default stack pointer varnode (this is architecture-specific)
-        let stack_pointer = VarNode {
-            space_index: 4, // Register space
-            offset: 8,      // RSP offset on x86-64
-            size: 8,        // 8 bytes for 64-bit
-        };
+    fn make_initial_state(&self, addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress) -> Self::Input {
+        let location_state = self.0.make_initial_state(addr);
+        let valuation_state = self.1.make_initial_state(addr);
+        CompoundState::new(location_state, valuation_state)
+    }
 
-        let stack_state = StackOffsetState::new(stack_pointer);
-        let valuation_state = DirectValuationState::new();
-        let right = CompoundState::new(stack_state, valuation_state);
-
-        CompoundState::new(addr, right)
+    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
+        states
     }
 }

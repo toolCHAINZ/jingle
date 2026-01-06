@@ -49,10 +49,11 @@ impl Analysis for DirectLocationAnalysis {
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
         PcodeAddressLattice::Value(addr)
     }
-    
+
     // Default implementation: just returns the states
     // To access the built CFG, use .cfg() or .take_cfg() on the analysis instance
 }
 
-// Implement CompoundAnalysis for DirectLocationAnalysis to enable compound analysis with StackOffsetAnalysis
-impl crate::analysis::compound::CompoundAnalysis<crate::analysis::stack_offset::StackOffsetAnalysis> for DirectLocationAnalysis {}
+// Enable compound analysis: DirectLocationAnalysis can be strengthened by DirectValuationAnalysis
+impl crate::analysis::compound::CompoundAnalysis<crate::analysis::direct_valuation::DirectValuationAnalysis> for DirectLocationAnalysis {}
+
