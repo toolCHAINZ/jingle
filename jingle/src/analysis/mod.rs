@@ -1,3 +1,5 @@
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
+use crate::analysis::cpa::state::LocationState;
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
@@ -26,21 +28,26 @@ pub mod compound;
 /// [ConcretePcodeAddress]s), and process its output. A
 /// Pcode CFG can then run any type implementing `Analysis` without a lot of wrangling. Analyses can
 /// also output new PcodeCfgs or related types with additional information.
-pub trait Analysis {
+pub trait Analysis: RunnableConfigurableProgramAnalysis where Self::State : LocationState {
     /// The output type of the analysis; may or may not be the CPA's result
     type Output;
     /// The input type of the analysis, must be derivable from a [ConcretePcodeAddress] and
     /// any state in the type implementing [Analysis]
-    type Input;
-    /// Run the [Analysis] and return its [Output](Self::Output)
-    fn run<T: PcodeStore, I: Into<Self::Input>>(
-        &mut self,
-        store: T,
-        initial_state: I,
-    ) -> Self::Output;
+    type Input: Into<Self::State> + From<ConcretePcodeAddress>;
+
     /// Given an initial [ConcretePcodeAddress], derive the [Input](Self::Input) state for
     /// a CPA
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;
+
+    /// Produce the output of hte analysis
+    fn make_output(&self) -> Self::Output;
+
+    /// Run the [Analysis] and return its [Output](Self::Output)
+    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
+        let initial_state = initial_state.into();
+        let _ = self.run_cpa(initial_state.into(), &store);
+        self.make_output()
+    }
 }
 
 pub trait AnalyzableBase: PcodeStore + Sized {
@@ -48,14 +55,13 @@ pub trait AnalyzableBase: PcodeStore + Sized {
         &self,
         entry: S,
         mut t: T,
-    ) -> T::Output {
-        let entry = t.make_initial_state(entry.into());
-        t.run(self, entry)
+    ) -> T::Output where <T as ConfigurableProgramAnalysis>::State: LocationState {;
+        t.run(self, entry.into())
     }
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: Analysis>(&self, mut t: T) -> T::Output {
+    fn run_analysis<T: Analysis>(&self, mut t: T) -> T::Output where <T as ConfigurableProgramAnalysis>::State: LocationState {
         let entry = t.make_initial_state(self.get_entry());
         t.run(self, entry)
     }
