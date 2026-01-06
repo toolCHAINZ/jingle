@@ -91,8 +91,8 @@ fn main() {
                 VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
                 VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
                 VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
-                VarnodeValue::Top => " [stack: unknown]".to_string(),
                 VarnodeValue::Bottom => " [stack: bottom]".to_string(),
+                _ => " [stack: unknown]".to_string(),
             })
             .unwrap_or_default();
 
@@ -132,8 +132,8 @@ fn main() {
                 VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
                 VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
                 VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
-                VarnodeValue::Top => " [stack: unknown]".to_string(),
                 VarnodeValue::Bottom => " [stack: bottom]".to_string(),
+                _ => " [stack: unknown]".to_string(),
             })
             .unwrap_or_default();
         println!("  0x{:x}{}", leaf, offset_info);
