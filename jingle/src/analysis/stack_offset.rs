@@ -385,3 +385,26 @@ impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
     type State = StackOffsetState;
 }
 
+impl crate::analysis::Analysis for StackOffsetAnalysis {
+    type Output = std::collections::HashMap<ConcretePcodeAddress, StackOffsetLattice>;
+    type Input = StackOffsetState;
+
+    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
+        // This is a simplified implementation that uses a default stack pointer
+        // In practice, this should be obtained from SleighArchInfo
+        use jingle_sleigh::VarNode;
+        let stack_pointer = VarNode {
+            space_index: 4, // Register space
+            offset: 8,   // RSP offset on x86-64
+            size: 8,        // 8 bytes for 64-bit
+        };
+        StackOffsetState::new(stack_pointer)
+    }
+
+    fn make_output(&mut self, states: &[Self::State]) -> Self::Output {
+        // Create a map from program locations to stack offsets
+        // Note: Since StackOffsetState doesn't track location, we can't easily map
+        // For now, we return an empty map. This should be enhanced to track locations.
+        std::collections::HashMap::new()
+    }
+}

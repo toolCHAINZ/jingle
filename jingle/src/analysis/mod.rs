@@ -25,10 +25,11 @@ pub mod compound;
 /// is often not exactly in a format that is easily used, and they can require some setup. This trait
 /// allows for specifying a way to define the CPA's input (assuming a
 /// [PcodeCfg](crate::analysis::cfg::PcodeCfg), indexed by
-/// [ConcretePcodeAddress]s), and process its output. A
-/// Pcode CFG can then run any type implementing `Analysis` without a lot of wrangling. Analyses can
-/// also output new PcodeCfgs or related types with additional information.
-pub trait Analysis: RunnableConfigurableProgramAnalysis where Self::State : LocationState {
+/// [ConcretePcodeAddress]s), and process its output. 
+///
+/// This trait can be implemented by types that may or may not be runnable. For runnable analyses,
+/// see [`RunnableAnalysis`].
+pub trait Analysis: ConfigurableProgramAnalysis {
     /// The output type of the analysis; may or may not be the CPA's result
     type Output;
     /// The input type of the analysis, must be derivable from a [ConcretePcodeAddress] and
@@ -39,10 +40,24 @@ pub trait Analysis: RunnableConfigurableProgramAnalysis where Self::State : Loca
     /// a CPA
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;
 
-    /// Produce the output of hte analysis
-    fn make_output(&mut self, states: &[Self::State] ) -> Self::Output;
+    /// Produce the output of the analysis
+    fn make_output(&mut self, states: &[Self::State]) -> Self::Output;
+}
 
-    /// Run the [Analysis] and return its [Output](Self::Output)
+/// A trait for analyses that can be run. This is automatically implemented for all
+/// [`Analysis`] types whose CPA state implements [`LocationState`].
+/// 
+/// Types can override the default `run` implementation to provide custom behavior.
+pub trait RunnableAnalysis: Analysis 
+where 
+    Self: RunnableConfigurableProgramAnalysis,
+    Self::State: LocationState,
+{
+    /// Run the [Analysis] and return its [Output](Analysis::Output)
+    /// 
+    /// The default implementation uses the standard CPA algorithm and delegates
+    /// output generation to `make_output`. Types can override this to provide
+    /// custom run behavior.
     fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
         let initial_state = initial_state.into();
         let i = self.run_cpa(initial_state.into(), &store);
@@ -50,12 +65,25 @@ pub trait Analysis: RunnableConfigurableProgramAnalysis where Self::State : Loca
     }
 }
 
+/// Blanket implementation: any Analysis with LocationState automatically gets RunnableAnalysis
+/// with the default run implementation
+impl<T> RunnableAnalysis for T
+where
+    T: Analysis,
+    T: RunnableConfigurableProgramAnalysis,
+    T::State: LocationState,
+{
+}
+
 pub trait AnalyzableBase: PcodeStore + Sized {
-    fn run_analysis_at<T: Analysis, S: Into<ConcretePcodeAddress>>(
+    fn run_analysis_at<T: RunnableAnalysis, S: Into<ConcretePcodeAddress>>(
         &self,
         entry: S,
         mut t: T,
-    ) -> T::Output where <T as ConfigurableProgramAnalysis>::State: LocationState {
+    ) -> T::Output 
+    where 
+        <T as ConfigurableProgramAnalysis>::State: LocationState 
+    {
         let addr = entry.into();
         let entry = t.make_initial_state(addr);
         t.run(self, entry)
@@ -63,7 +91,10 @@ pub trait AnalyzableBase: PcodeStore + Sized {
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: Analysis>(&self, mut t: T) -> T::Output where <T as ConfigurableProgramAnalysis>::State: LocationState {
+    fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> T::Output 
+    where 
+        <T as ConfigurableProgramAnalysis>::State: LocationState 
+    {
         let entry = t.make_initial_state(self.get_entry());
         t.run(self, entry)
     }

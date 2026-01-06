@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use jingle::analysis::Analysis;
+use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use std::env;

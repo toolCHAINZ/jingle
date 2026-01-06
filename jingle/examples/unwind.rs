@@ -31,7 +31,7 @@ fn main() {
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
     let mut direct = UnwindingAnalysis::new_with_bounds(&loaded, 10);
-    let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
+    let pcode_graph = direct.run_with_back_edges(&loaded, direct.make_initial_state(FUNC_NESTED.into()));
     let pcode_graph = pcode_graph.smt_model();
     // let pcode_graph = pcode_graph.basic_blocks();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();

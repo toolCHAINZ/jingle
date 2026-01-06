@@ -4,6 +4,8 @@ use jingle_sleigh::{PcodeOperation, VarNode};
 use std::fmt::{Display, Formatter, LowerHex};
 use std::iter::{empty, once};
 use z3::ast::BV;
+use crate::analysis::cpa::lattice::flat::FlatLattice;
+use crate::analysis::cpa::lattice::flat::FlatLattice::{Top, Value};
 
 pub type PcodeMachineAddress = u64;
 pub type PcodeOffset = u8;
