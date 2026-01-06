@@ -21,17 +21,18 @@ pub mod stack_offset;
 pub mod compound;
 
 /// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
-/// The intent here is to provide some structure for running and combining CPAs. The output of the CPA
-/// is often not exactly in a format that is easily used, and they can require some setup. This trait
+/// The intent here is to provide some structure for running and combining CPAs. This trait
 /// allows for specifying a way to define the CPA's input (assuming a
 /// [PcodeCfg](crate::analysis::cfg::PcodeCfg), indexed by
-/// [ConcretePcodeAddress]s), and process its output. 
+/// [ConcretePcodeAddress]s).
+///
+/// The output of an analysis is simply the `Vec<Self::State>` of reached states. Consumers
+/// that need to extract additional information (e.g., built-up CFGs) should do so by accessing
+/// the analysis struct directly after running.
 ///
 /// This trait can be implemented by types that may or may not be runnable. For runnable analyses,
 /// see [`RunnableAnalysis`].
 pub trait Analysis: ConfigurableProgramAnalysis {
-    /// The output type of the analysis; may or may not be the CPA's result
-    type Output;
     /// The input type of the analysis, must be derivable from a [ConcretePcodeAddress] and
     /// any state in the type implementing [Analysis]
     type Input: Into<Self::State>;
@@ -40,8 +41,11 @@ pub trait Analysis: ConfigurableProgramAnalysis {
     /// a CPA
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;
 
-    /// Produce the output of the analysis
-    fn make_output(&mut self, states: &[Self::State]) -> Self::Output;
+    /// Process the states and return them (or a filtered/transformed version).
+    /// The default implementation just returns the states as-is.
+    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
+        states
+    }
 }
 
 /// A trait for analyses that can be run. This is automatically implemented for all
@@ -53,15 +57,15 @@ where
     Self: RunnableConfigurableProgramAnalysis,
     Self::State: LocationState,
 {
-    /// Run the [Analysis] and return its [Output](Analysis::Output)
+    /// Run the [Analysis] and return the reached states
     /// 
     /// The default implementation uses the standard CPA algorithm and delegates
-    /// output generation to `make_output`. Types can override this to provide
+    /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
-    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Self::Output {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Vec<Self::State> {
         let initial_state = initial_state.into();
-        let i = self.run_cpa(initial_state.into(), &store);
-        self.make_output(&i)
+        let states = self.run_cpa(initial_state.into(), &store);
+        self.make_output(states)
     }
 }
 
@@ -80,7 +84,7 @@ pub trait AnalyzableBase: PcodeStore + Sized {
         &self,
         entry: S,
         mut t: T,
-    ) -> T::Output 
+    ) -> Vec<T::State>
     where 
         <T as ConfigurableProgramAnalysis>::State: LocationState 
     {
@@ -91,7 +95,7 @@ pub trait AnalyzableBase: PcodeStore + Sized {
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> T::Output 
+    fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
     where 
         <T as ConfigurableProgramAnalysis>::State: LocationState 
     {

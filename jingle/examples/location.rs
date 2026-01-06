@@ -19,7 +19,8 @@ fn main() {
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
     let mut direct = BoundedStepLocationAnalysis::new(&loaded, 20);
-    let pcode_graph = direct.run(&loaded, direct.make_initial_state(FUNC_SWITCH.into()));
+    let _states = direct.run(&loaded, direct.make_initial_state(FUNC_SWITCH.into()));
+    let pcode_graph = direct.take_cfg();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
         println!("{:x}", addr);

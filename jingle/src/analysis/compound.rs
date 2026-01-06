@@ -179,9 +179,9 @@ impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S
 /// Auto-implementation of Analysis for tuple-based compound CPAs.
 /// This allows (A, B) to automatically implement Analysis when:
 /// - A implements Analysis and CompoundAnalysis<B>
-/// - B implements Analysis (changed from ConfigurableProgramAnalysis)
+/// - B implements Analysis
 /// - A::State implements Strengthen<B::State>
-/// The output is a tuple of both analyses' outputs: (A::Output, B::Output)
+/// The output is a Vec of compound states.
 impl<A, B> crate::analysis::Analysis for (A, B)
 where
     A: crate::analysis::Analysis + CompoundAnalysis<B>,
@@ -192,22 +192,16 @@ where
     A::Input: Into<A::State>,
     CompoundState<A::State, B::State>: From<A::Input>,
 {
-    type Output = (A::Output, B::Output);
     type Input = A::Input;
 
     fn make_initial_state(&self, addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress) -> Self::Input {
         self.0.make_initial_state(addr)
     }
 
-    fn make_output(&mut self, states: &[Self::State]) -> Self::Output {
-        // Extract the left states from the compound states
-        let left_states: Vec<A::State> = states.iter().map(|s| s.left.clone()).collect();
-        let right_states: Vec<B::State> = states.iter().map(|s| s.right.clone()).collect();
-
-        let left_output = self.0.make_output(&left_states);
-        let right_output = self.1.make_output(&right_states);
-
-        (left_output, right_output)
+    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
+        // Just return the compound states as-is
+        // Consumers can extract left/right components as needed
+        states
     }
 }
 

@@ -239,7 +239,7 @@ impl CfgState for UnwoundLocation {
 pub type UnwoundPcodeCfg = ModeledPcodeCfg<UnwoundLocation, PcodeOperation>;
 
 pub struct UnwoundLocationCPA {
-    unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,
+    pub unwound_cfg: PcodeCfg<UnwoundLocation, PcodeOperation>,
     unwinding_bound: usize,
     max_step_bound: Option<usize>,
 }
@@ -328,7 +328,6 @@ impl ConfigurableProgramAnalysis for UnwoundLocationCPA {
 }
 
 impl Analysis for UnwoundLocationCPA {
-    type Output = PcodeCfg<UnwoundLocation, PcodeOperation>;
     type Input = SimpleLattice<UnwindingCpaState>;
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
@@ -343,10 +342,8 @@ impl Analysis for UnwoundLocationCPA {
         ))
     }
 
-    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
-        let info = self.unwound_cfg.info.clone();
-        std::mem::replace(&mut self.unwound_cfg, PcodeCfg::new(info))
-    }
+    // Default implementation: just returns the states
+    // To access the built unwound CFG, use .unwound_cfg or similar accessor on the analysis instance
 }
 
 // Helper method for custom run logic
@@ -355,7 +352,7 @@ impl UnwoundLocationCPA {
         &mut self,
         store: T,
         initial_state: I,
-    ) -> <Self as Analysis>::Output {
+    ) -> Vec<<Self as ConfigurableProgramAnalysis>::State> {
         // Get the address from the initial state
         let init_lattice: <Self as Analysis>::Input = initial_state.into();
         let addr = if let SimpleLattice::Value(ref state) = init_lattice {
@@ -368,7 +365,8 @@ impl UnwoundLocationCPA {
         let bes = BackEdgeState::new(PcodeAddressLattice::Value(addr));
         let mut back_edge_cpa = BackEdgeCPA::new(&store);
         use crate::analysis::RunnableAnalysis as _;
-        let back_edges = back_edge_cpa.run(&store, bes);
+        back_edge_cpa.run(&store, bes);
+        let back_edges = back_edge_cpa.get_back_edges();
 
         // Create proper initial state with back edges
         let init_state =
@@ -389,7 +387,7 @@ impl UnwoundLocationCPA {
                 }
             }
         }
-        self.make_output(&states)
+        self.make_output(states)
     }
 }
 

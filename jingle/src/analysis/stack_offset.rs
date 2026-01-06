@@ -376,10 +376,9 @@ impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
 }
 
 impl crate::analysis::Analysis for StackOffsetAnalysis {
-    type Output = Vec<StackOffsetState>;
     type Input = StackOffsetState;
 
-    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
+    fn make_initial_state(&self, _addr: ConcretePcodeAddress) -> Self::Input {
         // This is a simplified implementation that uses a default stack pointer
         // In practice, this should be obtained from SleighArchInfo
         use jingle_sleigh::VarNode;
@@ -390,11 +389,7 @@ impl crate::analysis::Analysis for StackOffsetAnalysis {
         };
         StackOffsetState::new(stack_pointer)
     }
-
-    fn make_output(&mut self, states: &[Self::State]) -> Self::Output {
-        // Create a map from program locations to stack offsets
-        // Note: Since StackOffsetState doesn't track location, we can't easily map
-        // For now, we return an empty map. This should be enhanced to track locations.
-        states.to_vec()
-    }
+    
+    // Default implementation: just returns the states
+    // Consumers can extract stack offset information from the states as needed
 }

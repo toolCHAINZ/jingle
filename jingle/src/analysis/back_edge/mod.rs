@@ -130,6 +130,17 @@ impl BackEdgeCPA {
             back_edges: Vec::new(),
         }
     }
+    
+    /// Extract the computed back edges into a BackEdges structure
+    pub fn get_back_edges(&self) -> BackEdges {
+        let mut b = BackEdges::default();
+        for (from, to) in &self.back_edges {
+            if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {
+                b.add(*from, *to);
+            }
+        }
+        b
+    }
 }
 
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
@@ -145,22 +156,14 @@ impl ConfigurableProgramAnalysis for BackEdgeCPA {
 }
 
 impl Analysis for BackEdgeCPA {
-    type Output = BackEdges;
     type Input = BackEdgeState;
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
         BackEdgeState::new(PcodeAddressLattice::Value(addr))
     }
-
-    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
-        let mut b = BackEdges::default();
-        for (from, to) in &self.back_edges {
-            if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {
-                b.add(*from, *to);
-            }
-        }
-        b
-    }
+    
+    // Default implementation: just returns the states
+    // To access the computed back edges, use the .back_edges field or add an accessor method
 }
 
 pub type BackEdgeAnalysis = BackEdgeCPA;

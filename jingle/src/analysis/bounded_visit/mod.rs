@@ -49,16 +49,14 @@ impl ConfigurableProgramAnalysis for BoundedStepsCpa {
 }
 
 impl Analysis for BoundedStepsCpa {
-    type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
     type Input = BoundedStepsState;
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
         BoundedStepsState::new(addr.into(), self.max_steps)
     }
 
-    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
-        self.take_cfg()
-    }
+    // Default implementation: just returns the states
+    // To access the built CFG, use .cfg() or .take_cfg() on the analysis instance
 }
 
 pub type BoundedStepLocationAnalysis = BoundedStepsCpa;

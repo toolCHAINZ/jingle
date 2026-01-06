@@ -44,16 +44,14 @@ impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
 }
 
 impl Analysis for DirectLocationAnalysis {
-    type Output = PcodeCfg<ConcretePcodeAddress, PcodeOperation>;
     type Input = PcodeAddressLattice;
 
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
         PcodeAddressLattice::Value(addr)
     }
-
-    fn make_output(&mut self, _states: &[Self::State]) -> Self::Output {
-        self.take_cfg()
-    }
+    
+    // Default implementation: just returns the states
+    // To access the built CFG, use .cfg() or .take_cfg() on the analysis instance
 }
 
 // Implement CompoundAnalysis for DirectLocationAnalysis to enable compound analysis with StackOffsetAnalysis

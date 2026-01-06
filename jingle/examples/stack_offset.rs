@@ -43,11 +43,24 @@ fn main() {
 
     tracing::info!("Starting compound analysis run at address 0x{:x}", FUNC_NESTED);
 
-    // Run the compound analysis - now returns a tuple of both outputs
-    let (cfg, stack_offsets) = compound_analysis.run(&loaded, compound_analysis.make_initial_state(FUNC_NESTED.into()));
+    // Run the compound analysis - returns Vec of compound states
+    let compound_states = compound_analysis.run(&loaded, compound_analysis.make_initial_state(FUNC_NESTED.into()));
 
-    tracing::info!("Analysis completed");
+    tracing::info!("Analysis completed with {} states", compound_states.len());
 
+    // Extract the CFG from the DirectLocationAnalysis (left side of compound)
+    let cfg = compound_analysis.0.take_cfg();
+    
+    // Extract stack offset information from the compound states
+    use std::collections::HashMap;
+    use jingle::analysis::compound::CompoundState;
+    let mut stack_offsets = HashMap::new();
+    for state in &compound_states {
+        // Extract location from left (PcodeAddressLattice) and offset from right (StackOffsetState)
+        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left {
+            stack_offsets.insert(*addr, state.right.offset().clone());
+        }
+    }
 
     // Print results
     println!("Compound Analysis Results (DirectLocation + StackOffset):");
@@ -56,7 +69,6 @@ fn main() {
     // Collect and sort locations for consistent output
     let mut locations = cfg.nodes().collect::<Vec<_>>();
     locations.sort();
-    dbg!(&stack_offsets);
 
     println!("CFG nodes (program locations): {}", locations.len());
     for loc in &locations {
