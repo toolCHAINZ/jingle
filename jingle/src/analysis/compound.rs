@@ -72,7 +72,7 @@ impl<S1: JoinSemiLattice, S2: JoinSemiLattice> JoinSemiLattice for CompoundState
     }
 }
 
-impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S2> {
+impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S2> where S1: Strengthen<S2> {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         let outcome_left = self.left.merge(&other.left);
         let outcome_right = self.right.merge(&other.right);
@@ -106,7 +106,9 @@ impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S
         let mut result = Vec::new();
         for left in successors_left {
             for right in &successors_right {
-                result.push(CompoundState::new(left.clone(), right.clone()));
+                let mut left = left.clone();
+                left.strengthen(&right);
+                result.push(CompoundState::new(left, right.clone()));
             }
         }
 

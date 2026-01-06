@@ -93,6 +93,10 @@ impl UnwindingCpaState {
     pub fn same_visit_counts(&self, other: &UnwindingCpaState) -> bool {
         self.back_edge_visits.eq(&other.back_edge_visits)
     }
+
+    pub fn max(&self) -> usize {
+        self.max
+    }
 }
 
 impl PartialEq for UnwindingCpaState {

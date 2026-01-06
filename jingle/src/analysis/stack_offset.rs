@@ -16,6 +16,7 @@ use crate::analysis::unwinding::UnwindingCpaState;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use crate::analysis::cpa::ConfigurableProgramAnalysis;
 
 /// Represents a range of possible stack offset values
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -362,3 +363,22 @@ mod tests {
 impl Strengthen<PcodeAddressLattice> for StackOffsetState {}
 
 impl Strengthen<UnwindingCpaState> for StackOffsetState {}
+
+
+struct StackOffsetAnalysis {
+    unwinding_bound: usize,
+    max_step_bound: usize,
+}
+
+impl StackOffsetAnalysis {
+    pub fn new(unwinding_bound: usize, max_step_bound: usize) -> Self {
+        Self {
+            unwinding_bound,
+            max_step_bound,
+        }
+    }
+}
+
+impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
+    type State = StackOffsetState;
+}
