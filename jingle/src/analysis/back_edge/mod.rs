@@ -3,7 +3,6 @@ use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
-use crate::analysis::direct_location::DirectLocationAnalysis;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -119,18 +118,22 @@ impl LocationState for BackEdgeState {
 }
 
 pub struct BackEdgeCPA {
-    location: DirectLocationAnalysis,
     pub back_edges: Vec<(PcodeAddressLattice, PcodeAddressLattice)>,
 }
 
+impl Default for BackEdgeCPA {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BackEdgeCPA {
-    pub fn new<T: PcodeStore>(pcode: &T) -> Self {
+    pub fn new() -> Self {
         Self {
-            location: DirectLocationAnalysis::new(&pcode),
             back_edges: Vec::new(),
         }
     }
-    
+
     /// Extract the computed back edges into a BackEdges structure
     pub fn get_back_edges(&self) -> BackEdges {
         let mut b = BackEdges::default();
@@ -161,7 +164,7 @@ impl Analysis for BackEdgeCPA {
     fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
         BackEdgeState::new(PcodeAddressLattice::Value(addr))
     }
-    
+
     // Default implementation: just returns the states
     // To access the computed back edges, use the .back_edges field or add an accessor method
 }

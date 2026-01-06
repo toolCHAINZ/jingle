@@ -12,7 +12,7 @@ pub enum StrengthenOutcome {
 }
 
 pub trait Strengthen<O: AbstractState>: AbstractState {
-    fn strengthen(&mut self, original: &Self, other: &O, op: &PcodeOperation) -> StrengthenOutcome{
+    fn strengthen(&mut self, _original: &Self, _other: &O, _op: &PcodeOperation) -> StrengthenOutcome{
         StrengthenOutcome::Unchanged
     }
 }
@@ -137,7 +137,7 @@ impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S
         for left in successors_left {
             for right in &successors_right {
                 let mut new_left = left.clone();
-                new_left.strengthen(&left, &right, opcode_ref);
+                new_left.strengthen(&left, right, opcode_ref);
                 result.push(CompoundState::new(new_left, right.clone()));
             }
         }
@@ -195,7 +195,8 @@ impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S
 /// - A implements Analysis and CompoundAnalysis<B>
 /// - B implements ConfigurableProgramAnalysis (may or may not implement Analysis)
 /// - A::State implements Strengthen<B::State>
-/// The output is a Vec of compound states.
+///
+///  The output is a Vec of compound states.
 impl<A, B> crate::analysis::Analysis for (A, B)
 where
     A: crate::analysis::Analysis + CompoundAnalysis<B>,

@@ -7,7 +7,6 @@ use jingle::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use jingle_sleigh::VarNode;
 use std::env;
-use tracing_subscriber;
 
 const FUNC_LINE: u64 = 0x100000460;
 const FUNC_BRANCH: u64 = 0x100000480;

@@ -17,7 +17,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Formatter, LowerHex};
 use std::iter::empty;
-use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum UnwoundLocation {
@@ -93,7 +92,7 @@ impl UnwindingCpaState {
 
     pub fn terminated(&self) -> bool {
         let back_edge_limit = self.back_edge_visits.values().any(|b| b >= &self.max);
-        let step_limit = self.max_steps.map_or(false, |max| self.step_count >= max);
+        let step_limit = self.max_steps.is_some_and(|max| self.step_count >= max);
         back_edge_limit || step_limit
     }
 
@@ -369,7 +368,7 @@ impl UnwoundLocationCPA {
 
         // First run back edge analysis
         let bes = BackEdgeState::new(PcodeAddressLattice::Value(addr));
-        let mut back_edge_cpa = BackEdgeCPA::new(&store);
+        let mut back_edge_cpa = BackEdgeCPA::new();
         use crate::analysis::RunnableAnalysis as _;
         back_edge_cpa.run(&store, bes);
         let back_edges = back_edge_cpa.get_back_edges();

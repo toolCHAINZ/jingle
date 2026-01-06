@@ -44,7 +44,7 @@ pub trait ConfigurableProgramAnalysis {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State, op: &Option<PcodeOperation>) {}
+    fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State, _op: &Option<PcodeOperation>) {}
 
     /// A hook for when two abstract states are merged.
     fn merged(
@@ -117,11 +117,9 @@ where
                     waitlist.push_back(dest_state.clone());
                     reached.push_back(dest_state.clone());
                     new_states += 1;
-                } else {
-                    if !was_merged {
-                        tracing::trace!("    State stopped (already covered)");
-                        stopped_states += 1;
-                    }
+                } else if !was_merged {
+                    tracing::trace!("    State stopped (already covered)");
+                    stopped_states += 1;
                 }
             }
 
