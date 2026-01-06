@@ -56,3 +56,5 @@ impl Analysis for DirectLocationAnalysis {
     }
 }
 
+// Implement CompoundAnalysis for DirectLocationAnalysis to enable compound analysis with StackOffsetAnalysis
+impl crate::analysis::compound::CompoundAnalysis<crate::analysis::stack_offset::StackOffsetAnalysis> for DirectLocationAnalysis {}

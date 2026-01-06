@@ -206,3 +206,26 @@ where
         self.0.make_output(&left_states)
     }
 }
+
+// Specific From implementation for DirectLocationAnalysis + StackOffsetAnalysis compound
+impl From<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
+    for CompoundState<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice, crate::analysis::stack_offset::StackOffsetState>
+{
+    fn from(addr: crate::analysis::cpa::lattice::pcode::PcodeAddressLattice) -> Self {
+        // We need to create a StackOffsetState with the appropriate stack pointer
+        // For now, we'll use a placeholder that will be properly initialized when the analysis runs
+        // This is a limitation - ideally we'd have access to SleighArchInfo here
+        use crate::analysis::stack_offset::StackOffsetState;
+        use jingle_sleigh::VarNode;
+
+        // Create a default stack pointer varnode (this is architecture-specific)
+        // In practice, this should be obtained from SleighArchInfo
+        let stack_pointer = VarNode {
+            space_index: 0, // Register space
+            offset: 0x20,   // RSP offset on x86-64
+            size: 8,        // 8 bytes for 64-bit
+        };
+
+        CompoundState::new(addr, StackOffsetState::new(stack_pointer))
+    }
+}
