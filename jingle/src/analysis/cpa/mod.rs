@@ -28,16 +28,6 @@ pub trait ConfigurableProgramAnalysis: Sized {
     /// An abstract state.
     type State: AbstractState + Debug;
 
-    /// Construct an initial `State` from any type that can be converted into the CPA `State`.
-    ///
-    /// The default implementation calls the `IntoState` conversion on the provided value so that
-    /// implementations which require access to `self` when constructing their initial state can
-    /// do so by implementing `IntoState`. Types that already implement `Into<Self::State>` will
-    /// automatically be supported via a blanket `IntoState` impl.
-    fn make_initial_state<I: IntoState<Self>>(&self, input: I) -> Self::State {
-        input.into_state(self)
-    }
-
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
     ///
