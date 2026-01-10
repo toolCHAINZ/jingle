@@ -1,8 +1,8 @@
 use crate::analysis::Analysis;
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -45,6 +45,15 @@ impl BackEdges {
 pub struct BackEdgeState {
     pub(crate) path_visits: HashSet<PcodeAddressLattice>,
     pub(crate) location: PcodeAddressLattice,
+}
+
+impl IntoState<BackEdgeCPA> for PcodeAddressLattice {
+    fn into_state(self, _c: &BackEdgeCPA) -> <BackEdgeCPA as ConfigurableProgramAnalysis>::State {
+        BackEdgeState {
+            location: self,
+            path_visits: Default::default(),
+        }
+    }
 }
 
 impl BackEdgeState {

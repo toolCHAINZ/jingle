@@ -144,12 +144,12 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis, T> IntoStat
 where
     A: CompoundAnalysis<B>,
     A::State: Strengthen<B::State>,
+    T: IntoState<A> + IntoState<B>,
 {
     fn into_state(self, c: &(A, B)) -> <(A, B) as ConfigurableProgramAnalysis>::State {
         todo!()
     }
 }
-
 /// Implementation of LocationState for CompoundState.
 /// The location information comes from the left component.
 impl<S1: LocationState, S2: AbstractState> LocationState for (S1, S2)

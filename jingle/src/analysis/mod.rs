@@ -65,7 +65,7 @@ where
         // Use the CPA's `make_initial_state` helper so CPAs that need access to `self`
         // when constructing their initial state can do so. The default `make_initial_state`
         // simply calls `.into()` so this is fully backwards compatible.
-        let initial = self.make_initial_state(initial_state);
+        let initial = initial_state.into_state(&self);
         let states = self.run_cpa(initial, &store);
         self.make_output(states)
     }
@@ -81,32 +81,15 @@ where
 {
 }
 
-pub trait AnalyzableBase: PcodeStore + Sized {
-    fn run_analysis_at<T: RunnableAnalysis, S: IntoState<T>>(
-        &self,
-        entry: S,
-        mut t: T,
-    ) -> Vec<T::State>
-    where
-        <T as ConfigurableProgramAnalysis>::State: LocationState,
-    {
-        // Prefer the CPA's `make_initial_state` so the analysis can construct its
-        // initial state using access to `t` if necessary. This delegates to the
-        // default `.into()` behavior when the CPA doesn't override `make_initial_state`.
-        let initial = t.make_initial_state(entry);
-        t.run(self, initial)
-    }
-}
-
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
     fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
-        T::State: From<ConcretePcodeAddress>,
+        ConcretePcodeAddress: IntoState<T>,
     {
-        t.run(self, T::State::from(self.get_entry()))
+        let state = self.get_entry();
+        t.run(self, state)
     }
 }
 
-impl<T: PcodeStore> AnalyzableBase for T {}
 impl<T: PcodeStore + EntryPoint> AnalyzableEntry for T {}

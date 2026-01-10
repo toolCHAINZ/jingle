@@ -375,10 +375,9 @@ impl UnwoundLocationCPA {
         };
 
         // First run back edge analysis
-        let bes = BackEdgeState::new(PcodeAddressLattice::Value(addr));
         let mut back_edge_cpa = BackEdgeCPA::new();
         use crate::analysis::RunnableAnalysis as _;
-        back_edge_cpa.run(&store, bes);
+        back_edge_cpa.run(&store, PcodeAddressLattice::Value(addr));
         let back_edges = back_edge_cpa.get_back_edges();
 
         // Create proper initial state with back edges
