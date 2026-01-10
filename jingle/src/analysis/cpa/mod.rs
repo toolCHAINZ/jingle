@@ -30,11 +30,12 @@ pub trait ConfigurableProgramAnalysis: Sized {
 
     /// Construct an initial `State` from any type that can be converted into the CPA `State`.
     ///
-    /// The default implementation simply calls `.into()` on the provided value. Implementors may
-    /// override this to construct states that require access to `self` (the CPA instance) or to
-    /// accept inputs that don't directly convert into `Self::State` but can be mapped to it.
-    fn make_initial_state<I: Into<Self::State>>(&self, input: I) -> Self::State {
-        input.into()
+    /// The default implementation calls the `IntoState` conversion on the provided value so that
+    /// implementations which require access to `self` when constructing their initial state can
+    /// do so by implementing `IntoState`. Types that already implement `Into<Self::State>` will
+    /// automatically be supported via a blanket `IntoState` impl.
+    fn make_initial_state<I: IntoState<Self>>(&self, input: I) -> Self::State {
+        input.into_state(self)
     }
 
     /// Allows for accumulating information about a program not specific to particular abstract
@@ -162,7 +163,7 @@ where
     }
 
     /// Convenience wrapper: construct an initial `State` using the CPA's `make_initial_state`
-    /// helper and then run the CPA. Accepts any input that implements `Into<Self::State>`.
+    /// helper and then run the CPA. Accepts any input that implements `IntoState<Self>`.
     fn run_cpa_from<I: IntoState<Self>, P: PcodeStore>(
         &mut self,
         initial: I,
