@@ -2,7 +2,6 @@ pub mod flat;
 pub mod pcode;
 pub mod simple;
 
-
 pub trait JoinSemiLattice: Eq + PartialOrd {
     fn join(&mut self, other: &Self);
     // todo: add top method?
