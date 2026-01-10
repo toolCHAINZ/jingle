@@ -65,12 +65,6 @@ impl PartialOrd for DirectLocationState {
     }
 }
 
-impl Ord for DirectLocationState {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
-    }
-}
-
 impl JoinSemiLattice for DirectLocationState {
     fn join(&mut self, other: &Self) {
         self.inner.join(&other.inner);

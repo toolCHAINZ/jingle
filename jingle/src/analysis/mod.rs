@@ -34,14 +34,6 @@ pub mod direct_valuation;
 /// This trait can be implemented by types that may or may not be runnable. For runnable analyses,
 /// see [`RunnableAnalysis`].
 pub trait Analysis: ConfigurableProgramAnalysis {
-    /// The input type of the analysis, must be derivable from a [ConcretePcodeAddress] and
-    /// any state in the type implementing [Analysis]
-    type Input: Into<Self::State>;
-
-    /// Given an initial [ConcretePcodeAddress], derive the [Input](Self::Input) state for
-    /// a CPA
-    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input;
-
     /// Process the states and return them (or a filtered/transformed version).
     /// The default implementation just returns the states as-is.
     fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
@@ -63,12 +55,11 @@ where
     /// The default implementation uses the standard CPA algorithm and delegates
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
-    fn run<T: PcodeStore, I: Into<Self::Input>>(
+    fn run<T: PcodeStore, I: Into<Self::State>>(
         &mut self,
         store: T,
         initial_state: I,
     ) -> Vec<Self::State> {
-        let initial_state = initial_state.into();
         let states = self.run_cpa(initial_state.into(), &store);
         self.make_output(states)
     }
@@ -85,7 +76,7 @@ where
 }
 
 pub trait AnalyzableBase: PcodeStore + Sized {
-    fn run_analysis_at<T: RunnableAnalysis, S: Into<ConcretePcodeAddress>>(
+    fn run_analysis_at<T: RunnableAnalysis, S: Into<T::State>>(
         &self,
         entry: S,
         mut t: T,
@@ -93,9 +84,7 @@ pub trait AnalyzableBase: PcodeStore + Sized {
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
     {
-        let addr = entry.into();
-        let entry = t.make_initial_state(addr);
-        t.run(self, entry)
+        t.run(self, entry.into())
     }
 }
 
@@ -103,9 +92,9 @@ pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
     fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
+        T::State: From<ConcretePcodeAddress>,
     {
-        let entry = t.make_initial_state(self.get_entry());
-        t.run(self, entry)
+        t.run(self, T::State::from(self.get_entry()))
     }
 }
 
