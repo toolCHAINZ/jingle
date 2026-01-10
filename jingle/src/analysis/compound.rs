@@ -144,10 +144,14 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis, T> IntoStat
 where
     A: CompoundAnalysis<B>,
     A::State: Strengthen<B::State>,
-    T: IntoState<A> + IntoState<B>,
+    T: IntoState<A> + IntoState<B> + Clone,
 {
     fn into_state(self, c: &(A, B)) -> <(A, B) as ConfigurableProgramAnalysis>::State {
-        todo!()
+        // Convert the input into each component's state. We clone `self` so we can
+        // consume it twice (IntoState takes self by value).
+        let left = Clone::clone(&self).into_state(&c.0);
+        let right = self.into_state(&c.1);
+        (left, right)
     }
 }
 /// Implementation of LocationState for CompoundState.
