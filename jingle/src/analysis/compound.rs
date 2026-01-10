@@ -59,65 +59,18 @@ where
     C: ConfigurableProgramAnalysis,
     B: CompoundAnalysis<C>,
     B::State: Strengthen<C::State>,
-    A::State: Strengthen<CompoundState<B::State, C::State>>,
+    A::State: Strengthen<(B::State, C::State)>,
 {
 }
 
-/// A state that combines two abstract states from different CPAs.
-#[derive(Debug, Clone)]
-pub struct CompoundState<S1, S2> {
-    pub left: S1,
-    pub right: S2,
-}
-
-impl<S1, S2> CompoundState<S1, S2> {
-    pub fn new(left: S1, right: S2) -> Self {
-        Self { left, right }
-    }
-}
-
-impl<S1: PartialEq, S2: PartialEq> PartialEq for CompoundState<S1, S2> {
-    fn eq(&self, other: &Self) -> bool {
-        <S1 as PartialEq>::eq(&self.left, &other.left)
-            && <S2 as PartialEq>::eq(&self.right, &other.right)
-    }
-}
-
-impl<S1: Eq, S2: Eq> Eq for CompoundState<S1, S2> {}
-
-impl<S1: PartialOrd, S2: PartialOrd> PartialOrd for CompoundState<S1, S2> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (
-            self.left.partial_cmp(&other.left),
-            self.right.partial_cmp(&other.right),
-        ) {
-            (Some(Ordering::Equal), Some(Ordering::Equal)) => Some(Ordering::Equal),
-            (Some(Ordering::Less), Some(Ordering::Less)) => Some(Ordering::Less),
-            (Some(Ordering::Less), Some(Ordering::Equal)) => Some(Ordering::Less),
-            (Some(Ordering::Equal), Some(Ordering::Less)) => Some(Ordering::Less),
-            (Some(Ordering::Greater), Some(Ordering::Greater)) => Some(Ordering::Greater),
-            (Some(Ordering::Greater), Some(Ordering::Equal)) => Some(Ordering::Greater),
-            (Some(Ordering::Equal), Some(Ordering::Greater)) => Some(Ordering::Greater),
-            _ => None,
-        }
-    }
-}
-
-impl<S1: JoinSemiLattice, S2: JoinSemiLattice> JoinSemiLattice for CompoundState<S1, S2> {
-    fn join(&mut self, other: &Self) {
-        self.left.join(&other.left);
-        self.right.join(&other.right);
-    }
-}
-
-impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S2>
+impl<S1: AbstractState, S2: AbstractState> AbstractState for (S1, S2)
 where
     S1: Strengthen<S2>,
 {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        let outcome_left = self.left.merge(&other.left);
+        let outcome_left = self.0.merge(&other.0);
         if outcome_left.merged() {
-            self.right.merge(&other.right);
+            self.1.merge(&other.1);
             MergeOutcome::Merged
         } else {
             MergeOutcome::NoOp
@@ -129,8 +82,8 @@ where
         // We need to collect states since we can't clone the iterator
         let states_vec: Vec<&Self> = states.collect();
 
-        let stop_left = self.left.stop(states_vec.iter().map(|s| &s.left));
-        let stop_right = self.right.stop(states_vec.iter().map(|s| &s.right));
+        let stop_left = self.0.stop(states_vec.iter().map(|s| &s.0));
+        let stop_right = self.1.stop(states_vec.iter().map(|s| &s.1));
         stop_left && stop_right
     }
 
@@ -138,8 +91,8 @@ where
         let opcode_ref = opcode.borrow();
 
         // Get successors from both analyses
-        let successors_left: Vec<S1> = self.left.transfer(opcode_ref).into_iter().collect();
-        let successors_right: Vec<S2> = self.right.transfer(opcode_ref).into_iter().collect();
+        let successors_left: Vec<S1> = self.0.transfer(opcode_ref).into_iter().collect();
+        let successors_right: Vec<S2> = self.1.transfer(opcode_ref).into_iter().collect();
 
         // Create cartesian product of successors
         let mut result = Vec::new();
@@ -147,7 +100,7 @@ where
             for right in &successors_right {
                 let mut new_left = left.clone();
                 new_left.strengthen(&left, right, opcode_ref);
-                result.push(CompoundState::new(new_left, right.clone()));
+                result.push((new_left, right.clone()));
             }
         }
 
@@ -161,7 +114,7 @@ where
     B: ConfigurableProgramAnalysis,
     A::State: Strengthen<B::State>,
 {
-    type State = CompoundState<A::State, B::State>;
+    type State = (A::State, B::State);
 
     fn reduce(
         &mut self,
@@ -169,8 +122,8 @@ where
         dest_state: &Self::State,
         op: &Option<PcodeOperation>,
     ) {
-        self.0.reduce(&state.left, &dest_state.left, op);
-        self.1.reduce(&state.right, &dest_state.right, op);
+        self.0.reduce(&state.0, &dest_state.0, op);
+        self.1.reduce(&state.1, &dest_state.1, op);
     }
 
     fn merged(
@@ -181,24 +134,20 @@ where
         op: &Option<PcodeOperation>,
     ) {
         self.0
-            .merged(&curr_state.left, &dest_state.left, &merged_state.left, op);
-        self.1.merged(
-            &curr_state.right,
-            &dest_state.right,
-            &merged_state.right,
-            op,
-        );
+            .merged(&curr_state.0, &dest_state.0, &merged_state.0, op);
+        self.1
+            .merged(&curr_state.1, &dest_state.1, &merged_state.1, op);
     }
 }
 
 /// Implementation of LocationState for CompoundState.
 /// The location information comes from the left component.
-impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S2>
+impl<S1: LocationState, S2: AbstractState> LocationState for (S1, S2)
 where
     S1: Strengthen<S2>,
 {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
-        self.left.get_operation(t)
+        self.0.get_operation(t)
     }
 }
 
@@ -215,7 +164,7 @@ where
     B: ConfigurableProgramAnalysis,
     A::State: Strengthen<B::State> + LocationState,
     B::State: AbstractState,
-    CompoundState<A::State, B::State>: LocationState,
+    (A::State, B::State): LocationState,
 {
 }
 
