@@ -35,3 +35,8 @@ impl LocationState for PcodeAddressLattice {
         }
     }
 }
+
+impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
+    for PcodeAddressLattice
+{
+}

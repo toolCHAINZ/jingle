@@ -2,6 +2,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -71,7 +72,12 @@ pub trait AbstractState: JoinSemiLattice + Clone {
 
     /// A naive implementation of `stop` which checks for state covering in a piecewise manner.
     fn stop_sep<'a, T: Iterator<Item = &'a Self>>(&'a self, mut states: T) -> bool {
-        states.any(|s| self <= s)
+        states.any(|s| {
+            matches!(
+                PartialOrd::partial_cmp(self, s),
+                Some(Ordering::Less) | Some(Ordering::Equal)
+            )
+        })
     }
 
     /// Given a pcode operation, returns an iterator of successor states.

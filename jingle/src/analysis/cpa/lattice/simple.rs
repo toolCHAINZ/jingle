@@ -29,7 +29,7 @@ impl<C> SimpleLattice<C> {
         }
     }
 }
-impl<C: PartialJoinSemiLattice> PartialOrd for SimpleLattice<C> {
+impl<C: crate::analysis::cpa::lattice::PartialJoinSemiLattice> PartialOrd for SimpleLattice<C> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (Self::Top, Self::Top) => Some(Ordering::Equal),

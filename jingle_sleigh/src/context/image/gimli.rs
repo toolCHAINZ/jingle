@@ -1,5 +1,7 @@
 use crate::context::SleighContextBuilder;
-use crate::context::image::{ImageProvider, ImageSection, ImageSectionIterator, Perms, SymbolInfo};
+use crate::context::image::{
+    ImageSection, ImageSectionIterator, Perms, SleighArchImage, SleighImage, SymbolInfo,
+};
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
 use object::{
@@ -70,7 +72,7 @@ impl OwnedFile {
     }
 }
 
-impl ImageProvider for OwnedFile {
+impl SleighImage for OwnedFile {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);
@@ -114,7 +116,7 @@ impl ImageProvider for OwnedFile {
     }
 }
 
-impl ImageProvider for File<'_> {
+impl<'a> SleighImage for File<'a, &'a [u8]> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);
@@ -173,7 +175,15 @@ impl ImageProvider for File<'_> {
     }
 }
 
-pub fn map_gimli_architecture(file: &File) -> Option<&'static str> {
+impl<'a> SleighArchImage for File<'a, &'a [u8]> {
+    fn architecture_id(&self) -> Result<&'static str, JingleSleighError> {
+        map_gimli_architecture(self).ok_or(JingleSleighError::SleighInitError(
+            "Could not determine architecture ID from gimli object file".to_string(),
+        ))
+    }
+}
+
+pub fn map_gimli_architecture<'a>(file: &File<'a, &'a [u8]>) -> Option<&'static str> {
     match &file.architecture() {
         Architecture::Unknown => None,
         Architecture::Aarch64 => {

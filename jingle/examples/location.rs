@@ -1,7 +1,8 @@
 #![allow(unused)]
 
-use jingle::analysis::Analysis;
 use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
+use jingle::analysis::{Analysis, RunnableAnalysis};
+use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use std::env;
 
@@ -18,8 +19,9 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = BoundedStepLocationAnalysis::new(20);
-    let pcode_graph = direct.run(loaded, direct.make_initial_state(FUNC_SWITCH.into()));
+    let mut direct = BoundedStepLocationAnalysis::new(&loaded, 20);
+    let _states = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
+    let pcode_graph = direct.take_cfg();
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {
         println!("{:x}", addr);

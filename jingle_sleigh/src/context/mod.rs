@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::context::builder::language_def::Language;
-use crate::context::image::ImageProvider;
+use crate::context::image::SleighImage;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::{PcodeOperation, VarNode};
@@ -24,7 +24,7 @@ use cxx::{SharedPtr, UniquePtr};
 use pyo3::pyclass;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -86,11 +86,17 @@ impl ModelingMetadata {
 /// A sleigh context contains the parsed sleigh state as well as
 /// modeling metadata for analysis consumers.
 pub struct SleighContext {
-    ctx: UniquePtr<ContextFFI>,
+    /// The FFI context handle wrapped in a Mutex for thread-safety.
+    /// The underlying Sleigh C++ library is not thread-safe, so all access
+    /// to ctx must be synchronized.
+    pub(crate) ctx: Mutex<UniquePtr<ContextFFI>>,
     language_id: String,
     arch_info: SleighArchInfo,
     pub(crate) metadata: ModelingMetadata,
 }
+
+unsafe impl Send for SleighContext {}
+unsafe impl Sync for SleighContext {}
 
 impl Debug for SleighContext {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -126,6 +132,7 @@ impl SleighContext {
 
                 let arch_info = SleighArchInfo {
                     info: Arc::new(SleighArchInfoInner {
+                        language_id: language_def.id.clone(),
                         registers_to_vns,
                         vns_to_registers,
                         // todo: this is weird, should probably clean up
@@ -141,7 +148,7 @@ impl SleighContext {
                 };
 
                 Ok(Self {
-                    ctx,
+                    ctx: Mutex::new(ctx),
                     arch_info,
                     language_id: language_def.id.clone(),
                     metadata: Default::default(),
@@ -157,15 +164,18 @@ impl SleighContext {
         value: u32,
     ) -> Result<(), JingleSleighError> {
         self.ctx
+            .lock()
+            .unwrap()
             .pin_mut()
             .set_initial_context(name, value)
             .map_err(|_| ImageLoadError)
     }
 
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
-        let mut spaces = Vec::with_capacity(self.ctx.getNumSpaces() as usize);
-        for i in 0..self.ctx.getNumSpaces() {
-            spaces.push(self.ctx.getSpaceByIndex(i))
+        let ctx = self.ctx.lock().unwrap();
+        let mut spaces = Vec::with_capacity(ctx.getNumSpaces() as usize);
+        for i in 0..ctx.getNumSpaces() {
+            spaces.push(ctx.getSpaceByIndex(i))
         }
         spaces
     }
@@ -193,7 +203,7 @@ impl SleighContext {
         parse_program(s, &self.arch_info)
     }
 
-    pub fn initialize_with_image<'b, T: ImageProvider + 'b>(
+    pub fn initialize_with_image<'b, T: SleighImage + 'b>(
         self,
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {

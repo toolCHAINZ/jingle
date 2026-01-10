@@ -50,7 +50,7 @@ impl AbstractState for SimpleLocation {
                 }
                 PcodeOperation::Return { .. }
                 | PcodeOperation::CallInd { .. }
-                | PcodeOperation::BranchInd { .. } => Box::new(empty()),
+                | PcodeOperation::BranchInd { .. } => Box::new(once(FlatLattice::Top.into())),
                 _ => Box::new(once(a.next_pcode().into())),
             },
             FlatLattice::Top => Box::new(once(Self(FlatLattice::Top))),

@@ -71,8 +71,8 @@ impl VarNode {
         }
         let self_range = self.offset..(self.offset + self.size as u64);
         let other = other.offset..(other.offset + other.size as u64);
-        let left = self_range.start <= other.start && self_range.end >= other.start;
-        let right = other.start <= self_range.start && other.end >= self_range.start;
+        let left = self_range.start <= other.start && self_range.end > other.start;
+        let right = other.start <= self_range.start && other.end > self_range.start;
         left || right
     }
 
@@ -284,5 +284,151 @@ mod tests {
             },
         ];
         assert!(tests.iter().all(|v| vn1.covers(v)))
+    }
+
+    #[test]
+    fn test_overlaps_true() {
+        let vn1 = VarNode {
+            offset: 0,
+            space_index: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            offset: 2,
+            space_index: 0,
+            size: 4,
+        };
+        assert!(vn1.overlaps(&vn2));
+        assert!(vn2.overlaps(&vn1));
+    }
+
+    #[test]
+    fn test_overlaps_false_different_space() {
+        let vn1 = VarNode {
+            offset: 0,
+            space_index: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            offset: 0,
+            space_index: 1,
+            size: 4,
+        };
+        assert!(!vn1.overlaps(&vn2));
+        assert!(!vn2.overlaps(&vn1));
+    }
+
+    #[test]
+    fn test_overlaps_false_no_overlap() {
+        let vn1 = VarNode {
+            offset: 0,
+            space_index: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            offset: 10,
+            space_index: 0,
+            size: 4,
+        };
+        assert!(!vn1.overlaps(&vn2));
+        assert!(!vn2.overlaps(&vn1));
+    }
+
+    #[test]
+    fn test_covers_false_different_space() {
+        let vn1 = VarNode {
+            offset: 0,
+            space_index: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            offset: 0,
+            space_index: 1,
+            size: 2,
+        };
+        assert!(!vn1.covers(&vn2));
+    }
+
+    #[test]
+    fn test_covers_false_extends_beyond() {
+        let vn1 = VarNode {
+            offset: 0,
+            space_index: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            offset: 2,
+            space_index: 0,
+            size: 4,
+        };
+        assert!(!vn1.covers(&vn2));
+    }
+
+    #[test]
+    fn test_is_const() {
+        let const_vn = VarNode {
+            offset: 100,
+            space_index: VarNode::CONST_SPACE_INDEX,
+            size: 4,
+        };
+        assert!(const_vn.is_const());
+
+        let non_const_vn = VarNode {
+            offset: 100,
+            space_index: 3,
+            size: 4,
+        };
+        assert!(!non_const_vn.is_const());
+    }
+
+    #[test]
+    fn test_min_max() {
+        let vn = VarNode {
+            offset: 100,
+            space_index: 0,
+            size: 8,
+        };
+        assert_eq!(vn.min(), 100);
+        assert_eq!(vn.max(), 108);
+    }
+
+    #[test]
+    fn test_range_conversion_u64() {
+        let vn = VarNode {
+            offset: 100,
+            space_index: 0,
+            size: 8,
+        };
+        let range: std::ops::Range<u64> = (&vn).into();
+        assert_eq!(range.start, 100);
+        assert_eq!(range.end, 108);
+    }
+
+    #[test]
+    fn test_range_conversion_usize() {
+        let vn = VarNode {
+            offset: 100,
+            space_index: 0,
+            size: 8,
+        };
+        let range: std::ops::Range<usize> = (&vn).into();
+        assert_eq!(range.start, 100);
+        assert_eq!(range.end, 108);
+    }
+
+    #[test]
+    fn test_overlaps_adjacent_ranges() {
+        let vn1 = VarNode {
+            offset: 0,
+            space_index: 0,
+            size: 4,
+        };
+        let vn2 = VarNode {
+            offset: 4,
+            space_index: 0,
+            size: 4,
+        };
+        // Adjacent ranges should not overlap
+        assert!(!vn1.overlaps(&vn2));
     }
 }

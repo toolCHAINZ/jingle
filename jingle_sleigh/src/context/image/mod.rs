@@ -1,4 +1,4 @@
-use crate::VarNode;
+use crate::{JingleSleighError, VarNode};
 use std::cmp::min;
 use std::iter::once;
 use std::ops::Range;
@@ -13,7 +13,9 @@ pub struct SymbolInfo {
     pub location: SymbolLocation, // todo: maybe other info goes in here later
 }
 
-pub trait ImageProvider {
+/// A trait for types to talk to sleigh over FFI, allowing them to expose bytes
+/// for analysis
+pub trait SleighImage {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
     fn has_full_range(&self, vn: &VarNode) -> bool;
@@ -28,6 +30,11 @@ pub trait ImageProvider {
     fn resolve(&self, _: &str) -> Option<SymbolInfo> {
         None
     }
+}
+
+/// An image that can also inform sleigh about its architecture
+pub trait SleighArchImage: SleighImage {
+    fn architecture_id(&self) -> Result<&str, JingleSleighError>;
 }
 
 pub struct ImageSectionIterator<'a> {
@@ -49,7 +56,7 @@ impl<'a> Iterator for ImageSectionIterator<'a> {
         self.iter.next()
     }
 }
-impl ImageProvider for &[u8] {
+impl SleighImage for &[u8] {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         //todo: check the space. Ignoring for now
         let vn_range: Range<usize> = Range::from(vn);
@@ -90,7 +97,7 @@ impl ImageProvider for &[u8] {
     }
 }
 
-impl ImageProvider for Vec<u8> {
+impl SleighImage for Vec<u8> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         self.as_slice().load(vn, output)
     }
@@ -112,7 +119,7 @@ impl ImageProvider for Vec<u8> {
     }
 }
 
-impl<T: ImageProvider> ImageProvider for &T {
+impl<T: SleighImage> SleighImage for &T {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         (*self).load(vn, output)
     }
@@ -123,6 +130,16 @@ impl<T: ImageProvider> ImageProvider for &T {
 
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         (*self).get_section_info()
+    }
+
+    fn resolve(&self, t: &str) -> Option<SymbolInfo> {
+        (*self).resolve(t)
+    }
+}
+
+impl<T: SleighArchImage> SleighArchImage for &T {
+    fn architecture_id(&self) -> Result<&str, JingleSleighError> {
+        (*self).architecture_id()
     }
 }
 
@@ -172,7 +189,7 @@ pub struct ImageSection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::context::image::{ImageProvider, ImageSection};
+    use crate::context::image::{ImageSection, SleighImage};
     #[test]
     fn test_vec_sections() {
         let data: Vec<u8> = vec![1, 2, 3];

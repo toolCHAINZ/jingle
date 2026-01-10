@@ -3,6 +3,15 @@ resolver = "3"
 
 members = [
     "jingle",
-    "jingle_python",
     "jingle_sleigh"
 ]
+
+default-members = [
+    "jingle",
+    "jingle_sleigh"
+]
+
+exclude = [
+    "jingle_python"
+]
+

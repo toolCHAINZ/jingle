@@ -33,12 +33,17 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) info: SleighArchInfo,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
+}
+
+#[derive(Debug)]
+pub struct ModeledPcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
+    pub(crate) cfg: PcodeCfg<N, D>,
     pub(crate) models: HashMap<N, N::Model>,
 }
 
 #[derive(Clone)]
 pub struct PcodeCfgVisitor<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
-    cfg: &'a PcodeCfg<N, D>,
+    cfg: &'a ModeledPcodeCfg<N, D>,
     location: N,
     pub(crate) visited_locations: Rc<RefCell<HashSet<N>>>,
 }
@@ -46,6 +51,7 @@ pub struct PcodeCfgVisitor<'a, N: CfgState = ConcretePcodeAddress, D = PcodeOper
 impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     pub(crate) fn successors(&mut self) -> impl Iterator<Item = Self> {
         self.cfg
+            .cfg
             .successors(&self.location)
             .into_iter()
             .flatten()
@@ -75,7 +81,7 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     }
 
     pub(crate) fn transition(&self) -> Option<&D> {
-        self.cfg.ops.get(&self.location)
+        self.cfg.cfg.ops.get(&self.location)
     }
 
     pub fn location(&self) -> &N {
@@ -94,7 +100,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             ops: Default::default(),
             indices: Default::default(),
             info,
-            models: Default::default(),
         }
     }
 
@@ -120,8 +125,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         if !self.indices.contains_key(node) {
             let idx = self.graph.add_node(node.clone());
             self.indices.insert(node.clone(), idx);
-            let model = node.fresh_model(&self.info);
-            self.models.insert(node.clone(), model);
         }
     }
 
@@ -171,6 +174,11 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
 
     pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
         self.nodes().filter(move |a| a.location() == location)
+    }
+
+    /// Create a `ModeledPcodeCfg` by generating SMT models for all nodes in the CFG.
+    pub fn smt_model(self) -> ModeledPcodeCfg<N, D> {
+        ModeledPcodeCfg::new(self)
     }
 }
 
@@ -299,12 +307,51 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             info: self.info.clone(),
             ops: new_ops,
             indices: new_indices,
-            models: self.models.clone(), // todo: just include the ones that remain
         }
     }
 }
 
-impl<D: ModelTransition<MachineState>> PcodeCfg<UnwoundLocation, D> {
+impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
+    pub fn new(cfg: PcodeCfg<N, D>) -> Self {
+        let mut models = HashMap::new();
+        for node in cfg.nodes() {
+            let model = node.fresh_model(&cfg.info);
+            models.insert(node.clone(), model);
+        }
+        Self { cfg, models }
+    }
+
+    pub fn cfg(&self) -> &PcodeCfg<N, D> {
+        &self.cfg
+    }
+
+    pub fn models(&self) -> &HashMap<N, N::Model> {
+        &self.models
+    }
+
+    // Delegation methods to underlying PcodeCfg
+    pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
+        self.cfg.graph()
+    }
+
+    pub fn nodes(&self) -> impl Iterator<Item = &N> {
+        self.cfg.nodes()
+    }
+
+    pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
+        self.cfg.leaf_nodes()
+    }
+
+    pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
+        self.cfg.edge_weights()
+    }
+
+    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
+        self.cfg.nodes_for_location(location)
+    }
+}
+
+impl<D: ModelTransition<MachineState>> ModeledPcodeCfg<UnwoundLocation, D> {
     pub fn check_model(
         &self,
         location: &UnwoundLocation,

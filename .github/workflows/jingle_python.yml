@@ -10,7 +10,7 @@ on:
     branches:
       - main
     tags:
-      - '*'
+      - "*"
   pull_request:
     branches:
       - main
@@ -36,11 +36,14 @@ jobs:
           python-version: 3.x
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          READ_ONLY_GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
           manylinux: manylinux2_28
+          docker-options: "--env READ_ONLY_GITHUB_TOKEN"
           before-script-linux: |
             curl -LsSf https://astral.sh/uv/install.sh | sh
             uv venv
@@ -153,7 +156,7 @@ jobs:
         platform:
           - runner: macos-14
             target: aarch64
-        python: [ '3.11', '3.12', '3.13' ]
+        python: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
         with:
