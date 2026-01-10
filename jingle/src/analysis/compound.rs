@@ -1,6 +1,6 @@
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -137,6 +137,16 @@ where
             .merged(&curr_state.0, &dest_state.0, &merged_state.0, op);
         self.1
             .merged(&curr_state.1, &dest_state.1, &merged_state.1, op);
+    }
+}
+
+impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis, T> IntoState<(A, B)> for T
+where
+    A: CompoundAnalysis<B>,
+    A::State: Strengthen<B::State>,
+{
+    fn into_state(self, c: &(A, B)) -> <(A, B) as ConfigurableProgramAnalysis>::State {
+        todo!()
     }
 }
 

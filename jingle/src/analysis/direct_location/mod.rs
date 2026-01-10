@@ -1,9 +1,10 @@
 use crate::analysis::Analysis;
 use crate::analysis::cfg::PcodeCfg;
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -46,6 +47,18 @@ impl DirectLocationState {
 
     pub fn inner(&self) -> &PcodeAddressLattice {
         &self.inner
+    }
+}
+
+impl IntoState<DirectLocationAnalysis> for ConcretePcodeAddress {
+    fn into_state(
+        self,
+        c: &DirectLocationAnalysis,
+    ) -> <DirectLocationAnalysis as ConfigurableProgramAnalysis>::State {
+        DirectLocationState {
+            call_behavior: c.call_behavior,
+            inner: FlatLattice::Value(self),
+        }
     }
 }
 

@@ -40,9 +40,9 @@
 //! ```
 
 use crate::analysis::Analysis;
-use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
@@ -869,6 +869,18 @@ impl ConfigurableProgramAnalysis for DirectValuationAnalysis {
 }
 
 impl Analysis for DirectValuationAnalysis {}
+
+impl IntoState<DirectValuationAnalysis> for ConcretePcodeAddress {
+    fn into_state(
+        self,
+        c: &DirectValuationAnalysis,
+    ) -> <DirectValuationAnalysis as ConfigurableProgramAnalysis>::State {
+        DirectValuationState {
+            written_locations: Default::default(),
+            arch_info: c.arch_info.clone(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

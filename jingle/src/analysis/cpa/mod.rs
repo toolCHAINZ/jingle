@@ -24,9 +24,18 @@ unreached abstract state, indicating a fixed point over the given domain.
 As the abstract states form a lattice, this algorithm is guaranteed to terminate on any finite
 set of abstract states.
 */
-pub trait ConfigurableProgramAnalysis {
+pub trait ConfigurableProgramAnalysis: Sized {
     /// An abstract state.
     type State: AbstractState + Debug;
+
+    /// Construct an initial `State` from any type that can be converted into the CPA `State`.
+    ///
+    /// The default implementation simply calls `.into()` on the provided value. Implementors may
+    /// override this to construct states that require access to `self` (the CPA instance) or to
+    /// accept inputs that don't directly convert into `Self::State` but can be mapped to it.
+    fn make_initial_state<I: Into<Self::State>>(&self, input: I) -> Self::State {
+        input.into()
+    }
 
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
@@ -151,6 +160,23 @@ where
 
         reached.into()
     }
+
+    /// Convenience wrapper: construct an initial `State` using the CPA's `make_initial_state`
+    /// helper and then run the CPA. Accepts any input that implements `Into<Self::State>`.
+    fn run_cpa_from<I: IntoState<Self>, P: PcodeStore>(
+        &mut self,
+        initial: I,
+        pcode_store: &P,
+    ) -> Vec<Self::State> {
+        let state = initial.into_state(self);
+        // `Self::State` implements `Borrow<Self::State>` (Borrow is implemented for `T`),
+        // so we can pass the owned state to `run_cpa`.
+        self.run_cpa(state, pcode_store)
+    }
+}
+
+pub trait IntoState<C: ConfigurableProgramAnalysis>: Sized {
+    fn into_state(self, c: &C) -> C::State;
 }
 
 // Blanket implementation: any CPA with LocationState automatically gets RunnableConfigurableProgramAnalysis

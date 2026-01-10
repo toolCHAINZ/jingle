@@ -60,7 +60,11 @@ where
         store: T,
         initial_state: I,
     ) -> Vec<Self::State> {
-        let states = self.run_cpa(initial_state.into(), &store);
+        // Use the CPA's `make_initial_state` helper so CPAs that need access to `self`
+        // when constructing their initial state can do so. The default `make_initial_state`
+        // simply calls `.into()` so this is fully backwards compatible.
+        let initial = self.make_initial_state(initial_state);
+        let states = self.run_cpa(initial, &store);
         self.make_output(states)
     }
 }
@@ -84,7 +88,11 @@ pub trait AnalyzableBase: PcodeStore + Sized {
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
     {
-        t.run(self, entry.into())
+        // Prefer the CPA's `make_initial_state` so the analysis can construct its
+        // initial state using access to `t` if necessary. This delegates to the
+        // default `.into()` behavior when the CPA doesn't override `make_initial_state`.
+        let initial = t.make_initial_state(entry);
+        t.run(self, initial)
     }
 }
 
