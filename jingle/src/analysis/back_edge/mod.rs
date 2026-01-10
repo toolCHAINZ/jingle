@@ -144,6 +144,17 @@ impl BackEdgeCPA {
         }
         b
     }
+
+    /// Inherent constructor for the analysis initial state.
+    ///
+    /// The `Analysis` trait no longer provides an associated `Input` or
+    /// `make_initial_state` method. Callers that previously relied on
+    /// `analysis.make_initial_state(addr)` can now use
+    /// `analysis.make_initial_state(addr)` as an inherent method on the
+    /// concrete analysis type.
+    pub fn make_initial_state(&self, addr: ConcretePcodeAddress) -> BackEdgeState {
+        BackEdgeState::new(PcodeAddressLattice::Value(addr))
+    }
 }
 
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
@@ -162,15 +173,6 @@ impl ConfigurableProgramAnalysis for BackEdgeCPA {
     }
 }
 
-impl Analysis for BackEdgeCPA {
-    type Input = BackEdgeState;
-
-    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        BackEdgeState::new(PcodeAddressLattice::Value(addr))
-    }
-
-    // Default implementation: just returns the states
-    // To access the computed back edges, use the .back_edges field or add an accessor method
-}
+impl Analysis for BackEdgeCPA {}
 
 pub type BackEdgeAnalysis = BackEdgeCPA;

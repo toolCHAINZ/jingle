@@ -461,25 +461,12 @@ impl ConfigurableProgramAnalysis for StackOffsetAnalysis {
     type State = StackOffsetState;
 }
 
-impl crate::analysis::Analysis for StackOffsetAnalysis {
-    type Input = StackOffsetState;
-
-    fn make_initial_state(&self, _addr: ConcretePcodeAddress) -> Self::Input {
-        // This is a simplified implementation that uses a default stack pointer
-        // In practice, this should be obtained from SleighArchInfo
-        use jingle_sleigh::VarNode;
-        let stack_pointer = VarNode {
-            space_index: 4, // Register space
-            offset: 8,      // RSP offset on x86-64
-            size: 8,        // 8 bytes for 64-bit
-        };
-        StackOffsetState::new(stack_pointer)
-    }
-
-    // Default implementation: just returns the states
-    // Consumers can extract stack offset information from the states as needed
-}
+impl crate::analysis::Analysis for StackOffsetAnalysis {}
 
 // Enable compound analysis: StackOffsetAnalysis can be strengthened by DirectValuationAnalysis
-impl crate::analysis::compound::CompoundAnalysis<crate::analysis::direct_valuation::DirectValuationAnalysis> for StackOffsetAnalysis {}
-
+impl
+    crate::analysis::compound::CompoundAnalysis<
+        crate::analysis::direct_valuation::DirectValuationAnalysis,
+    > for StackOffsetAnalysis
+{
+}

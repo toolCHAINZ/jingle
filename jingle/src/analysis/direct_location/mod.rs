@@ -165,6 +165,16 @@ impl DirectLocationAnalysis {
             call_behavior,
         }
     }
+
+    /// Inherent constructor for the analysis initial state.
+    ///
+    /// The `Analysis` trait no longer provides an associated `Input` or
+    /// `make_initial_state` method. Provide an inherent helper so callers can
+    /// construct the appropriate initial `DirectLocationState` using the analysis
+    /// instance (for access to `call_behavior`).
+    pub fn make_initial_state(&self, addr: ConcretePcodeAddress) -> DirectLocationState {
+        DirectLocationState::new(addr, self.call_behavior)
+    }
 }
 
 impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
@@ -187,16 +197,7 @@ impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
     }
 }
 
-impl Analysis for DirectLocationAnalysis {
-    type Input = DirectLocationState;
-
-    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        DirectLocationState::new(addr, self.call_behavior)
-    }
-
-    // Default implementation: just returns the states
-    // To access the built CFG, use .cfg() or .take_cfg() on the analysis instance
-}
+impl Analysis for DirectLocationAnalysis {}
 
 // Enable compound analysis: DirectLocationAnalysis can be strengthened by DirectValuationAnalysis
 impl

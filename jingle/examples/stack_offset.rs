@@ -54,11 +54,15 @@ fn main() {
 
     tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 
-    // Run the compound analysis - returns Vec of compound states
-    let compound_states = compound_analysis.run(
-        &loaded,
-        compound_analysis.make_initial_state(FUNC_NESTED.into()),
+    // Run the compound analysis - construct the compound initial state explicitly
+    // (new Analysis API requires passing a value convertible into the CPA `State`)
+    let initial_compound_state = jingle::analysis::compound::CompoundState::new(
+        // construct left (location) initial state using the DirectLocationAnalysis inherent helper
+        compound_analysis.0.make_initial_state(FUNC_NESTED.into()),
+        // construct right (valuation) initial state directly
+        jingle::analysis::direct_valuation::DirectValuationState::new(loaded.arch_info().clone()),
     );
+    let compound_states = compound_analysis.run(&loaded, initial_compound_state);
 
     tracing::info!("Analysis completed with {} states", compound_states.len());
 

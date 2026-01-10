@@ -215,48 +215,9 @@ where
     A::State: Strengthen<B::State> + LocationState,
     B::State: AbstractState,
     CompoundState<A::State, B::State>: LocationState,
-    A::Input: Into<A::State>,
-    CompoundState<A::State, B::State>: From<A::Input>,
 {
-    type Input = A::Input;
-
-    fn make_initial_state(
-        &self,
-        addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress,
-    ) -> Self::Input {
-        self.0.make_initial_state(addr)
-    }
-
-    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
-        // Just return the compound states as-is
-        // Consumers can extract left/right components as needed
-        states
-    }
 }
 
-// Custom Analysis implementation for DirectLocationAnalysis + DirectValuationAnalysis
-// This is needed because the DirectValuationAnalysis needs to initialize its entry varnode
-impl crate::analysis::Analysis
-    for (
-        crate::analysis::direct_location::DirectLocationAnalysis,
-        crate::analysis::direct_valuation::DirectValuationAnalysis,
-    )
-{
-    type Input = CompoundState<
-        crate::analysis::direct_location::DirectLocationState,
-        crate::analysis::direct_valuation::DirectValuationState,
-    >;
-
-    fn make_initial_state(
-        &self,
-        addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress,
-    ) -> Self::Input {
-        let location_state = self.0.make_initial_state(addr);
-        let valuation_state = self.1.make_initial_state(addr);
-        CompoundState::new(location_state, valuation_state)
-    }
-
-    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
-        states
-    }
-}
+// Specialized Analysis implementation removed — the generic tuple `Analysis` implementation
+// above now covers `(DirectLocationAnalysis, DirectValuationAnalysis)` and the previous
+// empty/specialized impl caused a conflicting implementation error.

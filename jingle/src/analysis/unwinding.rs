@@ -261,6 +261,24 @@ impl UnwoundLocationCPA {
         let info = self.unwound_cfg.info.clone();
         std::mem::replace(&mut self.unwound_cfg, PcodeCfg::new(info))
     }
+
+    /// Inherent constructor for the analysis initial state.
+    ///
+    /// The old `Analysis` trait previously provided an associated `Input` and
+    /// `make_initial_state` method. That interface was removed, so provide an
+    /// inherent helper to construct the appropriate initial `State` for this
+    /// analysis using the analysis instance (so it can capture bounds).
+    pub fn make_initial_state(
+        &self,
+        addr: ConcretePcodeAddress,
+    ) -> <Self as ConfigurableProgramAnalysis>::State {
+        SimpleLattice::Value(UnwindingCpaState::new(
+            addr,
+            BackEdges::default(),
+            self.unwinding_bound,
+            self.max_step_bound,
+        ))
+    }
 }
 
 impl ConfigurableProgramAnalysis for UnwoundLocationCPA {
@@ -332,34 +350,24 @@ impl ConfigurableProgramAnalysis for UnwoundLocationCPA {
     }
 }
 
-impl Analysis for UnwoundLocationCPA {
-    type Input = SimpleLattice<UnwindingCpaState>;
-
-    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        // Need to get back edges first - this is a bit tricky
-        // For now, we'll create an empty back_edges set
-        // The actual back edges will be computed when running
-        SimpleLattice::Value(UnwindingCpaState::new(
-            addr,
-            BackEdges::default(),
-            self.unwinding_bound,
-            self.max_step_bound,
-        ))
-    }
-
-    // Default implementation: just returns the states
-    // To access the built unwound CFG, use .unwound_cfg or similar accessor on the analysis instance
-}
+impl Analysis for UnwoundLocationCPA {}
 
 // Helper method for custom run logic
 impl UnwoundLocationCPA {
-    pub fn run_with_back_edges<T: PcodeStore, I: Into<<Self as Analysis>::Input>>(
+    /// Run the unwinding CPA, first computing back-edges and then using those
+    /// to build the unwound CFG. The `initial_state` can be any type that
+    /// converts into the CPA `State` (for example, a `ConcretePcodeAddress` or
+    /// a `SimpleLattice<UnwindingCpaState>`).
+    pub fn run_with_back_edges<
+        T: PcodeStore,
+        I: Into<<Self as ConfigurableProgramAnalysis>::State>,
+    >(
         &mut self,
         store: T,
         initial_state: I,
     ) -> Vec<<Self as ConfigurableProgramAnalysis>::State> {
         // Get the address from the initial state
-        let init_lattice: <Self as Analysis>::Input = initial_state.into();
+        let init_lattice: <Self as ConfigurableProgramAnalysis>::State = initial_state.into();
         let addr = if let SimpleLattice::Value(ref state) = init_lattice {
             state.location()
         } else {

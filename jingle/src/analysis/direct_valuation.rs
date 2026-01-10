@@ -868,22 +868,7 @@ impl ConfigurableProgramAnalysis for DirectValuationAnalysis {
     type State = DirectValuationState;
 }
 
-impl Analysis for DirectValuationAnalysis {
-    type Input = DirectValuationState;
-
-    fn make_initial_state(&self, _addr: ConcretePcodeAddress) -> Self::Input {
-        let mut state = DirectValuationState::new(self.arch_info.clone());
-
-        // If we have an entry varnode, initialize it
-        if let Some(ref entry_vn) = self.entry_varnode {
-            state
-                .written_locations
-                .insert(entry_vn.clone(), VarnodeValue::Entry(entry_vn.clone()));
-        }
-
-        state
-    }
-}
+impl Analysis for DirectValuationAnalysis {}
 
 #[cfg(test)]
 mod tests {

@@ -31,6 +31,16 @@ impl BoundedStepsCpa {
     pub fn new_with_max_steps<T: PcodeStore>(pcode: &T, max_steps: usize) -> Self {
         Self::new(pcode, max_steps)
     }
+
+    /// Inherent constructor for the analysis initial state.
+    ///
+    /// The `Analysis` trait no longer exposes an associated `Input` or a
+    /// `make_initial_state` method. Provide an inherent helper so callers can
+    /// construct the appropriate initial `BoundedStepsState` using the analysis
+    /// instance (for access to `max_steps`).
+    pub fn make_initial_state(&self, addr: ConcretePcodeAddress) -> BoundedStepsState {
+        BoundedStepsState::new(addr.into(), self.max_steps)
+    }
 }
 
 impl ConfigurableProgramAnalysis for BoundedStepsCpa {
@@ -53,15 +63,6 @@ impl ConfigurableProgramAnalysis for BoundedStepsCpa {
     }
 }
 
-impl Analysis for BoundedStepsCpa {
-    type Input = BoundedStepsState;
-
-    fn make_initial_state(&self, addr: ConcretePcodeAddress) -> Self::Input {
-        BoundedStepsState::new(addr.into(), self.max_steps)
-    }
-
-    // Default implementation: just returns the states
-    // To access the built CFG, use .cfg() or .take_cfg() on the analysis instance
-}
+impl Analysis for BoundedStepsCpa {}
 
 pub type BoundedStepLocationAnalysis = BoundedStepsCpa;
