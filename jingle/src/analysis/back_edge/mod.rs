@@ -149,8 +149,12 @@ impl BackEdgeCPA {
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
 
-
-    fn reduce(&mut self, old_state: &Self::State, new_state: &Self::State, _op: &Option<PcodeOperation>) {
+    fn reduce(
+        &mut self,
+        old_state: &Self::State,
+        new_state: &Self::State,
+        _op: &Option<PcodeOperation>,
+    ) {
         if old_state.path_visits.contains(&new_state.location) {
             self.back_edges
                 .push((old_state.location, new_state.location))

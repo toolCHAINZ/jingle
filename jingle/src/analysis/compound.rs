@@ -12,7 +12,12 @@ pub enum StrengthenOutcome {
 }
 
 pub trait Strengthen<O: AbstractState>: AbstractState {
-    fn strengthen(&mut self, _original: &Self, _other: &O, _op: &PcodeOperation) -> StrengthenOutcome{
+    fn strengthen(
+        &mut self,
+        _original: &Self,
+        _other: &O,
+        _op: &PcodeOperation,
+    ) -> StrengthenOutcome {
         StrengthenOutcome::Unchanged
     }
 }
@@ -104,13 +109,16 @@ impl<S1: JoinSemiLattice, S2: JoinSemiLattice> JoinSemiLattice for CompoundState
     }
 }
 
-impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S2> where S1: Strengthen<S2> {
+impl<S1: AbstractState, S2: AbstractState> AbstractState for CompoundState<S1, S2>
+where
+    S1: Strengthen<S2>,
+{
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         let outcome_left = self.left.merge(&other.left);
-        if outcome_left.merged(){
+        if outcome_left.merged() {
             self.right.merge(&other.right);
             MergeOutcome::Merged
-        }else {
+        } else {
             MergeOutcome::NoOp
         }
     }
@@ -184,7 +192,10 @@ where
 
 /// Implementation of LocationState for CompoundState.
 /// The location information comes from the left component.
-impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S2> where S1: Strengthen<S2> {
+impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S2>
+where
+    S1: Strengthen<S2>,
+{
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.left.get_operation(t)
     }
@@ -209,7 +220,10 @@ where
 {
     type Input = A::Input;
 
-    fn make_initial_state(&self, addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress) -> Self::Input {
+    fn make_initial_state(
+        &self,
+        addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress,
+    ) -> Self::Input {
         self.0.make_initial_state(addr)
     }
 
@@ -222,14 +236,21 @@ where
 
 // Custom Analysis implementation for DirectLocationAnalysis + DirectValuationAnalysis
 // This is needed because the DirectValuationAnalysis needs to initialize its entry varnode
-impl crate::analysis::Analysis for (crate::analysis::direct_location::DirectLocationAnalysis, crate::analysis::direct_valuation::DirectValuationAnalysis)
+impl crate::analysis::Analysis
+    for (
+        crate::analysis::direct_location::DirectLocationAnalysis,
+        crate::analysis::direct_valuation::DirectValuationAnalysis,
+    )
 {
     type Input = CompoundState<
         crate::analysis::direct_location::DirectLocationState,
-        crate::analysis::direct_valuation::DirectValuationState
+        crate::analysis::direct_valuation::DirectValuationState,
     >;
 
-    fn make_initial_state(&self, addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress) -> Self::Input {
+    fn make_initial_state(
+        &self,
+        addr: crate::modeling::machine::cpu::concrete::ConcretePcodeAddress,
+    ) -> Self::Input {
         let location_state = self.0.make_initial_state(addr);
         let valuation_state = self.1.make_initial_state(addr);
         CompoundState::new(location_state, valuation_state)

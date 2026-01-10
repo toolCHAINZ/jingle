@@ -1,11 +1,13 @@
 #![allow(unused)]
 
-use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::analysis::direct_location::DirectLocationAnalysis;
-use jingle::analysis::direct_valuation::{DirectValuationAnalysis, DirectValuationState, VarnodeValue};
+use jingle::analysis::direct_valuation::{
+    DirectValuationAnalysis, DirectValuationState, VarnodeValue,
+};
 use jingle::analysis::pcode_store::PcodeStore;
-use jingle_sleigh::context::image::gimli::load_with_gimli;
+use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle_sleigh::VarNode;
+use jingle_sleigh::context::image::gimli::load_with_gimli;
 use std::env;
 
 const FUNC_LINE: u64 = 0x100000460;
@@ -43,14 +45,20 @@ fn main() {
     // Create a compound analysis: DirectLocationAnalysis + DirectValuationAnalysis
     // DirectValuationAnalysis will track the stack pointer as an Entry value
     let location_analysis = DirectLocationAnalysis::new(&loaded);
-    let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(loaded.arch_info().clone(), stack_pointer.clone());
+    let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(
+        loaded.arch_info().clone(),
+        stack_pointer.clone(),
+    );
 
     let mut compound_analysis = (location_analysis, valuation_analysis);
 
     tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 
     // Run the compound analysis - returns Vec of compound states
-    let compound_states = compound_analysis.run(&loaded, compound_analysis.make_initial_state(FUNC_NESTED.into()));
+    let compound_states = compound_analysis.run(
+        &loaded,
+        compound_analysis.make_initial_state(FUNC_NESTED.into()),
+    );
 
     tracing::info!("Analysis completed with {} states", compound_states.len());
 
@@ -58,14 +66,15 @@ fn main() {
     let cfg = compound_analysis.0.take_cfg();
 
     // Extract valuation information from the compound states
-    use std::collections::HashMap;
     use jingle::analysis::compound::CompoundState;
+    use std::collections::HashMap;
     let mut stack_offsets = HashMap::new();
     let mut direct_valuations = HashMap::new();
 
     for state in &compound_states {
         // Extract location from the outermost left (PcodeAddressLattice)
-        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left.inner() {
+        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left.inner()
+        {
             // state.right is DirectValuationState
             // Extract stack pointer offset if available
             if let Some(sp_value) = state.right.get_value(&stack_pointer) {
@@ -115,7 +124,8 @@ fn main() {
     for node in nodes {
         if let Some(successors) = cfg.successors(node) {
             for succ in successors {
-                let op_str = cfg.get_op_at(node)
+                let op_str = cfg
+                    .get_op_at(node)
                     .map(|o: &jingle_sleigh::PcodeOperation| format!("{}", o))
                     .unwrap_or_else(|| "no-op".to_string());
                 println!("  0x{:x} -> 0x{:x}: {}", node, succ, op_str);
@@ -149,8 +159,13 @@ fn main() {
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);
-    println!("  Total tracked varnodes across all locations: {}",
-        direct_valuations.values().map(|v: &DirectValuationState| v.written_locations().len()).sum::<usize>());
+    println!(
+        "  Total tracked varnodes across all locations: {}",
+        direct_valuations
+            .values()
+            .map(|v: &DirectValuationState| v.written_locations().len())
+            .sum::<usize>()
+    );
 
     println!("\n  DirectValuationAnalysis acts as a lightweight pcode interpreter that tracks");
     println!("  all directly-written varnodes. The stack pointer is initialized as an Entry");
@@ -158,4 +173,3 @@ fn main() {
     println!("  Offset(sp, delta) values. This replaces the need for a separate");
     println!("  StackOffsetAnalysis.");
 }
-

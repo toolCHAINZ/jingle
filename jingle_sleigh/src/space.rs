@@ -258,7 +258,13 @@ mod tests {
             create_test_space_info("ram", 2, SleighEndianness::Little),
         ];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), spaces.into_iter(), 2, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            spaces.into_iter(),
+            2,
+            vec![],
+        );
 
         let space = arch_info.get_space(1).unwrap();
         assert_eq!(space.name, "unique");
@@ -274,7 +280,13 @@ mod tests {
             create_test_space_info("ram", 1, SleighEndianness::Little),
         ];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), spaces.into_iter(), 1, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            spaces.into_iter(),
+            1,
+            vec![],
+        );
 
         let space = arch_info.get_space_by_name("ram").unwrap();
         assert_eq!(space.index, 1);
@@ -289,7 +301,13 @@ mod tests {
             create_test_space_info("ram", 1, SleighEndianness::Little),
         ];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), spaces.into_iter(), 1, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            spaces.into_iter(),
+            1,
+            vec![],
+        );
 
         let all_spaces = arch_info.spaces();
         assert_eq!(all_spaces.len(), 2);
@@ -318,7 +336,13 @@ mod tests {
             ),
         ];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), registers.into_iter(), std::iter::empty(), 1, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            registers.into_iter(),
+            std::iter::empty(),
+            1,
+            vec![],
+        );
 
         let regs: Vec<_> = arch_info.registers().collect();
         assert_eq!(regs.len(), 2);
@@ -333,7 +357,13 @@ mod tests {
         };
         let registers = vec![(rax_vn.clone(), "rax".to_string())];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), registers.into_iter(), std::iter::empty(), 1, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            registers.into_iter(),
+            std::iter::empty(),
+            1,
+            vec![],
+        );
 
         assert_eq!(arch_info.register_name(&rax_vn), Some("rax"));
 
@@ -354,7 +384,13 @@ mod tests {
         };
         let registers = vec![(rax_vn.clone(), "rax".to_string())];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), registers.into_iter(), std::iter::empty(), 1, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            registers.into_iter(),
+            std::iter::empty(),
+            1,
+            vec![],
+        );
 
         assert_eq!(arch_info.register("rax"), Some(&rax_vn));
         assert_eq!(arch_info.register("rbx"), None);
@@ -367,7 +403,13 @@ mod tests {
             create_test_space_info("unique", 1, SleighEndianness::Little),
         ];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), spaces.into_iter(), 0, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            spaces.into_iter(),
+            0,
+            vec![],
+        );
 
         let vn = arch_info.varnode("ram", 0x1000, 4).unwrap();
         assert_eq!(vn.space_index, 0);
@@ -379,7 +421,13 @@ mod tests {
 
     #[test]
     fn test_sleigh_arch_info_default_code_space_index() {
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), std::iter::empty(), 3, vec![]);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            std::iter::empty(),
+            3,
+            vec![],
+        );
 
         assert_eq!(arch_info.default_code_space_index(), 3);
     }
@@ -388,7 +436,13 @@ mod tests {
     fn test_sleigh_arch_info_userops() {
         let userops = vec!["syscall".to_string(), "cpuid".to_string()];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), std::iter::empty(), 0, userops);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            std::iter::empty(),
+            0,
+            userops,
+        );
 
         let ops: Vec<_> = arch_info.userops().collect();
         assert_eq!(ops.len(), 2);
@@ -400,7 +454,13 @@ mod tests {
     fn test_sleigh_arch_info_userop_name() {
         let userops = vec!["syscall".to_string(), "cpuid".to_string()];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), std::iter::empty(), 0, userops);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            std::iter::empty(),
+            0,
+            userops,
+        );
 
         assert_eq!(arch_info.userop_name(0), Some("syscall"));
         assert_eq!(arch_info.userop_name(1), Some("cpuid"));
@@ -411,7 +471,13 @@ mod tests {
     fn test_sleigh_arch_info_userop_index() {
         let userops = vec!["syscall".to_string(), "cpuid".to_string()];
 
-        let arch_info = SleighArchInfo::new("test:LE:64:default".to_string(), std::iter::empty(), std::iter::empty(), 0, userops);
+        let arch_info = SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            std::iter::empty(),
+            0,
+            userops,
+        );
 
         assert_eq!(arch_info.userop_index("syscall"), Some(0));
         assert_eq!(arch_info.userop_index("cpuid"), Some(1));

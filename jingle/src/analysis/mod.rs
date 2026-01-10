@@ -1,5 +1,5 @@
-use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
 use crate::analysis::cpa::state::LocationState;
+use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
@@ -63,7 +63,11 @@ where
     /// The default implementation uses the standard CPA algorithm and delegates
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
-    fn run<T: PcodeStore, I: Into<Self::Input>>(&mut self, store: T, initial_state: I) -> Vec<Self::State> {
+    fn run<T: PcodeStore, I: Into<Self::Input>>(
+        &mut self,
+        store: T,
+        initial_state: I,
+    ) -> Vec<Self::State> {
         let initial_state = initial_state.into();
         let states = self.run_cpa(initial_state.into(), &store);
         self.make_output(states)
@@ -87,7 +91,7 @@ pub trait AnalyzableBase: PcodeStore + Sized {
         mut t: T,
     ) -> Vec<T::State>
     where
-        <T as ConfigurableProgramAnalysis>::State: LocationState
+        <T as ConfigurableProgramAnalysis>::State: LocationState,
     {
         let addr = entry.into();
         let entry = t.make_initial_state(addr);
@@ -98,7 +102,7 @@ pub trait AnalyzableBase: PcodeStore + Sized {
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
     fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
     where
-        <T as ConfigurableProgramAnalysis>::State: LocationState
+        <T as ConfigurableProgramAnalysis>::State: LocationState,
     {
         let entry = t.make_initial_state(self.get_entry());
         t.run(self, entry)

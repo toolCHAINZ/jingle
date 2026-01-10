@@ -3,10 +3,10 @@ pub mod state;
 
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
+use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use jingle_sleigh::PcodeOperation;
 
 /**
 A trait representing Configurable Program Analysis, a tunable unified framework for
@@ -28,7 +28,6 @@ pub trait ConfigurableProgramAnalysis {
     /// An abstract state.
     type State: AbstractState + Debug;
 
-
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
     ///
@@ -44,7 +43,13 @@ pub trait ConfigurableProgramAnalysis {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn reduce(&mut self, _state: &Self::State, _dest_state: &Self::State, _op: &Option<PcodeOperation>) {}
+    fn reduce(
+        &mut self,
+        _state: &Self::State,
+        _dest_state: &Self::State,
+        _op: &Option<PcodeOperation>,
+    ) {
+    }
 
     /// A hook for when two abstract states are merged.
     fn merged(
@@ -87,7 +92,11 @@ where
         while let Some(state) = waitlist.pop_front() {
             iteration += 1;
             tracing::trace!("Iteration {}: Processing state {:?}", iteration, state);
-            tracing::trace!("  Waitlist size: {}, Reached size: {}", waitlist.len(), reached.len());
+            tracing::trace!(
+                "  Waitlist size: {}, Reached size: {}",
+                waitlist.len(),
+                reached.len()
+            );
 
             let op = state.get_operation(pcode_store);
             tracing::trace!("  Operation at state: {:?}", op);
@@ -126,14 +135,18 @@ where
             if new_states > 0 || merged_states > 0 || stopped_states > 0 {
                 tracing::debug!(
                     "Iteration {} summary: {} new state(s), {} merge(s), {} stopped",
-                    iteration, new_states, merged_states, stopped_states
+                    iteration,
+                    new_states,
+                    merged_states,
+                    stopped_states
                 );
             }
         }
 
         tracing::debug!(
             "CPA completed after {} iterations. Total states reached: {}",
-            iteration, reached.len()
+            iteration,
+            reached.len()
         );
 
         reached.into()
@@ -147,4 +160,3 @@ where
     T::State: LocationState,
 {
 }
-

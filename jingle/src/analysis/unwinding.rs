@@ -255,7 +255,7 @@ impl UnwoundLocationCPA {
             max_step_bound,
         }
     }
-    
+
     /// Take ownership of the built unwound CFG, replacing it with an empty one
     pub fn take_cfg(&mut self) -> PcodeCfg<UnwoundLocation, PcodeOperation> {
         let info = self.unwound_cfg.info.clone();

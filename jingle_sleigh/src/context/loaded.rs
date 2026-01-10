@@ -187,9 +187,8 @@ mod tests {
     use crate::PcodeOperation::Branch;
     use crate::VarNode;
     use crate::context::SleighContextBuilder;
-    
+
     use crate::tests::SLEIGH_ARCH;
-    
 
     #[test]
     fn test_adjust_vma() {

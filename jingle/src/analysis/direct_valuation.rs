@@ -1002,7 +1002,10 @@ mod tests {
         };
 
         let new_state = state.transfer_impl(&op);
-        assert_eq!(new_state.get_value(&output), Some(&VarnodeValue::Entry(input)));
+        assert_eq!(
+            new_state.get_value(&output),
+            Some(&VarnodeValue::Entry(input))
+        );
     }
 
     #[test]

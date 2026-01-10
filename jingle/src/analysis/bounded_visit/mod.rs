@@ -3,8 +3,8 @@ mod state;
 use crate::analysis::Analysis;
 use crate::analysis::bounded_visit::state::BoundedStepsState;
 use crate::analysis::cfg::PcodeCfg;
-use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
+use crate::analysis::cpa::lattice::flat::FlatLattice::Value;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -36,7 +36,12 @@ impl BoundedStepsCpa {
 impl ConfigurableProgramAnalysis for BoundedStepsCpa {
     type State = BoundedStepsState;
 
-    fn reduce(&mut self, state: &Self::State, dest_state: &Self::State, op: &Option<PcodeOperation>) {
+    fn reduce(
+        &mut self,
+        state: &Self::State,
+        dest_state: &Self::State,
+        op: &Option<PcodeOperation>,
+    ) {
         if let Value(state) = state.location {
             self.cfg.add_node(state);
             if let Some(op) = op {
@@ -60,4 +65,3 @@ impl Analysis for BoundedStepsCpa {
 }
 
 pub type BoundedStepLocationAnalysis = BoundedStepsCpa;
-
