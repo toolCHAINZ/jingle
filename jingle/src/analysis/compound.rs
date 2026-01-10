@@ -78,7 +78,8 @@ impl<S1, S2> CompoundState<S1, S2> {
 
 impl<S1: PartialEq, S2: PartialEq> PartialEq for CompoundState<S1, S2> {
     fn eq(&self, other: &Self) -> bool {
-        self.left == other.left && self.right == other.right
+        <S1 as PartialEq>::eq(&self.left, &other.left)
+            && <S2 as PartialEq>::eq(&self.right, &other.right)
     }
 }
 

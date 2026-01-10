@@ -1,7 +1,8 @@
-use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::lattice::{AbstractPartialOrd, JoinSemiLattice};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -32,7 +33,7 @@ impl<'a, T, I: Iterator<Item = T> + 'a> From<I> for Successor<'a, T> {
     }
 }
 
-pub trait AbstractState: JoinSemiLattice + Clone {
+pub trait AbstractState: JoinSemiLattice + Clone + AbstractPartialOrd {
     /// Determines how two abstract states should be merged. Rather than consuming states
     /// and returning a new state, we mutate the first state argument. In the context of
     /// CPA, the first state should be the state from the _reached_ list, NOT the new/merged
@@ -71,7 +72,10 @@ pub trait AbstractState: JoinSemiLattice + Clone {
 
     /// A naive implementation of `stop` which checks for state covering in a piecewise manner.
     fn stop_sep<'a, T: Iterator<Item = &'a Self>>(&'a self, mut states: T) -> bool {
-        states.any(|s| self <= s)
+        states.any(|s| match AbstractPartialOrd::partial_cmp(self, s) {
+            Some(Ordering::Less) | Some(Ordering::Equal) => true,
+            _ => false,
+        })
     }
 
     /// Given a pcode operation, returns an iterator of successor states.
