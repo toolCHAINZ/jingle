@@ -151,19 +151,6 @@ where
 
         reached.into()
     }
-
-    /// Convenience wrapper: construct an initial `State` using the CPA's `make_initial_state`
-    /// helper and then run the CPA. Accepts any input that implements `IntoState<Self>`.
-    fn run_cpa_from<I: IntoState<Self>, P: PcodeStore>(
-        &mut self,
-        initial: I,
-        pcode_store: &P,
-    ) -> Vec<Self::State> {
-        let state = initial.into_state(self);
-        // `Self::State` implements `Borrow<Self::State>` (Borrow is implemented for `T`),
-        // so we can pass the owned state to `run_cpa`.
-        self.run_cpa(state, pcode_store)
-    }
 }
 
 pub trait IntoState<C: ConfigurableProgramAnalysis>: Sized {
