@@ -1,5 +1,7 @@
 use crate::analysis::cpa::state::LocationState;
-use crate::analysis::cpa::{ConfigurableProgramAnalysis, RunnableConfigurableProgramAnalysis};
+use crate::analysis::cpa::{
+    ConfigurableProgramAnalysis, IntoState, RunnableConfigurableProgramAnalysis,
+};
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
@@ -55,7 +57,7 @@ where
     /// The default implementation uses the standard CPA algorithm and delegates
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
-    fn run<T: PcodeStore, I: Into<Self::State>>(
+    fn run<T: PcodeStore, I: IntoState<Self>>(
         &mut self,
         store: T,
         initial_state: I,
@@ -80,7 +82,7 @@ where
 }
 
 pub trait AnalyzableBase: PcodeStore + Sized {
-    fn run_analysis_at<T: RunnableAnalysis, S: Into<T::State>>(
+    fn run_analysis_at<T: RunnableAnalysis, S: IntoState<T>>(
         &self,
         entry: S,
         mut t: T,
