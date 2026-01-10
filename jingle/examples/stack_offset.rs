@@ -6,8 +6,10 @@ use jingle::analysis::direct_valuation::{
 };
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::{Analysis, RunnableAnalysis};
+use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
+use std::collections::HashMap;
 use std::env;
 
 const FUNC_LINE: u64 = 0x100000460;
@@ -56,13 +58,8 @@ fn main() {
 
     // Run the compound analysis - construct the compound initial state explicitly
     // (new Analysis API requires passing a value convertible into the CPA `State`)
-    let initial_compound_state = jingle::analysis::compound::CompoundState::new(
-        // construct left (location) initial state using the DirectLocationAnalysis inherent helper
-        compound_analysis.0.make_initial_state(FUNC_NESTED.into()),
-        // construct right (valuation) initial state directly
-        jingle::analysis::direct_valuation::DirectValuationState::new(loaded.arch_info().clone()),
-    );
-    let compound_states = compound_analysis.run(&loaded, initial_compound_state);
+
+    let compound_states = compound_analysis.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     tracing::info!("Analysis completed with {} states", compound_states.len());
 
@@ -70,21 +67,18 @@ fn main() {
     let cfg = compound_analysis.0.take_cfg();
 
     // Extract valuation information from the compound states
-    use jingle::analysis::compound::CompoundState;
-    use std::collections::HashMap;
     let mut stack_offsets = HashMap::new();
     let mut direct_valuations = HashMap::new();
 
     for state in &compound_states {
         // Extract location from the outermost left (PcodeAddressLattice)
-        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.left.inner()
-        {
+        if let jingle::analysis::cpa::lattice::flat::FlatLattice::Value(addr) = &state.0.inner() {
             // state.right is DirectValuationState
             // Extract stack pointer offset if available
-            if let Some(sp_value) = state.right.get_value(&stack_pointer) {
+            if let Some(sp_value) = state.1.get_value(&stack_pointer) {
                 stack_offsets.insert(*addr, sp_value.clone());
             }
-            direct_valuations.insert(*addr, state.right.clone());
+            direct_valuations.insert(*addr, state.1.clone());
         }
     }
 
