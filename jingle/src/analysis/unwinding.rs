@@ -1,5 +1,5 @@
 use crate::analysis::Analysis;
-use crate::analysis::back_edge::{BackEdge, BackEdgeCPA, BackEdgeState, BackEdges};
+use crate::analysis::back_edge::{BackEdge, BackEdgeCPA, BackEdges};
 use crate::analysis::cfg::{CfgState, ModeledPcodeCfg, PcodeCfg};
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::lattice::simple::SimpleLattice;

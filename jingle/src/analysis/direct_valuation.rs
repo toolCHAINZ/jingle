@@ -839,8 +839,6 @@ impl crate::analysis::compound::Strengthen<crate::analysis::unwinding::Unwinding
 /// This analysis can optionally track a specific varnode as an "entry" value (e.g., stack pointer).
 /// If provided, this varnode will be initialized with Entry(varnode) instead of Top.
 pub struct DirectValuationAnalysis {
-    /// Optional varnode to track as an entry value (e.g., stack pointer)
-    entry_varnode: Option<VarNode>,
     /// Architecture information for space type lookups
     arch_info: SleighArchInfo,
 }
@@ -848,19 +846,13 @@ pub struct DirectValuationAnalysis {
 impl DirectValuationAnalysis {
     /// Create a new DirectValuationAnalysis without any entry varnode
     pub fn new(arch_info: SleighArchInfo) -> Self {
-        Self {
-            entry_varnode: None,
-            arch_info,
-        }
+        Self { arch_info }
     }
 
     /// Create a new DirectValuationAnalysis with a specific entry varnode
     /// (e.g., stack pointer that starts at Entry value)
-    pub fn with_entry_varnode(arch_info: SleighArchInfo, entry_varnode: VarNode) -> Self {
-        Self {
-            entry_varnode: Some(entry_varnode),
-            arch_info,
-        }
+    pub fn with_entry_varnode(arch_info: SleighArchInfo, _entry_varnode: VarNode) -> Self {
+        Self { arch_info }
     }
 }
 

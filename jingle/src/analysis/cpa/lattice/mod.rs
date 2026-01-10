@@ -2,7 +2,6 @@ pub mod flat;
 pub mod pcode;
 pub mod simple;
 
-use std::cmp::Ordering;
 
 pub trait JoinSemiLattice: Eq + PartialOrd {
     fn join(&mut self, other: &Self);

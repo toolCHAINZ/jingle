@@ -1,10 +1,8 @@
-use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
-use std::cmp::Ordering;
 
 pub enum StrengthenOutcome {
     Changed,

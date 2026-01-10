@@ -72,9 +72,11 @@ pub trait AbstractState: JoinSemiLattice + Clone {
 
     /// A naive implementation of `stop` which checks for state covering in a piecewise manner.
     fn stop_sep<'a, T: Iterator<Item = &'a Self>>(&'a self, mut states: T) -> bool {
-        states.any(|s| match PartialOrd::partial_cmp(self, s) {
-            Some(Ordering::Less) | Some(Ordering::Equal) => true,
-            _ => false,
+        states.any(|s| {
+            matches!(
+                PartialOrd::partial_cmp(self, s),
+                Some(Ordering::Less) | Some(Ordering::Equal)
+            )
         })
     }
 
