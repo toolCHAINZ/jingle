@@ -26,6 +26,24 @@ pub enum UnwoundLocation {
 
 impl UnwoundLocation {}
 
+impl PartialEq<ConcretePcodeAddress> for UnwoundLocation {
+    fn eq(&self, other: &ConcretePcodeAddress) -> bool {
+        match self {
+            UnwindError(a) => a == other,
+            Location(_, a) => a == other,
+        }
+    }
+}
+
+impl PartialEq<UnwoundLocation> for ConcretePcodeAddress {
+    fn eq(&self, other: &UnwoundLocation) -> bool {
+        match other {
+            UnwindError(a) => a == self,
+            Location(_, a) => a == self,
+        }
+    }
+}
+
 impl LowerHex for UnwoundLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let tag = match self {
@@ -223,15 +241,15 @@ impl UnwoundLocation {
 impl CfgState for UnwoundLocation {
     type Model = MachineState;
 
-    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
         MachineState::fresh_for_address(i, *self.location())
     }
     fn model_id(&self) -> String {
         format!("{:x}", self.location())
     }
 
-    fn location(&self) -> ConcretePcodeAddress {
-        *self.location()
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        Some(*self.location())
     }
 }
 

@@ -15,6 +15,15 @@ impl<C> From<C> for FlatLattice<C> {
     }
 }
 
+impl<C> From<FlatLattice<C>> for Option<C> {
+    fn from(value: FlatLattice<C>) -> Self {
+        match value {
+            FlatLattice::Top => None,
+            FlatLattice::Value(a) => Some(a),
+        }
+    }
+}
+
 impl<C: Display> Display for FlatLattice<C> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {

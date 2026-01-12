@@ -53,7 +53,7 @@ fn main() {
         },
     ));
     let state = pcode_graph
-        .nodes_for_location(FUNC_NESTED.into())
+        .nodes_for_location(ConcretePcodeAddress::from(FUNC_NESTED))
         .next()
         .unwrap();
     let check = pcode_graph.check_model(state, ctl_model);

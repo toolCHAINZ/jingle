@@ -172,8 +172,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.ops.values()
     }
 
-    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
-        self.nodes().filter(move |a| a.location() == location)
+    pub fn nodes_for_location<S: PartialEq<N>>(&self, location: S) -> impl Iterator<Item = &N> {
+        self.nodes().filter(move |a| location == **a)
     }
 
     /// Create a `ModeledPcodeCfg` by generating SMT models for all nodes in the CFG.
@@ -315,7 +315,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
     pub fn new(cfg: PcodeCfg<N, D>) -> Self {
         let mut models = HashMap::new();
         for node in cfg.nodes() {
-            let model = node.fresh_model(&cfg.info);
+            let model = node.new_const(&cfg.info);
             models.insert(node.clone(), model);
         }
         Self { cfg, models }
@@ -346,7 +346,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
         self.cfg.edge_weights()
     }
 
-    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
+    pub fn nodes_for_location<S: PartialEq<N>>(&self, location: S) -> impl Iterator<Item = &N> {
         self.cfg.nodes_for_location(location)
     }
 }

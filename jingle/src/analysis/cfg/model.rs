@@ -1,4 +1,5 @@
 use crate::JingleError;
+use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -47,13 +48,13 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
     type Model: CfgStateModel;
 
     /// Produces a model
-    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model;
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model;
 
     /// Prefix used when producing SMT models of this state with `fresh`
     fn model_id(&self) -> String;
 
-    /// Each CFG state is associated with a concrete p-code address
-    fn location(&self) -> ConcretePcodeAddress;
+    /// Each CFG state is optionally associated with a concrete p-code address
+    fn location(&self) -> Option<ConcretePcodeAddress>;
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -67,7 +68,7 @@ pub trait ModelTransition<S: CfgStateModel>: Clone + Debug {
 impl CfgState for ConcretePcodeAddress {
     type Model = MachineState;
 
-    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
         MachineState::fresh_for_address(i, *self)
     }
 
@@ -75,8 +76,30 @@ impl CfgState for ConcretePcodeAddress {
         format!("State_PC_{:x}_{:x}", self.machine, self.pcode)
     }
 
-    fn location(&self) -> ConcretePcodeAddress {
-        *self
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        Some(*self)
+    }
+}
+
+impl CfgState for FlatLattice<ConcretePcodeAddress> {
+    type Model = MachineState;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        match self {
+            FlatLattice::Value(addr) => MachineState::fresh_for_address(i, addr),
+            FlatLattice::Top => MachineState::fresh(i),
+        }
+    }
+
+    fn model_id(&self) -> String {
+        match self {
+            FlatLattice::Value(a) => a.model_id(),
+            FlatLattice::Top => "State_Top_".to_string(),
+        }
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        Option::from(*self)
     }
 }
 

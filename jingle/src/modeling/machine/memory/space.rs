@@ -4,8 +4,8 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::borrow::Borrow;
 use std::ops::Add;
-use z3::Sort;
 use z3::ast::{Array, Ast, BV, Bool};
+use z3::Sort;
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -25,12 +25,29 @@ pub struct BMCModeledSpace {
 
 impl BMCModeledSpace {
     /// Create a new modeling space with the given z3 context, using the provided space metadata
-    pub fn new(space_info: &SpaceInfo) -> Self {
+    pub fn fresh_const(space_info: &SpaceInfo) -> Self {
         let domain = Sort::bitvector(space_info.index_size_bytes * 8);
         let range = Sort::bitvector(space_info.word_size_bytes * 8);
         Self {
             endianness: space_info.endianness,
             data: Array::fresh_const(&space_info.name, &domain, &range),
+            word_size_bytes: space_info.word_size_bytes,
+            index_size_bytes: space_info.index_size_bytes,
+            _type: space_info._type,
+        }
+    }
+
+    /// Create a new modeling space with the given z3 context, using the provided space metadata
+    pub fn new_const<T: AsRef<str>>(name: T, space_info: &SpaceInfo) -> Self {
+        let domain = Sort::bitvector(space_info.index_size_bytes * 8);
+        let range = Sort::bitvector(space_info.word_size_bytes * 8);
+        Self {
+            endianness: space_info.endianness,
+            data: Array::new_const(
+                format!("{}_{}", name.as_ref(), &space_info.name),
+                &domain,
+                &range,
+            ),
             word_size_bytes: space_info.word_size_bytes,
             index_size_bytes: space_info.index_size_bytes,
             _type: space_info._type,
@@ -160,7 +177,7 @@ mod tests {
             index: 0,
             _type: SpaceType::IPTR_PROCESSOR,
         };
-        BMCModeledSpace::new(&space_info)
+        BMCModeledSpace::fresh_const(&space_info)
     }
 
     fn test_endian_write(e: SleighEndianness) {
