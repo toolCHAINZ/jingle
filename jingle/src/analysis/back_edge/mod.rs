@@ -173,7 +173,7 @@ impl BackEdgeCPA {
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
 
-    fn reduce(
+    fn residue(
         &mut self,
         old_state: &Self::State,
         new_state: &Self::State,

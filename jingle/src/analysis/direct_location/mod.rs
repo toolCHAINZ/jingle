@@ -1,5 +1,5 @@
 use crate::analysis::Analysis;
-use crate::analysis::cfg::PcodeCfg;
+use crate::analysis::cfg::{CfgState, PcodeCfg};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
@@ -206,7 +206,7 @@ impl DirectLocationAnalysis {
 impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
     type State = DirectLocationState;
 
-    fn reduce(
+    fn residue(
         &mut self,
         state: &Self::State,
         dest_state: &Self::State,
@@ -221,6 +221,11 @@ impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
             }
         }
     }
+}
+
+struct CfgReducer<N: CfgState, O, A: ConfigurableProgramAnalysis<State = N>> {
+    cfg: PcodeCfg<N, O>,
+    t: A,
 }
 
 impl Analysis for DirectLocationAnalysis {}

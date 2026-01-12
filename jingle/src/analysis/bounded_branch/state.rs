@@ -50,7 +50,7 @@ impl AbstractState for BoundedBranchState {
         if self.branch_count == self.max_count {
             empty().into()
         } else {
-            let cur = if opcode.branch_destination().is_some() {
+            let _cur = if opcode.branch_destination().is_some() {
                 self.branch_count + 1
             } else {
                 self.branch_count

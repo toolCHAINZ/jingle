@@ -1,7 +1,4 @@
-use crate::analysis::ctl::CtlFormula;
 use crate::analysis::pcode_store::PcodeStore;
-use crate::analysis::unwinding::UnwoundLocation;
-use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
@@ -14,7 +11,6 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Formatter, LowerHex};
 use std::rc::Rc;
-use z3::ast::Bool;
 
 mod model;
 
@@ -348,20 +344,5 @@ impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
 
     pub fn nodes_for_location<S: PartialEq<N>>(&self, location: S) -> impl Iterator<Item = &N> {
         self.cfg.nodes_for_location(location)
-    }
-}
-
-impl<D: ModelTransition<MachineState>> ModeledPcodeCfg<UnwoundLocation, D> {
-    pub fn check_model(
-        &self,
-        location: &UnwoundLocation,
-        ctl_model: CtlFormula<UnwoundLocation, D>,
-    ) -> Bool {
-        let mut visitor = PcodeCfgVisitor {
-            location: location.clone(),
-            cfg: self,
-            visited_locations: Rc::new(RefCell::new(HashSet::new())),
-        };
-        ctl_model.check(&mut visitor)
     }
 }

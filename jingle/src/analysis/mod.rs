@@ -12,12 +12,12 @@ pub mod cpa;
 pub mod direct_location;
 // mod location;
 mod bmc;
-pub mod bounded_visit;
+pub mod bounded_branch;
 pub mod ctl;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
-pub mod unwinding;
+// pub mod unwinding;
 pub mod varnode;
 // pub mod stack_offset;
 pub mod compound;

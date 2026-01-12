@@ -115,14 +115,14 @@ where
 {
     type State = (A::State, B::State);
 
-    fn reduce(
+    fn residue(
         &mut self,
         state: &Self::State,
         dest_state: &Self::State,
         op: &Option<PcodeOperation>,
     ) {
-        self.0.reduce(&state.0, &dest_state.0, op);
-        self.1.reduce(&state.1, &dest_state.1, op);
+        self.0.residue(&state.0, &dest_state.0, op);
+        self.1.residue(&state.1, &dest_state.1, op);
     }
 
     fn merged(

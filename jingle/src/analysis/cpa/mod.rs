@@ -1,8 +1,10 @@
 pub mod lattice;
 pub mod state;
 
+use crate::analysis::RunnableAnalysis;
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
+use crate::modeling::State;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -43,7 +45,7 @@ pub trait ConfigurableProgramAnalysis: Sized {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn reduce(
+    fn residue(
         &mut self,
         _state: &Self::State,
         _dest_state: &Self::State,
@@ -59,6 +61,47 @@ pub trait ConfigurableProgramAnalysis: Sized {
         _merged_state: &Self::State,
         _op: &Option<PcodeOperation>,
     ) {
+    }
+
+    fn map<F: Fn(&Self::State) -> R + 'static, R: AbstractState>(
+        self,
+        f: F,
+    ) -> impl ConfigurableProgramAnalysis<State = R> {
+        AnalysisMap {
+            mapper: Box::new(f),
+            t: self,
+        }
+    }
+}
+
+struct AnalysisMap<A, R, T> {
+    mapper: Box<dyn Fn(&T) -> R>,
+    t: A,
+}
+
+impl<A: ConfigurableProgramAnalysis<State = T>, R: AbstractState, T> ConfigurableProgramAnalysis
+    for AnalysisMap<A, R, T>
+{
+    type State = R;
+}
+
+impl<A: ConfigurableProgramAnalysis<State = T>, R: AbstractState, T>
+    RunnableConfigurableProgramAnalysis for AnalysisMap<A, R, T>
+where
+    T: RunnableAnalysis,
+    Self::State: LocationState,
+    A: RunnableConfigurableProgramAnalysis,
+{
+    fn run_cpa<I: Borrow<Self::State>, P: PcodeStore>(
+        &mut self,
+        initial: I,
+        pcode_store: &P,
+    ) -> Vec<Self::State> {
+        self.t
+            .run_cpa(initial, pcode_store)
+            .iter()
+            .map(self.mapper)
+            .collect()
     }
 }
 
@@ -107,7 +150,7 @@ where
 
             for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
                 tracing::trace!("    Transfer produced dest_state: {:?}", dest_state);
-                self.reduce(&state, &dest_state, &op);
+                self.residue(&state, &dest_state, &op);
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
