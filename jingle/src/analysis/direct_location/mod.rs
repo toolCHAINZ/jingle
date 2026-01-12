@@ -31,7 +31,14 @@ pub struct DirectLocationState {
 }
 
 impl DirectLocationState {
-    pub fn new(addr: ConcretePcodeAddress, call_behavior: CallBehavior) -> Self {
+    pub fn new(addr: FlatLattice<ConcretePcodeAddress>, call_behavior: CallBehavior) -> Self {
+        Self {
+            inner: addr,
+            call_behavior,
+        }
+    }
+
+    pub fn location(addr: ConcretePcodeAddress, call_behavior: CallBehavior) -> Self {
         Self {
             inner: PcodeAddressLattice::Value(addr),
             call_behavior,
@@ -103,15 +110,19 @@ impl AbstractState for DirectLocationState {
                     // Follow the call like a branch
                     if let PcodeAddressLattice::Value(_addr) = &self.inner {
                         let call_target = ConcretePcodeAddress::from(dest.offset);
-                        return once(DirectLocationState::new(call_target, self.call_behavior))
-                            .into();
+                        return once(DirectLocationState::location(
+                            call_target,
+                            self.call_behavior,
+                        ))
+                        .into();
                     }
                 }
                 CallBehavior::StepOver => {
                     // Fall through to next instruction
                     if let PcodeAddressLattice::Value(addr) = &self.inner {
                         let next = addr.next_pcode();
-                        return once(DirectLocationState::new(next, self.call_behavior)).into();
+                        return once(DirectLocationState::location(next, self.call_behavior))
+                            .into();
                     }
                 }
                 CallBehavior::Terminate => {
@@ -122,20 +133,22 @@ impl AbstractState for DirectLocationState {
         }
 
         // Default behavior: delegate to inner state and wrap results
-        match &self.inner {
-            PcodeAddressLattice::Value(addr) => addr
-                .transfer(op)
-                .into_iter()
-                .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
-                .into(),
-            PcodeAddressLattice::Top => once(DirectLocationState::top(self.call_behavior)).into(),
-        }
+        return self
+            .inner
+            .transfer(op)
+            .into_iter()
+            .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
+            .into();
     }
 }
 
 impl LocationState for DirectLocationState {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.inner.get_operation(t)
+    }
+
+    fn get_location(&self) -> Option<ConcretePcodeAddress> {
+        self.inner.value().cloned()
     }
 }
 
@@ -186,7 +199,7 @@ impl DirectLocationAnalysis {
     /// construct the appropriate initial `DirectLocationState` using the analysis
     /// instance (for access to `call_behavior`).
     pub fn make_initial_state(&self, addr: ConcretePcodeAddress) -> DirectLocationState {
-        DirectLocationState::new(addr, self.call_behavior)
+        DirectLocationState::location(addr, self.call_behavior)
     }
 }
 
@@ -228,7 +241,7 @@ mod tests {
     #[test]
     fn test_call_behavior_branch() {
         let state =
-            DirectLocationState::new(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
+            DirectLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
 
         let call_op = PcodeOperation::Call {
             dest: VarNode {
@@ -250,8 +263,10 @@ mod tests {
 
     #[test]
     fn test_call_behavior_step_over() {
-        let state =
-            DirectLocationState::new(ConcretePcodeAddress::from(0x1000), CallBehavior::StepOver);
+        let state = DirectLocationState::location(
+            ConcretePcodeAddress::from(0x1000),
+            CallBehavior::StepOver,
+        );
 
         let call_op = PcodeOperation::Call {
             dest: VarNode {
@@ -272,8 +287,10 @@ mod tests {
 
     #[test]
     fn test_call_behavior_terminate() {
-        let state =
-            DirectLocationState::new(ConcretePcodeAddress::from(0x1000), CallBehavior::Terminate);
+        let state = DirectLocationState::location(
+            ConcretePcodeAddress::from(0x1000),
+            CallBehavior::Terminate,
+        );
 
         let call_op = PcodeOperation::Call {
             dest: VarNode {

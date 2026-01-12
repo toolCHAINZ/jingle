@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use jingle::analysis::Analysis;
-use jingle::analysis::bounded_visit::BoundedStepLocationAnalysis;
+use jingle::analysis::bounded_visit::BoundedBranchAnalysis;
 use jingle::analysis::cfg::PcodeCfgVisitor;
 use jingle::analysis::ctl::*;
 use jingle::analysis::unwinding::{UnwindingAnalysis, UnwoundLocation};

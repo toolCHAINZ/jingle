@@ -819,19 +819,6 @@ impl
     crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
     for DirectValuationState
 {
-    fn strengthen(
-        &mut self,
-        _original: &Self,
-        _: &crate::analysis::cpa::lattice::pcode::PcodeAddressLattice,
-        _op: &PcodeOperation,
-    ) -> crate::analysis::compound::StrengthenOutcome {
-        crate::analysis::compound::StrengthenOutcome::Unchanged
-    }
-}
-
-impl crate::analysis::compound::Strengthen<crate::analysis::unwinding::UnwindingCpaState>
-    for DirectValuationState
-{
 }
 
 /// The Direct Valuation CPA

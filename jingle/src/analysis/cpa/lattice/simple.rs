@@ -87,4 +87,10 @@ impl<S: LocationState + AbstractState + PartialJoinSemiLattice> LocationState fo
             SimpleLattice::Top => None,
         }
     }
+
+    fn get_location(
+        &self,
+    ) -> Option<crate::modeling::machine::cpu::concrete::ConcretePcodeAddress> {
+        self.value().and_then(|c| c.get_location())
+    }
 }

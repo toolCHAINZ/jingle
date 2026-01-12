@@ -124,6 +124,10 @@ impl LocationState for BackEdgeState {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.location.get_operation(t)
     }
+
+    fn get_location(&self) -> Option<ConcretePcodeAddress> {
+        self.location.value().cloned()
+    }
 }
 
 pub struct BackEdgeCPA {

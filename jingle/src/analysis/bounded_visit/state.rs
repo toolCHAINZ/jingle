@@ -1,74 +1,44 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
-use crate::analysis::pcode_store::PcodeStore;
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
-use std::cmp::Ordering;
-use std::iter::empty;
+use std::cmp::{Ordering, Reverse};
+use std::iter::{empty, once};
 
-#[derive(Eq, Clone, Debug)]
-pub struct BoundedStepsState {
-    pub location: PcodeAddressLattice,
+/// A simple analysis counting the number of branches on a path,
+/// terminating when it hits the max
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct BoundedBranchState {
     pub branch_count: usize,
     max_count: usize,
 }
 
-impl BoundedStepsState {
-    pub fn new(location: PcodeAddressLattice, max_count: usize) -> Self {
+impl BoundedBranchState {
+    pub fn new(max_count: usize) -> Self {
         Self {
-            location,
             max_count,
             branch_count: 0,
         }
     }
 }
 
-impl From<ConcretePcodeAddress> for BoundedStepsState {
-    fn from(addr: ConcretePcodeAddress) -> Self {
-        // Default max_count - this is a problem since we need max_count from somewhere
-        // For now, use a large default
-        Self::new(PcodeAddressLattice::Value(addr), 1000)
-    }
-}
-
-impl PartialEq<Self> for BoundedStepsState {
-    fn eq(&self, other: &Self) -> bool {
-        self.location == other.location && self.branch_count == other.branch_count
-    }
-}
-
-impl PartialOrd for BoundedStepsState {
+impl PartialOrd for BoundedBranchState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.location.partial_cmp(&other.location) {
-            Some(Ordering::Equal) => other.branch_count.partial_cmp(&self.branch_count),
-            Some(o) => {
-                if other.branch_count.cmp(&self.branch_count) == o {
-                    Some(o)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
+        // reversing the order here because we are measuring the minimum steps to get
+        // somewhere: a lower number is shorter, so it is _greater_ in the lattice
+        Reverse(self.branch_count).partial_cmp(&Reverse(other.branch_count))
     }
 }
 
-impl JoinSemiLattice for BoundedStepsState {
+impl JoinSemiLattice for BoundedBranchState {
     fn join(&mut self, other: &Self) {
         self.branch_count = self.branch_count.min(other.branch_count);
-        self.location.join(&other.location);
     }
 }
 
-impl AbstractState for BoundedStepsState {
+impl AbstractState for BoundedBranchState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        if self.location == other.location {
-            self.merge_join(other)
-        } else {
-            self.merge_sep(other)
-        }
+        self.merge_join(other)
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
@@ -86,21 +56,12 @@ impl AbstractState for BoundedStepsState {
                 self.branch_count
             };
             let max_count = self.max_count;
-            self.location
-                .transfer(opcode)
-                .into_iter()
-                .map(move |location| Self {
-                    location,
-                    branch_count: cur,
-                    max_count,
-                })
-                .into()
+            let branch_count = self.branch_count;
+            once(Self {
+                max_count,
+                branch_count,
+            })
+            .into()
         }
-    }
-}
-
-impl LocationState for BoundedStepsState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
-        self.location.get_operation(t)
     }
 }

@@ -4,8 +4,8 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::borrow::Borrow;
 use std::ops::Add;
-use z3::ast::{Array, Ast, BV, Bool};
 use z3::Sort;
+use z3::ast::{Array, Ast, BV, Bool};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.

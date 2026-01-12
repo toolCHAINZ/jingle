@@ -1,8 +1,10 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::pcode_store::PcodeStore;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::fmt::Debug;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -33,7 +35,7 @@ impl<'a, T, I: Iterator<Item = T> + 'a> From<I> for Successor<'a, T> {
     }
 }
 
-pub trait AbstractState: JoinSemiLattice + Clone {
+pub trait AbstractState: JoinSemiLattice + Clone + Debug {
     /// Determines how two abstract states should be merged. Rather than consuming states
     /// and returning a new state, we mutate the first state argument. In the context of
     /// CPA, the first state should be the state from the _reached_ list, NOT the new/merged
@@ -89,4 +91,6 @@ pub trait AbstractState: JoinSemiLattice + Clone {
 
 pub trait LocationState: AbstractState {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation>;
+
+    fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }

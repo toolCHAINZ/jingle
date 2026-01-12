@@ -1,6 +1,7 @@
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 
@@ -12,7 +13,7 @@ pub enum StrengthenOutcome {
 pub trait Strengthen<O: AbstractState>: AbstractState {
     fn strengthen(
         &mut self,
-        _original: &Self,
+        _original: &(Self, O),
         _other: &O,
         _op: &PcodeOperation,
     ) -> StrengthenOutcome {
@@ -97,7 +98,7 @@ where
         for left in successors_left {
             for right in &successors_right {
                 let mut new_left = left.clone();
-                new_left.strengthen(&left, right, opcode_ref);
+                new_left.strengthen(&self, right, opcode_ref);
                 result.push((new_left, right.clone()));
             }
         }
@@ -160,6 +161,10 @@ where
 {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.0.get_operation(t)
+    }
+
+    fn get_location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.get_location()
     }
 }
 
