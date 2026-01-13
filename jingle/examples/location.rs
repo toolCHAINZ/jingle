@@ -9,6 +9,7 @@ use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
 use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
+use petgraph::dot::Dot;
 use std::env;
 
 const FUNC_LINE: u64 = 0x100000460;
@@ -24,11 +25,8 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = (
-        DirectLocationAnalysis::new(CallBehavior::Branch),
-        BoundedBranchAnalysis::new(20),
-    )
-        .with_residue(CfgReducer::new());
+    let mut direct =
+        DirectLocationAnalysis::new(CallBehavior::Branch).with_residue(CfgReducer::new());
     // Run the analysis. For a `ResidueWrapper` with `CfgReducer`, `run` returns
     // the built `PcodeCfg` as the reducer output, so capture it here.
     let pcode_graph = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
@@ -37,15 +35,16 @@ fn main() {
         // `node` is a tuple like `(DirectLocationState, BoundedBranchState)`.
         // Call `get_location` on the first element (the location-carrying component)
         // to avoid requiring trait-method resolution on the tuple itself.
-        match node.0.get_location() {
-            Some(a) => println!("{:?}", a),
+        match node.get_location() {
+            Some(a) => println!("{:x}", a),
             None => println!("(no location)"),
         }
     }
+    std::fs::write("out.dot", format!("{:x?}", Dot::new(pcode_graph.graph())));
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
     for node in leaf {
-        match node.0.get_location() {
-            Some(a) => println!("leaf: {:?}", a),
+        match node.get_location() {
+            Some(a) => println!("leaf: {:x}", a),
             None => println!("leaf: (no location)"),
         }
     }

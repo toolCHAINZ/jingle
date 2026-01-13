@@ -262,7 +262,7 @@ impl UnwoundLocationCPA {
                 }
             }
         }
-        self.make_output(states)
+        states
     }
 }
 

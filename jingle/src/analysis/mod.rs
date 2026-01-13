@@ -36,13 +36,7 @@ pub mod direct_valuation;
 ///
 /// This trait can be implemented by types that may or may not be runnable. For runnable analyses,
 /// see [`RunnableAnalysis`].
-pub trait Analysis: ConfigurableProgramAnalysis {
-    /// Process the states and return them (or a filtered/transformed version).
-    /// The default implementation just returns the states as-is.
-    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
-        states
-    }
-}
+pub trait Analysis: ConfigurableProgramAnalysis {}
 
 /// A trait for analyses that can be run. This is automatically implemented for all
 /// [`Analysis`] types whose CPA state implements [`LocationState`].

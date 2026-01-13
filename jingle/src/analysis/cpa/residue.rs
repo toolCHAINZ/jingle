@@ -87,9 +87,6 @@ where
     R: Residue<A::State>,
     A::State: crate::analysis::cpa::state::LocationState,
 {
-    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
-        self.a.make_output(states)
-    }
 }
 
 /// Delegate `IntoState` for the wrapper so callers can pass the same initial
