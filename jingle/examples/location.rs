@@ -1,6 +1,9 @@
 #![allow(unused)]
 
 use jingle::analysis::bounded_branch::BoundedBranchAnalysis;
+use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
+use jingle::analysis::cpa::reducer::CfgReducer;
+use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
 use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -23,7 +26,8 @@ fn main() {
     let mut direct = (
         DirectLocationAnalysis::new(CallBehavior::Branch),
         BoundedBranchAnalysis::new(20),
-    );
+    )
+        .with_residue(CfgReducer::new());
     let _states = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
     for addr in addrs {

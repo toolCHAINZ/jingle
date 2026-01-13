@@ -8,7 +8,7 @@ use std::iter::{empty, once};
 
 /// A simple analysis counting the number of branches on a path,
 /// terminating when it hits the max
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct BoundedBranchState {
     pub branch_count: usize,
     max_count: usize,

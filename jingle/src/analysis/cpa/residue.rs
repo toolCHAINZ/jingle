@@ -55,7 +55,7 @@ pub struct ResidueWrapper<A: ConfigurableProgramAnalysis, R: Residue<A::State>> 
 }
 
 impl<A: ConfigurableProgramAnalysis, R: Residue<A::State>> ResidueWrapper<A, R> {
-    pub fn wrap(a: A) -> Self {
+    pub fn wrap(a: A, _r: R) -> Self {
         Self {
             a,
             _phantom: Default::default(),

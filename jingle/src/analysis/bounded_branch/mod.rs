@@ -1,8 +1,7 @@
-mod state;
+pub mod state;
 
 use crate::analysis::Analysis;
 use crate::analysis::bounded_branch::state::BoundedBranchState;
-use crate::analysis::cpa::reducer::CfgReducer;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;

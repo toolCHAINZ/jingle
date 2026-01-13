@@ -118,3 +118,66 @@ impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
         Ok(state)
     }
 }
+
+/// Implement `CfgState` for a couple of tuple arities where the first element
+/// implements `CfgState`. These implementations delegate model creation and
+/// location-related methods to the first (0th) element of the tuple.
+///
+/// We provide implementations for 2-, 3- and 4-tuples to cover common cases.
+/// Variadic tuples are not supported in stable Rust, so add more arities if
+/// needed.
+impl<A: CfgState, B: Clone + Debug + Hash + Eq> CfgState for (A, B) {
+    type Model = A::Model;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        self.0.new_const(i)
+    }
+
+    fn model_id(&self) -> String {
+        self.0.model_id()
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.location()
+    }
+}
+
+impl<A: CfgState, B: Clone + Debug + Hash + Eq, C: Clone + Debug + Hash + Eq> CfgState
+    for (A, B, C)
+{
+    type Model = A::Model;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        self.0.new_const(i)
+    }
+
+    fn model_id(&self) -> String {
+        self.0.model_id()
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.location()
+    }
+}
+
+impl<
+    A: CfgState,
+    B: Clone + Debug + Hash + Eq,
+    C: Clone + Debug + Hash + Eq,
+    D: Clone + Debug + Hash + Eq,
+> CfgState for (A, B, C, D)
+{
+    type Model = A::Model;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        self.0.new_const(i)
+    }
+
+    fn model_id(&self) -> String {
+        self.0.model_id()
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.location()
+    }
+}

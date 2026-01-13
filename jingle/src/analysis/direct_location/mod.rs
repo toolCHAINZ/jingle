@@ -1,5 +1,7 @@
 use crate::analysis::Analysis;
+use crate::analysis::bounded_branch::state::BoundedBranchState;
 use crate::analysis::cfg::{CfgState, PcodeCfg};
+use crate::analysis::compound::{Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
@@ -159,6 +161,19 @@ impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::Di
 {
 }
 
+impl Strengthen<BoundedBranchState> for DirectLocationState {
+    fn strengthen(
+        &mut self,
+        _original: &(Self, BoundedBranchState),
+        _other: &BoundedBranchState,
+        _op: &PcodeOperation,
+    ) -> StrengthenOutcome {
+        // DirectLocationState does not gain any additional information from the
+        // BoundedBranchState, so leave it unchanged.
+        StrengthenOutcome::Unchanged
+    }
+}
+
 pub struct DirectLocationAnalysis {
     call_behavior: CallBehavior,
 }
@@ -204,6 +219,14 @@ impl Analysis for DirectLocationAnalysis {}
 impl
     crate::analysis::compound::CompoundAnalysis<
         crate::analysis::direct_valuation::DirectValuationAnalysis,
+    > for DirectLocationAnalysis
+{
+}
+
+// Enable compound analysis: DirectLocationAnalysis can be strengthened by BoundedBranchAnalysis
+impl
+    crate::analysis::compound::CompoundAnalysis<
+        crate::analysis::bounded_branch::BoundedBranchAnalysis,
     > for DirectLocationAnalysis
 {
 }

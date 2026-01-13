@@ -159,7 +159,7 @@ where
     }
 
     fn with_residue<R: Residue<Self::State>>(self, r: R) -> ResidueWrapper<Self, R> {
-        ResidueWrapper::wrap(self)
+        ResidueWrapper::wrap(self, r)
     }
 }
 
