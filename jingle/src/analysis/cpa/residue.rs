@@ -70,3 +70,44 @@ impl<A: ConfigurableProgramAnalysis, R: Residue<A::State>> ConfigurableProgramAn
 
     type Reducer = R;
 }
+
+/// Delegate `Analysis` to the wrapped analysis so that `ResidueWrapper` can be
+/// used anywhere an `Analysis` is expected (notably to call `run` / `run_cpa`).
+/// We forward `make_output` to the wrapped analysis implementation.
+///
+/// Constraints:
+/// - `A` must itself implement `Analysis` and be runnable (i.e. implement
+///   `RunnableConfigurableProgramAnalysis`).
+/// - The wrapped state's `A::State` must implement `LocationState` so that the
+///   blanket `RunnableConfigurableProgramAnalysis` impl applies to
+///   `ResidueWrapper` as well.
+impl<A, R> crate::analysis::Analysis for ResidueWrapper<A, R>
+where
+    A: crate::analysis::Analysis + crate::analysis::cpa::RunnableConfigurableProgramAnalysis,
+    R: Residue<A::State>,
+    A::State: crate::analysis::cpa::state::LocationState,
+{
+    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
+        self.a.make_output(states)
+    }
+}
+
+/// Delegate `IntoState` for the wrapper so callers can pass the same initial
+/// input they would for the inner analysis when invoking `run` on the wrapper.
+///
+/// This implementation forwards construction of the initial state to the inner
+/// analysis instance stored in the `ResidueWrapper`.
+impl<T, A, R> crate::analysis::cpa::IntoState<ResidueWrapper<A, R>> for T
+where
+    A: crate::analysis::cpa::ConfigurableProgramAnalysis,
+    R: Residue<A::State>,
+    T: crate::analysis::cpa::IntoState<A> + Clone,
+{
+    fn into_state(
+        self,
+        c: &ResidueWrapper<A, R>,
+    ) -> <ResidueWrapper<A, R> as crate::analysis::cpa::ConfigurableProgramAnalysis>::State {
+        // Delegate to the inner analysis `A`
+        self.into_state(&c.a)
+    }
+}

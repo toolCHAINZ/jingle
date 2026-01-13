@@ -4,6 +4,7 @@ use jingle::analysis::bounded_branch::BoundedBranchAnalysis;
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
+use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
 use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -28,11 +29,24 @@ fn main() {
         BoundedBranchAnalysis::new(20),
     )
         .with_residue(CfgReducer::new());
-    let _states = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
+    // Run the analysis. For a `ResidueWrapper` with `CfgReducer`, `run` returns
+    // the built `PcodeCfg` as the reducer output, so capture it here.
+    let pcode_graph = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
     let addrs = pcode_graph.nodes().collect::<Vec<_>>();
-    for addr in addrs {
-        println!("{:x}", addr);
+    for node in addrs {
+        // `node` is a tuple like `(DirectLocationState, BoundedBranchState)`.
+        // Call `get_location` on the first element (the location-carrying component)
+        // to avoid requiring trait-method resolution on the tuple itself.
+        match node.0.get_location() {
+            Some(a) => println!("{:?}", a),
+            None => println!("(no location)"),
+        }
     }
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
-    println!("{:x?}", leaf);
+    for node in leaf {
+        match node.0.get_location() {
+            Some(a) => println!("leaf: {:?}", a),
+            None => println!("leaf: (no location)"),
+        }
+    }
 }
