@@ -3,9 +3,11 @@ use crate::analysis::cfg::{CfgState, PcodeCfg};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::reducer::CfgReducer;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
+use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -158,20 +160,10 @@ impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::Di
 }
 
 pub struct DirectLocationAnalysis {
-    cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation>,
     call_behavior: CallBehavior,
 }
 
 impl DirectLocationAnalysis {
-    pub fn cfg(&self) -> &PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
-        &self.cfg
-    }
-
-    pub fn take_cfg(&mut self) -> PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
-        let info = self.cfg.info.clone();
-        std::mem::replace(&mut self.cfg, PcodeCfg::new(info))
-    }
-
     pub fn call_behavior(&self) -> CallBehavior {
         self.call_behavior
     }
@@ -180,52 +172,30 @@ impl DirectLocationAnalysis {
         self.call_behavior = behavior;
     }
 
-    pub fn new<T: PcodeStore>(pcode: &T) -> Self {
-        Self::with_call_behavior(pcode, CallBehavior::StepOver)
+    pub fn new(call_behavior: CallBehavior) -> Self {
+        Self { call_behavior }
+    }
+}
+
+impl CfgState for DirectLocationState {
+    type Model = MachineState;
+
+    fn new_const(&self, i: &jingle_sleigh::SleighArchInfo) -> Self::Model {
+        self.inner.new_const(i)
     }
 
-    pub fn with_call_behavior<T: PcodeStore>(pcode: &T, call_behavior: CallBehavior) -> Self {
-        let info = pcode.info();
-        Self {
-            cfg: PcodeCfg::new(info),
-            call_behavior,
-        }
+    fn model_id(&self) -> String {
+        self.inner.model_id()
     }
 
-    /// Inherent constructor for the analysis initial state.
-    ///
-    /// The `Analysis` trait no longer provides an associated `Input` or
-    /// `make_initial_state` method. Provide an inherent helper so callers can
-    /// construct the appropriate initial `DirectLocationState` using the analysis
-    /// instance (for access to `call_behavior`).
-    pub fn make_initial_state(&self, addr: ConcretePcodeAddress) -> DirectLocationState {
-        DirectLocationState::location(addr, self.call_behavior)
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.inner.location()
     }
 }
 
 impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
     type State = DirectLocationState;
-
-    fn residue(
-        &mut self,
-        state: &Self::State,
-        dest_state: &Self::State,
-        op: &Option<PcodeOperation>,
-    ) {
-        if let PcodeAddressLattice::Value(state_addr) = &state.inner {
-            self.cfg.add_node(state_addr);
-            if let Some(op) = op {
-                if let PcodeAddressLattice::Value(dest_addr) = &dest_state.inner {
-                    self.cfg.add_edge(state_addr, dest_addr, op.clone());
-                }
-            }
-        }
-    }
-}
-
-struct CfgReducer<N: CfgState, O, A: ConfigurableProgramAnalysis<State = N>> {
-    cfg: PcodeCfg<N, O>,
-    t: A,
+    type Reducer = CfgReducer<Self::State>;
 }
 
 impl Analysis for DirectLocationAnalysis {}

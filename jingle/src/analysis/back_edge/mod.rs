@@ -1,6 +1,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
@@ -172,6 +173,7 @@ impl BackEdgeCPA {
 
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
+    type Reducer = EmptyResidue<Self::State>;
 
     fn residue(
         &mut self,

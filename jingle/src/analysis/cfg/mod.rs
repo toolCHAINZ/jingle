@@ -26,7 +26,6 @@ impl LowerHex for EmptyEdge {
 #[derive(Debug)]
 pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: DiGraph<N, EmptyEdge>,
-    pub(crate) info: SleighArchInfo,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
 }
@@ -34,6 +33,7 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
 #[derive(Debug)]
 pub struct ModeledPcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) cfg: PcodeCfg<N, D>,
+    pub(crate) info: SleighArchInfo,
     pub(crate) models: HashMap<N, N::Model>,
 }
 
@@ -90,12 +90,11 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
-    pub fn new(info: SleighArchInfo) -> Self {
+    pub fn new() -> Self {
         Self {
             graph: Default::default(),
             ops: Default::default(),
             indices: Default::default(),
-            info,
         }
     }
 
@@ -173,8 +172,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 
     /// Create a `ModeledPcodeCfg` by generating SMT models for all nodes in the CFG.
-    pub fn smt_model(self) -> ModeledPcodeCfg<N, D> {
-        ModeledPcodeCfg::new(self)
+    pub fn smt_model(self, info: SleighArchInfo) -> ModeledPcodeCfg<N, D> {
+        ModeledPcodeCfg::new(self, info)
     }
 }
 
@@ -182,10 +181,6 @@ impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
         let addr = *addr.borrow();
         self.get_op_at(addr).cloned()
-    }
-
-    fn info(&self) -> SleighArchInfo {
-        self.info.clone()
     }
 }
 
@@ -300,7 +295,6 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         // Step 6: Build and return new PcodeCfg
         PcodeCfg {
             graph: new_graph,
-            info: self.info.clone(),
             ops: new_ops,
             indices: new_indices,
         }
@@ -308,13 +302,13 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
-    pub fn new(cfg: PcodeCfg<N, D>) -> Self {
+    pub fn new(cfg: PcodeCfg<N, D>, info: SleighArchInfo) -> Self {
         let mut models = HashMap::new();
         for node in cfg.nodes() {
-            let model = node.new_const(&cfg.info);
+            let model = node.new_const(&info);
             models.insert(node.clone(), model);
         }
-        Self { cfg, models }
+        Self { cfg, models, info }
     }
 
     pub fn cfg(&self) -> &PcodeCfg<N, D> {

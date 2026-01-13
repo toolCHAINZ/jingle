@@ -1,5 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
@@ -50,7 +51,7 @@ impl AbstractState for BoundedBranchState {
         if self.branch_count == self.max_count {
             empty().into()
         } else {
-            let _cur = if opcode.branch_destination().is_some() {
+            let cur = if opcode.branch_destination().is_some() {
                 self.branch_count + 1
             } else {
                 self.branch_count

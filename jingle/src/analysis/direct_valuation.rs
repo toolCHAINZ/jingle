@@ -41,6 +41,7 @@
 
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::display::JingleDisplayable;
@@ -845,6 +846,7 @@ impl DirectValuationAnalysis {
 
 impl ConfigurableProgramAnalysis for DirectValuationAnalysis {
     type State = DirectValuationState;
+    type Reducer = EmptyResidue<Self::State>;
 }
 
 impl Analysis for DirectValuationAnalysis {}

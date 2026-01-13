@@ -1,10 +1,11 @@
 pub mod lattice;
+pub mod reducer;
+pub mod residue;
 pub mod state;
 
-use crate::analysis::RunnableAnalysis;
+use crate::analysis::cpa::residue::{EmptyResidue, Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
-use crate::modeling::State;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -30,6 +31,7 @@ pub trait ConfigurableProgramAnalysis: Sized {
     /// An abstract state.
     type State: AbstractState + Debug;
 
+    type Reducer: Residue<Self::State>;
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
     ///
@@ -62,47 +64,6 @@ pub trait ConfigurableProgramAnalysis: Sized {
         _op: &Option<PcodeOperation>,
     ) {
     }
-
-    fn map<F: Fn(&Self::State) -> R + 'static, R: AbstractState>(
-        self,
-        f: F,
-    ) -> impl ConfigurableProgramAnalysis<State = R> {
-        AnalysisMap {
-            mapper: Box::new(f),
-            t: self,
-        }
-    }
-}
-
-struct AnalysisMap<A, R, T> {
-    mapper: Box<dyn Fn(&T) -> R>,
-    t: A,
-}
-
-impl<A: ConfigurableProgramAnalysis<State = T>, R: AbstractState, T> ConfigurableProgramAnalysis
-    for AnalysisMap<A, R, T>
-{
-    type State = R;
-}
-
-impl<A: ConfigurableProgramAnalysis<State = T>, R: AbstractState, T>
-    RunnableConfigurableProgramAnalysis for AnalysisMap<A, R, T>
-where
-    T: RunnableAnalysis,
-    Self::State: LocationState,
-    A: RunnableConfigurableProgramAnalysis,
-{
-    fn run_cpa<I: Borrow<Self::State>, P: PcodeStore>(
-        &mut self,
-        initial: I,
-        pcode_store: &P,
-    ) -> Vec<Self::State> {
-        self.t
-            .run_cpa(initial, pcode_store)
-            .iter()
-            .map(self.mapper)
-            .collect()
-    }
 }
 
 /**
@@ -121,8 +82,10 @@ where
         &mut self,
         initial: I,
         pcode_store: &P,
-    ) -> Vec<Self::State> {
+    ) -> <<Self as ConfigurableProgramAnalysis>::Reducer as Residue<Self::State>>::Output {
         let initial = initial.borrow();
+        let mut reducer = Self::Reducer::new();
+
         let mut waitlist: VecDeque<Self::State> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
         waitlist.push_front(initial.clone());
@@ -150,14 +113,14 @@ where
 
             for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
                 tracing::trace!("    Transfer produced dest_state: {:?}", dest_state);
-                self.residue(&state, &dest_state, &op);
+                reducer.residue(&state, &dest_state, &op);
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {
                         tracing::trace!("    Merged dest_state into existing reached_state");
                         tracing::trace!("      Merged state: {:?}", reached_state);
-                        self.merged(&state, &dest_state, reached_state, &op);
+                        reducer.merged(&state, &dest_state, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;
@@ -192,7 +155,11 @@ where
             reached.len()
         );
 
-        reached.into()
+        reducer.finalize()
+    }
+
+    fn with_residue<R: Residue<Self::State>>(self, r: R) -> ResidueWrapper<Self, R> {
+        ResidueWrapper::wrap(self)
     }
 }
 

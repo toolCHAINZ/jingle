@@ -1,9 +1,11 @@
+use crate::analysis::cpa::residue::{EmptyResidue, Residue};
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
+use std::marker::PhantomData;
 
 pub enum StrengthenOutcome {
     Changed,
@@ -107,6 +109,55 @@ where
     }
 }
 
+pub struct CompoundReducer<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis> {
+    a: A::Reducer,
+    b: B::Reducer,
+}
+
+impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis> Residue<(A::State, B::State)>
+    for CompoundReducer<A, B>
+{
+    type Output = (
+        <A::Reducer as Residue<A::State>>::Output,
+        <B::Reducer as Residue<B::State>>::Output,
+    );
+
+    fn new() -> Self {
+        Self {
+            a: A::Reducer::new(),
+            b: B::Reducer::new(),
+        }
+    }
+
+    fn finalize(self) -> Self::Output {
+        let Self { a, b } = self;
+        (a.finalize(), b.finalize())
+    }
+
+    fn merged(
+        &mut self,
+        curr_state: &(A::State, B::State),
+        dest_state: &(A::State, B::State),
+        merged_state: &(A::State, B::State),
+        op: &Option<PcodeOperation>,
+    ) {
+        self.a
+            .merged(&curr_state.0, &dest_state.0, &merged_state.0, op);
+        self.b
+            .merged(&curr_state.1, &dest_state.1, &merged_state.1, op);
+    }
+
+    fn residue(
+        &mut self,
+        state: &(A::State, B::State),
+        dest_state: &(A::State, B::State),
+        op: &Option<PcodeOperation>,
+    ) {
+        self.a.residue(&state.0, &dest_state.0, op);
+        self.b.residue(&state.1, &dest_state.1, op);
+    }
+}
+
 impl<A, B> ConfigurableProgramAnalysis for (A, B)
 where
     A: CompoundAnalysis<B>,
@@ -114,29 +165,7 @@ where
     A::State: Strengthen<B::State>,
 {
     type State = (A::State, B::State);
-
-    fn residue(
-        &mut self,
-        state: &Self::State,
-        dest_state: &Self::State,
-        op: &Option<PcodeOperation>,
-    ) {
-        self.0.residue(&state.0, &dest_state.0, op);
-        self.1.residue(&state.1, &dest_state.1, op);
-    }
-
-    fn merged(
-        &mut self,
-        curr_state: &Self::State,
-        dest_state: &Self::State,
-        merged_state: &Self::State,
-        op: &Option<PcodeOperation>,
-    ) {
-        self.0
-            .merged(&curr_state.0, &dest_state.0, &merged_state.0, op);
-        self.1
-            .merged(&curr_state.1, &dest_state.1, &merged_state.1, op);
-    }
+    type Reducer = CompoundReducer<A, B>;
 }
 
 impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis, T> IntoState<(A, B)> for T

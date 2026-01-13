@@ -1,3 +1,4 @@
+use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::LocationState;
 use crate::analysis::cpa::{
     ConfigurableProgramAnalysis, IntoState, RunnableConfigurableProgramAnalysis,
@@ -61,13 +62,13 @@ where
         &mut self,
         store: T,
         initial_state: I,
-    ) -> Vec<Self::State> {
+    ) -> <Self::Reducer as Residue<Self::State>>::Output {
         // Use the CPA's `make_initial_state` helper so CPAs that need access to `self`
         // when constructing their initial state can do so. The default `make_initial_state`
         // simply calls `.into()` so this is fully backwards compatible.
         let initial = initial_state.into_state(self);
         let states = self.run_cpa(initial, &store);
-        self.make_output(states)
+        states
     }
 }
 
@@ -82,7 +83,10 @@ where
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
+    fn run_analysis<T: RunnableAnalysis>(
+        &self,
+        mut t: T,
+    ) -> <T::Reducer as Residue<T::State>>::Output
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
         ConcretePcodeAddress: IntoState<T>,
