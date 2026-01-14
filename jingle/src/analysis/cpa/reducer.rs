@@ -3,7 +3,6 @@ use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::LocationState;
 use jingle_sleigh::PcodeOperation;
-use petgraph::visit::EdgeRef;
 
 /// A generic reducer that adapts an arbitrary CPA into a "reducer" which
 /// records reductions/transitions into a `PcodeCfg`.

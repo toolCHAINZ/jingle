@@ -135,8 +135,8 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         if let Some(index) = self.indices.get(old).cloned() {
             let new = new.borrow();
             // copy the node index stuff to the new one
-            self.indices.insert(new.clone(), index.clone());
-            if let Some(a) = self.graph.node_weight_mut(index.clone()) {
+            self.indices.insert(new.clone(), index);
+            if let Some(a) = self.graph.node_weight_mut(index) {
                 *a = new.clone();
             }
         } else {
