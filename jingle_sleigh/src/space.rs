@@ -5,11 +5,12 @@ use crate::varnode::VarNode;
 use cxx::SharedPtr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::sync::Arc;
 
 /// What program-analysis library wouldn't be complete without an enum
 /// for endianness?
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum SleighEndianness {
     Big,
     Little,
@@ -20,7 +21,7 @@ pub enum SleighEndianness {
 /// This has the advantage of drastically reducing the amount of alloc/drop churn when working with
 /// `jingle` but has a cost: in order to use "nice" things like the names of spaces, you need to have
 /// a way to refer to a [`SpaceInfo`] object.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct SpaceInfo {
     /// The name of the space; the name is guaranteed by `SLEIGH` to be unique, so it can be used
     /// as a unique identifier
@@ -113,6 +114,12 @@ pub(crate) struct SleighArchInfoInner {
     pub(crate) userops: Vec<String>,
 }
 
+impl Hash for SleighArchInfoInner {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.language_id.hash(state);
+    }
+}
+
 impl std::fmt::Debug for SleighArchInfoInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SleighArchInfoInner")
@@ -121,7 +128,7 @@ impl std::fmt::Debug for SleighArchInfoInner {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SleighArchInfo {
     pub(crate) info: Arc<SleighArchInfoInner>,
 }

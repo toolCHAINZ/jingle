@@ -51,6 +51,7 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Formatter;
+use std::hash::Hash;
 
 /// Represents the abstract value of a varnode in the analysis
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -271,6 +272,16 @@ pub struct DirectValuationState {
     written_locations: HashMap<VarNode, VarnodeValue>,
     /// Architecture information for space type lookups
     arch_info: SleighArchInfo,
+}
+
+impl Hash for DirectValuationState {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (vn, value) in &self.written_locations {
+            vn.hash(state);
+            value.hash(state);
+        }
+        self.arch_info.hash(state);
+    }
 }
 
 impl DirectValuationState {

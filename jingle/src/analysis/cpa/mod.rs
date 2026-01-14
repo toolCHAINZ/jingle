@@ -2,6 +2,9 @@ pub mod lattice;
 pub mod reducer;
 pub mod residue;
 pub mod state;
+pub mod vec_reducer;
+
+pub use vec_reducer::VecReducer;
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};

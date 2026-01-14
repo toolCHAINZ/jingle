@@ -27,7 +27,7 @@ fn main() {
 
     let mut direct = (
         DirectLocationAnalysis::new(CallBehavior::Branch),
-        BoundedBranchAnalysis::new(10),
+        BoundedBranchAnalysis::new(10000),
     )
         .with_residue(CfgReducer::new());
     // Run the analysis. For a `ResidueWrapper` with `CfgReducer`, `run` returns
