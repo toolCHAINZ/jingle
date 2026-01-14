@@ -83,7 +83,6 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
 /// * Calls return
 /// * Both sides of a conditional can be taken
 /// * All Indirect branches transition to Top
-
 impl ConcretePcodeAddress {
     pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
         match op {

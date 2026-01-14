@@ -8,6 +8,7 @@ use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::reducer::CfgReducer;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
+use crate::analysis::direct_valuation::VarnodeValue;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -137,8 +138,7 @@ impl AbstractState for DirectLocationState {
         }
 
         // Default behavior: delegate to inner state and wrap results
-        self
-            .inner
+        self.inner
             .transfer(op)
             .into_iter()
             .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
@@ -159,6 +159,27 @@ impl LocationState for DirectLocationState {
 impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
     for DirectLocationState
 {
+    fn strengthen(
+        &mut self,
+        _original: &(
+            Self,
+            crate::analysis::direct_valuation::DirectValuationState,
+        ),
+        _other: &crate::analysis::direct_valuation::DirectValuationState,
+        _op: &PcodeOperation,
+    ) -> StrengthenOutcome {
+        let vn = match &self.inner {
+            PcodeAddressLattice::Computed(indirect_var_node) => Some(indirect_var_node.clone()),
+            _ => None,
+        };
+        if let Some(vn) = vn {
+            if let Some(VarnodeValue::Const(value)) = _other.get_value(&vn.pointer_location) {
+                self.inner = PcodeAddressLattice::Const((*value).into());
+                return StrengthenOutcome::Changed;
+            }
+        }
+        StrengthenOutcome::Unchanged
+    }
 }
 
 impl Strengthen<BoundedBranchState> for DirectLocationState {
