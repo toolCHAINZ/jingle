@@ -2,9 +2,9 @@ use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
-use petgraph::Direction;
+use petgraph::Direction::{self, Incoming};
 use petgraph::graph::NodeIndex;
-use petgraph::prelude::DiGraph;
+use petgraph::prelude::StableDiGraph;
 use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::cell::RefCell;
@@ -25,7 +25,7 @@ impl LowerHex for EmptyEdge {
 
 #[derive(Debug)]
 pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
-    pub(crate) graph: DiGraph<N, EmptyEdge>,
+    pub(crate) graph: StableDiGraph<N, EmptyEdge>,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
 }
@@ -57,7 +57,6 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
                 let is_repeat = {
                     let mut set = self.visited_locations.borrow_mut();
                     if set.contains(n) {
-                        println!("Trimming repeat of {n:x?}");
                         true
                     } else {
                         set.insert(n.clone());
@@ -105,7 +104,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         }
     }
 
-    pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
+    pub fn graph(&self) -> &StableDiGraph<N, EmptyEdge> {
         &self.graph
     }
 
@@ -130,17 +129,55 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         }
     }
 
-    pub fn replace_node<T: Borrow<N>, S: Borrow<N>>(&mut self, old: T, new: S) {
-        let old = old.borrow();
-        if let Some(index) = self.indices.get(old).cloned() {
-            let new = new.borrow();
-            // copy the node index stuff to the new one
-            self.indices.insert(new.clone(), index);
-            if let Some(a) = self.graph.node_weight_mut(index) {
-                *a = new.clone();
+    pub fn replace_and_combine_nodes<T: Borrow<N>, S: Borrow<N>>(
+        &mut self,
+        old_weight: T,
+        new_weight: S,
+    ) {
+        if let Some((old_idx, new_idx)) = self
+            .indices
+            .get(old_weight.borrow())
+            .zip(self.indices.get(new_weight.borrow()))
+        {
+            dbg!("In here");
+            // We are going to keep the old weight, but keep the new index
+            // This will probably be the least amount of "movement" in the graph
+            let incoming: Vec<_> = self
+                .graph
+                .edges_directed(*new_idx, Direction::Incoming)
+                .map(|edge| edge.source())
+                .collect();
+            for source in incoming {
+                if !self.graph.contains_edge(source, *old_idx) {
+                    self.graph.add_edge(source, *old_idx, EmptyEdge);
+                }
             }
-        } else {
-            self.add_node(new);
+            let outgoing: Vec<_> = self
+                .graph
+                .edges_directed(*new_idx, Direction::Outgoing)
+                .map(|edge| edge.target())
+                .collect();
+            for target in &outgoing {
+                if !self.graph.contains_edge(*old_idx, *target) {
+                    self.graph.add_edge(*old_idx, *target, EmptyEdge);
+                }
+            }
+            // using stable graph so we can do this without violated indices
+            dbg!(self.graph.remove_node(*new_idx));
+
+            // now to update the weight
+            if let Some(a) = self.graph.node_weight_mut(*old_idx) {
+                *a = new_weight.borrow().clone();
+            }
+
+            // now to update our maps
+            self.indices.insert(new_weight.borrow().clone(), *old_idx);
+            self.indices.remove(old_weight.borrow());
+
+            if let Some(op) = self.ops.get(old_weight.borrow()) {
+                self.ops.insert(new_weight.borrow().clone(), op.clone());
+                self.ops.remove(old_weight.borrow());
+            }
         }
     }
 
@@ -209,7 +246,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
     pub fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>> {
         use petgraph::visit::EdgeRef;
         // Step 1: Initialize new graph and maps
-        let mut graph = DiGraph::<N, EmptyEdge>::default();
+        let mut graph = StableDiGraph::<N, EmptyEdge>::default();
         let mut ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
         let mut indices: HashMap<N, NodeIndex> = HashMap::new();
         // Step 2: Wrap each op in a Vec and add nodes
@@ -276,7 +313,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             }
         }
         // Step 5: Build a new graph using only connected nodes
-        let mut new_graph = DiGraph::<N, EmptyEdge>::default();
+        let mut new_graph = StableDiGraph::<N, EmptyEdge>::default();
         let mut new_ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
         let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
         // Collect connected nodes
@@ -341,7 +378,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
     }
 
     // Delegation methods to underlying PcodeCfg
-    pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
+    pub fn graph(&self) -> &StableDiGraph<N, EmptyEdge> {
         self.cfg.graph()
     }
 
