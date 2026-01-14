@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Formatter, LowerHex};
 use std::rc::Rc;
 
-mod model;
+pub(crate) mod model;
 
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
@@ -127,6 +127,20 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         if !self.indices.contains_key(node) {
             let idx = self.graph.add_node(node.clone());
             self.indices.insert(node.clone(), idx);
+        }
+    }
+
+    pub fn replace_node<T: Borrow<N>, S: Borrow<N>>(&mut self, old: T, new: S) {
+        let old = old.borrow();
+        if let Some(index) = self.indices.get(old).cloned() {
+            let new = new.borrow();
+            // copy the node index stuff to the new one
+            self.indices.insert(new.clone(), index.clone());
+            if let Some(a) = self.graph.node_weight_mut(index.clone()) {
+                *a = new.clone();
+            }
+        } else {
+            self.add_node(new);
         }
     }
 

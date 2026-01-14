@@ -6,8 +6,9 @@ pub mod vec_reducer;
 
 pub use vec_reducer::VecReducer;
 
+use crate::analysis::cfg::model::StateDisplayWrapper;
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
-use crate::analysis::cpa::state::{AbstractState, LocationState};
+use crate::analysis::cpa::state::{AbstractState, LocationState, StateDisplay};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -115,14 +116,20 @@ where
             let mut stopped_states = 0;
 
             for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
-                tracing::trace!("    Transfer produced dest_state: {:?}", dest_state);
+                tracing::trace!(
+                    "    Transfer produced dest_state: {}",
+                    StateDisplayWrapper(&dest_state)
+                );
                 reducer.residue(&state, &dest_state, &op);
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
                     if reached_state.merge(&dest_state).merged() {
                         tracing::trace!("    Merged dest_state into existing reached_state");
-                        tracing::trace!("      Merged state: {:?}", reached_state);
+                        tracing::trace!(
+                            "      Merged state: {}",
+                            StateDisplayWrapper(reached_state)
+                        );
                         reducer.merged(&state, &dest_state, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;

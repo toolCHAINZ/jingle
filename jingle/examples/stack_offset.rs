@@ -11,6 +11,7 @@ use jingle::analysis::direct_valuation::{
 };
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::{Analysis, RunnableAnalysis};
+use jingle::display::JingleDisplayable;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
@@ -28,7 +29,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::TRACE)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -166,6 +167,39 @@ fn main() {
             .unwrap_or_default();
 
         println!("  {}{}", leaf_loc, offset_info);
+
+        // Print detailed DirectValuationState for this leaf (if available)
+        if let Some(addr) = leaf.get_location() {
+            if let Some(state) = direct_valuations.get(&addr) {
+                let count = state.written_locations().len();
+                println!("    DirectValuationState: {} tracked varnode(s)", count);
+
+                if count == 0 {
+                    println!("      (no written locations)");
+                } else {
+                    for (vn, val) in state.written_locations() {
+                        println!(
+                            "      {} = {}",
+                            vn.display(loaded.arch_info()),
+                            val.display(loaded.arch_info())
+                        );
+                    }
+                }
+            } else {
+                println!("    (no DirectValuationState recorded for this location)");
+            }
+        } else {
+            println!("Computed loc: {:x}", leaf.0.inner());
+            println!("Valuations:");
+            for ele in leaf.1.written_locations() {
+                println!(
+                    "{} = {}",
+                    ele.0.display(loaded.arch_info()),
+                    ele.1.display(loaded.arch_info())
+                )
+            }
+            println!("    (no concrete location; cannot display valuation state for this leaf)");
+        }
     }
 
     // Final summary statistics

@@ -25,11 +25,7 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = (
-        DirectLocationAnalysis::new(CallBehavior::Branch),
-        BoundedBranchAnalysis::new(10000),
-    )
-        .with_residue(CfgReducer::new());
+    let mut direct = DirectLocationAnalysis::new(CallBehavior::Branch);
     // Run the analysis. For a `ResidueWrapper` with `CfgReducer`, `run` returns
     // the built `PcodeCfg` as the reducer output, so capture it here.
     let pcode_graph = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
@@ -38,7 +34,6 @@ fn main() {
         // `node` is a tuple like `(DirectLocationState, BoundedBranchState)`.
         // Call `get_location` on the first element (the location-carrying component)
         // to avoid requiring trait-method resolution on the tuple itself.
-        dbg!(&node);
         match node.get_location() {
             Some(a) => println!("{:x}", a),
             None => println!("(no location)"),

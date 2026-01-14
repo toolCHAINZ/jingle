@@ -69,9 +69,8 @@ where
 {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         let outcome_left = self.0.merge(&other.0);
-        if outcome_left.merged() {
-            self.1.merge(&other.1);
-            MergeOutcome::Merged
+        if outcome_left.merged() || self.0 == other.0 {
+            self.1.merge(&other.1)
         } else {
             MergeOutcome::NoOp
         }

@@ -32,7 +32,7 @@ impl PartialOrd for BoundedBranchState {
 
 impl JoinSemiLattice for BoundedBranchState {
     fn join(&mut self, other: &Self) {
-        self.branch_count = self.branch_count.min(other.branch_count);
+        self.branch_count = self.branch_count.max(other.branch_count);
     }
 }
 

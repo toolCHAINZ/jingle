@@ -132,7 +132,7 @@ impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
 /// that implements `Display` by delegating to `StateDisplay::fmt_state`. This
 /// avoids requiring the inner components to implement `std::fmt::Display` and
 /// keeps coherence rules satisfied.
-struct StateDisplayWrapper<'a, S: StateDisplay>(&'a S);
+pub(crate) struct StateDisplayWrapper<'a, S: StateDisplay>(pub &'a S);
 
 impl<'a, S: StateDisplay> std::fmt::Display for StateDisplayWrapper<'a, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

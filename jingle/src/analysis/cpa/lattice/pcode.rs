@@ -5,7 +5,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Formatter, LowerHex};
 use std::hash::Hash;
 use std::iter::{empty, once};
 
@@ -27,12 +27,27 @@ impl Debug for PcodeAddressLattice {
         match self {
             PcodeAddressLattice::Const(a) => f
                 .debug_tuple("PcodeAddressLattice::Const")
-                .field(&format_args!("{a}"))
+                .field(&format_args!("{:x}", a))
                 .finish(),
             PcodeAddressLattice::Computed(c) => f
                 .debug_tuple("PcodeAddressLattice::Computed")
                 .field(&format_args!("{:?}", c))
                 .finish(),
+            PcodeAddressLattice::Top => write!(f, "PcodeAddressLattice::Top"),
+        }
+    }
+}
+
+impl LowerHex for PcodeAddressLattice {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // Delegate to the inner `ConcretePcodeAddress` LowerHex implementation
+            // so `{:#x}` / `{:x}` on `PcodeAddressLattice::Const` prints the expected hex form.
+            PcodeAddressLattice::Const(a) => write!(f, "PcodeAddressLattice::Const({:x})", a),
+            // Computed values don't have a natural hex representation; fall back to debug.
+            PcodeAddressLattice::Computed(c) => {
+                write!(f, "PcodeAddressLattice::Computed({:?})", c)
+            }
             PcodeAddressLattice::Top => write!(f, "PcodeAddressLattice::Top"),
         }
     }

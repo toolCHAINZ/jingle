@@ -50,7 +50,6 @@ where
     /// via the mapper and add nodes/edges to the cfg. If `op` is `None`,
     /// only the source node is added (no edge).
     fn residue(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOperation>) {
-        println!("{:x?}", &state);
         self.cfg.add_node(state);
 
         if let Some(op) = op {
@@ -65,39 +64,18 @@ where
     ///
     /// This duplicates the behavior from the unwinding CPA's `merged` method in
     /// a generic way.
-    fn merged(&mut self, state: &N, dest_state: &N, merged_state: &N, op: &Option<PcodeOperation>) {
+    fn merged(
+        &mut self,
+        _state: &N,
+        dest_state: &N,
+        merged_state: &N,
+        _op: &Option<PcodeOperation>,
+    ) {
         // If operation is not present we can't deterministically reconstruct
         // a replacement edge payload; however we still should remove edges
         // from src->dst and add a new edge with no-op payload is not supported.
         // We only proceed when there is an op provided (matches unwinding impl).
-        let op = match op {
-            Some(op) => op.clone(),
-            None => return,
-        };
-
-        // Lookup node indices; if either node is missing we have nothing to do.
-        let src_idx = match self.cfg.indices.get(state) {
-            Some(idx) => *idx,
-            None => return,
-        };
-        let dst_idx = match self.cfg.indices.get(dest_state) {
-            Some(idx) => *idx,
-            None => return,
-        };
-
-        // Collect edge ids from src to dst and remove them.
-        let mut edges_to_remove = Vec::new();
-        for edge in self.cfg.graph.edges(src_idx) {
-            if edge.target() == dst_idx {
-                edges_to_remove.push(edge.id());
-            }
-        }
-        for eid in edges_to_remove {
-            self.cfg.graph.remove_edge(eid);
-        }
-
-        // Add a new edge from src to merged with the same operation payload.
-        self.cfg.add_edge(state, merged_state, op);
+        self.cfg.replace_node(dest_state, merged_state);
     }
 
     fn new() -> Self {
