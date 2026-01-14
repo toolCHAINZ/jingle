@@ -1,6 +1,7 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::pcode_store::PcodeStore;
+use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
 use std::borrow::Borrow;
@@ -20,6 +21,22 @@ pub enum PcodeAddressLattice {
     Const(ConcretePcodeAddress),
     Computed(IndirectVarNode),
     Top,
+}
+
+impl JingleDisplayable for PcodeAddressLattice {
+    fn fmt_jingle(
+        &self,
+        f: &mut Formatter<'_>,
+        info: &jingle_sleigh::SleighArchInfo,
+    ) -> std::fmt::Result {
+        match self {
+            PcodeAddressLattice::Const(addr) => write!(f, "{:x}", addr),
+            PcodeAddressLattice::Computed(indirect_var_node) => {
+                indirect_var_node.fmt_jingle(f, info)
+            }
+            PcodeAddressLattice::Top => write!(f, "Top"),
+        }
+    }
 }
 
 impl Debug for PcodeAddressLattice {

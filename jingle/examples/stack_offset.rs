@@ -189,7 +189,10 @@ fn main() {
                 println!("    (no DirectValuationState recorded for this location)");
             }
         } else {
-            println!("    Computed loc: {:x}", leaf.0.inner());
+            println!(
+                "    Computed loc: {}",
+                leaf.0.inner().display(loaded.arch_info())
+            );
             println!("      Valuations:");
             for ele in leaf.1.written_locations() {
                 println!(
