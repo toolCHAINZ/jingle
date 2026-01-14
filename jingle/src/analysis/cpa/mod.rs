@@ -136,9 +136,12 @@ where
                         was_merged = true;
                     }
                 }
-                if !was_merged{
+                if !was_merged {
                     // record that a new state was reach without merging
-                    tracing::debug!("Adding new state without merging: {}", StateDisplayWrapper(&dest_state));
+                    tracing::debug!(
+                        "Adding new state without merging: {}",
+                        StateDisplayWrapper(&dest_state)
+                    );
                     reducer.new_state(&state, &dest_state, &op);
                 }
 

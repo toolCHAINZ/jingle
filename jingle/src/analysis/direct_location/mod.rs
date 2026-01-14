@@ -6,7 +6,9 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::reducer::CfgReducer;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor};
+use crate::analysis::cpa::state::{
+    AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
+};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::direct_valuation::VarnodeValue;
 use crate::analysis::pcode_store::PcodeStore;

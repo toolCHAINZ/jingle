@@ -138,7 +138,11 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         let old_idx = self.indices.get(old_weight.borrow()).copied();
         let new_idx = self.indices.get(new_weight.borrow()).copied();
 
-        tracing::debug!("replace_and_combine_nodes called: old_idx={:?}, new_idx={:?}", old_idx, new_idx);
+        tracing::debug!(
+            "replace_and_combine_nodes called: old_idx={:?}, new_idx={:?}",
+            old_idx,
+            new_idx
+        );
 
         if let (Some(old_idx), Some(new_idx)) = (old_idx, new_idx) {
             // If the indices are the same, the nodes are already merged - nothing to do
@@ -188,7 +192,9 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             self.indices.remove(old_weight.borrow());
 
             // Update the ops map: prefer the op from new_weight if it exists, otherwise use old_weight's op
-            let op_to_keep = self.ops.get(new_weight.borrow())
+            let op_to_keep = self
+                .ops
+                .get(new_weight.borrow())
                 .or_else(|| self.ops.get(old_weight.borrow()))
                 .cloned();
 
@@ -197,7 +203,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
 
             if let Some(op) = op_to_keep {
                 self.ops.insert(new_weight.borrow().clone(), op);
-            }else{
+            } else {
                 dbg!("Missing op!");
             }
         }

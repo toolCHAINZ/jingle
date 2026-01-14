@@ -76,7 +76,7 @@ where
         // from src->dst and add a new edge with no-op payload is not supported.
         // We only proceed when there is an op provided (matches unwinding impl).
         self.cfg.replace_and_combine_nodes(dest_state, merged_state);
-        if let Some(op) = op{
+        if let Some(op) = op {
             self.cfg.add_edge(state, merged_state, op);
         }
     }
