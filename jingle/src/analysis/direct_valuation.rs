@@ -41,7 +41,8 @@
 
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::residue::EmptyResidue;
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -49,7 +50,8 @@ use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceTyp
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt::Formatter;
+use std::fmt::{Formatter, Result as FmtResult};
+use std::hash::{Hash, Hasher};
 
 /// Represents the abstract value of a varnode in the analysis
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -111,7 +113,12 @@ impl VarnodeValue {
             VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), delta),
             VarnodeValue::Offset(vn, offset) => {
-                VarnodeValue::Offset(vn.clone(), offset.wrapping_add(delta))
+                let sum = offset.wrapping_add(delta);
+                if sum != 0 {
+                    VarnodeValue::Offset(vn.clone(), offset.wrapping_add(delta))
+                } else {
+                    VarnodeValue::Entry(vn.clone())
+                }
             }
             VarnodeValue::Const(val) => VarnodeValue::Const(val.wrapping_add(delta as u64)),
             VarnodeValue::Loaded(_) => VarnodeValue::Top,
@@ -125,7 +132,12 @@ impl VarnodeValue {
             VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), -delta),
             VarnodeValue::Offset(vn, offset) => {
-                VarnodeValue::Offset(vn.clone(), offset.wrapping_sub(delta))
+                let diff = offset.wrapping_sub(delta);
+                if diff != 0 {
+                    VarnodeValue::Offset(vn.clone(), diff)
+                } else {
+                    VarnodeValue::Entry(vn.clone())
+                }
             }
             VarnodeValue::Const(val) => VarnodeValue::Const(val.wrapping_sub(delta as u64)),
             VarnodeValue::Loaded(_) => VarnodeValue::Top,
@@ -270,6 +282,29 @@ pub struct DirectValuationState {
     written_locations: HashMap<VarNode, VarnodeValue>,
     /// Architecture information for space type lookups
     arch_info: SleighArchInfo,
+}
+
+impl Hash for DirectValuationState {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let mut sorted = self.written_locations.keys().collect::<Vec<_>>();
+        sorted.sort_by_key(|k| (k.space_index, k.offset, k.size));
+        for vn in sorted.iter() {
+            vn.hash(state);
+            self.written_locations[vn].hash(state);
+        }
+        self.arch_info.hash(state);
+    }
+}
+
+impl StateDisplay for DirectValuationState {
+    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
+        // Compute hash using the same algorithm as the Hash impl
+        use std::collections::hash_map::DefaultHasher;
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        let hash_value = hasher.finish();
+        write!(f, "Hash({:016x})", hash_value)
+    }
 }
 
 impl DirectValuationState {
@@ -819,19 +854,6 @@ impl
     crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
     for DirectValuationState
 {
-    fn strengthen(
-        &mut self,
-        _original: &Self,
-        _: &crate::analysis::cpa::lattice::pcode::PcodeAddressLattice,
-        _op: &PcodeOperation,
-    ) -> crate::analysis::compound::StrengthenOutcome {
-        crate::analysis::compound::StrengthenOutcome::Unchanged
-    }
-}
-
-impl crate::analysis::compound::Strengthen<crate::analysis::unwinding::UnwindingCpaState>
-    for DirectValuationState
-{
 }
 
 /// The Direct Valuation CPA
@@ -858,6 +880,7 @@ impl DirectValuationAnalysis {
 
 impl ConfigurableProgramAnalysis for DirectValuationAnalysis {
     type State = DirectValuationState;
+    type Reducer = EmptyResidue<Self::State>;
 }
 
 impl Analysis for DirectValuationAnalysis {}

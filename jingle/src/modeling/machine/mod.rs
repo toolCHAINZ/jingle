@@ -21,7 +21,14 @@ impl MachineState {
     pub fn fresh<T: Borrow<SleighArchInfo>>(info: T) -> Self {
         Self {
             memory: MemoryState::fresh(info),
-            pc: SymbolicPcodeAddress::fresh(),
+            pc: SymbolicPcodeAddress::fresh_const(),
+        }
+    }
+
+    pub fn new<T: Borrow<SleighArchInfo>, S: AsRef<str>>(name: S, info: T) -> Self {
+        Self {
+            memory: MemoryState::new_const(&name, info),
+            pc: SymbolicPcodeAddress::new_const(name),
         }
     }
 

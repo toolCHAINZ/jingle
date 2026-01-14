@@ -1,4 +1,6 @@
 use crate::JingleError;
+use crate::analysis::cpa::lattice::flat::FlatLattice;
+use crate::analysis::cpa::state::StateDisplay;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -47,13 +49,13 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
     type Model: CfgStateModel;
 
     /// Produces a model
-    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model;
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model;
 
     /// Prefix used when producing SMT models of this state with `fresh`
     fn model_id(&self) -> String;
 
-    /// Each CFG state is associated with a concrete p-code address
-    fn location(&self) -> ConcretePcodeAddress;
+    /// Each CFG state is optionally associated with a concrete p-code address
+    fn location(&self) -> Option<ConcretePcodeAddress>;
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -67,7 +69,7 @@ pub trait ModelTransition<S: CfgStateModel>: Clone + Debug {
 impl CfgState for ConcretePcodeAddress {
     type Model = MachineState;
 
-    fn fresh_model(&self, i: &SleighArchInfo) -> Self::Model {
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
         MachineState::fresh_for_address(i, *self)
     }
 
@@ -75,8 +77,30 @@ impl CfgState for ConcretePcodeAddress {
         format!("State_PC_{:x}_{:x}", self.machine, self.pcode)
     }
 
-    fn location(&self) -> ConcretePcodeAddress {
-        *self
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        Some(*self)
+    }
+}
+
+impl CfgState for FlatLattice<ConcretePcodeAddress> {
+    type Model = MachineState;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        match self {
+            FlatLattice::Value(addr) => MachineState::fresh_for_address(i, addr),
+            FlatLattice::Top => MachineState::fresh(i),
+        }
+    }
+
+    fn model_id(&self) -> String {
+        match self {
+            FlatLattice::Value(a) => a.model_id(),
+            FlatLattice::Top => "State_Top_".to_string(),
+        }
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        Option::from(*self)
     }
 }
 
@@ -93,5 +117,98 @@ impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
             state = op.transition(&state)?;
         }
         Ok(state)
+    }
+}
+
+/// Implement `CfgState` for a couple of tuple arities where the first element
+/// implements `CfgState`. These implementations delegate model creation and
+/// location-related methods to the first (0th) element of the tuple.
+///
+/// For tuples where the later elements implement `StateDisplay`, include the
+/// display output of those elements in the `model_id`. This makes the model id
+/// more descriptive when tuples carry additional metadata.
+///
+/// To format `StateDisplay`-capable components here we use a small local wrapper
+/// that implements `Display` by delegating to `StateDisplay::fmt_state`. This
+/// avoids requiring the inner components to implement `std::fmt::Display` and
+/// keeps coherence rules satisfied.
+pub(crate) struct StateDisplayWrapper<'a, S: StateDisplay>(pub &'a S);
+
+impl<'a, S: StateDisplay> std::fmt::Display for StateDisplayWrapper<'a, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt_state(f)
+    }
+}
+impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for (A, B) {
+    type Model = A::Model;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        self.0.new_const(i)
+    }
+
+    fn model_id(&self) -> String {
+        // Incorporate the display output from the second element into the model id.
+        // Use an underscore separator to keep ids readable and safe.
+        format!("{}_{}", self.0.model_id(), StateDisplayWrapper(&self.1))
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.location()
+    }
+}
+
+impl<
+    A: CfgState,
+    B: StateDisplay + Clone + Debug + Hash + Eq,
+    C: StateDisplay + Clone + Debug + Hash + Eq,
+> CfgState for (A, B, C)
+{
+    type Model = A::Model;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        self.0.new_const(i)
+    }
+
+    fn model_id(&self) -> String {
+        // Include display outputs from the second and third elements.
+        format!(
+            "{}_{}_{}",
+            self.0.model_id(),
+            StateDisplayWrapper(&self.1),
+            StateDisplayWrapper(&self.2)
+        )
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.location()
+    }
+}
+
+impl<
+    A: CfgState,
+    B: StateDisplay + Clone + Debug + Hash + Eq,
+    C: StateDisplay + Clone + Debug + Hash + Eq,
+    D: StateDisplay + Clone + Debug + Hash + Eq,
+> CfgState for (A, B, C, D)
+{
+    type Model = A::Model;
+
+    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+        self.0.new_const(i)
+    }
+
+    fn model_id(&self) -> String {
+        // Include display outputs from elements 2, 3 and 4.
+        format!(
+            "{}_{}_{}_{}",
+            self.0.model_id(),
+            StateDisplayWrapper(&self.1),
+            StateDisplayWrapper(&self.2),
+            StateDisplayWrapper(&self.3)
+        )
+    }
+
+    fn location(&self) -> Option<ConcretePcodeAddress> {
+        self.0.location()
     }
 }

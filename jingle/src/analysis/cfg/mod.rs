@@ -1,22 +1,18 @@
-use crate::analysis::ctl::CtlFormula;
 use crate::analysis::pcode_store::PcodeStore;
-use crate::analysis::unwinding::UnwoundLocation;
-use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
-use petgraph::prelude::DiGraph;
+use petgraph::prelude::StableDiGraph;
 use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Formatter, LowerHex};
 use std::rc::Rc;
-use z3::ast::Bool;
 
-mod model;
+pub(crate) mod model;
 
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
@@ -29,8 +25,7 @@ impl LowerHex for EmptyEdge {
 
 #[derive(Debug)]
 pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
-    pub(crate) graph: DiGraph<N, EmptyEdge>,
-    pub(crate) info: SleighArchInfo,
+    pub(crate) graph: StableDiGraph<N, EmptyEdge>,
     pub(crate) ops: HashMap<N, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
 }
@@ -38,6 +33,8 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
 #[derive(Debug)]
 pub struct ModeledPcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) cfg: PcodeCfg<N, D>,
+    #[allow(unused)]
+    pub(crate) info: SleighArchInfo,
     pub(crate) models: HashMap<N, N::Model>,
 }
 
@@ -60,7 +57,6 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
                 let is_repeat = {
                     let mut set = self.visited_locations.borrow_mut();
                     if set.contains(n) {
-                        println!("Trimming repeat of {n:x?}");
                         true
                     } else {
                         set.insert(n.clone());
@@ -93,17 +89,22 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     }
 }
 
+impl<N: CfgState, D: ModelTransition<N::Model>> Default for PcodeCfg<N, D> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
-    pub fn new(info: SleighArchInfo) -> Self {
+    pub fn new() -> Self {
         Self {
             graph: Default::default(),
             ops: Default::default(),
             indices: Default::default(),
-            info,
         }
     }
 
-    pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
+    pub fn graph(&self) -> &StableDiGraph<N, EmptyEdge> {
         &self.graph
     }
 
@@ -125,6 +126,86 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         if !self.indices.contains_key(node) {
             let idx = self.graph.add_node(node.clone());
             self.indices.insert(node.clone(), idx);
+        }
+    }
+
+    pub fn replace_and_combine_nodes<T: Borrow<N>, S: Borrow<N>>(
+        &mut self,
+        old_weight: T,
+        new_weight: S,
+    ) {
+        // Copy the indices first to avoid borrow issues
+        let old_idx = self.indices.get(old_weight.borrow()).copied();
+        let new_idx = self.indices.get(new_weight.borrow()).copied();
+
+        tracing::debug!(
+            "replace_and_combine_nodes called: old_idx={:?}, new_idx={:?}",
+            old_idx,
+            new_idx
+        );
+
+        if let (Some(old_idx), Some(new_idx)) = (old_idx, new_idx) {
+            // If the indices are the same, the nodes are already merged - nothing to do
+            if old_idx == new_idx {
+                tracing::debug!("Indices are identical, skipping merge");
+                return;
+            }
+
+            tracing::debug!("Both nodes found with different indices, proceeding with merge");
+            // We are going to keep the old index, but replace its weight with new_weight
+            // All edges from new_idx will be redirected to old_idx, then new_idx is removed
+
+            // Redirect all incoming edges from new_idx to old_idx
+            let incoming: Vec<_> = self
+                .graph
+                .edges_directed(new_idx, Direction::Incoming)
+                .map(|edge| edge.source())
+                .collect();
+            for source in incoming {
+                if !self.graph.contains_edge(source, old_idx) {
+                    self.graph.add_edge(source, old_idx, EmptyEdge);
+                }
+            }
+
+            // Redirect all outgoing edges from new_idx to old_idx
+            let outgoing: Vec<_> = self
+                .graph
+                .edges_directed(new_idx, Direction::Outgoing)
+                .map(|edge| edge.target())
+                .collect();
+            for target in &outgoing {
+                if !self.graph.contains_edge(old_idx, *target) {
+                    self.graph.add_edge(old_idx, *target, EmptyEdge);
+                }
+            }
+
+            // Remove the new node from the graph (using StableGraph so indices remain valid)
+            self.graph.remove_node(new_idx);
+
+            // Update the weight at old_idx to be new_weight
+            if let Some(node_weight) = self.graph.node_weight_mut(old_idx) {
+                *node_weight = new_weight.borrow().clone();
+            }
+
+            // Update the indices map: new_weight should now map to old_idx
+            self.indices.insert(new_weight.borrow().clone(), old_idx);
+            self.indices.remove(old_weight.borrow());
+
+            // Update the ops map: prefer the op from new_weight if it exists, otherwise use old_weight's op
+            let op_to_keep = self
+                .ops
+                .get(new_weight.borrow())
+                .or_else(|| self.ops.get(old_weight.borrow()))
+                .cloned();
+
+            self.ops.remove(old_weight.borrow());
+            self.ops.remove(new_weight.borrow());
+
+            if let Some(op) = op_to_keep {
+                self.ops.insert(new_weight.borrow().clone(), op);
+            } else {
+                dbg!("Missing op!");
+            }
         }
     }
 
@@ -162,6 +243,19 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         Some(succs)
     }
 
+    /// Return predecessors of a node (by value) as references into the backing CFG.
+    /// Returns `None` if the node is not present in the CFG.
+    pub fn predecessors<T: Borrow<N>>(&self, node: T) -> Option<Vec<&N>> {
+        let n = node.borrow();
+        let idx = *self.indices.get(n)?;
+        let preds: Vec<&N> = self
+            .graph
+            .edges_directed(idx, Direction::Incoming)
+            .map(|e| self.graph.node_weight(e.source()).unwrap())
+            .collect();
+        Some(preds)
+    }
+
     pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {
         self.graph
             .externals(Direction::Outgoing)
@@ -172,13 +266,13 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.ops.values()
     }
 
-    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
-        self.nodes().filter(move |a| a.location() == location)
+    pub fn nodes_for_location<S: PartialEq<N>>(&self, location: S) -> impl Iterator<Item = &N> {
+        self.nodes().filter(move |a| location == **a)
     }
 
     /// Create a `ModeledPcodeCfg` by generating SMT models for all nodes in the CFG.
-    pub fn smt_model(self) -> ModeledPcodeCfg<N, D> {
-        ModeledPcodeCfg::new(self)
+    pub fn smt_model(self, info: SleighArchInfo) -> ModeledPcodeCfg<N, D> {
+        ModeledPcodeCfg::new(self, info)
     }
 }
 
@@ -187,17 +281,13 @@ impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
         let addr = *addr.borrow();
         self.get_op_at(addr).cloned()
     }
-
-    fn info(&self) -> SleighArchInfo {
-        self.info.clone()
-    }
 }
 
 impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
     pub fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>> {
         use petgraph::visit::EdgeRef;
         // Step 1: Initialize new graph and maps
-        let mut graph = DiGraph::<N, EmptyEdge>::default();
+        let mut graph = StableDiGraph::<N, EmptyEdge>::default();
         let mut ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
         let mut indices: HashMap<N, NodeIndex> = HashMap::new();
         // Step 2: Wrap each op in a Vec and add nodes
@@ -264,7 +354,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             }
         }
         // Step 5: Build a new graph using only connected nodes
-        let mut new_graph = DiGraph::<N, EmptyEdge>::default();
+        let mut new_graph = StableDiGraph::<N, EmptyEdge>::default();
         let mut new_ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
         let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
         // Collect connected nodes
@@ -304,7 +394,6 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         // Step 6: Build and return new PcodeCfg
         PcodeCfg {
             graph: new_graph,
-            info: self.info.clone(),
             ops: new_ops,
             indices: new_indices,
         }
@@ -312,13 +401,13 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
 }
 
 impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
-    pub fn new(cfg: PcodeCfg<N, D>) -> Self {
+    pub fn new(cfg: PcodeCfg<N, D>, info: SleighArchInfo) -> Self {
         let mut models = HashMap::new();
         for node in cfg.nodes() {
-            let model = node.fresh_model(&cfg.info);
+            let model = node.new_const(&info);
             models.insert(node.clone(), model);
         }
-        Self { cfg, models }
+        Self { cfg, models, info }
     }
 
     pub fn cfg(&self) -> &PcodeCfg<N, D> {
@@ -330,7 +419,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
     }
 
     // Delegation methods to underlying PcodeCfg
-    pub fn graph(&self) -> &DiGraph<N, EmptyEdge> {
+    pub fn graph(&self) -> &StableDiGraph<N, EmptyEdge> {
         self.cfg.graph()
     }
 
@@ -346,22 +435,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> ModeledPcodeCfg<N, D> {
         self.cfg.edge_weights()
     }
 
-    pub fn nodes_for_location(&self, location: ConcretePcodeAddress) -> impl Iterator<Item = &N> {
+    pub fn nodes_for_location<S: PartialEq<N>>(&self, location: S) -> impl Iterator<Item = &N> {
         self.cfg.nodes_for_location(location)
-    }
-}
-
-impl<D: ModelTransition<MachineState>> ModeledPcodeCfg<UnwoundLocation, D> {
-    pub fn check_model(
-        &self,
-        location: &UnwoundLocation,
-        ctl_model: CtlFormula<UnwoundLocation, D>,
-    ) -> Bool {
-        let mut visitor = PcodeCfgVisitor {
-            location: location.clone(),
-            cfg: self,
-            visited_locations: Rc::new(RefCell::new(HashSet::new())),
-        };
-        ctl_model.check(&mut visitor)
     }
 }

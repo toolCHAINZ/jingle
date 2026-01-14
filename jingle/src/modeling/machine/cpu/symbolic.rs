@@ -22,10 +22,19 @@ impl SymbolicPcodeAddress {
     const MACHINE_SIZE_BITS: u32 = size_of::<PcodeMachineAddress>() as u32 * 8;
     const PCODE_SIZE_BITS: u32 = size_of::<PcodeOffset>() as u32 * 8;
 
-    pub fn fresh() -> Self {
+    pub fn fresh_const() -> Self {
         Self {
             machine: BV::fresh_const("pc", Self::MACHINE_SIZE_BITS),
             pcode: BV::fresh_const("ppc", Self::PCODE_SIZE_BITS),
+        }
+    }
+
+    pub fn new_const<S: AsRef<str>>(s: S) -> Self {
+        let pc = format!("{}_pc", s.as_ref());
+        let ppc = format!("{}_ppc", s.as_ref());
+        Self {
+            machine: BV::new_const(pc, Self::MACHINE_SIZE_BITS),
+            pcode: BV::new_const(ppc, Self::PCODE_SIZE_BITS),
         }
     }
 

@@ -1,8 +1,10 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::pcode_store::PcodeStore;
+use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -16,6 +18,7 @@ impl MergeOutcome {
     }
 }
 
+/// Iterator wrapper returned by `transfer` methods.
 pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
 
 impl<'a, T: 'a> IntoIterator for Successor<'a, T> {
@@ -33,20 +36,32 @@ impl<'a, T, I: Iterator<Item = T> + 'a> From<I> for Successor<'a, T> {
     }
 }
 
-pub trait AbstractState: JoinSemiLattice + Clone {
-    /// Determines how two abstract states should be merged. Rather than consuming states
-    /// and returning a new state, we mutate the first state argument. In the context of
-    /// CPA, the first state should be the state from the _reached_ list, NOT the new/merged
-    /// state.
-    ///
-    /// Implementations of this function must ENSURE (the compiler can't help here) that
-    /// the mutated State is
-    /// [Greater](std::cmp::Ordering::Greater) or [Equal](std::cmp::Ordering::Equal)
-    /// than it was going in. Violating this is a logic error that may make CPA not terminate.
+/// Local trait for formatting abstract states.
+///
+/// We use this instead of `Display` on `AbstractState` to avoid orphan/coherence
+/// issues (e.g., with generic tuple impls).
+pub trait StateDisplay {
+    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult;
+}
+
+/// Helper macro to implement `StateDisplay` for a concrete type by delegating to `Debug`.
+macro_rules! impl_state_display_via_debug {
+    ($ty:ty) => {
+        impl StateDisplay for $ty {
+            fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
+                write!(f, "{self:?}")
+            }
+        }
+    };
+}
+
+/// Core trait for abstract states used by the CPA.
+pub trait AbstractState: JoinSemiLattice + Clone + Debug + StateDisplay {
+    /// Merge `other` into `self`. Mutate `self` and return whether merging occurred.
+    /// The mutated `self` MUST be >= than it was before.
     fn merge(&mut self, other: &Self) -> MergeOutcome;
 
-    /// A naive "cartesian" merge of two states, replacing `existing_state` with their
-    /// Least Upper Bound.
+    /// Default cartesian merge using `join`.
     fn merge_join(&mut self, new_state: &Self) -> MergeOutcome {
         if self == new_state {
             MergeOutcome::NoOp
@@ -56,21 +71,15 @@ pub trait AbstractState: JoinSemiLattice + Clone {
         }
     }
 
-    /// A naive "separate" merge of two states, simply duplicating `existing_state`.
+    /// Default separate merge (no-op).
     fn merge_sep(&mut self, _: &Self) -> MergeOutcome {
         MergeOutcome::NoOp
     }
 
-    /// Determines whether the given abstract state is covered by the set of reached
-    /// abstract states. If it is not covered, this returns [false], indicating that this
-    /// state should be added to CPA's waitlist. Otherwise, nothing is done, effectively terminating
-    /// the current "branch" of analysis.
-    ///
-    /// Determining whether a state "covers" another may be done piecewise or by combining reached
-    /// states, and is usually done with respect to the [JoinSemiLattice] defined over abstract states.
+    /// Stop predicate: is `self` covered by any of `states`?
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool;
 
-    /// A naive implementation of `stop` which checks for state covering in a piecewise manner.
+    /// Default stop predicate using piecewise ordering.
     fn stop_sep<'a, T: Iterator<Item = &'a Self>>(&'a self, mut states: T) -> bool {
         states.any(|s| {
             matches!(
@@ -80,13 +89,29 @@ pub trait AbstractState: JoinSemiLattice + Clone {
         })
     }
 
-    /// Given a pcode operation, returns an iterator of successor states.
-    /// Decided to make this an iterator to allow making the state structures simpler
-    /// (e.g. a resolved indirect jump could return an iterator of locations instead of
-    /// having a special "the location is one in this list" variant
+    /// Transfer function: return successor abstract states for a pcode operation.
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self>;
 }
 
+/// States that know their program location.
 pub trait LocationState: AbstractState {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation>;
+    fn get_location(&self) -> Option<ConcretePcodeAddress>;
+}
+
+// Provide StateDisplay impls for known concrete state types by delegating to Debug.
+// Only include impls for modules that are actually declared in the project.
+impl_state_display_via_debug!(crate::analysis::back_edge::BackEdgeState);
+impl_state_display_via_debug!(crate::analysis::bounded_branch::state::BoundedBranchState);
+impl_state_display_via_debug!(crate::analysis::cpa::lattice::pcode::PcodeAddressLattice);
+
+/// Generic StateDisplay for compound tuple states `(S1, S2)`.
+impl<S1: StateDisplay, S2: StateDisplay> StateDisplay for (S1, S2) {
+    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "(")?;
+        self.0.fmt_state(f)?;
+        write!(f, ", ")?;
+        self.1.fmt_state(f)?;
+        write!(f, ")")
+    }
 }

@@ -1,6 +1,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
@@ -65,15 +66,16 @@ impl BackEdgeState {
     }
     pub fn add_location(&self, loc: PcodeAddressLattice) -> BackEdgeState {
         let mut s = self.clone();
+        // Insert a clone into the visited set, then move the original into `s.location`.
+        s.path_visits.insert(loc.clone());
         s.location = loc;
-        s.path_visits.insert(loc);
         s
     }
 }
 
 impl From<ConcretePcodeAddress> for BackEdgeState {
     fn from(addr: ConcretePcodeAddress) -> Self {
-        Self::new(PcodeAddressLattice::Value(addr))
+        Self::new(PcodeAddressLattice::Const(addr))
     }
 }
 
@@ -124,6 +126,10 @@ impl LocationState for BackEdgeState {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.location.get_operation(t)
     }
+
+    fn get_location(&self) -> Option<ConcretePcodeAddress> {
+        self.location.value().cloned()
+    }
 }
 
 pub struct BackEdgeCPA {
@@ -147,7 +153,7 @@ impl BackEdgeCPA {
     pub fn get_back_edges(&self) -> BackEdges {
         let mut b = BackEdges::default();
         for (from, to) in &self.back_edges {
-            if let (PcodeAddressLattice::Value(from), PcodeAddressLattice::Value(to)) = (from, to) {
+            if let (PcodeAddressLattice::Const(from), PcodeAddressLattice::Const(to)) = (from, to) {
                 b.add(*from, *to);
             }
         }
@@ -162,22 +168,24 @@ impl BackEdgeCPA {
     /// `analysis.make_initial_state(addr)` as an inherent method on the
     /// concrete analysis type.
     pub fn make_initial_state(&self, addr: ConcretePcodeAddress) -> BackEdgeState {
-        BackEdgeState::new(PcodeAddressLattice::Value(addr))
+        BackEdgeState::new(PcodeAddressLattice::Const(addr))
     }
 }
 
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
+    type Reducer = EmptyResidue<Self::State>;
 
-    fn reduce(
+    fn residue(
         &mut self,
         old_state: &Self::State,
         new_state: &Self::State,
         _op: &Option<PcodeOperation>,
     ) {
         if old_state.path_visits.contains(&new_state.location) {
+            // Clone the locations since `old_state` and `new_state` are borrowed here.
             self.back_edges
-                .push((old_state.location, new_state.location))
+                .push((old_state.location.clone(), new_state.location.clone()))
         }
     }
 }

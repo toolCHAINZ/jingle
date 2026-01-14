@@ -74,6 +74,15 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
     }
 }
 
+/// Simple in-function transition handling, transitioning from one address to the
+/// next per uninterpreted/unanalyzed pcode. The implementation is used for
+/// the initial exploration of a CFG. The analyses built around this have
+/// support for more fine-tuned behavior.
+///
+/// This one assumes:
+/// * Calls return
+/// * Both sides of a conditional can be taken
+/// * All Indirect branches transition to Top
 impl ConcretePcodeAddress {
     pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
         match op {

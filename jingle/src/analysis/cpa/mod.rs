@@ -1,6 +1,13 @@
 pub mod lattice;
+pub mod reducer;
+pub mod residue;
 pub mod state;
+pub mod vec_reducer;
 
+pub use vec_reducer::VecReducer;
+
+use crate::analysis::cfg::model::StateDisplayWrapper;
+use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
@@ -28,6 +35,7 @@ pub trait ConfigurableProgramAnalysis: Sized {
     /// An abstract state.
     type State: AbstractState + Debug;
 
+    type Reducer: Residue<Self::State>;
     /// Allows for accumulating information about a program not specific to particular abstract
     /// states.
     ///
@@ -43,7 +51,7 @@ pub trait ConfigurableProgramAnalysis: Sized {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn reduce(
+    fn residue(
         &mut self,
         _state: &Self::State,
         _dest_state: &Self::State,
@@ -78,8 +86,10 @@ where
         &mut self,
         initial: I,
         pcode_store: &P,
-    ) -> Vec<Self::State> {
+    ) -> <<Self as ConfigurableProgramAnalysis>::Reducer as Residue<Self::State>>::Output {
         let initial = initial.borrow();
+        let mut reducer = Self::Reducer::new();
+
         let mut waitlist: VecDeque<Self::State> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
         waitlist.push_front(initial.clone());
@@ -106,19 +116,33 @@ where
             let mut stopped_states = 0;
 
             for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
-                tracing::trace!("    Transfer produced dest_state: {:?}", dest_state);
-                self.reduce(&state, &dest_state, &op);
+                tracing::trace!(
+                    "    Transfer produced dest_state: {}",
+                    StateDisplayWrapper(&dest_state)
+                );
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
+                    let old_reached = reached_state.clone();
                     if reached_state.merge(&dest_state).merged() {
                         tracing::trace!("    Merged dest_state into existing reached_state");
-                        tracing::trace!("      Merged state: {:?}", reached_state);
-                        self.merged(&state, &dest_state, reached_state, &op);
+                        tracing::trace!(
+                            "      Merged state: {}",
+                            StateDisplayWrapper(reached_state)
+                        );
+                        reducer.merged_state(&state, &old_reached, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;
                     }
+                }
+                if !was_merged {
+                    // record that a new state was reach without merging
+                    tracing::debug!(
+                        "Adding new state without merging: {}",
+                        StateDisplayWrapper(&dest_state)
+                    );
+                    reducer.new_state(&state, &dest_state, &op);
                 }
 
                 if !dest_state.stop(reached.iter()) {
@@ -149,7 +173,11 @@ where
             reached.len()
         );
 
-        reached.into()
+        reducer.finalize()
+    }
+
+    fn with_residue<R: Residue<Self::State>>(self, r: R) -> ResidueWrapper<Self, R> {
+        ResidueWrapper::wrap(self, r)
     }
 }
 

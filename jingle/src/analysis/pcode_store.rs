@@ -1,12 +1,10 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::{PcodeOperation, SleighArchInfo, VarNode};
+use jingle_sleigh::{PcodeOperation, VarNode};
 use std::borrow::Borrow;
 
 pub trait PcodeStore {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation>;
-
-    fn info(&self) -> SleighArchInfo;
 }
 
 pub trait EntryPoint {
@@ -29,18 +27,10 @@ impl<'a> PcodeStore for LoadedSleighContext<'a> {
             instr.ops.get(addr.pcode() as usize).cloned()
         }
     }
-
-    fn info(&self) -> SleighArchInfo {
-        self.arch_info().clone()
-    }
 }
 
 impl<T: PcodeStore> PcodeStore for &T {
     fn get_pcode_op_at<B: Borrow<ConcretePcodeAddress>>(&self, addr: B) -> Option<PcodeOperation> {
         (*self).get_pcode_op_at(addr)
-    }
-
-    fn info(&self) -> SleighArchInfo {
-        (*self).info()
     }
 }

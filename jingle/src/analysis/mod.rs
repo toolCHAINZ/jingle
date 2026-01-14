@@ -1,3 +1,4 @@
+use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::LocationState;
 use crate::analysis::cpa::{
     ConfigurableProgramAnalysis, IntoState, RunnableConfigurableProgramAnalysis,
@@ -12,12 +13,12 @@ pub mod cpa;
 pub mod direct_location;
 // mod location;
 mod bmc;
-pub mod bounded_visit;
+pub mod bounded_branch;
 pub mod ctl;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
-pub mod unwinding;
+// pub mod unwinding;
 pub mod varnode;
 // pub mod stack_offset;
 pub mod compound;
@@ -35,13 +36,7 @@ pub mod direct_valuation;
 ///
 /// This trait can be implemented by types that may or may not be runnable. For runnable analyses,
 /// see [`RunnableAnalysis`].
-pub trait Analysis: ConfigurableProgramAnalysis {
-    /// Process the states and return them (or a filtered/transformed version).
-    /// The default implementation just returns the states as-is.
-    fn make_output(&mut self, states: Vec<Self::State>) -> Vec<Self::State> {
-        states
-    }
-}
+pub trait Analysis: ConfigurableProgramAnalysis {}
 
 /// A trait for analyses that can be run. This is automatically implemented for all
 /// [`Analysis`] types whose CPA state implements [`LocationState`].
@@ -61,13 +56,13 @@ where
         &mut self,
         store: T,
         initial_state: I,
-    ) -> Vec<Self::State> {
+    ) -> <Self::Reducer as Residue<Self::State>>::Output {
         // Use the CPA's `make_initial_state` helper so CPAs that need access to `self`
         // when constructing their initial state can do so. The default `make_initial_state`
         // simply calls `.into()` so this is fully backwards compatible.
         let initial = initial_state.into_state(self);
-        let states = self.run_cpa(initial, &store);
-        self.make_output(states)
+
+        self.run_cpa(initial, &store)
     }
 }
 
@@ -82,7 +77,10 @@ where
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: RunnableAnalysis>(&self, mut t: T) -> Vec<T::State>
+    fn run_analysis<T: RunnableAnalysis>(
+        &self,
+        mut t: T,
+    ) -> <T::Reducer as Residue<T::State>>::Output
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
         ConcretePcodeAddress: IntoState<T>,
