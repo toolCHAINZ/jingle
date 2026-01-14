@@ -84,27 +84,25 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
 /// * Calls return
 /// * Both sides of a conditional can be taken
 /// * All Indirect branches transition to Top
-impl FlatLattice<ConcretePcodeAddress> {
+
+impl ConcretePcodeAddress {
     pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
-        match self {
-            FlatLattice::Value(addr) => match op {
-                PcodeOperation::Branch { input } => {
-                    once(ConcretePcodeAddress::from(input.offset).into()).into()
-                }
-                PcodeOperation::CBranch { input0, .. } => {
-                    let dest = ConcretePcodeAddress::resolve_from_varnode(input0, *addr);
-                    let fallthrough = addr.next_pcode();
-                    once(dest.into()).chain(once(fallthrough.into())).into()
-                }
-                PcodeOperation::Call { .. } | PcodeOperation::CallOther { .. } => {
-                    once(addr.next_pcode().into()).into()
-                }
-                PcodeOperation::Return { .. }
-                | PcodeOperation::CallInd { .. }
-                | PcodeOperation::BranchInd { .. } => once(FlatLattice::Top).into(),
-                _ => once(addr.next_pcode().into()).into(),
-            },
-            FlatLattice::Top => empty().into(),
+        match op {
+            PcodeOperation::Branch { input } => {
+                once(ConcretePcodeAddress::from(input.offset)).into()
+            }
+            PcodeOperation::CBranch { input0, .. } => {
+                let dest = ConcretePcodeAddress::resolve_from_varnode(input0, *self);
+                let fallthrough = self.next_pcode();
+                once(dest).chain(once(fallthrough)).into()
+            }
+            PcodeOperation::Call { .. } | PcodeOperation::CallOther { .. } => {
+                once(self.next_pcode()).into()
+            }
+            PcodeOperation::Return { .. }
+            | PcodeOperation::CallInd { .. }
+            | PcodeOperation::BranchInd { .. } => empty().into(),
+            _ => once(self.next_pcode()).into(),
         }
     }
 }

@@ -3,7 +3,7 @@ use crate::analysis::bounded_branch::state::BoundedBranchState;
 use crate::analysis::cfg::{CfgState, PcodeCfg};
 use crate::analysis::compound::{Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::lattice::flat::FlatLattice;
+
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::reducer::CfgReducer;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
@@ -35,7 +35,7 @@ pub struct DirectLocationState {
 }
 
 impl DirectLocationState {
-    pub fn new(addr: FlatLattice<ConcretePcodeAddress>, call_behavior: CallBehavior) -> Self {
+    pub fn new(addr: PcodeAddressLattice, call_behavior: CallBehavior) -> Self {
         Self {
             inner: addr,
             call_behavior,
@@ -44,7 +44,7 @@ impl DirectLocationState {
 
     pub fn location(addr: ConcretePcodeAddress, call_behavior: CallBehavior) -> Self {
         Self {
-            inner: PcodeAddressLattice::Value(addr),
+            inner: PcodeAddressLattice::Const(addr),
             call_behavior,
         }
     }
@@ -68,7 +68,7 @@ impl IntoState<DirectLocationAnalysis> for ConcretePcodeAddress {
     ) -> <DirectLocationAnalysis as ConfigurableProgramAnalysis>::State {
         DirectLocationState {
             call_behavior: c.call_behavior,
-            inner: FlatLattice::Value(self),
+            inner: PcodeAddressLattice::Const(self),
         }
     }
 }
@@ -112,7 +112,7 @@ impl AbstractState for DirectLocationState {
             match self.call_behavior {
                 CallBehavior::Branch => {
                     // Follow the call like a branch
-                    if let PcodeAddressLattice::Value(_addr) = &self.inner {
+                    if let PcodeAddressLattice::Const(_addr) = &self.inner {
                         let call_target = ConcretePcodeAddress::from(dest.offset);
                         return once(DirectLocationState::location(
                             call_target,
@@ -123,7 +123,7 @@ impl AbstractState for DirectLocationState {
                 }
                 CallBehavior::StepOver => {
                     // Fall through to next instruction
-                    if let PcodeAddressLattice::Value(addr) = &self.inner {
+                    if let PcodeAddressLattice::Const(addr) = &self.inner {
                         let next = addr.next_pcode();
                         return once(DirectLocationState::location(next, self.call_behavior))
                             .into();
@@ -196,15 +196,23 @@ impl CfgState for DirectLocationState {
     type Model = MachineState;
 
     fn new_const(&self, i: &jingle_sleigh::SleighArchInfo) -> Self::Model {
-        self.inner.new_const(i)
+        match &self.inner {
+            PcodeAddressLattice::Const(addr) => MachineState::fresh_for_address(i, *addr),
+            // For computed or unknown locations, fall back to a generic fresh machine state.
+            PcodeAddressLattice::Computed(_) | PcodeAddressLattice::Top => MachineState::fresh(i),
+        }
     }
 
     fn model_id(&self) -> String {
-        self.inner.model_id()
+        match &self.inner {
+            PcodeAddressLattice::Const(a) => a.model_id(),
+            PcodeAddressLattice::Top => "State_Top_".to_string(),
+            PcodeAddressLattice::Computed(_) => "State_Computed_".to_string(),
+        }
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
-        self.inner.location()
+        self.inner.value().cloned()
     }
 }
 
@@ -255,7 +263,7 @@ mod tests {
         assert_eq!(successors.len(), 1);
         assert_eq!(
             successors[0].inner,
-            PcodeAddressLattice::Value(ConcretePcodeAddress::from(0x2000))
+            PcodeAddressLattice::Const(ConcretePcodeAddress::from(0x2000))
         );
     }
 
@@ -280,7 +288,7 @@ mod tests {
         assert_eq!(successors.len(), 1);
         // Should step over to next pcode address (machine: 0x1000, pcode: 1)
         let expected = ConcretePcodeAddress::from(0x1000).next_pcode();
-        assert_eq!(successors[0].inner, PcodeAddressLattice::Value(expected));
+        assert_eq!(successors[0].inner, PcodeAddressLattice::Const(expected));
     }
 
     #[test]

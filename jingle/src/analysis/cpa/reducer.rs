@@ -50,6 +50,7 @@ where
     /// via the mapper and add nodes/edges to the cfg. If `op` is `None`,
     /// only the source node is added (no edge).
     fn residue(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOperation>) {
+        println!("{:x?}", &state);
         self.cfg.add_node(state);
 
         if let Some(op) = op {
