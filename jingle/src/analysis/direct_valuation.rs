@@ -113,7 +113,12 @@ impl VarnodeValue {
             VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), delta),
             VarnodeValue::Offset(vn, offset) => {
-                VarnodeValue::Offset(vn.clone(), offset.wrapping_add(delta))
+                let sum = offset.wrapping_add(delta);
+                if sum != 0 {
+                    VarnodeValue::Offset(vn.clone(), offset.wrapping_add(delta))
+                } else {
+                    VarnodeValue::Entry(vn.clone())
+                }
             }
             VarnodeValue::Const(val) => VarnodeValue::Const(val.wrapping_add(delta as u64)),
             VarnodeValue::Loaded(_) => VarnodeValue::Top,
@@ -127,7 +132,12 @@ impl VarnodeValue {
             VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), -delta),
             VarnodeValue::Offset(vn, offset) => {
-                VarnodeValue::Offset(vn.clone(), offset.wrapping_sub(delta))
+                let diff = offset.wrapping_sub(delta);
+                if diff != 0 {
+                    VarnodeValue::Offset(vn.clone(), diff)
+                } else {
+                    VarnodeValue::Entry(vn.clone())
+                }
             }
             VarnodeValue::Const(val) => VarnodeValue::Const(val.wrapping_sub(delta as u64)),
             VarnodeValue::Loaded(_) => VarnodeValue::Top,
