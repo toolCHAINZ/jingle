@@ -57,7 +57,7 @@ impl AbstractState for BoundedBranchState {
                 self.branch_count
             };
             let max_count = self.max_count;
-            let branch_count = self.branch_count;
+            let branch_count = cur;
             once(Self {
                 max_count,
                 branch_count,

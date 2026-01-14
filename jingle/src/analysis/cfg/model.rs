@@ -1,5 +1,6 @@
 use crate::JingleError;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
+use crate::analysis::cpa::state::StateDisplay;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -123,10 +124,22 @@ impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
 /// implements `CfgState`. These implementations delegate model creation and
 /// location-related methods to the first (0th) element of the tuple.
 ///
-/// For tuples where the later elements implement `Display`, include the
+/// For tuples where the later elements implement `StateDisplay`, include the
 /// display output of those elements in the `model_id`. This makes the model id
 /// more descriptive when tuples carry additional metadata.
-impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq> CfgState for (A, B) {
+///
+/// To format `StateDisplay`-capable components here we use a small local wrapper
+/// that implements `Display` by delegating to `StateDisplay::fmt_state`. This
+/// avoids requiring the inner components to implement `std::fmt::Display` and
+/// keeps coherence rules satisfied.
+struct StateDisplayWrapper<'a, S: StateDisplay>(&'a S);
+
+impl<'a, S: StateDisplay> std::fmt::Display for StateDisplayWrapper<'a, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt_state(f)
+    }
+}
+impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for (A, B) {
     type Model = A::Model;
 
     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
@@ -136,7 +149,7 @@ impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq> CfgState for (A, B) {
     fn model_id(&self) -> String {
         // Incorporate the display output from the second element into the model id.
         // Use an underscore separator to keep ids readable and safe.
-        format!("{}_{}", self.0.model_id(), format!("{}", self.1))
+        format!("{}_{}", self.0.model_id(), StateDisplayWrapper(&self.1))
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
@@ -144,8 +157,11 @@ impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq> CfgState for (A, B) {
     }
 }
 
-impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq, C: Display + Clone + Debug + Hash + Eq>
-    CfgState for (A, B, C)
+impl<
+    A: CfgState,
+    B: StateDisplay + Clone + Debug + Hash + Eq,
+    C: StateDisplay + Clone + Debug + Hash + Eq,
+> CfgState for (A, B, C)
 {
     type Model = A::Model;
 
@@ -158,8 +174,8 @@ impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq, C: Display + Clone + D
         format!(
             "{}_{}_{}",
             self.0.model_id(),
-            format!("{}", self.1),
-            format!("{}", self.2)
+            StateDisplayWrapper(&self.1),
+            StateDisplayWrapper(&self.2)
         )
     }
 
@@ -170,9 +186,9 @@ impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq, C: Display + Clone + D
 
 impl<
     A: CfgState,
-    B: Display + Clone + Debug + Hash + Eq,
-    C: Display + Clone + Debug + Hash + Eq,
-    D: Display + Clone + Debug + Hash + Eq,
+    B: StateDisplay + Clone + Debug + Hash + Eq,
+    C: StateDisplay + Clone + Debug + Hash + Eq,
+    D: StateDisplay + Clone + Debug + Hash + Eq,
 > CfgState for (A, B, C, D)
 {
     type Model = A::Model;
@@ -186,9 +202,9 @@ impl<
         format!(
             "{}_{}_{}_{}",
             self.0.model_id(),
-            format!("{}", self.1),
-            format!("{}", self.2),
-            format!("{}", self.3)
+            StateDisplayWrapper(&self.1),
+            StateDisplayWrapper(&self.2),
+            StateDisplayWrapper(&self.3)
         )
     }
 
