@@ -40,7 +40,6 @@ fn main() {
             None => println!("(no location)"),
         }
     }
-    std::fs::write("out.dot", format!("{:x?}", Dot::new(pcode_graph.graph())));
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
     for node in leaf {
         match node.get_location() {
