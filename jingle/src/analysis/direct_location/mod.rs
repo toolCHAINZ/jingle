@@ -1,6 +1,6 @@
 use crate::analysis::Analysis;
 use crate::analysis::bounded_branch::state::BoundedBranchState;
-use crate::analysis::cfg::{CfgState, PcodeCfg};
+use crate::analysis::cfg::CfgState;
 use crate::analysis::compound::{Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 
@@ -137,12 +137,12 @@ impl AbstractState for DirectLocationState {
         }
 
         // Default behavior: delegate to inner state and wrap results
-        return self
+        self
             .inner
             .transfer(op)
             .into_iter()
             .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
-            .into();
+            .into()
     }
 }
 

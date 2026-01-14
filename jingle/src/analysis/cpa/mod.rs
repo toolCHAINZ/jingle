@@ -3,7 +3,7 @@ pub mod reducer;
 pub mod residue;
 pub mod state;
 
-use crate::analysis::cpa::residue::{EmptyResidue, Residue, ResidueWrapper};
+use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;

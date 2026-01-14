@@ -61,8 +61,8 @@ where
         // when constructing their initial state can do so. The default `make_initial_state`
         // simply calls `.into()` so this is fully backwards compatible.
         let initial = initial_state.into_state(self);
-        let states = self.run_cpa(initial, &store);
-        states
+        
+        self.run_cpa(initial, &store)
     }
 }
 

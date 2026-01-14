@@ -1,11 +1,10 @@
-use crate::analysis::cpa::residue::{EmptyResidue, Residue};
+use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
-use std::marker::PhantomData;
 
 pub enum StrengthenOutcome {
     Changed,
@@ -100,7 +99,7 @@ where
         for left in successors_left {
             for right in &successors_right {
                 let mut new_left = left.clone();
-                new_left.strengthen(&self, right, opcode_ref);
+                new_left.strengthen(self, right, opcode_ref);
                 result.push((new_left, right.clone()));
             }
         }

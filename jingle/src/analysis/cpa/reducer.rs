@@ -34,7 +34,7 @@ where
 {
     /// Take ownership of the built CFG, replacing it with an empty one.
     pub fn take_cfg(&mut self) -> PcodeCfg<N, PcodeOperation> {
-        std::mem::replace(&mut self.cfg, PcodeCfg::new())
+        std::mem::take(&mut self.cfg)
     }
 }
 
@@ -76,11 +76,11 @@ where
         };
 
         // Lookup node indices; if either node is missing we have nothing to do.
-        let src_idx = match self.cfg.indices.get(&state) {
+        let src_idx = match self.cfg.indices.get(state) {
             Some(idx) => *idx,
             None => return,
         };
-        let dst_idx = match self.cfg.indices.get(&dest_state) {
+        let dst_idx = match self.cfg.indices.get(dest_state) {
             Some(idx) => *idx,
             None => return,
         };

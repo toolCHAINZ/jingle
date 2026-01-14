@@ -1,4 +1,3 @@
-use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::state::Successor;
 use crate::modeling::machine::cpu::symbolic::SymbolicPcodeAddress;
 use jingle_sleigh::{PcodeOperation, VarNode};

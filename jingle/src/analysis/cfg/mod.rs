@@ -89,6 +89,12 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     }
 }
 
+impl<N: CfgState, D: ModelTransition<N::Model>> Default for PcodeCfg<N, D> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn new() -> Self {
         Self {

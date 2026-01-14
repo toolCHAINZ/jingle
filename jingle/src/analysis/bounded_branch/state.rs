@@ -1,6 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
