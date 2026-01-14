@@ -132,7 +132,7 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis> Residue<(A:
         (a.finalize(), b.finalize())
     }
 
-    fn merged(
+    fn merged_state(
         &mut self,
         curr_state: &(A::State, B::State),
         dest_state: &(A::State, B::State),
@@ -140,19 +140,19 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis> Residue<(A:
         op: &Option<PcodeOperation>,
     ) {
         self.a
-            .merged(&curr_state.0, &dest_state.0, &merged_state.0, op);
+            .merged_state(&curr_state.0, &dest_state.0, &merged_state.0, op);
         self.b
-            .merged(&curr_state.1, &dest_state.1, &merged_state.1, op);
+            .merged_state(&curr_state.1, &dest_state.1, &merged_state.1, op);
     }
 
-    fn residue(
+    fn new_state(
         &mut self,
         state: &(A::State, B::State),
         dest_state: &(A::State, B::State),
         op: &Option<PcodeOperation>,
     ) {
-        self.a.residue(&state.0, &dest_state.0, op);
-        self.b.residue(&state.1, &dest_state.1, op);
+        self.a.new_state(&state.0, &dest_state.0, op);
+        self.b.new_state(&state.1, &dest_state.1, op);
     }
 }
 

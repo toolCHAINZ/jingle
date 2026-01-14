@@ -2,7 +2,7 @@ use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
-use petgraph::Direction::{self, Incoming};
+use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::StableDiGraph;
 use petgraph::visit::EdgeRef;
@@ -134,49 +134,71 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         old_weight: T,
         new_weight: S,
     ) {
-        if let Some((old_idx, new_idx)) = self
-            .indices
-            .get(old_weight.borrow())
-            .zip(self.indices.get(new_weight.borrow()))
-        {
-            dbg!("In here");
-            // We are going to keep the old weight, but keep the new index
-            // This will probably be the least amount of "movement" in the graph
+        // Copy the indices first to avoid borrow issues
+        let old_idx = self.indices.get(old_weight.borrow()).copied();
+        let new_idx = self.indices.get(new_weight.borrow()).copied();
+
+        tracing::debug!("replace_and_combine_nodes called: old_idx={:?}, new_idx={:?}", old_idx, new_idx);
+
+        if let (Some(old_idx), Some(new_idx)) = (old_idx, new_idx) {
+            // If the indices are the same, the nodes are already merged - nothing to do
+            if old_idx == new_idx {
+                tracing::debug!("Indices are identical, skipping merge");
+                return;
+            }
+
+            tracing::debug!("Both nodes found with different indices, proceeding with merge");
+            // We are going to keep the old index, but replace its weight with new_weight
+            // All edges from new_idx will be redirected to old_idx, then new_idx is removed
+
+            // Redirect all incoming edges from new_idx to old_idx
             let incoming: Vec<_> = self
                 .graph
-                .edges_directed(*new_idx, Direction::Incoming)
+                .edges_directed(new_idx, Direction::Incoming)
                 .map(|edge| edge.source())
                 .collect();
             for source in incoming {
-                if !self.graph.contains_edge(source, *old_idx) {
-                    self.graph.add_edge(source, *old_idx, EmptyEdge);
+                if !self.graph.contains_edge(source, old_idx) {
+                    self.graph.add_edge(source, old_idx, EmptyEdge);
                 }
             }
+
+            // Redirect all outgoing edges from new_idx to old_idx
             let outgoing: Vec<_> = self
                 .graph
-                .edges_directed(*new_idx, Direction::Outgoing)
+                .edges_directed(new_idx, Direction::Outgoing)
                 .map(|edge| edge.target())
                 .collect();
             for target in &outgoing {
-                if !self.graph.contains_edge(*old_idx, *target) {
-                    self.graph.add_edge(*old_idx, *target, EmptyEdge);
+                if !self.graph.contains_edge(old_idx, *target) {
+                    self.graph.add_edge(old_idx, *target, EmptyEdge);
                 }
             }
-            // using stable graph so we can do this without violated indices
-            dbg!(self.graph.remove_node(*new_idx));
 
-            // now to update the weight
-            if let Some(a) = self.graph.node_weight_mut(*old_idx) {
-                *a = new_weight.borrow().clone();
+            // Remove the new node from the graph (using StableGraph so indices remain valid)
+            self.graph.remove_node(new_idx);
+
+            // Update the weight at old_idx to be new_weight
+            if let Some(node_weight) = self.graph.node_weight_mut(old_idx) {
+                *node_weight = new_weight.borrow().clone();
             }
 
-            // now to update our maps
-            self.indices.insert(new_weight.borrow().clone(), *old_idx);
+            // Update the indices map: new_weight should now map to old_idx
+            self.indices.insert(new_weight.borrow().clone(), old_idx);
             self.indices.remove(old_weight.borrow());
 
-            if let Some(op) = self.ops.get(old_weight.borrow()) {
-                self.ops.insert(new_weight.borrow().clone(), op.clone());
-                self.ops.remove(old_weight.borrow());
+            // Update the ops map: prefer the op from new_weight if it exists, otherwise use old_weight's op
+            let op_to_keep = self.ops.get(new_weight.borrow())
+                .or_else(|| self.ops.get(old_weight.borrow()))
+                .cloned();
+
+            self.ops.remove(old_weight.borrow());
+            self.ops.remove(new_weight.borrow());
+
+            if let Some(op) = op_to_keep {
+                self.ops.insert(new_weight.borrow().clone(), op);
+            }else{
+                dbg!("Missing op!");
             }
         }
     }
@@ -213,6 +235,19 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             .map(|e| self.graph.node_weight(e.target()).unwrap())
             .collect();
         Some(succs)
+    }
+
+    /// Return predecessors of a node (by value) as references into the backing CFG.
+    /// Returns `None` if the node is not present in the CFG.
+    pub fn predecessors<T: Borrow<N>>(&self, node: T) -> Option<Vec<&N>> {
+        let n = node.borrow();
+        let idx = *self.indices.get(n)?;
+        let preds: Vec<&N> = self
+            .graph
+            .edges_directed(idx, Direction::Incoming)
+            .map(|e| self.graph.node_weight(e.source()).unwrap())
+            .collect();
+        Some(preds)
     }
 
     pub fn leaf_nodes(&self) -> impl Iterator<Item = &N> {

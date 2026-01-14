@@ -6,7 +6,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::reducer::CfgReducer;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::direct_valuation::VarnodeValue;
 use crate::analysis::pcode_store::PcodeStore;
@@ -15,6 +15,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::fmt::Result as FmtResult;
 use std::iter::{empty, once};
 
 /// How this analysis treats direct call instructions
@@ -93,6 +94,13 @@ impl PartialOrd for DirectLocationState {
 impl JoinSemiLattice for DirectLocationState {
     fn join(&mut self, other: &Self) {
         self.inner.join(&other.inner);
+    }
+}
+
+impl StateDisplay for DirectLocationState {
+    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> FmtResult {
+        // Use LowerHex format for the inner PcodeAddressLattice
+        write!(f, "{:x}", self.inner)
     }
 }
 

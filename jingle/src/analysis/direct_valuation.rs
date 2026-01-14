@@ -42,7 +42,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -50,8 +50,8 @@ use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceTyp
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt::Formatter;
-use std::hash::Hash;
+use std::fmt::{Formatter, Result as FmtResult};
+use std::hash::{Hash, Hasher};
 
 /// Represents the abstract value of a varnode in the analysis
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -276,11 +276,24 @@ pub struct DirectValuationState {
 
 impl Hash for DirectValuationState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        for (vn, value) in &self.written_locations {
+        let mut sorted = self.written_locations.keys().collect::<Vec<_>>();
+        sorted.sort_by_key(|k| (k.space_index, k.offset, k.size));
+        for vn in sorted.iter() {
             vn.hash(state);
-            value.hash(state);
+            self.written_locations[vn].hash(state);
         }
         self.arch_info.hash(state);
+    }
+}
+
+impl StateDisplay for DirectValuationState {
+    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
+        // Compute hash using the same algorithm as the Hash impl
+        use std::collections::hash_map::DefaultHasher;
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        let hash_value = hasher.finish();
+        write!(f, "Hash({:016x})", hash_value)
     }
 }
 

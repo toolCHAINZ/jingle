@@ -48,7 +48,7 @@ where
     /// `reduce` method, but generalized: we convert both CPA states into `N`
     /// via the mapper and add nodes/edges to the cfg. If `op` is `None`,
     /// only the source node is added (no edge).
-    fn residue(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOperation>) {
+    fn new_state(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOperation>) {
         self.cfg.add_node(state);
 
         if let Some(op) = op {
@@ -63,18 +63,22 @@ where
     ///
     /// This duplicates the behavior from the unwinding CPA's `merged` method in
     /// a generic way.
-    fn merged(
+    fn merged_state(
         &mut self,
-        _state: &N,
+        state: &N,
         dest_state: &N,
         merged_state: &N,
-        _op: &Option<PcodeOperation>,
+        op: &Option<PcodeOperation>,
     ) {
+        tracing::debug!("merged called: dest_state and merged_state provided");
         // If operation is not present we can't deterministically reconstruct
         // a replacement edge payload; however we still should remove edges
         // from src->dst and add a new edge with no-op payload is not supported.
         // We only proceed when there is an op provided (matches unwinding impl).
         self.cfg.replace_and_combine_nodes(dest_state, merged_state);
+        if let Some(op) = op{
+            self.cfg.add_edge(state, merged_state, op);
+        }
     }
 
     fn new() -> Self {

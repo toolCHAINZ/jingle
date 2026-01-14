@@ -22,13 +22,13 @@ pub trait Residue<S> {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn residue(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOperation>) {}
+    fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOperation>) {}
 
     /// A hook for when two abstract states are merged.
-    fn merged(
+    fn merged_state(
         &mut self,
         _curr_state: &S,
-        _dest_state: &S,
+        _original_merged_state: &S,
         _merged_state: &S,
         _op: &Option<PcodeOperation>,
     ) {

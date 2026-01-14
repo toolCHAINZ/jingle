@@ -120,21 +120,26 @@ where
                     "    Transfer produced dest_state: {}",
                     StateDisplayWrapper(&dest_state)
                 );
-                reducer.residue(&state, &dest_state, &op);
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
+                    let old_reached = reached_state.clone();
                     if reached_state.merge(&dest_state).merged() {
                         tracing::trace!("    Merged dest_state into existing reached_state");
                         tracing::trace!(
                             "      Merged state: {}",
                             StateDisplayWrapper(reached_state)
                         );
-                        reducer.merged(&state, &dest_state, reached_state, &op);
+                        reducer.merged_state(&state, &old_reached, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;
                     }
+                }
+                if !was_merged{
+                    // record that a new state was reach without merging
+                    tracing::debug!("Adding new state without merging: {}", StateDisplayWrapper(&dest_state));
+                    reducer.new_state(&state, &dest_state, &op);
                 }
 
                 if !dest_state.stop(reached.iter()) {

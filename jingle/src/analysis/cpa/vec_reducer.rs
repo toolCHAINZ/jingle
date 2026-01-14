@@ -60,7 +60,7 @@ where
     ///
     /// The reducer stores clones of the `dest_state` argument in the order they
     /// are observed by the CPA.
-    fn residue(&mut self, _state: &S, dest_state: &S, _op: &Option<PcodeOperation>) {
+    fn new_state(&mut self, _state: &S, dest_state: &S, _op: &Option<PcodeOperation>) {
         self.visited.push(dest_state.clone());
     }
 
@@ -70,7 +70,7 @@ where
     /// Replacement is performed by comparing `Debug` representations of entries
     /// to the `dest_state` Debug representation. This avoids additional trait
     /// bounds on `S` (such as `PartialEq`), at the cost of relying on Debug.
-    fn merged(
+    fn merged_state(
         &mut self,
         _curr_state: &S,
         dest_state: &S,

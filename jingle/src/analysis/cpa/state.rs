@@ -104,8 +104,6 @@ pub trait LocationState: AbstractState {
 impl_state_display_via_debug!(crate::analysis::back_edge::BackEdgeState);
 impl_state_display_via_debug!(crate::analysis::bounded_branch::state::BoundedBranchState);
 impl_state_display_via_debug!(crate::analysis::cpa::lattice::pcode::PcodeAddressLattice);
-impl_state_display_via_debug!(crate::analysis::direct_location::DirectLocationState);
-impl_state_display_via_debug!(crate::analysis::direct_valuation::DirectValuationState);
 
 /// Generic StateDisplay for compound tuple states `(S1, S2)`.
 impl<S1: StateDisplay, S2: StateDisplay> StateDisplay for (S1, S2) {
