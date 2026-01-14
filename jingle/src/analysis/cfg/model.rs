@@ -3,7 +3,7 @@ use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use z3::ast::Bool;
 
@@ -123,10 +123,10 @@ impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
 /// implements `CfgState`. These implementations delegate model creation and
 /// location-related methods to the first (0th) element of the tuple.
 ///
-/// We provide implementations for 2-, 3- and 4-tuples to cover common cases.
-/// Variadic tuples are not supported in stable Rust, so add more arities if
-/// needed.
-impl<A: CfgState, B: Clone + Debug + Hash + Eq> CfgState for (A, B) {
+/// For tuples where the later elements implement `Display`, include the
+/// display output of those elements in the `model_id`. This makes the model id
+/// more descriptive when tuples carry additional metadata.
+impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq> CfgState for (A, B) {
     type Model = A::Model;
 
     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
@@ -134,7 +134,9 @@ impl<A: CfgState, B: Clone + Debug + Hash + Eq> CfgState for (A, B) {
     }
 
     fn model_id(&self) -> String {
-        self.0.model_id()
+        // Incorporate the display output from the second element into the model id.
+        // Use an underscore separator to keep ids readable and safe.
+        format!("{}_{}", self.0.model_id(), format!("{}", self.1))
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
@@ -142,8 +144,8 @@ impl<A: CfgState, B: Clone + Debug + Hash + Eq> CfgState for (A, B) {
     }
 }
 
-impl<A: CfgState, B: Clone + Debug + Hash + Eq, C: Clone + Debug + Hash + Eq> CfgState
-    for (A, B, C)
+impl<A: CfgState, B: Display + Clone + Debug + Hash + Eq, C: Display + Clone + Debug + Hash + Eq>
+    CfgState for (A, B, C)
 {
     type Model = A::Model;
 
@@ -152,7 +154,13 @@ impl<A: CfgState, B: Clone + Debug + Hash + Eq, C: Clone + Debug + Hash + Eq> Cf
     }
 
     fn model_id(&self) -> String {
-        self.0.model_id()
+        // Include display outputs from the second and third elements.
+        format!(
+            "{}_{}_{}",
+            self.0.model_id(),
+            format!("{}", self.1),
+            format!("{}", self.2)
+        )
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
@@ -162,9 +170,9 @@ impl<A: CfgState, B: Clone + Debug + Hash + Eq, C: Clone + Debug + Hash + Eq> Cf
 
 impl<
     A: CfgState,
-    B: Clone + Debug + Hash + Eq,
-    C: Clone + Debug + Hash + Eq,
-    D: Clone + Debug + Hash + Eq,
+    B: Display + Clone + Debug + Hash + Eq,
+    C: Display + Clone + Debug + Hash + Eq,
+    D: Display + Clone + Debug + Hash + Eq,
 > CfgState for (A, B, C, D)
 {
     type Model = A::Model;
@@ -174,7 +182,14 @@ impl<
     }
 
     fn model_id(&self) -> String {
-        self.0.model_id()
+        // Include display outputs from elements 2, 3 and 4.
+        format!(
+            "{}_{}_{}_{}",
+            self.0.model_id(),
+            format!("{}", self.1),
+            format!("{}", self.2),
+            format!("{}", self.3)
+        )
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
