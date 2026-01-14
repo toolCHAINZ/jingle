@@ -33,6 +33,7 @@ pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
 #[derive(Debug)]
 pub struct ModeledPcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) cfg: PcodeCfg<N, D>,
+    #[allow(unused)]
     pub(crate) info: SleighArchInfo,
     pub(crate) models: HashMap<N, N::Model>,
 }
