@@ -56,8 +56,6 @@ use std::hash::{Hash, Hasher};
 /// Represents the abstract value of a varnode in the analysis
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum VarnodeValue {
-    /// No information (bottom of lattice)
-    Bottom,
     /// The original entry value of this varnode (e.g., stack pointer at function entry)
     Entry(VarNode),
     /// A constant signed offset relative to the entry value
@@ -110,7 +108,6 @@ impl VarnodeValue {
     /// Add a constant to this value
     fn add(&self, delta: i64) -> Self {
         match self {
-            VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), delta),
             VarnodeValue::Offset(vn, offset) => {
                 let sum = offset.wrapping_add(delta);
@@ -129,7 +126,6 @@ impl VarnodeValue {
     /// Subtract a constant from this value
     fn sub(&self, delta: i64) -> Self {
         match self {
-            VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), -delta),
             VarnodeValue::Offset(vn, offset) => {
                 let diff = offset.wrapping_sub(delta);
@@ -148,7 +144,6 @@ impl VarnodeValue {
     /// Negate this value
     fn negate(&self) -> Self {
         match self {
-            VarnodeValue::Bottom => VarnodeValue::Bottom,
             VarnodeValue::Const(val) => VarnodeValue::Const((*val as i64).wrapping_neg() as u64),
             _ => VarnodeValue::Top,
         }
@@ -157,7 +152,6 @@ impl VarnodeValue {
     /// Bitwise AND with another value
     fn and(&self, other: &Self) -> Self {
         match (self, other) {
-            (VarnodeValue::Bottom, _) | (_, VarnodeValue::Bottom) => VarnodeValue::Bottom,
             (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a & b),
             (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
             _ => VarnodeValue::Top,
@@ -167,7 +161,6 @@ impl VarnodeValue {
     /// Bitwise OR with another value
     fn or(&self, other: &Self) -> Self {
         match (self, other) {
-            (VarnodeValue::Bottom, _) | (_, VarnodeValue::Bottom) => VarnodeValue::Bottom,
             (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a | b),
             (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
             _ => VarnodeValue::Top,
@@ -177,7 +170,6 @@ impl VarnodeValue {
     /// Bitwise XOR with another value
     fn xor(&self, other: &Self) -> Self {
         match (self, other) {
-            (VarnodeValue::Bottom, _) | (_, VarnodeValue::Bottom) => VarnodeValue::Bottom,
             (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a ^ b),
             (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
             _ => VarnodeValue::Top,
@@ -188,7 +180,6 @@ impl VarnodeValue {
 impl JingleDisplayable for VarnodeValue {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            VarnodeValue::Bottom => write!(f, "⊥"),
             VarnodeValue::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
             VarnodeValue::Offset(vn, offset) => {
                 if *offset >= 0 {
@@ -211,10 +202,6 @@ impl PartialOrd for VarnodeValue {
         use VarnodeValue::*;
         match (self, other) {
             // Bottom is less than everything except itself
-            (Bottom, Bottom) => Some(Ordering::Equal),
-            (Bottom, _) => Some(Ordering::Less),
-            (_, Bottom) => Some(Ordering::Greater),
-
             // Top is greater than everything except itself
             (Top, Top) => Some(Ordering::Equal),
             (Top, _) => Some(Ordering::Greater),
@@ -248,7 +235,6 @@ impl JoinSemiLattice for VarnodeValue {
     fn join(&mut self, other: &Self) {
         use VarnodeValue::*;
         *self = match (&*self, other) {
-            (Bottom, x) | (x, Bottom) => x.clone(),
             (Top, _) | (_, Top) => Top,
             (Entry(a), Entry(b)) if a == b => Entry(a.clone()),
             (Entry(a), Offset(b, off)) | (Offset(b, off), Entry(a)) if a == b => {
@@ -949,13 +935,10 @@ mod tests {
 
     #[test]
     fn test_varnode_value_ordering() {
-        let bottom = VarnodeValue::Bottom;
         let const_10 = VarnodeValue::Const(10);
         let const_20 = VarnodeValue::Const(20);
         let top = VarnodeValue::Top;
 
-        assert!(bottom < const_10);
-        assert!(bottom < top);
         assert!(const_10 < top);
         assert!(const_10.partial_cmp(&const_20).is_none());
     }
@@ -1141,10 +1124,6 @@ mod tests {
     #[test]
     fn test_varnode_value_display() {
         let info = mock_arch_info();
-
-        // Test Bottom
-        let bottom = VarnodeValue::Bottom;
-        assert_eq!(format!("{}", bottom.display(&info)), "⊥");
 
         // Test Top
         let top = VarnodeValue::Top;
