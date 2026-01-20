@@ -18,9 +18,8 @@ pub mod ctl;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
-// pub mod unwinding;
+pub mod unwinding;
 pub mod varnode;
-// pub mod stack_offset;
 pub mod compound;
 pub mod direct_valuation;
 
