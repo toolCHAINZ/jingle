@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-use jingle::analysis::back_edge::BackEdgeCPA;
-use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
@@ -40,23 +38,16 @@ fn main() {
 
     tracing::info!("Binary loaded successfully");
 
-    // Step 1: First compute back-edges using BackEdgeCPA
-    tracing::info!("Step 1: Computing back-edges with BackEdgeCPA");
-    let mut back_edge_analysis = BackEdgeCPA::new();
-    let back_edges = back_edge_analysis.run(&loaded, PcodeAddressLattice::Const(ConcretePcodeAddress::from(FUNC_NESTED)));
-
-    // Extract the computed back edges
-
-    tracing::info!("Found {} back-edge(s)", back_edges.iter().count());
-    for (src, dst) in back_edges.iter() {
-        tracing::info!("  Back-edge: 0x{:x} -> 0x{:x}", src, dst);
-    }
-
-    // Step 2: Run unwinding analysis with bounded back-edge visit counting
-    tracing::info!("Step 2: Running unwinding analysis with bounded back-edge visit counting");
+    // Run unwinding analysis - back-edges are computed internally
+    tracing::info!("Running unwinding analysis with bounded back-edge visit counting");
 
     let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch);
-    let unwinding_analysis = BoundedBackEdgeVisitAnalysis::new(location_analysis, back_edges, 3); // Max 3 iterations per back-edge
+    let unwinding_analysis = BoundedBackEdgeVisitAnalysis::new(
+        location_analysis,
+        &loaded,
+        ConcretePcodeAddress::from(FUNC_NESTED),
+        3, // Max 3 iterations per back-edge
+    );
 
     // Wrap with CfgReducer
     let mut analysis_with_cfg = unwinding_analysis.with_residue(CfgReducer::new());
