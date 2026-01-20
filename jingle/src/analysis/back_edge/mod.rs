@@ -145,7 +145,6 @@ pub struct BackEdgeReducer {
     visited_edges: Vec<(ConcretePcodeAddress, ConcretePcodeAddress)>,
     /// Identified back-edges
     back_edges: BackEdges,
-    _phantom: PhantomData<BackEdgeState>,
 }
 
 impl BackEdgeReducer {
@@ -153,7 +152,6 @@ impl BackEdgeReducer {
         Self {
             visited_edges: Vec::new(),
             back_edges: BackEdges::default(),
-            _phantom: PhantomData,
         }
     }
 
@@ -161,7 +159,6 @@ impl BackEdgeReducer {
         Self {
             visited_edges: Vec::with_capacity(cap),
             back_edges: BackEdges::default(),
-            _phantom: PhantomData,
         }
     }
 }

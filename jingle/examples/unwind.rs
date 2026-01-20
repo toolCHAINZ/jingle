@@ -10,6 +10,7 @@ use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use std::env;
+use jingle::analysis::unwinding2::UnwindExt;
 
 /// Addresses of various test functions in the example binary.
 const FUNC_LINE: u64 = 0x100000460;
@@ -41,16 +42,11 @@ fn main() {
     // Run unwinding analysis - back-edges are computed internally
     tracing::info!("Running unwinding analysis with bounded back-edge visit counting");
 
-    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch);
-    let unwinding_analysis = BoundedBackEdgeVisitAnalysis::new(
-        location_analysis,
-        &loaded,
-        ConcretePcodeAddress::from(FUNC_NESTED),
-        3, // Max 3 iterations per back-edge
-    );
+    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch).unwind(5);
+
 
     // Wrap with CfgReducer
-    let mut analysis_with_cfg = unwinding_analysis.with_residue(CfgReducer::new());
+    let mut analysis_with_cfg = location_analysis.with_residue(CfgReducer::new());
 
     // Run the unwinding analysis
     let cfg = analysis_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
