@@ -9,7 +9,7 @@ use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Formatter, LowerHex};
+use std::fmt::{Display, Formatter, LowerHex};
 use std::rc::Rc;
 
 pub(crate) mod model;
@@ -17,6 +17,12 @@ pub(crate) mod model;
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
 
+
+impl Display for EmptyEdge {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
 impl LowerHex for EmptyEdge {
     fn fmt(&self, _: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())

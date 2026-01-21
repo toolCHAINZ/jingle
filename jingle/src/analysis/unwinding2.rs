@@ -74,7 +74,7 @@
 
 use crate::analysis::Analysis;
 use crate::analysis::cfg::CfgState;
-use crate::analysis::compound::{CompoundAnalysis, Strengthen, StrengthenOutcome};
+use crate::analysis::compound::{CompoundAnalysis, CompoundState, Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::{
@@ -87,7 +87,7 @@ use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, LowerHex, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use crate::analysis::direct_location::DirectLocationState;
 
@@ -113,6 +113,52 @@ impl Hash for BackEdgeCountState {
         let mut v: Vec<_> = self.back_edge_counts.iter().collect();
         v.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap_or(a.1.cmp(&b.1)));
         v.hash(state);
+    }
+}
+
+impl Display for BackEdgeCountState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "BackEdgeCount(loc: {:?}, edges: {{", self.location)?;
+
+        // Sort the back-edge counts for deterministic output
+        let mut edges: Vec<_> = self.back_edge_counts.iter().collect();
+        edges.sort_by_key(|(edge, _)| *edge);
+
+        for (i, (edge, count)) in edges.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "({:?} -> {:?}): {}", edge.0, edge.1, count)?;
+        }
+
+        write!(f, "}})")
+    }
+}
+
+impl LowerHex for BackEdgeCountState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "BackEdgeCount(loc: ")?;
+
+        if let Some(loc) = &self.location {
+            write!(f, "{:#x}", loc)?;
+        } else {
+            write!(f, "None")?;
+        }
+
+        write!(f, ", edges: {{")?;
+
+        // Sort the back-edge counts for deterministic output
+        let mut edges: Vec<_> = self.back_edge_counts.iter().collect();
+        edges.sort_by_key(|(edge, _)| *edge);
+
+        for (i, (edge, count)) in edges.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "({:#x} -> {:#x}): {}", edge.0, edge.1, count)?;
+        }
+
+        write!(f, "}})")
     }
 }
 
@@ -249,7 +295,7 @@ impl IntoState<BackEdgeCountCPA> for ConcretePcodeAddress {
 impl<L: LocationState> Strengthen<L> for BackEdgeCountState {
     fn strengthen(
         &mut self,
-        _original: &(Self, L),
+        _original: &CompoundState<Self, L>,
         other: &L,
         _op: &PcodeOperation,
     ) -> StrengthenOutcome {
@@ -323,7 +369,7 @@ where
 {
 }
 
-impl<L: LocationState> LocationState for (BackEdgeCountState, L){
+impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L>{
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.1.get_operation(t)
     }
@@ -333,7 +379,7 @@ impl<L: LocationState> LocationState for (BackEdgeCountState, L){
     }
 }
 
-impl<L: CfgState> CfgState for (BackEdgeCountState, L) {
+impl<L: CfgState> CfgState for CompoundState<BackEdgeCountState, L> {
     type Model = L::Model;
 
     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {

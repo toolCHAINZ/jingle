@@ -17,7 +17,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::fmt::Result as FmtResult;
+use std::fmt::{Display, LowerHex, Result as FmtResult};
 use std::iter::{empty, once};
 
 /// How this analysis treats direct call instructions
@@ -80,6 +80,19 @@ impl IntoState<DirectLocationAnalysis> for ConcretePcodeAddress {
 impl From<DirectLocationState> for PcodeAddressLattice {
     fn from(state: DirectLocationState) -> Self {
         state.inner
+    }
+}
+
+impl Display for DirectLocationState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> FmtResult {
+        // PcodeAddressLattice doesn't implement Display, so we use Debug
+        write!(f, "{:?}", self.inner)
+    }
+}
+
+impl LowerHex for DirectLocationState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> FmtResult {
+        LowerHex::fmt(&self.inner, f)
     }
 }
 
@@ -171,10 +184,10 @@ impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::Di
 {
     fn strengthen(
         &mut self,
-        _original: &(
+        _original: &crate::analysis::compound::CompoundState<
             Self,
             crate::analysis::direct_valuation::DirectValuationState,
-        ),
+        >,
         _other: &crate::analysis::direct_valuation::DirectValuationState,
         _op: &PcodeOperation,
     ) -> StrengthenOutcome {
@@ -195,7 +208,7 @@ impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::Di
 impl Strengthen<BoundedBranchState> for DirectLocationState {
     fn strengthen(
         &mut self,
-        _original: &(Self, BoundedBranchState),
+        _original: &crate::analysis::compound::CompoundState<Self, BoundedBranchState>,
         _other: &BoundedBranchState,
         _op: &PcodeOperation,
     ) -> StrengthenOutcome {

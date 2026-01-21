@@ -1,3 +1,5 @@
+use crate::analysis::compound::CompoundState;
+
 pub mod flat;
 pub mod pcode;
 // pub mod simple;
@@ -14,15 +16,4 @@ pub trait JoinSemiLattice: Eq + PartialOrd {
 /// an actual Lattice using [`SimpleLattice`](crate::analysis::cpa::lattice::simple::SimpleLattice)
 pub trait PartialJoinSemiLattice: Eq + PartialOrd + Sized {
     fn partial_join(&self, other: &Self) -> Option<Self>;
-}
-
-impl<S1, S2> JoinSemiLattice for (S1, S2)
-where
-    S1: JoinSemiLattice,
-    S2: JoinSemiLattice,
-{
-    fn join(&mut self, other: &Self) {
-        self.0.join(&other.0);
-        self.1.join(&other.1);
-    }
 }

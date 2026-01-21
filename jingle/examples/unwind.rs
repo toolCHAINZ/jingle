@@ -9,7 +9,8 @@ use jingle::analysis::unwinding::BoundedBackEdgeVisitAnalysis;
 use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
-use std::env;
+use std::{env, fs};
+use petgraph::dot::Dot;
 use jingle::analysis::unwinding2::UnwindExt;
 
 /// Addresses of various test functions in the example binary.
@@ -70,7 +71,7 @@ fn main() {
             .count();
         println!("  0x{:x} (visited {} times)", loc, count);
     }
-
+    fs::write("dot.dot", format!("{:x}", Dot::new(cfg.graph())));
     println!("\nTotal CFG nodes with unwinding: {}", cfg.graph().node_count());
 
     tracing::info!("Analysis complete");

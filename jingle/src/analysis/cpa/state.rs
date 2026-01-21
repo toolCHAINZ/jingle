@@ -5,6 +5,7 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
+use crate::analysis::compound::CompoundState;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -104,14 +105,3 @@ pub trait LocationState: AbstractState {
 impl_state_display_via_debug!(crate::analysis::back_edge::BackEdgeState);
 impl_state_display_via_debug!(crate::analysis::bounded_branch::state::BoundedBranchState);
 impl_state_display_via_debug!(crate::analysis::cpa::lattice::pcode::PcodeAddressLattice);
-
-/// Generic StateDisplay for compound tuple states `(S1, S2)`.
-impl<S1: StateDisplay, S2: StateDisplay> StateDisplay for (S1, S2) {
-    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "(")?;
-        self.0.fmt_state(f)?;
-        write!(f, ", ")?;
-        self.1.fmt_state(f)?;
-        write!(f, ")")
-    }
-}
