@@ -10,7 +10,6 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::marker::PhantomData;
 
 pub type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
 

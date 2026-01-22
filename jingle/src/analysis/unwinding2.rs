@@ -81,7 +81,6 @@ use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::direct_location::DirectLocationState;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -111,7 +110,7 @@ pub struct BackEdgeCountState {
 impl Hash for BackEdgeCountState {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut v: Vec<_> = self.back_edge_counts.iter().collect();
-        v.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap_or(a.1.cmp(&b.1)));
+        v.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap_or(a.1.cmp(b.1)));
         v.hash(state);
     }
 }
@@ -279,9 +278,7 @@ impl Residue<BackEdgeCountState> for EmptyBackEdgeReducer {
         EmptyBackEdgeReducer
     }
 
-    fn finalize(self) -> Self::Output {
-        ()
-    }
+    fn finalize(self) -> Self::Output {}
 }
 
 impl IntoState<BackEdgeCountCPA> for ConcretePcodeAddress {
@@ -321,13 +318,9 @@ impl CompoundAnalysis<crate::analysis::direct_location::DirectLocationAnalysis>
 /// Enable BackEdgeCountCPA to be compounded with BackEdgeCPA
 impl CompoundAnalysis<crate::analysis::back_edge::BackEdgeCPA> for BackEdgeCountCPA {}
 
-/// Enable BackEdgeCountCPA to be compounded with PcodeAddressLattice-based CPAs
-/// Note: PcodeAddressLattice itself is a state, not a CPA, so this is for reference.
-/// Users can add more impls for their custom CPAs as needed.
-
 /// The main Unwinding analysis.
 /// This wraps a tuple-based compound analysis combining back-edge counting with a location analysis.
-pub type Unwinding<L: ConfigurableProgramAnalysis> = (BackEdgeCountCPA, L);
+pub type Unwinding<L> = (BackEdgeCountCPA, L);
 
 impl<L: ConfigurableProgramAnalysis> Analysis for Unwinding<L>
 where
@@ -379,7 +372,7 @@ impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L> {
 impl<L: CfgState> CfgState for CompoundState<BackEdgeCountState, L> {
     type Model = L::Model;
 
-    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
+    fn new_const(&self, _i: &SleighArchInfo) -> Self::Model {
         todo!()
     }
 

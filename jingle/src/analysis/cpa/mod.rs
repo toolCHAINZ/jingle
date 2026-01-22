@@ -12,7 +12,6 @@ use crate::analysis::cfg::model::StateDisplayWrapper;
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
-use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fmt::Debug;

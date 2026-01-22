@@ -1,4 +1,3 @@
-use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;

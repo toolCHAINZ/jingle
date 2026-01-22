@@ -1,4 +1,3 @@
-use crate::analysis::compound::CompoundState;
 
 pub mod flat;
 pub mod pcode;

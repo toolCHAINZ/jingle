@@ -68,8 +68,8 @@ impl<L: LocationState> BackEdgeVisitCountState<L> {
     }
 
     pub fn terminated(&self) -> bool {
-        let back_edge_limit = self.back_edge_visits.values().any(|b| b >= &self.max);
-        back_edge_limit
+        
+        self.back_edge_visits.values().any(|b| b >= &self.max)
     }
 
     pub fn same_visit_counts(&self, other: &Self) -> bool {
