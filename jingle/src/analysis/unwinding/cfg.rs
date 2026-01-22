@@ -68,7 +68,6 @@ impl<L: LocationState> BackEdgeVisitCountState<L> {
     }
 
     pub fn terminated(&self) -> bool {
-        
         self.back_edge_visits.values().any(|b| b >= &self.max)
     }
 
@@ -180,7 +179,7 @@ impl<L: LocationState> AbstractState for BackEdgeVisitCountState<L> {
 }
 
 impl<L: LocationState> LocationState for BackEdgeVisitCountState<L> {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
         self.location.get_operation(t)
     }
 

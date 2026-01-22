@@ -170,7 +170,7 @@ impl AbstractState for DirectLocationState {
 }
 
 impl LocationState for DirectLocationState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
         self.inner.get_operation(t)
     }
 

@@ -78,7 +78,7 @@ where
     ///
     /// The source `state` has at least one successor, so it is not final.
     /// The `dest_state` is recorded as a potential final state (to be verified later).
-    fn new_state(&mut self, state: &S, dest_state: &S, _op: &Option<PcodeOperation>) {
+    fn new_state(&mut self, state: &S, dest_state: &S, _op: &Option<&PcodeOperation>) {
         // The source state has successors, so it's not final
         if !self.non_final_states.iter().any(|s| s == state) {
             self.non_final_states.push(state.clone());
@@ -100,7 +100,7 @@ where
         curr_state: &S,
         original_merged_state: &S,
         merged_state: &S,
-        _op: &Option<PcodeOperation>,
+        _op: &Option<&PcodeOperation>,
     ) {
         // The current state has successors, so it's not final
         if !self.non_final_states.iter().any(|s| s == curr_state) {

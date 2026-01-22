@@ -4,7 +4,7 @@ use jingle_sleigh::{PcodeOperation, VarNode};
 use std::borrow::Borrow;
 
 pub trait PcodeStore {
-    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation>;
+    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<&PcodeOperation>;
 }
 
 pub trait EntryPoint {
@@ -12,15 +12,15 @@ pub trait EntryPoint {
 }
 
 impl<'a> PcodeStore for LoadedSleighContext<'a> {
-    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
+    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<&PcodeOperation> {
         let addr = addr.borrow();
         let instr = self.instruction_at(addr.machine())?;
-        instr.ops.get(addr.pcode() as usize).cloned()
+        instr.ops.get(addr.pcode() as usize)
     }
 }
 
 impl<T: PcodeStore> PcodeStore for &T {
-    fn get_pcode_op_at<B: Borrow<ConcretePcodeAddress>>(&self, addr: B) -> Option<PcodeOperation> {
+    fn get_pcode_op_at<B: Borrow<ConcretePcodeAddress>>(&self, addr: B) -> Option<&PcodeOperation> {
         (*self).get_pcode_op_at(addr)
     }
 }

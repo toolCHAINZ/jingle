@@ -95,7 +95,7 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + StateDisplay {
 
 /// States that know their program location.
 pub trait LocationState: AbstractState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation>;
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation>;
     fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }
 

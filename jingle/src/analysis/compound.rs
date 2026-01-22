@@ -199,7 +199,7 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
         curr_state: &CompoundState<A::State, B::State>,
         dest_state: &CompoundState<A::State, B::State>,
         merged_state: &CompoundState<A::State, B::State>,
-        op: &Option<PcodeOperation>,
+        op: &Option<&PcodeOperation>,
     ) {
         self.a
             .merged_state(&curr_state.0, &dest_state.0, &merged_state.0, op);
@@ -211,7 +211,7 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
         &mut self,
         state: &CompoundState<A::State, B::State>,
         dest_state: &CompoundState<A::State, B::State>,
-        op: &Option<PcodeOperation>,
+        op: &Option<&PcodeOperation>,
     ) {
         self.a.new_state(&state.0, &dest_state.0, op);
         self.b.new_state(&state.1, &dest_state.1, op);
@@ -248,7 +248,7 @@ impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S
 where
     S1: Strengthen<S2>,
 {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
         self.0.get_operation(t)
     }
 

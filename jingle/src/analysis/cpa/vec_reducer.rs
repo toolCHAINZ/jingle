@@ -60,7 +60,7 @@ where
     ///
     /// The reducer stores clones of the `dest_state` argument in the order they
     /// are observed by the CPA.
-    fn new_state(&mut self, _state: &S, dest_state: &S, _op: &Option<PcodeOperation>) {
+    fn new_state(&mut self, _state: &S, dest_state: &S, _op: &Option<&PcodeOperation>) {
         self.visited.push(dest_state.clone());
     }
 
@@ -75,7 +75,7 @@ where
         _curr_state: &S,
         dest_state: &S,
         merged_state: &S,
-        _op: &Option<PcodeOperation>,
+        _op: &Option<&PcodeOperation>,
     ) {
         for entry in &mut self.visited {
             if entry == dest_state {

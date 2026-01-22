@@ -357,7 +357,7 @@ where
 }
 
 impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L> {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
         self.1.get_operation(t)
     }
 
