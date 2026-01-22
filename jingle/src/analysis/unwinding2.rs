@@ -329,9 +329,6 @@ where
 {
 }
 
-/// Compound state for the unwinding analysis
-pub type UnwindingState<L> = (BackEdgeCountState, L);
-
 /// Extension trait to add `unwind` method to any location analysis
 pub trait UnwindExt: ConfigurableProgramAnalysis
 where
