@@ -1,4 +1,5 @@
 use crate::JingleError;
+use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::state::StateDisplay;
 use crate::modeling::machine::MachineState;
@@ -7,7 +8,6 @@ use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::fmt::Debug;
 use std::hash::Hash;
 use z3::ast::Bool;
-use crate::analysis::compound::CompoundState;
 
 /// An SMT Model of a state.
 ///

@@ -1,18 +1,17 @@
 mod cfg;
 
-use crate::analysis::{Analysis, RunnableAnalysis};
 use crate::analysis::back_edge::{BackEdgeCPA, BackEdges};
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::LocationState;
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::pcode_store::PcodeStore;
+use crate::analysis::{Analysis, RunnableAnalysis};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 pub use cfg::BackEdgeVisitCountState;
 
-pub struct BoundedBackEdgeVisitAnalysis<A: ConfigurableProgramAnalysis>
-{
+pub struct BoundedBackEdgeVisitAnalysis<A: ConfigurableProgramAnalysis> {
     inner: A,
     back_edges: BackEdges,
     max: usize,
@@ -69,6 +68,7 @@ where
     }
 }
 
-impl<A: ConfigurableProgramAnalysis> Analysis for BoundedBackEdgeVisitAnalysis<A> where A::State: LocationState {}
-
-
+impl<A: ConfigurableProgramAnalysis> Analysis for BoundedBackEdgeVisitAnalysis<A> where
+    A::State: LocationState
+{
+}

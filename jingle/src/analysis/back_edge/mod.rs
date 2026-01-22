@@ -72,7 +72,6 @@ impl BackEdgeState {
         s.location = loc;
         s
     }
-
 }
 
 impl From<ConcretePcodeAddress> for BackEdgeState {
@@ -183,10 +182,8 @@ impl Residue<BackEdgeState> for BackEdgeReducer {
         _op: &Option<PcodeOperation>,
     ) {
         // Extract concrete addresses from both states
-        if let (Some(from_addr), Some(to_addr)) = (
-            state.get_location(),
-            dest_state.get_location(),
-        ) {
+        if let (Some(from_addr), Some(to_addr)) = (state.get_location(), dest_state.get_location())
+        {
             // Record this edge
             if !self.visited_edges.contains(&(from_addr, to_addr)) {
                 self.visited_edges.push((from_addr, to_addr));

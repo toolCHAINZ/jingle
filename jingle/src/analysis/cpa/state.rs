@@ -1,3 +1,4 @@
+use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -5,7 +6,6 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
-use crate::analysis::compound::CompoundState;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {

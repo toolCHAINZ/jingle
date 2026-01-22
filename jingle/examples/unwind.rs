@@ -6,12 +6,12 @@ use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
 use jingle::analysis::unwinding::BoundedBackEdgeVisitAnalysis;
+use jingle::analysis::unwinding2::UnwindExt;
 use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
-use std::{env, fs};
 use petgraph::dot::Dot;
-use jingle::analysis::unwinding2::UnwindExt;
+use std::{env, fs};
 
 /// Addresses of various test functions in the example binary.
 const FUNC_LINE: u64 = 0x100000460;
@@ -45,7 +45,6 @@ fn main() {
 
     let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch).unwind(5);
 
-
     // Wrap with CfgReducer
     let mut analysis_with_cfg = location_analysis.with_residue(CfgReducer::new());
 
@@ -58,22 +57,23 @@ fn main() {
 
     println!("CFG nodes (unwound states): {}", cfg.nodes().count());
 
-    let mut locations: Vec<_> = cfg.nodes()
-        .filter_map(|n| n.get_location())
-        .collect();
+    let mut locations: Vec<_> = cfg.nodes().filter_map(|n| n.get_location()).collect();
     locations.sort();
     locations.dedup();
 
     println!("Unique program locations: {}", locations.len());
     for loc in &locations {
-        let count = cfg.nodes()
+        let count = cfg
+            .nodes()
             .filter(|n| n.get_location() == Some(*loc))
             .count();
         println!("  0x{:x} (visited {} times)", loc, count);
     }
     fs::write("dot.dot", format!("{:x}", Dot::new(cfg.graph())));
-    println!("\nTotal CFG nodes with unwinding: {}", cfg.graph().node_count());
+    println!(
+        "\nTotal CFG nodes with unwinding: {}",
+        cfg.graph().node_count()
+    );
 
     tracing::info!("Analysis complete");
 }
-

@@ -14,15 +14,15 @@ pub mod direct_location;
 // mod location;
 mod bmc;
 pub mod bounded_branch;
+pub mod compound;
 pub mod ctl;
+pub mod direct_valuation;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
 pub mod unwinding;
-pub mod varnode;
-pub mod compound;
-pub mod direct_valuation;
 pub mod unwinding2;
+pub mod varnode;
 
 /// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
 /// The intent here is to provide some structure for running and combining CPAs. This trait

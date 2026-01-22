@@ -17,7 +17,6 @@ pub(crate) mod model;
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
 
-
 impl Display for EmptyEdge {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())

@@ -1,12 +1,12 @@
+pub mod final_reducer;
 pub mod lattice;
 pub mod reducer;
 pub mod residue;
 pub mod state;
 pub mod vec_reducer;
-pub mod final_reducer;
 
-pub use vec_reducer::VecReducer;
 pub use final_reducer::FinalReducer;
+pub use vec_reducer::VecReducer;
 
 use crate::analysis::cfg::model::StateDisplayWrapper;
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
@@ -38,7 +38,6 @@ pub trait ConfigurableProgramAnalysis: Sized {
     type State: AbstractState + Debug;
 
     type Reducer: Residue<Self::State>;
-
 }
 
 /**

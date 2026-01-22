@@ -1,15 +1,17 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::fmt::{Formatter, Result};
-use std::hash::{Hash, Hasher};
 use crate::analysis::back_edge::{BackEdge, BackEdges};
 use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor};
+use crate::analysis::cpa::state::{
+    AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
+};
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::fmt::{Formatter, Result};
+use std::hash::{Hash, Hasher};
 use std::iter::empty;
 
 #[derive(Debug, Clone, Eq)]
@@ -159,7 +161,9 @@ impl<L: LocationState> AbstractState for BackEdgeVisitCountState<L> {
             let mut new_state = self.clone();
 
             // Check if this transition is a back-edge and increment the count
-            if let (Some(from), Some(to)) = (self.location.get_location(), new_location.get_location()) {
+            if let (Some(from), Some(to)) =
+                (self.location.get_location(), new_location.get_location())
+            {
                 let edge = (from, to);
                 if new_state.back_edge_visits.contains_key(&edge) {
                     new_state.increment_back_edge_count(edge);
@@ -210,4 +214,3 @@ where
         self.location.location()
     }
 }
-

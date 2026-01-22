@@ -3,10 +3,10 @@
 // This example shows how to use the Unwinding analysis to bound loop iterations
 // by tracking back-edge visits.
 
+use jingle::analysis::Analysis;
 use jingle::analysis::back_edge::BackEdgeCPA;
 use jingle::analysis::direct_location::DirectLocationAnalysis;
-use jingle::analysis::unwinding2::{Unwinding, UnwindExt};
-use jingle::analysis::Analysis;
+use jingle::analysis::unwinding2::{UnwindExt, Unwinding};
 
 fn main() {
     println!("Unwinding Analysis Example");
@@ -46,4 +46,3 @@ fn main() {
     println!("- Can wrap any LocationState-based CPA");
     println!("- Provides .unwind(bound) extension method for convenience");
 }
-

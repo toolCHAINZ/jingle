@@ -81,6 +81,7 @@ use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
+use crate::analysis::direct_location::DirectLocationState;
 use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -89,7 +90,6 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter, LowerHex, Result as FmtResult};
 use std::hash::{Hash, Hasher};
-use crate::analysis::direct_location::DirectLocationState;
 
 /// A back-edge is a pair of (from, to) addresses
 type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
@@ -253,7 +253,6 @@ impl AbstractState for BackEdgeCountState {
     }
 }
 
-
 /// Internal CPA for back-edge counting
 pub struct BackEdgeCountCPA {
     max_count: usize,
@@ -330,7 +329,6 @@ impl CompoundAnalysis<crate::analysis::back_edge::BackEdgeCPA> for BackEdgeCount
 /// This wraps a tuple-based compound analysis combining back-edge counting with a location analysis.
 pub type Unwinding<L: ConfigurableProgramAnalysis> = (BackEdgeCountCPA, L);
 
-
 impl<L: ConfigurableProgramAnalysis> Analysis for Unwinding<L>
 where
     L::State: LocationState,
@@ -355,7 +353,6 @@ where
     where
         Self: Sized,
     {
-
         (BackEdgeCountCPA::new(bound), self)
     }
 }
@@ -369,7 +366,7 @@ where
 {
 }
 
-impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L>{
+impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L> {
     fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
         self.1.get_operation(t)
     }

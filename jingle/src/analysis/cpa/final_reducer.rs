@@ -132,4 +132,3 @@ where
         self.compute_final_states()
     }
 }
-

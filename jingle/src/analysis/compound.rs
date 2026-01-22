@@ -1,4 +1,6 @@
+use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::Residue;
+use crate::analysis::cpa::state::StateDisplay;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::pcode_store::PcodeStore;
@@ -7,8 +9,6 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::LowerHex;
-use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::StateDisplay;
 
 pub enum StrengthenOutcome {
     Changed,
@@ -174,8 +174,8 @@ pub struct CompoundReducer<A: ConfigurableProgramAnalysis, B: ConfigurableProgra
     b: B::Reducer,
 }
 
-impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis> Residue<CompoundState<A::State, B::State>>
-    for CompoundReducer<A, B>
+impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
+    Residue<CompoundState<A::State, B::State>> for CompoundReducer<A, B>
 {
     type Output = (
         <A::Reducer as Residue<A::State>>::Output,
