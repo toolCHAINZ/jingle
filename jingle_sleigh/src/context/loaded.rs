@@ -78,7 +78,7 @@ impl<'a> LoadedSleighContext<'a> {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        instr.augment_with_metadata(&self.metadata);
+        instr.postprocess(&self.metadata, &self.arch_info);
         let vn = VarNode {
             space_index: self.arch_info.default_code_space_index(),
             size: instr.length,

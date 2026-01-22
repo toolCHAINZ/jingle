@@ -44,7 +44,7 @@ impl Iterator for SleighContextInstructionIterator<'_> {
             .get_one_instruction(self.offset)
             .map(Instruction::from)
             .ok()?;
-        instr.augment_with_metadata(&self.sleigh.metadata);
+        instr.postprocess(&self.sleigh.metadata, &self.sleigh.arch_info);
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;

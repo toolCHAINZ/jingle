@@ -15,17 +15,7 @@ impl<'a> PcodeStore for LoadedSleighContext<'a> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
         let addr = addr.borrow();
         let instr = self.instruction_at(addr.machine())?;
-        if addr.pcode() as usize == instr.ops.len() {
-            Some(PcodeOperation::Branch {
-                input: VarNode {
-                    space_index: self.arch_info().default_code_space_index(),
-                    offset: addr.machine() + instr.length as u64,
-                    size: 1,
-                },
-            })
-        } else {
-            instr.ops.get(addr.pcode() as usize).cloned()
-        }
+        instr.ops.get(addr.pcode() as usize).cloned()
     }
 }
 
