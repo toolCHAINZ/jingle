@@ -277,6 +277,13 @@ impl
 {
 }
 
+impl
+    crate::analysis::compound::CompoundAnalysis<
+        crate::analysis::direct_valuation2::DirectValuation2Analysis,
+    > for DirectLocationAnalysis
+{
+}
+
 // Enable compound analysis: DirectLocationAnalysis can be strengthened by BoundedBranchAnalysis
 impl
     crate::analysis::compound::CompoundAnalysis<
