@@ -1,7 +1,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplayable;
@@ -592,8 +592,8 @@ impl AbstractState for DirectValuation2State {
 }
 
 // Allow use in compound analyses
-impl
-    crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
+impl<L :LocationState>
+    crate::analysis::compound::Strengthen<L>
     for DirectValuation2State
 {
 }
