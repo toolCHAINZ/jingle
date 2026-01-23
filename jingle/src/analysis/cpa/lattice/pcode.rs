@@ -1,6 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
-use crate::analysis::pcode_store::PcodeStore;
 use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};

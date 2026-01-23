@@ -28,14 +28,14 @@ use std::borrow::{Borrow, Cow};
 /// }
 /// ```
 ///
-/// Note: there is no `into_owned` method on `PcodeOpRef` in order to keep the
+/// Note: there is no
+/// `into_owned` method on `PcodeOpRef` in order to keep the
 /// abstraction minimal; callers that need an owned value can call `.as_ref().clone()`.
 pub struct PcodeOpRef<'a>(std::borrow::Cow<'a, PcodeOperation>);
 
-impl<'a> PcodeOpRef<'a> {
-    /// Get a shared reference to the underlying `PcodeOperation`.
-    pub fn as_ref(&self) -> &PcodeOperation {
-        &self.0
+impl<'a> AsRef<PcodeOperation> for PcodeOpRef<'a> {
+    fn as_ref(&self) -> &PcodeOperation {
+        self.0.as_ref()
     }
 }
 
