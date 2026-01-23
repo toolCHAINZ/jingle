@@ -1,11 +1,35 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::{PcodeOperation, VarNode};
 use std::borrow::{Borrow, Cow};
 
-/// A lightweight wrapper that encapsulates either a borrowed or owned `PcodeOperation`.
-/// This hides the use of `Cow` from the rest of the codebase while still allowing
-/// stores to return borrowed references when possible and owned values when necessary.
+/// PcodeOpRef — a small, ergonomic wrapper for p-code operations
+///
+/// `PcodeOpRef` encapsulates either a borrowed reference to a `PcodeOperation`
+/// or an owned `PcodeOperation` (internally using `Cow`). This hides the `Cow`
+/// type from the rest of the codebase and provides simple helper methods so
+/// callers don't need to care about ownership when they only need a `&PcodeOperation`.
+///
+/// Why this exists
+/// - Some stores (e.g., an in-memory CFG) can return a reference to an operation
+///   stored inside the structure (no clone required).
+/// - Other stores (e.g., `LoadedSleighContext::instruction_at`) construct an
+///   `Instruction` on each call and therefore must return an owned `PcodeOperation`.
+/// - `PcodeOpRef` lets the store return either without exposing `Cow` to callers.
+///
+/// Basic usage
+/// ```rust
+/// // Get an op from a pcode store (may be borrowed or owned internally)
+/// if let Some(op_ref) = store.get_pcode_op_at(addr) {
+///     // Use the borrowed reference for transfer/inspection:
+///     let op: &PcodeOperation = op_ref.as_ref();
+///     // When you need an owned op, clone the reference:
+///     let owned_op: PcodeOperation = op_ref.as_ref().clone();
+/// }
+/// ```
+///
+/// Note: there is no `into_owned` method on `PcodeOpRef` in order to keep the
+/// abstraction minimal; callers that need an owned value can call `.as_ref().clone()`.
 pub struct PcodeOpRef<'a>(std::borrow::Cow<'a, PcodeOperation>);
 
 impl<'a> PcodeOpRef<'a> {
@@ -34,9 +58,11 @@ impl<'a> From<&'a PcodeOperation> for PcodeOpRef<'a> {
     }
 }
 
-/// A store of p-code operations. Implementations may return either a borrowed or an owned
-/// `PcodeOperation` via `PcodeOpRef`. The `PcodeOpRef` type hides `Cow` so callers can
-/// work with a clean abstraction (they can call `.as_ref()` or use `Deref`).
+/// A store of p-code operations.
+///
+/// Implementations return `Option<PcodeOpRef<'a>>`. Callers that only need to
+/// observe/borrow the operation should use `op_ref.as_ref()` to get a `&PcodeOperation`.
+/// If an owned operation is required, clone via `.as_ref().clone()`.
 pub trait PcodeStore {
     fn get_pcode_op_at<'a, T: Borrow<ConcretePcodeAddress>>(
         &'a self,
@@ -54,9 +80,9 @@ impl<'a> PcodeStore for LoadedSleighContext<'a> {
         addr: T,
     ) -> Option<PcodeOpRef<'b>> {
         let addr = addr.borrow();
-        // `instruction_at` produces an owned `Instruction`. Its `ops` are owned
-        // inside that `Instruction`, so we cannot return references pointing into
-        // a temporary. Convert to an owned `PcodeOperation` when necessary.
+        // `instruction_at` produces an owned `Instruction` per call. Its `ops`
+        // are owned inside that `Instruction`, so we cannot return references
+        // pointing into a temporary. Convert to an owned `PcodeOperation`.
         let instr = self.instruction_at(addr.machine())?;
         instr
             .ops
