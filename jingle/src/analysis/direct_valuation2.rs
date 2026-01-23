@@ -24,14 +24,18 @@ use std::hash::{Hash, Hasher};
 pub enum VarNodeValuation {
     Entry(VarNode),
     Const(VarNode),
-    Mult(Box<VarNodeValuation>, Box<VarNodeValuation>),
-    Add(Box<VarNodeValuation>, Box<VarNodeValuation>),
-    Sub(Box<VarNodeValuation>, Box<VarNodeValuation>),
-    BitAnd(Box<VarNodeValuation>, Box<VarNodeValuation>),
-    BitOr(Box<VarNodeValuation>, Box<VarNodeValuation>),
-    BitXor(Box<VarNodeValuation>, Box<VarNodeValuation>),
+
+    // Binary operators now use a single boxed tuple rather than two boxed children.
+    Mult(Box<(VarNodeValuation, VarNodeValuation)>),
+    Add(Box<(VarNodeValuation, VarNodeValuation)>),
+    Sub(Box<(VarNodeValuation, VarNodeValuation)>),
+    BitAnd(Box<(VarNodeValuation, VarNodeValuation)>),
+    BitOr(Box<(VarNodeValuation, VarNodeValuation)>),
+    BitXor(Box<(VarNodeValuation, VarNodeValuation)>),
+    Or(Box<(VarNodeValuation, VarNodeValuation)>),
+
+    // Unary operators remain single boxed child
     BitNegate(Box<VarNodeValuation>),
-    Or(Box<VarNodeValuation>, Box<VarNodeValuation>),
     Load(Box<VarNodeValuation>),
     Top,
 }
@@ -78,14 +82,16 @@ impl VarNodeValuation {
     fn simplify(&mut self) {
         match self {
             // Arithmetic operations
-            VarNodeValuation::Add(a, b) => {
+            VarNodeValuation::Add(ab) => {
+                // ab: &mut Box<(VarNodeValuation, VarNodeValuation)>
+                let (a, b) = ab.as_mut();
                 // First simplify children
                 a.simplify();
                 b.simplify();
 
                 // Const + Const = Const
                 if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                    if let VarNodeValuation::Const(vn) = a {
                         let size = vn.size;
                         *self = Self::make_const(av.wrapping_add(bv), size);
                         return;
@@ -93,41 +99,50 @@ impl VarNodeValuation {
                 }
 
                 // Flatten nested Add with Const: (Add(x, Const(c1)) + Const(c2)) -> Add(x, Const(c1+c2))
-                if let (VarNodeValuation::Add(_inner_a, inner_b), Some(bv)) =
-                    (a.as_mut(), b.as_const())
-                {
-                    if let Some(inner_bv) = inner_b.as_const() {
-                        if let VarNodeValuation::Const(vn) = inner_b.as_ref() {
-                            let size = vn.size;
-                            **inner_b = Self::make_const(inner_bv.wrapping_add(bv), size);
-                            *self = (**a).clone();
-                            return;
+                if let Some(bv) = b.as_const() {
+                    match a {
+                        VarNodeValuation::Add(inner_ab) => {
+                            let (inner_a, inner_b) = inner_ab.as_mut();
+                            if let Some(inner_bv) = inner_b.as_const() {
+                                if let VarNodeValuation::Const(vn) = inner_b {
+                                    let size = vn.size;
+                                    *inner_b = Self::make_const(inner_bv.wrapping_add(bv), size);
+                                    *self = inner_a.clone(); // replace with the left child (Add(x, Const(...)) -> x + const combined)
+                                    return;
+                                }
+                            }
                         }
+                        _ => {}
                     }
                 }
 
                 // Symmetric case: Const(c1) + Add(x, Const(c2)) -> Add(x, Const(c1+c2))
-                if let (Some(av), VarNodeValuation::Add(_inner_a, inner_b)) =
-                    (a.as_const(), b.as_mut())
-                {
-                    if let Some(inner_bv) = inner_b.as_const() {
-                        if let VarNodeValuation::Const(vn) = inner_b.as_ref() {
-                            let size = vn.size;
-                            **inner_b = Self::make_const(av.wrapping_add(inner_bv), size);
-                            *self = (**b).clone();
-                            return;
+                if let Some(av) = a.as_const() {
+                    match b {
+                        VarNodeValuation::Add(inner_ab) => {
+                            let (inner_a, inner_b) = inner_ab.as_mut();
+                            if let Some(inner_bv) = inner_b.as_const() {
+                                if let VarNodeValuation::Const(vn) = inner_b {
+                                    let size = vn.size;
+                                    *inner_b = Self::make_const(av.wrapping_add(inner_bv), size);
+                                    *self = inner_a.clone();
+                                    return;
+                                }
+                            }
                         }
+                        _ => {}
                     }
                 }
             }
 
-            VarNodeValuation::Sub(a, b) => {
+            VarNodeValuation::Sub(ab) => {
+                let (a, b) = ab.as_mut();
                 a.simplify();
                 b.simplify();
 
                 // Const - Const = Const
                 if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                    if let VarNodeValuation::Const(vn) = a {
                         let size = vn.size;
                         *self = Self::make_const(av.wrapping_sub(bv), size);
                         return;
@@ -136,18 +151,19 @@ impl VarNodeValuation {
 
                 // x - Const(0) = x
                 if let Some(0) = b.as_const() {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
             }
 
-            VarNodeValuation::Mult(a, b) => {
+            VarNodeValuation::Mult(ab) => {
+                let (a, b) = ab.as_mut();
                 a.simplify();
                 b.simplify();
 
                 // Const * Const = Const
                 if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                    if let VarNodeValuation::Const(vn) = a {
                         let size = vn.size;
                         *self = Self::make_const(av.wrapping_mul(bv), size);
                         return;
@@ -156,33 +172,34 @@ impl VarNodeValuation {
 
                 // x * Const(0) = Const(0)
                 if let Some(0) = b.as_const() {
-                    *self = (**b).clone();
+                    *self = b.clone();
                     return;
                 }
                 if let Some(0) = a.as_const() {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
 
                 // x * Const(1) = x
                 if let Some(1) = b.as_const() {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
                 if let Some(1) = a.as_const() {
-                    *self = (**b).clone();
+                    *self = b.clone();
                     return;
                 }
             }
 
             // Bitwise operations
-            VarNodeValuation::BitAnd(a, b) => {
+            VarNodeValuation::BitAnd(ab) => {
+                let (a, b) = ab.as_mut();
                 a.simplify();
                 b.simplify();
 
                 // Const & Const = Const
                 if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                    if let VarNodeValuation::Const(vn) = a {
                         let size = vn.size;
                         *self = Self::make_const(av & bv, size);
                         return;
@@ -191,22 +208,23 @@ impl VarNodeValuation {
 
                 // x & Const(0) = Const(0)
                 if let Some(0) = b.as_const() {
-                    *self = (**b).clone();
+                    *self = b.clone();
                     return;
                 }
                 if let Some(0) = a.as_const() {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
             }
 
-            VarNodeValuation::BitOr(a, b) => {
+            VarNodeValuation::BitOr(ab) => {
+                let (a, b) = ab.as_mut();
                 a.simplify();
                 b.simplify();
 
                 // Const | Const = Const
                 if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                    if let VarNodeValuation::Const(vn) = a {
                         let size = vn.size;
                         *self = Self::make_const(av | bv, size);
                         return;
@@ -215,22 +233,23 @@ impl VarNodeValuation {
 
                 // x | Const(0) = x
                 if let Some(0) = b.as_const() {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
                 if let Some(0) = a.as_const() {
-                    *self = (**b).clone();
+                    *self = b.clone();
                     return;
                 }
             }
 
-            VarNodeValuation::BitXor(a, b) => {
+            VarNodeValuation::BitXor(ab) => {
+                let (a, b) = ab.as_mut();
                 a.simplify();
                 b.simplify();
 
                 // Const ^ Const = Const
                 if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                    if let VarNodeValuation::Const(vn) = a {
                         let size = vn.size;
                         *self = Self::make_const(av ^ bv, size);
                         return;
@@ -239,11 +258,11 @@ impl VarNodeValuation {
 
                 // x ^ Const(0) = x
                 if let Some(0) = b.as_const() {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
                 if let Some(0) = a.as_const() {
-                    *self = (**b).clone();
+                    *self = b.clone();
                     return;
                 }
             }
@@ -270,13 +289,14 @@ impl VarNodeValuation {
                 a.simplify();
             }
 
-            VarNodeValuation::Or(a, b) => {
+            VarNodeValuation::Or(ab) => {
+                let (a, b) = ab.as_mut();
                 a.simplify();
                 b.simplify();
 
-                // Const || Const = Const
+                // Const || Const = Const (approximate by folding identical exprs)
                 if a == b {
-                    *self = (**a).clone();
+                    *self = a.clone();
                     return;
                 }
             }
@@ -292,18 +312,35 @@ impl JingleDisplayable for VarNodeValuation {
         match self {
             VarNodeValuation::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
             VarNodeValuation::Const(vn) => write!(f, "{}", vn.display(info)),
-            VarNodeValuation::Mult(a, b) => write!(f, "({}*{})", a.display(info), b.display(info)),
-            VarNodeValuation::Add(a, b) => write!(f, "({}+{})", a.display(info), b.display(info)),
-            VarNodeValuation::Sub(a, b) => write!(f, "({}-{})", a.display(info), b.display(info)),
-            VarNodeValuation::BitAnd(a, b) => {
-                write!(f, "({}&{})", a.display(info), b.display(info))
+            VarNodeValuation::Mult(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}*{})", pair.0.display(info), pair.1.display(info))
             }
-            VarNodeValuation::BitOr(a, b) => write!(f, "({}|{})", a.display(info), b.display(info)),
-            VarNodeValuation::BitXor(a, b) => {
-                write!(f, "({}^{})", a.display(info), b.display(info))
+            VarNodeValuation::Add(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}+{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::Sub(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}-{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitAnd(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}&{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitOr(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}|{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitXor(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}^{})", pair.0.display(info), pair.1.display(info))
             }
             VarNodeValuation::BitNegate(a) => write!(f, "(~{})", a.display(info)),
-            VarNodeValuation::Or(a, b) => write!(f, "({}||{})", a.display(info), b.display(info)),
+            VarNodeValuation::Or(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}||{})", pair.0.display(info), pair.1.display(info))
+            }
             VarNodeValuation::Load(a) => write!(f, "Load({})", a.display(info)),
             VarNodeValuation::Top => write!(f, "⊤"),
         }
@@ -375,19 +412,19 @@ impl DirectValuation2State {
                         PcodeOperation::IntAdd { input0, input1, .. } => {
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::Add(Box::new(a), Box::new(b))
+                            VarNodeValuation::Add(Box::new((a, b)))
                         }
 
                         PcodeOperation::IntSub { input0, input1, .. } => {
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::Sub(Box::new(a), Box::new(b))
+                            VarNodeValuation::Sub(Box::new((a, b)))
                         }
 
                         PcodeOperation::IntMult { input0, input1, .. } => {
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::Mult(Box::new(a), Box::new(b))
+                            VarNodeValuation::Mult(Box::new((a, b)))
                         }
 
                         // Bitwise operations
@@ -395,21 +432,21 @@ impl DirectValuation2State {
                         | PcodeOperation::BoolAnd { input0, input1, .. } => {
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::BitAnd(Box::new(a), Box::new(b))
+                            VarNodeValuation::BitAnd(Box::new((a, b)))
                         }
 
                         PcodeOperation::IntXor { input0, input1, .. }
                         | PcodeOperation::BoolXor { input0, input1, .. } => {
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::BitXor(Box::new(a), Box::new(b))
+                            VarNodeValuation::BitXor(Box::new((a, b)))
                         }
 
                         PcodeOperation::IntOr { input0, input1, .. }
                         | PcodeOperation::BoolOr { input0, input1, .. } => {
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::BitOr(Box::new(a), Box::new(b))
+                            VarNodeValuation::BitOr(Box::new((a, b)))
                         }
                         PcodeOperation::IntLeftShift { input0, input1, .. }
                         | PcodeOperation::IntRightShift { input0, input1, .. }
@@ -417,7 +454,7 @@ impl DirectValuation2State {
                             // Approximate shifts as an Add of the operands (conservative symbolic form)
                             let a = VarNodeValuation::from_varnode_or_entry(self, input0);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::Add(Box::new(a), Box::new(b))
+                            VarNodeValuation::Add(Box::new((a, b)))
                         }
 
                         PcodeOperation::IntNegate { input, .. } => {
@@ -429,7 +466,7 @@ impl DirectValuation2State {
                             };
                             let a = VarNodeValuation::Const(zero);
                             let b = VarNodeValuation::from_varnode_or_entry(self, input);
-                            VarNodeValuation::Sub(Box::new(a), Box::new(b))
+                            VarNodeValuation::Sub(Box::new((a, b)))
                         }
 
                         PcodeOperation::Int2Comp { input, .. } => {
@@ -564,10 +601,8 @@ impl JoinSemiLattice for DirectValuation2State {
                     if my_val == &VarNodeValuation::Top || other_val == &VarNodeValuation::Top {
                         *my_val = VarNodeValuation::Top;
                     } else if my_val != other_val {
-                        *my_val = VarNodeValuation::Or(
-                            Box::new(my_val.clone()),
-                            Box::new(other_val.clone()),
-                        );
+                        *my_val =
+                            VarNodeValuation::Or(Box::new((my_val.clone(), other_val.clone())));
                         my_val.simplify();
                     }
                 }
