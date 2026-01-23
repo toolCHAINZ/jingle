@@ -1,6 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
-use crate::analysis::pcode_store::PcodeStore;
 use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
@@ -176,7 +175,10 @@ impl AbstractState for PcodeAddressLattice {
 }
 
 impl LocationState for PcodeAddressLattice {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+        &'a self,
+        t: &'a T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         match self {
             PcodeAddressLattice::Const(a) => t.get_pcode_op_at(a),
             // If the location is computed or top, we cannot directly get a concrete op

@@ -1,9 +1,9 @@
-use crate::OpCode;
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
 use crate::{JingleSleighError::EmptyInstruction, context::ModelingMetadata};
+use crate::{OpCode, SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
 
 /// A rust representation of a SLEIGH assembly instruction
@@ -37,7 +37,10 @@ impl Instruction {
             .any(|o| o.opcode() == OpCode::CPUI_CALLOTHER)
     }
 
-    pub fn augment_with_metadata(&mut self, m: &ModelingMetadata) {
+    /// Performs augmentations to raw pcode to make modeling easier:
+    /// * Adds an explicit jump instruction representing fall-through behavior
+    /// * Adds call/callother argument/calling convention metadata
+    pub fn postprocess(&mut self, m: &ModelingMetadata, arch_info: &SleighArchInfo) {
         for op in self.ops.iter_mut() {
             match op {
                 PcodeOperation::Call {
@@ -65,6 +68,13 @@ impl Instruction {
                 _ => {}
             }
         }
+        self.ops.push(PcodeOperation::Branch {
+            input: VarNode {
+                space_index: arch_info.default_code_space_index(),
+                offset: self.address + self.length as u64,
+                size: 1,
+            },
+        });
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::pcode_store::PcodeStore;
+use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -95,7 +95,7 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + StateDisplay {
 
 /// States that know their program location.
 pub trait LocationState: AbstractState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation>;
+    fn get_operation<'a, T: PcodeStore + ?Sized>(&'a self, t: &'a T) -> Option<PcodeOpRef<'a>>;
     fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }
 
@@ -104,14 +104,3 @@ pub trait LocationState: AbstractState {
 impl_state_display_via_debug!(crate::analysis::back_edge::BackEdgeState);
 impl_state_display_via_debug!(crate::analysis::bounded_branch::state::BoundedBranchState);
 impl_state_display_via_debug!(crate::analysis::cpa::lattice::pcode::PcodeAddressLattice);
-
-/// Generic StateDisplay for compound tuple states `(S1, S2)`.
-impl<S1: StateDisplay, S2: StateDisplay> StateDisplay for (S1, S2) {
-    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "(")?;
-        self.0.fmt_state(f)?;
-        write!(f, ", ")?;
-        self.1.fmt_state(f)?;
-        write!(f, ")")
-    }
-}

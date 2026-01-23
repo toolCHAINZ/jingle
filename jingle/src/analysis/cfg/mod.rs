@@ -9,7 +9,7 @@ use petgraph::visit::EdgeRef;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Formatter, LowerHex};
+use std::fmt::{Display, Formatter, LowerHex};
 use std::rc::Rc;
 
 pub(crate) mod model;
@@ -17,6 +17,11 @@ pub(crate) mod model;
 #[derive(Debug, Default, Copy, Clone, Hash)]
 pub struct EmptyEdge;
 
+impl Display for EmptyEdge {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
 impl LowerHex for EmptyEdge {
     fn fmt(&self, _: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())
@@ -277,9 +282,13 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
 }
 
 impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
-    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<PcodeOperation> {
+    fn get_pcode_op_at<'a, T: Borrow<ConcretePcodeAddress>>(
+        &'a self,
+        addr: T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         let addr = *addr.borrow();
-        self.get_op_at(addr).cloned()
+        self.get_op_at(addr)
+            .map(crate::analysis::pcode_store::PcodeOpRef::from)
     }
 }
 

@@ -1,41 +1,53 @@
 use std::marker::PhantomData;
 
-use jingle_sleigh::PcodeOperation;
+use crate::analysis::pcode_store::PcodeOpRef;
 
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, state::AbstractState};
 
+/// Trait for collecting global analysis results (a.k.a. residues).
+///
+/// `Residue` provides hooks that the CPA algorithm calls while exploring the
+/// program's abstract state space. Implementors can accumulate global program
+/// information that isn't naturally stored in the abstract states themselves
+/// and return that accumulated information in a structured way.
+///
+/// The hooks receive an `Option<PcodeOpRef<'_>>` describing the p-code operation
+/// associated with the transition (if any).
+///
+/// Example: a reducer that records transitions into a CFG can use the op ref
+/// to add edge payloads without forcing stores to always clone operations:
+///
+/// Notes:
+/// - `new_state` is called for every observed transition A => B before merging.
+/// - `merged_state` is called when the CPA merges two states; it receives the
+///   current state, the original destination state, the merged state, and the
+///   p-code operation (if present) that caused the transition.
+///
+/// ```
 pub trait Residue<S> {
     type Output;
 
-    /// Allows for accumulating information about a program not specific to particular abstract
-    /// states.
-    ///
-    /// The standard CPA algorithm only accumulates program information in abstract states.
-    /// However, it is often convenient to collect global program information not represented in any
-    /// one state. Examples include building a CFG for the program or identifying back-edges.
-    /// This method allows for implementing types to explicitly state the side-effect they would
-    /// like to have on their analysis without trying to shove it into the successor iterator.
-    ///
-    /// This method will be called for every visited transition in the CPA, before merging. So,
-    /// for every pair of states A,B visited by the CPA where A => B, this function will be called
-    /// with arguments (A, B).
-    ///
-    /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
-    /// may be refined after the CPA has made some sound effect
-    fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOperation>) {}
+    /// Called for every observed transition (A => B) prior to merging.
+    /// `op` is the optional pcode operation associated with the transition.
+    fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOpRef<'_>>) {}
 
-    /// A hook for when two abstract states are merged.
+    /// Called when two abstract states are merged. `curr_state` is the state
+    /// that produced the transition, `original_merged_state` is the pre-merge
+    /// destination, and `merged_state` is the state after merging. `op` is the
+    /// optional p-code operation for the transition.
     fn merged_state(
         &mut self,
         _curr_state: &S,
         _original_merged_state: &S,
         _merged_state: &S,
-        _op: &Option<PcodeOperation>,
+        _op: &Option<PcodeOpRef<'_>>,
     ) {
     }
 
+    /// Construct a new instance of the residue collector.
     fn new() -> Self;
 
+    /// Finalize and return the collected output.
     fn finalize(self) -> Self::Output;
 }
 pub struct EmptyResidue<T>(PhantomData<T>);

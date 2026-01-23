@@ -1,4 +1,5 @@
 use crate::JingleError;
+use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::state::StateDisplay;
 use crate::modeling::machine::MachineState;
@@ -139,7 +140,7 @@ impl<'a, S: StateDisplay> std::fmt::Display for StateDisplayWrapper<'a, S> {
         self.0.fmt_state(f)
     }
 }
-impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for (A, B) {
+impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for CompoundState<A, B> {
     type Model = A::Model;
 
     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
@@ -150,62 +151,6 @@ impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for (A, 
         // Incorporate the display output from the second element into the model id.
         // Use an underscore separator to keep ids readable and safe.
         format!("{}_{}", self.0.model_id(), StateDisplayWrapper(&self.1))
-    }
-
-    fn location(&self) -> Option<ConcretePcodeAddress> {
-        self.0.location()
-    }
-}
-
-impl<
-    A: CfgState,
-    B: StateDisplay + Clone + Debug + Hash + Eq,
-    C: StateDisplay + Clone + Debug + Hash + Eq,
-> CfgState for (A, B, C)
-{
-    type Model = A::Model;
-
-    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
-        self.0.new_const(i)
-    }
-
-    fn model_id(&self) -> String {
-        // Include display outputs from the second and third elements.
-        format!(
-            "{}_{}_{}",
-            self.0.model_id(),
-            StateDisplayWrapper(&self.1),
-            StateDisplayWrapper(&self.2)
-        )
-    }
-
-    fn location(&self) -> Option<ConcretePcodeAddress> {
-        self.0.location()
-    }
-}
-
-impl<
-    A: CfgState,
-    B: StateDisplay + Clone + Debug + Hash + Eq,
-    C: StateDisplay + Clone + Debug + Hash + Eq,
-    D: StateDisplay + Clone + Debug + Hash + Eq,
-> CfgState for (A, B, C, D)
-{
-    type Model = A::Model;
-
-    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
-        self.0.new_const(i)
-    }
-
-    fn model_id(&self) -> String {
-        // Include display outputs from elements 2, 3 and 4.
-        format!(
-            "{}_{}_{}_{}",
-            self.0.model_id(),
-            StateDisplayWrapper(&self.1),
-            StateDisplayWrapper(&self.2),
-            StateDisplayWrapper(&self.3)
-        )
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {

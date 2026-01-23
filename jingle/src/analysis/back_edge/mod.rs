@@ -1,10 +1,9 @@
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::residue::EmptyResidue;
+use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -123,7 +122,10 @@ impl AbstractState for BackEdgeState {
 }
 
 impl LocationState for BackEdgeState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<PcodeOperation> {
+    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+        &'a self,
+        t: &'a T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         self.location.get_operation(t)
     }
 
@@ -132,9 +134,80 @@ impl LocationState for BackEdgeState {
     }
 }
 
-pub struct BackEdgeCPA {
-    pub back_edges: Vec<(PcodeAddressLattice, PcodeAddressLattice)>,
+/// A reducer that identifies back-edges during the analysis.
+///
+/// A back-edge is an edge from a state to a previously visited state in its path.
+/// This reducer tracks all visited edges and identifies when a transition creates
+/// a back-edge by checking if the destination location appears in the source state's
+/// visited path.
+pub struct BackEdgeReducer {
+    /// All visited edges (from_location, to_location)
+    visited_edges: Vec<(ConcretePcodeAddress, ConcretePcodeAddress)>,
+    /// Identified back-edges
+    back_edges: BackEdges,
 }
+
+impl BackEdgeReducer {
+    pub fn new() -> Self {
+        Self {
+            visited_edges: Vec::new(),
+            back_edges: BackEdges::default(),
+        }
+    }
+
+    pub fn new_with_capacity(cap: usize) -> Self {
+        Self {
+            visited_edges: Vec::with_capacity(cap),
+            back_edges: BackEdges::default(),
+        }
+    }
+}
+
+impl Default for BackEdgeReducer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Residue<BackEdgeState> for BackEdgeReducer {
+    type Output = BackEdges;
+
+    /// Track a state transition and identify if it's a back-edge.
+    ///
+    /// A back-edge occurs when we transition from a state to a destination
+    /// that appears in the source state's visited path.
+    fn new_state(
+        &mut self,
+        state: &BackEdgeState,
+        dest_state: &BackEdgeState,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
+    ) {
+        // Extract concrete addresses from both states
+        if let (Some(from_addr), Some(to_addr)) = (state.get_location(), dest_state.get_location())
+        {
+            // Record this edge
+            if !self.visited_edges.contains(&(from_addr, to_addr)) {
+                self.visited_edges.push((from_addr, to_addr));
+            }
+
+            // Check if this is a back-edge:
+            // The destination is a back-edge if it appears in the source state's visited path
+            if state.path_visits.contains(&dest_state.location) {
+                self.back_edges.add(from_addr, to_addr);
+            }
+        }
+    }
+
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn finalize(self) -> Self::Output {
+        self.back_edges
+    }
+}
+
+pub struct BackEdgeCPA;
 
 impl Default for BackEdgeCPA {
     fn default() -> Self {
@@ -144,20 +217,7 @@ impl Default for BackEdgeCPA {
 
 impl BackEdgeCPA {
     pub fn new() -> Self {
-        Self {
-            back_edges: Vec::new(),
-        }
-    }
-
-    /// Extract the computed back edges into a BackEdges structure
-    pub fn get_back_edges(&self) -> BackEdges {
-        let mut b = BackEdges::default();
-        for (from, to) in &self.back_edges {
-            if let (PcodeAddressLattice::Const(from), PcodeAddressLattice::Const(to)) = (from, to) {
-                b.add(*from, *to);
-            }
-        }
-        b
+        Self
     }
 
     /// Inherent constructor for the analysis initial state.
@@ -174,20 +234,7 @@ impl BackEdgeCPA {
 
 impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
-    type Reducer = EmptyResidue<Self::State>;
-
-    fn residue(
-        &mut self,
-        old_state: &Self::State,
-        new_state: &Self::State,
-        _op: &Option<PcodeOperation>,
-    ) {
-        if old_state.path_visits.contains(&new_state.location) {
-            // Clone the locations since `old_state` and `new_state` are borrowed here.
-            self.back_edges
-                .push((old_state.location.clone(), new_state.location.clone()))
-        }
-    }
+    type Reducer = BackEdgeReducer;
 }
 
 impl Analysis for BackEdgeCPA {}

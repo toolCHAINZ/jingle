@@ -2,6 +2,7 @@ use crate::analysis::cfg::CfgState;
 use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::LocationState;
+use crate::analysis::pcode_store::PcodeOpRef;
 use jingle_sleigh::PcodeOperation;
 
 /// A generic reducer that adapts an arbitrary CPA into a "reducer" which
@@ -48,12 +49,15 @@ where
     /// `reduce` method, but generalized: we convert both CPA states into `N`
     /// via the mapper and add nodes/edges to the cfg. If `op` is `None`,
     /// only the source node is added (no edge).
-    fn new_state(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOperation>) {
+    fn new_state(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOpRef<'_>>) {
         self.cfg.add_node(state);
 
         if let Some(op) = op {
+            // Convert the wrapped op into an owned PcodeOperation before inserting.
+            // `PcodeOpRef` derefs to `PcodeOperation`; call `as_ref().clone()` to obtain an owned op.
+            let owned_op = op.as_ref().clone();
             // add_edge will insert nodes if missing
-            self.cfg.add_edge(state, dest_state, op.clone());
+            self.cfg.add_edge(state, dest_state, owned_op);
         }
     }
 
@@ -68,7 +72,7 @@ where
         state: &N,
         dest_state: &N,
         merged_state: &N,
-        op: &Option<PcodeOperation>,
+        op: &Option<PcodeOpRef<'_>>,
     ) {
         tracing::debug!("merged called: dest_state and merged_state provided");
         // If operation is not present we can't deterministically reconstruct
@@ -77,7 +81,8 @@ where
         // We only proceed when there is an op provided (matches unwinding impl).
         self.cfg.replace_and_combine_nodes(dest_state, merged_state);
         if let Some(op) = op {
-            self.cfg.add_edge(state, merged_state, op);
+            let owned_op = op.as_ref().clone();
+            self.cfg.add_edge(state, merged_state, owned_op);
         }
     }
 
