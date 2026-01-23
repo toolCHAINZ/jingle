@@ -17,13 +17,14 @@ pub mod bounded_branch;
 pub mod compound;
 pub mod ctl;
 pub mod direct_valuation;
+pub mod direct_valuation2;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
 pub mod unwinding;
 pub mod unwinding2;
 pub mod varnode;
-
+pub mod varnode_map;
 /// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
 /// The intent here is to provide some structure for running and combining CPAs. This trait
 /// allows for specifying a way to define the CPA's input (assuming a

@@ -34,6 +34,7 @@ hex = { version = "0.4", optional = true }
 anyhow = { version = "1.0", optional = true }
 pyo3 = { version = "0.27.2", optional = true, default-features = false, features = ["macros"] }
 petgraph = "0.8.2"
+sorted-vec = "0.8.10"
 
 [features]
 default = []
