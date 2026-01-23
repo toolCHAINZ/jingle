@@ -76,7 +76,7 @@ use crate::analysis::Analysis;
 use crate::analysis::cfg::CfgState;
 use crate::analysis::compound::{CompoundAnalysis, CompoundState, Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::residue::Residue;
+use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
@@ -316,6 +316,21 @@ impl CompoundAnalysis<crate::analysis::direct_location::DirectLocationAnalysis>
 
 /// Enable BackEdgeCountCPA to be compounded with BackEdgeCPA
 impl CompoundAnalysis<crate::analysis::back_edge::BackEdgeCPA> for BackEdgeCountCPA {}
+
+/// Enable BackEdgeCountCPA to be compounded with any ResidueWrapper that wraps
+/// a CPA whose state implements `LocationState`.
+///
+/// This allows calling `UnwindExt::unwind()` on a `ResidueWrapper<L, R>` where
+/// `L` is a location analysis (e.g. `DirectLocationAnalysis`) and `R` is any
+/// `Residue<L::State>`. The `ResidueWrapper` has the same `State` as the inner
+/// analysis, so the strengthen implementation above remains applicable.
+impl<A, R> CompoundAnalysis<ResidueWrapper<A, R>> for BackEdgeCountCPA
+where
+    A: ConfigurableProgramAnalysis,
+    A::State: LocationState,
+    R: Residue<A::State>,
+{
+}
 
 /// The main Unwinding analysis.
 /// This wraps a tuple-based compound analysis combining back-edge counting with a location analysis.

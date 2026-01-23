@@ -291,7 +291,7 @@ impl JingleDisplayable for VarNodeValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
             VarNodeValuation::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
-            VarNodeValuation::Const(vn) => write!(f, "Const({})", vn.display(info)),
+            VarNodeValuation::Const(vn) => write!(f, "{}", vn.display(info)),
             VarNodeValuation::Mult(a, b) => write!(f, "({}*{})", a.display(info), b.display(info)),
             VarNodeValuation::Add(a, b) => write!(f, "({}+{})", a.display(info), b.display(info)),
             VarNodeValuation::Sub(a, b) => write!(f, "({}-{})", a.display(info), b.display(info)),
@@ -568,6 +568,7 @@ impl JoinSemiLattice for DirectValuation2State {
                             Box::new(my_val.clone()),
                             Box::new(other_val.clone()),
                         );
+                        my_val.simplify();
                     }
                 }
                 None => {
