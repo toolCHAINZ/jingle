@@ -179,7 +179,10 @@ impl<L: LocationState> AbstractState for BackEdgeVisitCountState<L> {
 }
 
 impl<L: LocationState> LocationState for BackEdgeVisitCountState<L> {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
+    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+        &'a self,
+        t: &'a T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         self.location.get_operation(t)
     }
 

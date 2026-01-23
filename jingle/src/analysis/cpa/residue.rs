@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use crate::analysis::pcode_store::PcodeOpRef;
 use jingle_sleigh::PcodeOperation;
 
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, state::AbstractState};
@@ -22,7 +23,7 @@ pub trait Residue<S> {
     ///
     /// Note that this should be used with caution if a CPA has a non-sep Merge definition; states
     /// may be refined after the CPA has made some sound effect
-    fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<&PcodeOperation>) {}
+    fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOpRef<'_>>) {}
 
     /// A hook for when two abstract states are merged.
     fn merged_state(
@@ -30,7 +31,7 @@ pub trait Residue<S> {
         _curr_state: &S,
         _original_merged_state: &S,
         _merged_state: &S,
-        _op: &Option<&PcodeOperation>,
+        _op: &Option<PcodeOpRef<'_>>,
     ) {
     }
 

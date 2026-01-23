@@ -282,9 +282,13 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
 }
 
 impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
-    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(&self, addr: T) -> Option<&PcodeOperation> {
+    fn get_pcode_op_at<'a, T: Borrow<ConcretePcodeAddress>>(
+        &'a self,
+        addr: T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         let addr = *addr.borrow();
         self.get_op_at(addr)
+            .map(|op| crate::analysis::pcode_store::PcodeOpRef::from(op))
     }
 }
 

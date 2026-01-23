@@ -170,7 +170,10 @@ impl AbstractState for DirectLocationState {
 }
 
 impl LocationState for DirectLocationState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
+    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+        &'a self,
+        t: &'a T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         self.inner.get_operation(t)
     }
 

@@ -78,13 +78,19 @@ where
             );
 
             let op = state.get_operation(pcode_store);
-            tracing::trace!("  Operation at state: {:?}", op);
+            tracing::trace!(
+                "  Operation at state: {:?}",
+                op.as_ref().map(|p| format!("{:?}", p.as_ref()))
+            );
 
             let mut new_states = 0;
             let mut merged_states = 0;
             let mut stopped_states = 0;
 
-            for dest_state in op.iter().flat_map(|op| state.transfer(op).into_iter()) {
+            for dest_state in op
+                .iter()
+                .flat_map(|op| state.transfer(op.as_ref()).into_iter())
+            {
                 tracing::trace!(
                     "    Transfer produced dest_state: {}",
                     StateDisplayWrapper(&dest_state)

@@ -123,7 +123,10 @@ impl AbstractState for BackEdgeState {
 }
 
 impl LocationState for BackEdgeState {
-    fn get_operation<T: PcodeStore>(&self, t: &T) -> Option<&PcodeOperation> {
+    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+        &'a self,
+        t: &'a T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         self.location.get_operation(t)
     }
 
@@ -178,7 +181,7 @@ impl Residue<BackEdgeState> for BackEdgeReducer {
         &mut self,
         state: &BackEdgeState,
         dest_state: &BackEdgeState,
-        _op: &Option<&PcodeOperation>,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
     ) {
         // Extract concrete addresses from both states
         if let (Some(from_addr), Some(to_addr)) = (state.get_location(), dest_state.get_location())
