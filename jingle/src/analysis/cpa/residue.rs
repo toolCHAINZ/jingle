@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use crate::analysis::pcode_store::PcodeOpRef;
-use jingle_sleigh::PcodeOperation;
 
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, state::AbstractState};
 

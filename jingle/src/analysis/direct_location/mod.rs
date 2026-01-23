@@ -11,7 +11,6 @@ use crate::analysis::cpa::state::{
 };
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::direct_valuation::VarnodeValue;
-use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;

@@ -1,7 +1,5 @@
 use std::marker::PhantomData;
 
-use jingle_sleigh::PcodeOperation;
-
 use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::AbstractState;
 

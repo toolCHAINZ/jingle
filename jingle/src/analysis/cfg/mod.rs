@@ -288,7 +288,7 @@ impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
     ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         let addr = *addr.borrow();
         self.get_op_at(addr)
-            .map(|op| crate::analysis::pcode_store::PcodeOpRef::from(op))
+            .map(crate::analysis::pcode_store::PcodeOpRef::from)
     }
 }
 

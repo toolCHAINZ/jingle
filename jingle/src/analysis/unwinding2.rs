@@ -81,7 +81,6 @@ use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;

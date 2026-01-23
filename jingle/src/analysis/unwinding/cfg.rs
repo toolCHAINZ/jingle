@@ -4,7 +4,6 @@ use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
 use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
-use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
