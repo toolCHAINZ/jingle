@@ -44,11 +44,242 @@ impl VarNodeValuation {
         }
     }
 
+    #[allow(dead_code)]
     fn from_varnode_or_entry_simple(vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
             VarNodeValuation::Const(vn.clone())
         } else {
             VarNodeValuation::Entry(vn.clone())
+        }
+    }
+
+    /// Extract constant value if this is a Const variant
+    fn as_const(&self) -> Option<u64> {
+        match self {
+            VarNodeValuation::Const(vn) => Some(vn.offset),
+            _ => None,
+        }
+    }
+
+    /// Create a constant VarNode with the given value and size
+    fn make_const(value: u64, size: usize) -> Self {
+        VarNodeValuation::Const(VarNode {
+            space_index: VarNode::CONST_SPACE_INDEX,
+            offset: value,
+            size,
+        })
+    }
+
+    /// Perform simple simplifications on the top two levels of the expression tree.
+    /// This reduces expression height by folding constants and flattening nested operations.
+    fn simplify(&mut self) {
+        match self {
+            // Arithmetic operations
+            VarNodeValuation::Add(a, b) => {
+                // First simplify children
+                a.simplify();
+                b.simplify();
+
+                // Const + Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        *self = Self::make_const(av.wrapping_add(bv), size);
+                        return;
+                    }
+                }
+
+                // Flatten nested Add with Const: (Add(x, Const(c1)) + Const(c2)) -> Add(x, Const(c1+c2))
+                if let (VarNodeValuation::Add(_inner_a, inner_b), Some(bv)) =
+                    (a.as_mut(), b.as_const())
+                {
+                    if let Some(inner_bv) = inner_b.as_const() {
+                        if let VarNodeValuation::Const(vn) = inner_b.as_ref() {
+                            let size = vn.size;
+                            **inner_b = Self::make_const(inner_bv.wrapping_add(bv), size);
+                            *self = (**a).clone();
+                            return;
+                        }
+                    }
+                }
+
+                // Symmetric case: Const(c1) + Add(x, Const(c2)) -> Add(x, Const(c1+c2))
+                if let (Some(av), VarNodeValuation::Add(_inner_a, inner_b)) =
+                    (a.as_const(), b.as_mut())
+                {
+                    if let Some(inner_bv) = inner_b.as_const() {
+                        if let VarNodeValuation::Const(vn) = inner_b.as_ref() {
+                            let size = vn.size;
+                            **inner_b = Self::make_const(av.wrapping_add(inner_bv), size);
+                            *self = (**b).clone();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            VarNodeValuation::Sub(a, b) => {
+                a.simplify();
+                b.simplify();
+
+                // Const - Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        *self = Self::make_const(av.wrapping_sub(bv), size);
+                        return;
+                    }
+                }
+
+                // x - Const(0) = x
+                if let Some(0) = b.as_const() {
+                    *self = (**a).clone();
+                    return;
+                }
+            }
+
+            VarNodeValuation::Mult(a, b) => {
+                a.simplify();
+                b.simplify();
+
+                // Const * Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        *self = Self::make_const(av.wrapping_mul(bv), size);
+                        return;
+                    }
+                }
+
+                // x * Const(0) = Const(0)
+                if let Some(0) = b.as_const() {
+                    *self = (**b).clone();
+                    return;
+                }
+                if let Some(0) = a.as_const() {
+                    *self = (**a).clone();
+                    return;
+                }
+
+                // x * Const(1) = x
+                if let Some(1) = b.as_const() {
+                    *self = (**a).clone();
+                    return;
+                }
+                if let Some(1) = a.as_const() {
+                    *self = (**b).clone();
+                    return;
+                }
+            }
+
+            // Bitwise operations
+            VarNodeValuation::BitAnd(a, b) => {
+                a.simplify();
+                b.simplify();
+
+                // Const & Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        *self = Self::make_const(av & bv, size);
+                        return;
+                    }
+                }
+
+                // x & Const(0) = Const(0)
+                if let Some(0) = b.as_const() {
+                    *self = (**b).clone();
+                    return;
+                }
+                if let Some(0) = a.as_const() {
+                    *self = (**a).clone();
+                    return;
+                }
+            }
+
+            VarNodeValuation::BitOr(a, b) => {
+                a.simplify();
+                b.simplify();
+
+                // Const | Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        *self = Self::make_const(av | bv, size);
+                        return;
+                    }
+                }
+
+                // x | Const(0) = x
+                if let Some(0) = b.as_const() {
+                    *self = (**a).clone();
+                    return;
+                }
+                if let Some(0) = a.as_const() {
+                    *self = (**b).clone();
+                    return;
+                }
+            }
+
+            VarNodeValuation::BitXor(a, b) => {
+                a.simplify();
+                b.simplify();
+
+                // Const ^ Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        *self = Self::make_const(av ^ bv, size);
+                        return;
+                    }
+                }
+
+                // x ^ Const(0) = x
+                if let Some(0) = b.as_const() {
+                    *self = (**a).clone();
+                    return;
+                }
+                if let Some(0) = a.as_const() {
+                    *self = (**b).clone();
+                    return;
+                }
+            }
+
+            VarNodeValuation::BitNegate(a) => {
+                a.simplify();
+
+                // ~Const = Const
+                if let Some(av) = a.as_const() {
+                    if let VarNodeValuation::Const(vn) = a.as_ref() {
+                        let size = vn.size;
+                        let mask = if size >= 8 {
+                            u64::MAX
+                        } else {
+                            (1u64 << (size * 8)) - 1
+                        };
+                        *self = Self::make_const(!av & mask, size);
+                        return;
+                    }
+                }
+            }
+
+            VarNodeValuation::Load(a) => {
+                a.simplify();
+            }
+
+            VarNodeValuation::Or(a, b) => {
+                a.simplify();
+                b.simplify();
+
+                // Const || Const = Const
+                if a == b {
+                    *self = (**a).clone();
+                    return;
+                }
+            }
+
+            // Entry, Const, and Top don't need simplification
+            VarNodeValuation::Entry(_) | VarNodeValuation::Const(_) | VarNodeValuation::Top => {}
         }
     }
 }
@@ -127,7 +358,7 @@ impl DirectValuation2State {
         if let Some(output) = op.output() {
             match output {
                 GeneralizedVarNode::Direct(output_vn) => {
-                    let result_val = match op {
+                    let mut result_val = match op {
                         // Copy
                         PcodeOperation::Copy { input, .. } => {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
@@ -204,19 +435,6 @@ impl DirectValuation2State {
                             VarNodeValuation::BitNegate(Box::new(a))
                         }
 
-                        // Piece/SubPiece approximations
-                        PcodeOperation::Piece { input0, input1, .. } => {
-                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
-                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::Add(Box::new(a), Box::new(b))
-                        }
-
-                        PcodeOperation::SubPiece { input0, input1, .. } => {
-                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
-                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
-                            VarNodeValuation::Sub(Box::new(a), Box::new(b))
-                        }
-
                         // Load - track pointer expression
                         PcodeOperation::Load { input, .. } => {
                             let ptr = &input.pointer_location;
@@ -229,8 +447,7 @@ impl DirectValuation2State {
                         }
 
                         // Casts/extensions - preserve symbolic value
-                        PcodeOperation::Cast { input, .. }
-                        | PcodeOperation::IntSExt { input, .. }
+                        PcodeOperation::IntSExt { input, .. }
                         | PcodeOperation::IntZExt { input, .. } => {
                             VarNodeValuation::from_varnode_or_entry(self, input)
                         }
@@ -238,7 +455,7 @@ impl DirectValuation2State {
                         // Default: be conservative and mark as Entry(output_vn)
                         _ => VarNodeValuation::Top,
                     };
-
+                    result_val.simplify();
                     new_state.written_locations.insert(output_vn, result_val);
                 }
 
@@ -341,8 +558,13 @@ impl JoinSemiLattice for DirectValuation2State {
         for (key, other_val) in other.written_locations.iter() {
             match self.written_locations.get_mut(key) {
                 Some(my_val) => {
-                    if my_val != other_val {
-                        *my_val = VarNodeValuation::Entry(key.clone());
+                    if my_val == &VarNodeValuation::Top || other_val == &VarNodeValuation::Top {
+                        *my_val = VarNodeValuation::Top;
+                    } else if my_val != other_val {
+                        *my_val = VarNodeValuation::Or(
+                            Box::new(my_val.clone()),
+                            Box::new(other_val.clone()),
+                        );
                     }
                 }
                 None => {
@@ -385,10 +607,6 @@ impl DirectValuation2Analysis {
         Self { arch_info }
     }
 
-    pub fn with_entry_varnode(arch_info: SleighArchInfo, _entry_varnode: VarNode) -> Self {
-        // For now entry varnode semantics are not used; could initialize specific varnode with Entry(...)
-        Self { arch_info }
-    }
 }
 
 impl ConfigurableProgramAnalysis for DirectValuation2Analysis {
