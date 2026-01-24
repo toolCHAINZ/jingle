@@ -1,5 +1,4 @@
 use crate::analysis::Analysis;
-use crate::analysis::compound::Strengthen;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{
@@ -632,9 +631,6 @@ impl AbstractState for DirectValuation2State {
     }
 }
 
-// Allow use in compound analyses
-impl<L: LocationState> crate::analysis::compound::Strengthen<L> for DirectValuation2State {}
-
 pub struct DirectValuation2Analysis {
     arch_info: SleighArchInfo,
 }
@@ -663,5 +659,3 @@ impl IntoState<DirectValuation2Analysis> for ConcretePcodeAddress {
         }
     }
 }
-
-impl<L: LocationState> Strengthen<DirectValuation2State> for L {}

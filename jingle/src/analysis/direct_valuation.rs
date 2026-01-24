@@ -835,13 +835,6 @@ impl AbstractState for DirectValuationState {
     }
 }
 
-// Strengthen implementations for compound analysis
-impl
-    crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
-    for DirectValuationState
-{
-}
-
 /// The Direct Valuation CPA
 ///
 /// This analysis can optionally track a specific varnode as an "entry" value (e.g., stack pointer).

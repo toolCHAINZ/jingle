@@ -1,7 +1,6 @@
 use crate::analysis::Analysis;
 use crate::analysis::bounded_branch::state::BoundedBranchState;
 use crate::analysis::cfg::CfgState;
-use crate::analysis::compound::{Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
@@ -181,44 +180,44 @@ impl LocationState for DirectLocationState {
     }
 }
 
-impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
-    for DirectLocationState
-{
-    fn strengthen(
-        &mut self,
-        _original: &crate::analysis::compound::CompoundState<
-            Self,
-            crate::analysis::direct_valuation::DirectValuationState,
-        >,
-        _other: &crate::analysis::direct_valuation::DirectValuationState,
-        _op: &PcodeOperation,
-    ) -> StrengthenOutcome {
-        let vn = match &self.inner {
-            PcodeAddressLattice::Computed(indirect_var_node) => Some(indirect_var_node.clone()),
-            _ => None,
-        };
-        if let Some(vn) = vn {
-            if let Some(VarnodeValue::Const(value)) = _other.get_value(&vn.pointer_location) {
-                self.inner = PcodeAddressLattice::Const((*value).into());
-                return StrengthenOutcome::Changed;
-            }
-        }
-        StrengthenOutcome::Unchanged
-    }
-}
+// impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
+//     for DirectLocationState
+// {
+//     fn strengthen(
+//         &mut self,
+//         _original: &crate::analysis::compound::CompoundState<
+//             Self,
+//             crate::analysis::direct_valuation::DirectValuationState,
+//         >,
+//         _other: &crate::analysis::direct_valuation::DirectValuationState,
+//         _op: &PcodeOperation,
+//     ) -> StrengthenOutcome {
+//         let vn = match &self.inner {
+//             PcodeAddressLattice::Computed(indirect_var_node) => Some(indirect_var_node.clone()),
+//             _ => None,
+//         };
+//         if let Some(vn) = vn {
+//             if let Some(VarnodeValue::Const(value)) = _other.get_value(&vn.pointer_location) {
+//                 self.inner = PcodeAddressLattice::Const((*value).into());
+//                 return StrengthenOutcome::Changed;
+//             }
+//         }
+//         StrengthenOutcome::Unchanged
+//     }
+// }
 
-impl Strengthen<BoundedBranchState> for DirectLocationState {
-    fn strengthen(
-        &mut self,
-        _original: &crate::analysis::compound::CompoundState<Self, BoundedBranchState>,
-        _other: &BoundedBranchState,
-        _op: &PcodeOperation,
-    ) -> StrengthenOutcome {
-        // DirectLocationState does not gain any additional information from the
-        // BoundedBranchState, so leave it unchanged.
-        StrengthenOutcome::Unchanged
-    }
-}
+// impl Strengthen<BoundedBranchState> for DirectLocationState {
+//     fn strengthen(
+//         &mut self,
+//         _original: &crate::analysis::compound::CompoundState<Self, BoundedBranchState>,
+//         _other: &BoundedBranchState,
+//         _op: &PcodeOperation,
+//     ) -> StrengthenOutcome {
+//         // DirectLocationState does not gain any additional information from the
+//         // BoundedBranchState, so leave it unchanged.
+//         StrengthenOutcome::Unchanged
+//     }
+// }
 
 pub struct DirectLocationAnalysis {
     call_behavior: CallBehavior,
@@ -268,29 +267,6 @@ impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
 }
 
 impl Analysis for DirectLocationAnalysis {}
-
-// Enable compound analysis: DirectLocationAnalysis can be strengthened by DirectValuationAnalysis
-impl
-    crate::analysis::compound::CompoundAnalysis<
-        crate::analysis::direct_valuation::DirectValuationAnalysis,
-    > for DirectLocationAnalysis
-{
-}
-
-impl
-    crate::analysis::compound::CompoundAnalysis<
-        crate::analysis::direct_valuation2::DirectValuation2Analysis,
-    > for DirectLocationAnalysis
-{
-}
-
-// Enable compound analysis: DirectLocationAnalysis can be strengthened by BoundedBranchAnalysis
-impl
-    crate::analysis::compound::CompoundAnalysis<
-        crate::analysis::bounded_branch::BoundedBranchAnalysis,
-    > for DirectLocationAnalysis
-{
-}
 
 #[cfg(test)]
 mod tests {

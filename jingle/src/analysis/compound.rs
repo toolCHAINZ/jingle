@@ -83,6 +83,19 @@ pub trait Strengthen<O: AbstractState>: AbstractState {
     }
 }
 
+/// Blanket implementation: if the left component `S1` of a `CompoundState<S1, S2>`
+/// can be strengthened by `O`, then the compound state can also be treated as
+/// strengthenable by `O`. This satisfies trait bounds for nested compound analyses
+/// where only the left component participates in strengthening.
+impl<S1, S2, O> Strengthen<O> for CompoundState<S1, S2>
+where
+    S1: Strengthen<O>,
+    S1: Strengthen<S2>,
+    S2: AbstractState,
+    O: AbstractState,
+{
+}
+
 /// A compound analysis that combines two CPAs.
 ///
 /// If `A` is `CompoundAnalysis<B>`, then `A` and `B` are both CPAs,

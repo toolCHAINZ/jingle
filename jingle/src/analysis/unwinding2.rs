@@ -74,7 +74,7 @@
 
 use crate::analysis::Analysis;
 use crate::analysis::cfg::CfgState;
-use crate::analysis::compound::{CompoundAnalysis, CompoundState, Strengthen, StrengthenOutcome};
+// use crate::analysis::compound::{CompoundAnalysis, CompoundState, Strengthen, StrengthenOutcome};
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{
@@ -287,35 +287,26 @@ impl IntoState<BackEdgeCountCPA> for ConcretePcodeAddress {
 }
 
 /// Strengthen implementation: BackEdgeCountState gets strengthened by any LocationState
-impl<L: LocationState> Strengthen<L> for BackEdgeCountState {
-    fn strengthen(
-        &mut self,
-        _original: &CompoundState<Self, L>,
-        other: &L,
-        _op: &PcodeOperation,
-    ) -> StrengthenOutcome {
-        // Update our location based on the location analysis
-        if let Some(new_loc) = other.get_location() {
-            if self.location != Some(new_loc) {
-                *self = self.move_to(new_loc);
-                return StrengthenOutcome::Changed;
-            }
-        }
-        StrengthenOutcome::Unchanged
-    }
-}
+// impl<L: LocationState> Strengthen<L> for BackEdgeCountState {
+//     fn strengthen(
+//         &mut self,
+//         _original: &CompoundState<Self, L>,
+//         other: &L,
+//         _op: &PcodeOperation,
+//     ) -> StrengthenOutcome {
+//         // Update our location based on the location analysis
+//         if let Some(new_loc) = other.get_location() {
+//             if self.location != Some(new_loc) {
+//                 *self = self.move_to(new_loc);
+//                 return StrengthenOutcome::Changed;
+//             }
+//         }
+//         StrengthenOutcome::Unchanged
+//     }
+// }
 
 // Implement CompoundAnalysis for BackEdgeCountCPA with common CPA types.
 // This allows those CPAs to be used with the Unwinding analysis.
-
-/// Enable BackEdgeCountCPA to be compounded with DirectLocationAnalysis
-impl CompoundAnalysis<crate::analysis::direct_location::DirectLocationAnalysis>
-    for BackEdgeCountCPA
-{
-}
-
-/// Enable BackEdgeCountCPA to be compounded with BackEdgeCPA
-impl CompoundAnalysis<crate::analysis::back_edge::BackEdgeCPA> for BackEdgeCountCPA {}
 
 /// Enable BackEdgeCountCPA to be compounded with any ResidueWrapper that wraps
 /// a CPA whose state implements `LocationState`.
@@ -324,77 +315,63 @@ impl CompoundAnalysis<crate::analysis::back_edge::BackEdgeCPA> for BackEdgeCount
 /// `L` is a location analysis (e.g. `DirectLocationAnalysis`) and `R` is any
 /// `Residue<L::State>`. The `ResidueWrapper` has the same `State` as the inner
 /// analysis, so the strengthen implementation above remains applicable.
-impl<A, R> CompoundAnalysis<ResidueWrapper<A, R>> for BackEdgeCountCPA
-where
-    A: ConfigurableProgramAnalysis,
-    A::State: LocationState,
-    R: Residue<A::State>,
-{
-}
 
 /// The main Unwinding analysis.
 /// This wraps a tuple-based compound analysis combining back-edge counting with a location analysis.
 pub type Unwinding<L> = (BackEdgeCountCPA, L);
 
-impl<L: ConfigurableProgramAnalysis> Analysis for Unwinding<L>
-where
-    L::State: LocationState,
-    BackEdgeCountCPA: CompoundAnalysis<L>,
-{
-}
+// Extension trait to add `unwind` method to any location analysis
+// pub trait UnwindExt: ConfigurableProgramAnalysis
+// where
+//     Self::State: LocationState,
+//     BackEdgeCountCPA: CompoundAnalysis<Self>,
+// {
+//     /// Wrap this analysis in an Unwinding analysis with the given bound.
+//     ///
+//     /// # Arguments
+//     /// * `bound` - Maximum number of times any back-edge can be traversed
+//     fn unwind(self, bound: usize) -> (BackEdgeCountCPA, Self)
+//     where
+//         Self: Sized,
+//     {
+//         (BackEdgeCountCPA::new(bound), self)
+//     }
+// }
 
-/// Extension trait to add `unwind` method to any location analysis
-pub trait UnwindExt: ConfigurableProgramAnalysis
-where
-    Self::State: LocationState,
-    BackEdgeCountCPA: CompoundAnalysis<Self>,
-{
-    /// Wrap this analysis in an Unwinding analysis with the given bound.
-    ///
-    /// # Arguments
-    /// * `bound` - Maximum number of times any back-edge can be traversed
-    fn unwind(self, bound: usize) -> (BackEdgeCountCPA, Self)
-    where
-        Self: Sized,
-    {
-        (BackEdgeCountCPA::new(bound), self)
-    }
-}
+// Blanket implementation: any CPA with LocationState and CompoundAnalysis support can be unwound
+// impl<T> UnwindExt for T
+// where
+//     T: ConfigurableProgramAnalysis,
+//     T::State: LocationState,
+//     BackEdgeCountCPA: CompoundAnalysis<T>,
+// {
+// }
 
-/// Blanket implementation: any CPA with LocationState and CompoundAnalysis support can be unwound
-impl<T> UnwindExt for T
-where
-    T: ConfigurableProgramAnalysis,
-    T::State: LocationState,
-    BackEdgeCountCPA: CompoundAnalysis<T>,
-{
-}
+// impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L> {
+//     fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+//         &'a self,
+//         t: &'a T,
+//     ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
+//         self.1.get_operation(t)
+//     }
 
-impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L> {
-    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
-        &'a self,
-        t: &'a T,
-    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
-        self.1.get_operation(t)
-    }
+//     fn get_location(&self) -> Option<ConcretePcodeAddress> {
+//         self.1.get_location()
+//     }
+// }
 
-    fn get_location(&self) -> Option<ConcretePcodeAddress> {
-        self.1.get_location()
-    }
-}
+// impl<L: CfgState> CfgState for CompoundState<BackEdgeCountState, L> {
+//     type Model = L::Model;
 
-impl<L: CfgState> CfgState for CompoundState<BackEdgeCountState, L> {
-    type Model = L::Model;
+//     fn new_const(&self, _i: &SleighArchInfo) -> Self::Model {
+//         todo!()
+//     }
 
-    fn new_const(&self, _i: &SleighArchInfo) -> Self::Model {
-        todo!()
-    }
+//     fn model_id(&self) -> String {
+//         todo!()
+//     }
 
-    fn model_id(&self) -> String {
-        todo!()
-    }
-
-    fn location(&self) -> Option<ConcretePcodeAddress> {
-        todo!()
-    }
-}
+//     fn location(&self) -> Option<ConcretePcodeAddress> {
+//         todo!()
+//     }
+// }
