@@ -13,7 +13,6 @@ use crate::{
     },
     modeling::machine::cpu::concrete::ConcretePcodeAddress,
 };
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::OnceLock;
@@ -21,6 +20,7 @@ use std::{
     any::{Any, TypeId},
     fmt,
 };
+use std::{collections::HashMap, fmt::LowerHex};
 
 type StrengthenFn = fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>;
 
@@ -308,5 +308,11 @@ impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for Comp
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
         self.0.location()
+    }
+}
+
+impl<S1: LowerHex, S2: LowerHex> LowerHex for CompoundState<S1, S2> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({:x}, {:x})", self.0, self.1)
     }
 }

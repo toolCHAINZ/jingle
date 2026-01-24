@@ -81,7 +81,9 @@ use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
+use crate::analysis::direct_location::DirectLocationState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use crate::register_strengthen;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -180,21 +182,24 @@ impl BackEdgeCountState {
     }
 
     /// Move to a new location, updating visited set and back-edge counts
-    fn move_to(&self, new_location: ConcretePcodeAddress) -> Self {
-        let mut new_state = self.clone();
+    fn move_to<L: LocationState>(&self, other: &L) -> Option<Self> {
+        let new_location = other.get_location()?;
 
         // Check if this is a back-edge (new_location is already in visited set)
         if self.visited.contains(&new_location) {
+            let mut new_state = self.clone();
             if let Some(from) = self.location {
                 let edge = (from, new_location);
                 *new_state.back_edge_counts.entry(edge).or_insert(0) += 1;
             }
-        }
 
-        // Update visited set and location
-        new_state.visited.insert(new_location);
-        new_state.location = Some(new_location);
-        new_state
+            // Update visited set and location
+            new_state.visited.insert(new_location);
+            new_state.location = Some(new_location);
+            Some(new_state)
+        } else {
+            None
+        }
     }
 }
 
@@ -286,6 +291,12 @@ impl IntoState<BackEdgeCountCPA> for ConcretePcodeAddress {
     }
 }
 
+register_strengthen!(
+    BackEdgeCountState,
+    DirectLocationState,
+    BackEdgeCountState::move_to
+);
+
 /// Strengthen implementation: BackEdgeCountState gets strengthened by any LocationState
 // impl<L: LocationState> Strengthen<L> for BackEdgeCountState {
 //     fn strengthen(
@@ -318,34 +329,32 @@ impl IntoState<BackEdgeCountCPA> for ConcretePcodeAddress {
 
 /// The main Unwinding analysis.
 /// This wraps a tuple-based compound analysis combining back-edge counting with a location analysis.
-pub type Unwinding<L> = (BackEdgeCountCPA, L);
+pub type Unwinding<L> = (L, BackEdgeCountCPA);
 
-// Extension trait to add `unwind` method to any location analysis
-// pub trait UnwindExt: ConfigurableProgramAnalysis
-// where
-//     Self::State: LocationState,
-//     BackEdgeCountCPA: CompoundAnalysis<Self>,
-// {
-//     /// Wrap this analysis in an Unwinding analysis with the given bound.
-//     ///
-//     /// # Arguments
-//     /// * `bound` - Maximum number of times any back-edge can be traversed
-//     fn unwind(self, bound: usize) -> (BackEdgeCountCPA, Self)
-//     where
-//         Self: Sized,
-//     {
-//         (BackEdgeCountCPA::new(bound), self)
-//     }
-// }
+/// Extension trait to add `unwind` method to any location analysis
+pub trait UnwindExt: ConfigurableProgramAnalysis
+where
+    Self::State: LocationState,
+{
+    /// Wrap this analysis in an Unwinding analysis with the given bound.
+    ///
+    /// # Arguments
+    /// * `bound` - Maximum number of times any back-edge can be traversed
+    fn unwind(self, bound: usize) -> (Self, BackEdgeCountCPA)
+    where
+        Self: Sized,
+    {
+        (self, BackEdgeCountCPA::new(bound))
+    }
+}
 
 // Blanket implementation: any CPA with LocationState and CompoundAnalysis support can be unwound
-// impl<T> UnwindExt for T
-// where
-//     T: ConfigurableProgramAnalysis,
-//     T::State: LocationState,
-//     BackEdgeCountCPA: CompoundAnalysis<T>,
-// {
-// }
+impl<T> UnwindExt for T
+where
+    T: ConfigurableProgramAnalysis,
+    T::State: LocationState,
+{
+}
 
 // impl<L: LocationState> LocationState for CompoundState<BackEdgeCountState, L> {
 //     fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(

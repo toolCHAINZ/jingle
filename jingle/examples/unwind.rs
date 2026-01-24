@@ -43,7 +43,7 @@ fn main() {
     // Run unwinding analysis - back-edges are computed internally
     tracing::info!("Running unwinding analysis with bounded back-edge visit counting");
 
-    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch).unwind(5);
+    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch).unwind(20);
 
     // Wrap with CfgReducer
     let mut analysis_with_cfg = location_analysis.with_residue(CfgReducer::new());
