@@ -15,16 +15,26 @@ pub type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
 #[derive(Clone, Debug, Default)]
 pub struct BackEdges {
     // todo: make generic?
-    edges: HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>>,
+    edges: std::sync::Arc<HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>>>,
 }
 
 impl BackEdges {
+    /// Ensure we have unique ownership of the inner map and return a mutable
+    /// reference to it. Uses `Arc::make_mut` for copy-on-write semantics so
+    /// clones share until mutated.
+    fn ensure_unique(
+        &mut self,
+    ) -> &mut HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>> {
+        std::sync::Arc::make_mut(&mut self.edges)
+    }
+
     pub fn has(&self, from: &ConcretePcodeAddress, to: &ConcretePcodeAddress) -> bool {
         self.edges.get(from).is_some_and(|s| s.contains(to))
     }
 
     pub fn add(&mut self, from: ConcretePcodeAddress, to: ConcretePcodeAddress) {
-        self.edges.entry(from).or_default().insert(to);
+        let map = self.ensure_unique();
+        map.entry(from).or_default().insert(to);
     }
 
     pub fn get_all_for(
@@ -34,7 +44,7 @@ impl BackEdges {
         self.edges.get(from).cloned()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = BackEdge> {
+    pub fn iter(&self) -> impl Iterator<Item = BackEdge> + '_ {
         self.edges
             .iter()
             .flat_map(|(src, edges)| edges.iter().map(|dst| (*src, *dst)))
