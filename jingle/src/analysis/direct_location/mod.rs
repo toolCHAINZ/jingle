@@ -9,9 +9,11 @@ use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
 };
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::direct_valuation::VarnodeValue;
+use crate::analysis::direct_valuation::{DirectValuationState, VarnodeValue};
+use crate::analysis::direct_valuation2::DirectValuation2State;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use crate::register_strengthen;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -179,6 +181,29 @@ impl LocationState for DirectLocationState {
         self.inner.value().cloned()
     }
 }
+
+impl DirectLocationState {
+    pub fn strengthen_from_valuation2(&self, v: &DirectValuation2State) -> Option<Self> {
+        todo!()
+    }
+
+    pub fn strengthen_from_valuation(&self, v: &DirectValuationState) -> Option<Self> {
+        dbg!(self, v);
+        None
+    }
+}
+
+register_strengthen!(
+    DirectLocationState,
+    DirectValuation2State,
+    DirectLocationState::strengthen_from_valuation2
+);
+
+register_strengthen!(
+    DirectLocationState,
+    DirectValuationState,
+    DirectLocationState::strengthen_from_valuation
+);
 
 // impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
 //     for DirectLocationState

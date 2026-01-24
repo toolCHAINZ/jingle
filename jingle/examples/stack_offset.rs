@@ -1,10 +1,10 @@
 #![allow(unused)]
 
-use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
+use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
 use jingle::analysis::direct_valuation::{
     DirectValuationAnalysis, DirectValuationState, VarnodeValue,
