@@ -64,7 +64,7 @@ macro_rules! register_strengthen {
 
             // Submit the factory to inventory so it is discovered at link time.
             inventory::submit! {
-                $crate::analysis::compound2::StrengthenFactory(factory)
+                $crate::analysis::compound::StrengthenFactory(factory)
             }
         };
     };
