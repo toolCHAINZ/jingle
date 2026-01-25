@@ -1,24 +1,27 @@
-use crate::analysis::Analysis;
-use crate::analysis::bounded_branch::state::BoundedBranchState;
-use crate::analysis::cfg::CfgState;
-use crate::analysis::cpa::lattice::JoinSemiLattice;
-
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::reducer::CfgReducer;
-use crate::analysis::cpa::state::{
-    AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
+use std::{
+    borrow::Borrow,
+    cmp::Ordering,
+    fmt::{Display, LowerHex},
+    iter::{empty, once},
 };
-use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::direct_valuation::{DirectValuationState, VarnodeValue};
-use crate::analysis::direct_valuation2::DirectValuation2State;
-use crate::modeling::machine::MachineState;
-use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use crate::register_strengthen;
+
 use jingle_sleigh::PcodeOperation;
-use std::borrow::Borrow;
-use std::cmp::Ordering;
-use std::fmt::{Display, LowerHex, Result as FmtResult};
-use std::iter::{empty, once};
+
+use crate::{
+    analysis::{
+        cfg::CfgState,
+        cpa::{
+            ConfigurableProgramAnalysis, IntoState,
+            lattice::{JoinSemiLattice, pcode::PcodeAddressLattice},
+            state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor},
+        },
+        direct_valuation::DirectValuationState,
+        direct_valuation2::DirectValuation2State,
+        location::basic::DirectLocationAnalysis,
+    },
+    modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
+    register_strengthen,
+};
 
 /// How this analysis treats direct call instructions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -84,14 +87,14 @@ impl From<DirectLocationState> for PcodeAddressLattice {
 }
 
 impl Display for DirectLocationState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // PcodeAddressLattice doesn't implement Display, so we use Debug
         write!(f, "{:?}", self.inner)
     }
 }
 
 impl LowerHex for DirectLocationState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         LowerHex::fmt(&self.inner, f)
     }
 }
@@ -113,7 +116,7 @@ impl JoinSemiLattice for DirectLocationState {
 }
 
 impl StateDisplay for DirectLocationState {
-    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> FmtResult {
+    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Use LowerHex format for the inner PcodeAddressLattice
         write!(f, "{:x}", self.inner)
     }
@@ -193,75 +196,6 @@ impl DirectLocationState {
     }
 }
 
-register_strengthen!(
-    DirectLocationState,
-    DirectValuation2State,
-    DirectLocationState::strengthen_from_valuation2
-);
-
-register_strengthen!(
-    DirectLocationState,
-    DirectValuationState,
-    DirectLocationState::strengthen_from_valuation
-);
-
-// impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
-//     for DirectLocationState
-// {
-//     fn strengthen(
-//         &mut self,
-//         _original: &crate::analysis::compound::CompoundState<
-//             Self,
-//             crate::analysis::direct_valuation::DirectValuationState,
-//         >,
-//         _other: &crate::analysis::direct_valuation::DirectValuationState,
-//         _op: &PcodeOperation,
-//     ) -> StrengthenOutcome {
-//         let vn = match &self.inner {
-//             PcodeAddressLattice::Computed(indirect_var_node) => Some(indirect_var_node.clone()),
-//             _ => None,
-//         };
-//         if let Some(vn) = vn {
-//             if let Some(VarnodeValue::Const(value)) = _other.get_value(&vn.pointer_location) {
-//                 self.inner = PcodeAddressLattice::Const((*value).into());
-//                 return StrengthenOutcome::Changed;
-//             }
-//         }
-//         StrengthenOutcome::Unchanged
-//     }
-// }
-
-// impl Strengthen<BoundedBranchState> for DirectLocationState {
-//     fn strengthen(
-//         &mut self,
-//         _original: &crate::analysis::compound::CompoundState<Self, BoundedBranchState>,
-//         _other: &BoundedBranchState,
-//         _op: &PcodeOperation,
-//     ) -> StrengthenOutcome {
-//         // DirectLocationState does not gain any additional information from the
-//         // BoundedBranchState, so leave it unchanged.
-//         StrengthenOutcome::Unchanged
-//     }
-// }
-
-pub struct DirectLocationAnalysis {
-    call_behavior: CallBehavior,
-}
-
-impl DirectLocationAnalysis {
-    pub fn call_behavior(&self) -> CallBehavior {
-        self.call_behavior
-    }
-
-    pub fn set_call_behavior(&mut self, behavior: CallBehavior) {
-        self.call_behavior = behavior;
-    }
-
-    pub fn new(call_behavior: CallBehavior) -> Self {
-        Self { call_behavior }
-    }
-}
-
 impl CfgState for DirectLocationState {
     type Model = MachineState;
 
@@ -286,87 +220,14 @@ impl CfgState for DirectLocationState {
     }
 }
 
-impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
-    type State = DirectLocationState;
-    type Reducer = CfgReducer<Self::State>;
-}
+register_strengthen!(
+    DirectLocationState,
+    DirectValuation2State,
+    DirectLocationState::strengthen_from_valuation2
+);
 
-impl Analysis for DirectLocationAnalysis {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use jingle_sleigh::VarNode;
-
-    #[test]
-    fn test_call_behavior_branch() {
-        let state =
-            DirectLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
-
-        let call_op = PcodeOperation::Call {
-            dest: VarNode {
-                space_index: 0,
-                offset: 0x2000,
-                size: 8,
-            },
-            args: vec![],
-            call_info: None,
-        };
-
-        let successors: Vec<_> = state.transfer(&call_op).into_iter().collect();
-        assert_eq!(successors.len(), 1);
-        assert_eq!(
-            successors[0].inner,
-            PcodeAddressLattice::Const(ConcretePcodeAddress::from(0x2000))
-        );
-    }
-
-    #[test]
-    fn test_call_behavior_step_over() {
-        let state = DirectLocationState::location(
-            ConcretePcodeAddress::from(0x1000),
-            CallBehavior::StepOver,
-        );
-
-        let call_op = PcodeOperation::Call {
-            dest: VarNode {
-                space_index: 0,
-                offset: 0x2000,
-                size: 8,
-            },
-            args: vec![],
-            call_info: None,
-        };
-
-        let successors: Vec<_> = state.transfer(&call_op).into_iter().collect();
-        assert_eq!(successors.len(), 1);
-        // Should step over to next pcode address (machine: 0x1000, pcode: 1)
-        let expected = ConcretePcodeAddress::from(0x1000).next_pcode();
-        assert_eq!(successors[0].inner, PcodeAddressLattice::Const(expected));
-    }
-
-    #[test]
-    fn test_call_behavior_terminate() {
-        let state = DirectLocationState::location(
-            ConcretePcodeAddress::from(0x1000),
-            CallBehavior::Terminate,
-        );
-
-        let call_op = PcodeOperation::Call {
-            dest: VarNode {
-                space_index: 0,
-                offset: 0x2000,
-                size: 8,
-            },
-            args: vec![],
-            call_info: None,
-        };
-
-        let successors: Vec<_> = state.transfer(&call_op).into_iter().collect();
-        assert_eq!(
-            successors.len(),
-            0,
-            "Terminate should produce no successors"
-        );
-    }
-}
+register_strengthen!(
+    DirectLocationState,
+    DirectValuationState,
+    DirectLocationState::strengthen_from_valuation
+);
