@@ -18,11 +18,71 @@ impl MergeOutcome {
     }
 }
 
+/// Object-safe trait for cloneable iterators stored inside `DynIterBox`.
+///
+/// Any iterator type that is also `Clone` will implement this via the
+/// blanket impl below; the `clone_box` method allows cloning through the
+/// trait object so the boxed iterator can be cloned cheaply.
+pub trait CloneableIter<'a, T>: Iterator<Item = T> {
+    fn clone_box(&self) -> Box<dyn CloneableIter<'a, T> + 'a>;
+}
+
+impl<'a, T, I> CloneableIter<'a, T> for I
+where
+    I: Iterator<Item = T> + Clone + 'a,
+{
+    fn clone_box(&self) -> Box<dyn CloneableIter<'a, T> + 'a> {
+        Box::new(self.clone())
+    }
+}
+
+/// Newtype wrapper around a boxed cloneable iterator.
+///
+/// This provides `Clone` and `Iterator` implementations for the boxed trait
+/// object, so upstream types (like `Successor::IntoIter`) can be `Clone`,
+/// which is required by combinators such as `iproduct`.
+pub struct DynIterBox<'a, T>(Box<dyn CloneableIter<'a, T> + 'a>);
+
+impl<'a, T> DynIterBox<'a, T> {
+    pub fn new<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T> + Clone + 'a,
+    {
+        DynIterBox(Box::new(iter))
+    }
+}
+
+impl<'a, T> Clone for DynIterBox<'a, T> {
+    fn clone(&self) -> Self {
+        DynIterBox(self.0.clone_box())
+    }
+}
+
+impl<'a, T> Iterator for DynIterBox<'a, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        self.0.next()
+    }
+
+    // Forward size_hint if available
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl<'a, T> Debug for DynIterBox<'a, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        // We can't show the inner iterator state meaningfully, so provide a simple marker.
+        f.write_str("DynIterBox { .. }")
+    }
+}
+
 /// Iterator wrapper returned by `transfer` methods.
 ///
 /// This stores a boxed, cloneable iterator so the `Successor` itself can be
 /// `Clone` without forcing collection of items into a `Vec`.
-pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
+pub struct Successor<'a, T>(DynIterBox<'a, T>);
 
 impl<'a, T> Successor<'a, T> {
     /// Create an empty successor iterator.
@@ -30,14 +90,20 @@ impl<'a, T> Successor<'a, T> {
     where
         T: 'a,
     {
-        // std::iter::Empty implements Clone.
-        Self(Box::new(std::iter::empty::<T>()))
+        // std::iter::Empty implements Clone, so it satisfies CloneableIter via the blanket impl.
+        Self(DynIterBox::new(std::iter::empty::<T>()))
+    }
+}
+
+impl<'a, T> Clone for Successor<'a, T> {
+    fn clone(&self) -> Self {
+        Successor(self.0.clone())
     }
 }
 
 impl<'a, T: 'a> IntoIterator for Successor<'a, T> {
     type Item = T;
-    type IntoIter = Box<dyn Iterator<Item = T> + 'a>;
+    type IntoIter = DynIterBox<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0
@@ -53,7 +119,7 @@ where
     I: Iterator<Item = T> + Clone + 'a,
 {
     fn from(value: I) -> Self {
-        Self(Box::new(value))
+        Self(DynIterBox::new(value))
     }
 }
 
