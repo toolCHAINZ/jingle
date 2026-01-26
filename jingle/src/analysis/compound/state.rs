@@ -1,3 +1,4 @@
+use itertools::iproduct;
 use jingle_sleigh::SleighArchInfo;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -15,85 +16,104 @@ use crate::{
     modeling::machine::cpu::concrete::ConcretePcodeAddress,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CompoundState<S1, S2>(pub S1, pub S2);
-
-impl<S1: PartialOrd, S2: PartialOrd> PartialOrd for CompoundState<S1, S2> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.0.partial_cmp(&other.0) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
+macro_rules! named_tuple {
+    // capture: struct name, then repeated `ident: TypeIdent`
+    ( $name:ident, $( $field:ident : $T:ident ),+ $(,)? ) => {
+        // declare the struct with generics
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct $name< $( $T ),+ > {
+            $( pub $field: $T ),+
         }
-        self.1.partial_cmp(&other.1)
-    }
-}
 
-impl<S1: JoinSemiLattice, S2: JoinSemiLattice> JoinSemiLattice for CompoundState<S1, S2> {
-    fn join(&mut self, other: &Self) {
-        self.0.join(&other.0);
-        self.1.join(&other.1);
-    }
-}
-
-impl<S1: StateDisplay, S2: StateDisplay> StateDisplay for CompoundState<S1, S2> {
-    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(")?;
-        self.0.fmt_state(f)?;
-        write!(f, ", ")?;
-        self.1.fmt_state(f)?;
-        write!(f, ")")
-    }
-}
-
-impl<S1: AbstractState + ComponentStrengthen, S2: AbstractState + ComponentStrengthen> AbstractState
-    for CompoundState<S1, S2>
-{
-    fn merge(&mut self, other: &Self) -> MergeOutcome {
-        let outcome_left = self.0.merge(&other.0);
-        if outcome_left.merged() || self.0 == other.0 {
-            self.1.merge(&other.1)
-        } else {
-            MergeOutcome::NoOp
-        }
-    }
-
-    fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
-        // A state should stop if both components would stop
-        // We need to collect states since we can't clone the iterator
-        let states_vec: Vec<&Self> = states.collect();
-
-        let stop_left = self.0.stop(states_vec.iter().map(|s| &s.0));
-        let stop_right = self.1.stop(states_vec.iter().map(|s| &s.1));
-        stop_left && stop_right
-    }
-
-    fn transfer<'a, B: std::borrow::Borrow<jingle_sleigh::PcodeOperation>>(
-        &'a self,
-        opcode: B,
-    ) -> Successor<'a, Self> {
-        let opcode_ref = opcode.borrow();
-
-        // Get successors from both analyses
-        let successors_left: Vec<S1> = self.0.transfer(opcode_ref).into_iter().collect();
-        let successors_right: Vec<S2> = self.1.transfer(opcode_ref).into_iter().collect();
-
-        // Create cartesian product of successors
-        let mut result = Vec::new();
-        for left in &successors_left {
-            for right in &successors_right {
-                let new_left = left
-                    .try_strengthen(right as &dyn Any)
-                    .unwrap_or(left.clone());
-                let new_right = right
-                    .try_strengthen(left as &dyn Any)
-                    .unwrap_or(right.clone());
-                result.push(CompoundState(new_left, new_right));
+        impl<$($T: PartialOrd),+> PartialOrd for $name<$($T),+> {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                use std::cmp::Ordering;
+                // Lexicographic comparison: compare fields in declaration order,
+                // returning the first non-Equal ordering. If any component's
+                // partial_cmp returns None, propagate None.
+                let mut res: Option<Option<Ordering>> = None;
+                $(
+                    match res{
+                        None => res = Some(self.$field.partial_cmp(&other.$field)),
+                        Some(v) => {
+                            let new_res = self.$field.partial_cmp(&other.$field);
+                            if  new_res != v{
+                                return None;
+                            }
+                        }
+                    }
+                )+
+                res.flatten()
             }
         }
 
-        result.into_iter().into()
-    }
+        impl<$($T: JoinSemiLattice),+> JoinSemiLattice for $name<$($T),+> {
+            fn join(&mut self, other: &Self) {
+                $(
+                    self.$field.join(&other.$field);
+                )+
+            }
+        }
+
+        impl<$($T: StateDisplay),+> StateDisplay for $name<$($T),+> {
+            fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "(")?;
+                $(
+                    self.$field.fmt_state(f)?;
+                    write!(f, ", ")?;
+                )+
+                write!(f, ")")
+            }
+        }
+
+
+
+        impl<$($T: ComponentStrengthen + AbstractState),+> AbstractState
+            for $name<$($T),+>
+        {
+            fn merge(&mut self, other: &Self) -> MergeOutcome {
+                    let mut overall_outcome = MergeOutcome::NoOp;
+                $(
+                    let outcome = self.$field.merge(&other.$field);
+                    if outcome == MergeOutcome::NoOp{
+                        return overall_outcome;
+                    }else{
+                        overall_outcome = outcome;
+                    }
+                )+
+                overall_outcome
+            }
+
+            fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
+                // A state should stop if both components would stop
+                // We need to collect states since we can't clone the iterator
+                let states_vec: Vec<&Self> = states.collect();
+                let mut res = true;
+                $(
+                    res &= self.$field.stop(states_vec.iter().map(|s| &s.$field));
+                )+
+                res
+            }
+
+            fn transfer<'a, B: std::borrow::Borrow<jingle_sleigh::PcodeOperation>>(
+                &'a self,
+                opcode: B,
+            ) -> Successor<'a, Self> {
+                let opcode_ref = opcode.borrow();
+
+                iproduct!($(
+                    self.$field.transfer(opcode_ref).into_iter()
+                ),+).map(|($($field),+)| {
+
+                    $name{$($field),+}
+                }).into()
+            }
+        }
+    };
+
 }
+
+named_tuple!(CompoundState, s1: S1, s2: S2);
 
 impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for CompoundState<A, B> {
     type Model = A::Model;

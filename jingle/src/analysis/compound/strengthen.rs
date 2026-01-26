@@ -6,7 +6,7 @@ use std::{
 
 use crate::analysis::cpa::state::AbstractState;
 
-type StrengthenFn = fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>;
+type StrengthenFn = fn(&mut dyn Any, &dyn Any);
 
 /// A factory wrapper used with `inventory` so each registration can provide
 /// the pair `(TypeId of target, TypeId of other, StrengthenFn)` at runtime.
@@ -20,29 +20,26 @@ macro_rules! register_strengthen {
         const _: () = {
             // wrapper used to adapt the concrete fn signature `fn(&$From, &$To) -> Option<$From>`
             // into the registry-required `fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>`.
-            fn wrapper(
-                a: &dyn std::any::Any,
-                b: &dyn std::any::Any,
-            ) -> Option<Box<dyn std::any::Any>> {
-                let a = a.downcast_ref::<$From>()?;
-                let b = b.downcast_ref::<$To>()?;
-                ($func)(a, b).map(|r| Box::new(r) as Box<dyn std::any::Any>)
+            fn wrapper(a: &mut dyn std::any::Any, b: &dyn std::any::Any) {
+                let a = a.downcast_ref::<$From>();
+                let b = b.downcast_ref::<$To>();
+                if let Some(a) = a
+                    && let Some(b) = b
+                {
+                    ($func)(a, b);
+                }
             }
 
             // factory function (concrete fn pointer) that returns the triple the registry expects.
             fn factory() -> (
                 std::any::TypeId,
                 std::any::TypeId,
-                fn(&dyn std::any::Any, &dyn std::any::Any) -> Option<Box<dyn std::any::Any>>,
+                fn(&mut dyn std::any::Any, &dyn std::any::Any),
             ) {
                 (
                     std::any::TypeId::of::<$From>(),
                     std::any::TypeId::of::<$To>(),
-                    wrapper
-                        as fn(
-                            &dyn std::any::Any,
-                            &dyn std::any::Any,
-                        ) -> Option<Box<dyn std::any::Any>>,
+                    wrapper,
                 )
             }
 
@@ -77,19 +74,13 @@ pub trait ComponentStrengthen: 'static {
     /// registry of strengthening functions keyed by `(TypeId of Self, TypeId of other)`.
     /// Registered functions have signature `fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>`
     /// and are expected to return a boxed concrete `Self` on success.
-    fn try_strengthen<'a, 'b>(&'a self, other: &'b dyn Any) -> Option<Self>
+    fn try_strengthen<'a, 'b>(&'a mut self, other: &'b dyn Any)
     where
         Self: Sized,
     {
         if let Some(func) = register_lookup(TypeId::of::<Self>(), other.type_id()) {
-            if let Some(boxed) = func(self as &dyn Any, other) {
-                // Attempt to downcast the returned box back to the concrete Self.
-                if let Ok(concrete) = boxed.downcast::<Self>() {
-                    return Some(*concrete);
-                }
-            }
+            func(self as &mut dyn Any, other)
         }
-        None
     }
 }
 
