@@ -32,5 +32,3 @@ impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
     type State = DirectLocationState;
     type Reducer = CfgReducer<Self::State>;
 }
-
-impl Analysis for DirectLocationAnalysis {}

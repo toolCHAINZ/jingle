@@ -26,5 +26,3 @@ impl IntoState<BoundedBranchAnalysis> for ConcretePcodeAddress {
         BoundedBranchState::new(c.max_steps)
     }
 }
-
-impl Analysis for BoundedBranchAnalysis {}

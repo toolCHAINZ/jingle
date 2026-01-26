@@ -247,6 +247,4 @@ impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type Reducer = BackEdgeReducer;
 }
 
-impl Analysis for BackEdgeCPA {}
-
 pub type BackEdgeAnalysis = BackEdgeCPA;

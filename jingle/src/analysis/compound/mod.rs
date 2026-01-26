@@ -59,12 +59,3 @@ where
         self.0.get_location()
     }
 }
-
-impl<A, B> Analysis for (A, B)
-where
-    A: Analysis,
-    B: ConfigurableProgramAnalysis,
-    A::State: LocationState + 'static,
-    B::State: AbstractState + 'static,
-{
-}

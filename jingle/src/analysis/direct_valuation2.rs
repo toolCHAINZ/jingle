@@ -644,8 +644,6 @@ impl ConfigurableProgramAnalysis for DirectValuation2Analysis {
     type Reducer = EmptyResidue<Self::State>;
 }
 
-impl Analysis for DirectValuation2Analysis {}
-
 impl IntoState<DirectValuation2Analysis> for ConcretePcodeAddress {
     fn into_state(
         self,
