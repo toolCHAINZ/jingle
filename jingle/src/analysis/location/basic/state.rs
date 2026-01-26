@@ -186,7 +186,7 @@ impl LocationState for DirectLocationState {
 }
 
 impl DirectLocationState {
-    pub fn strengthen_from_valuation2(&self, v: &DirectValuation2State) -> Option<Self> {
+    pub fn strengthen_from_valuation2(&self, _v: &DirectValuation2State) -> Option<Self> {
         todo!()
     }
 

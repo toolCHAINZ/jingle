@@ -1,9 +1,7 @@
 use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
-use crate::analysis::cpa::state::{
-    AbstractState, LocationState, MergeOutcome, StateDisplay, Successor,
-};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplayable;
@@ -397,7 +395,7 @@ impl DirectValuation2State {
         if let Some(output) = op.output() {
             match output {
                 GeneralizedVarNode::Direct(output_vn) => {
-                    let mut result_val = match op {
+                    let result_val = match op {
                         // Copy
                         PcodeOperation::Copy { input, .. } => {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
