@@ -18,42 +18,11 @@ impl MergeOutcome {
     }
 }
 
-/// A trait-object-safe wrapper for iterators that can be cloned.
-///
-/// This allows us to return iterator trait objects from `transfer` while still
-/// being able to `Clone` the returned `Successor`. The underlying concrete
-/// iterator type must implement `Clone` so we can produce a boxed clone.
-pub trait CloneableIterator<'a, T: 'a>: Iterator<Item = T> {
-    /// Clone this iterator into a boxed trait object.
-    fn clone_box(&self) -> Box<dyn CloneableIterator<'a, T> + 'a>;
-}
-
-impl<'a, T: 'a, I> CloneableIterator<'a, T> for I
-where
-    I: Iterator<Item = T> + Clone + 'a,
-{
-    fn clone_box(&self) -> Box<dyn CloneableIterator<'a, T> + 'a> {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a, T: 'a> Clone for Box<dyn CloneableIterator<'a, T> + 'a> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
-
 /// Iterator wrapper returned by `transfer` methods.
 ///
 /// This stores a boxed, cloneable iterator so the `Successor` itself can be
 /// `Clone` without forcing collection of items into a `Vec`.
-pub struct Successor<'a, T>(Box<dyn CloneableIterator<'a, T> + 'a>);
-
-impl<'a, T> Clone for Successor<'a, T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
+pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
 
 impl<'a, T> Successor<'a, T> {
     /// Create an empty successor iterator.
@@ -68,7 +37,7 @@ impl<'a, T> Successor<'a, T> {
 
 impl<'a, T: 'a> IntoIterator for Successor<'a, T> {
     type Item = T;
-    type IntoIter = Box<dyn CloneableIterator<'a, T> + 'a>;
+    type IntoIter = Box<dyn Iterator<Item = T> + 'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0
