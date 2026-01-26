@@ -186,16 +186,13 @@ impl LocationState for DirectLocationState {
 
 impl DirectLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &DirectValuationState) {
-        match &self.inner {
-            PcodeAddressLattice::Computed(indirect_var_node) => {
-                let ptr_value = v.get_value(&indirect_var_node.pointer_location);
-                if let Some(value) = ptr_value {
-                    if let Some(v) = value.as_const() {
-                        self.inner = PcodeAddressLattice::Const(v.into())
-                    }
+        if let PcodeAddressLattice::Computed(indirect_var_node) = &self.inner {
+            let ptr_value = v.get_value(&indirect_var_node.pointer_location);
+            if let Some(value) = ptr_value {
+                if let Some(v) = value.as_const() {
+                    self.inner = PcodeAddressLattice::Const(v.into())
                 }
             }
-            _ => {}
         }
     }
 }

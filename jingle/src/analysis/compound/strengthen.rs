@@ -74,7 +74,7 @@ pub trait ComponentStrengthen: 'static {
     /// registry of strengthening functions keyed by `(TypeId of Self, TypeId of other)`.
     /// Registered functions have signature `fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>`
     /// and are expected to return a boxed concrete `Self` on success.
-    fn try_strengthen<'a, 'b>(&'a mut self, other: &'b dyn Any)
+    fn try_strengthen(&mut self, other: &dyn Any)
     where
         Self: Sized,
     {

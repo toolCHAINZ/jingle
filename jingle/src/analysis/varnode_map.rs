@@ -7,21 +7,21 @@ struct VnWrapper(pub VarNode, pub usize);
 
 impl PartialOrd for VnWrapper {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let s_vn = &self.0;
-        let o_vn = &other.0;
-        Some(match s_vn.space_index.cmp(&o_vn.space_index) {
-            Ordering::Equal => match s_vn.offset.cmp(&o_vn.offset) {
-                Ordering::Equal => s_vn.size.cmp(&o_vn.size),
-                a => a,
-            },
-            a => a,
-        })
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for VnWrapper {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        let s_vn = &self.0;
+        let o_vn = &other.0;
+        match s_vn.space_index.cmp(&o_vn.space_index) {
+            Ordering::Equal => match s_vn.offset.cmp(&o_vn.offset) {
+                Ordering::Equal => s_vn.size.cmp(&o_vn.size),
+                a => a,
+            },
+            a => a,
+        }
     }
 }
 
