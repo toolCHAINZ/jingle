@@ -21,7 +21,7 @@ macro_rules! named_tuple {
     ( $name:ident, $( $field:ident : $T:ident ),+ $(,)? ) => {
         // declare the struct with generics
         #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-        struct $name< $( $T ),+ > {
+        pub struct $name< $( $T ),+ > {
             $( pub $field: $T ),+
         }
 
@@ -119,22 +119,22 @@ impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for Comp
     type Model = A::Model;
 
     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
-        self.0.new_const(i)
+        self.s1.new_const(i)
     }
 
     fn model_id(&self) -> String {
         // Incorporate the display output from the second element into the model id.
         // Use an underscore separator to keep ids readable and safe.
-        format!("{}_{}", self.0.model_id(), StateDisplayWrapper(&self.1))
+        format!("{}_{}", self.s1.model_id(), StateDisplayWrapper(&self.s2))
     }
 
     fn location(&self) -> Option<ConcretePcodeAddress> {
-        self.0.location()
+        self.s1.location()
     }
 }
 
 impl<S1: LowerHex, S2: LowerHex> LowerHex for CompoundState<S1, S2> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({:x}, {:x})", self.0, self.1)
+        write!(f, "({:x}, {:x})", self.s1, self.s2)
     }
 }

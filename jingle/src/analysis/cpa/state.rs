@@ -18,19 +18,71 @@ impl MergeOutcome {
     }
 }
 
+/// A trait-object-safe wrapper for iterators that can be cloned.
+///
+/// This allows us to return iterator trait objects from `transfer` while still
+/// being able to `Clone` the returned `Successor`. The underlying concrete
+/// iterator type must implement `Clone` so we can produce a boxed clone.
+pub trait CloneableIterator<'a, T: 'a>: Iterator<Item = T> {
+    /// Clone this iterator into a boxed trait object.
+    fn clone_box(&self) -> Box<dyn CloneableIterator<'a, T> + 'a>;
+}
+
+impl<'a, T: 'a, I> CloneableIterator<'a, T> for I
+where
+    I: Iterator<Item = T> + Clone + 'a,
+{
+    fn clone_box(&self) -> Box<dyn CloneableIterator<'a, T> + 'a> {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a, T: 'a> Clone for Box<dyn CloneableIterator<'a, T> + 'a> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
 /// Iterator wrapper returned by `transfer` methods.
-pub struct Successor<'a, T>(Box<dyn Iterator<Item = T> + 'a>);
+///
+/// This stores a boxed, cloneable iterator so the `Successor` itself can be
+/// `Clone` without forcing collection of items into a `Vec`.
+pub struct Successor<'a, T>(Box<dyn CloneableIterator<'a, T> + 'a>);
+
+impl<'a, T> Clone for Successor<'a, T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<'a, T> Successor<'a, T> {
+    /// Create an empty successor iterator.
+    pub fn empty() -> Self
+    where
+        T: 'a,
+    {
+        // std::iter::Empty implements Clone.
+        Self(Box::new(std::iter::empty::<T>()))
+    }
+}
 
 impl<'a, T: 'a> IntoIterator for Successor<'a, T> {
     type Item = T;
-    type IntoIter = Box<dyn Iterator<Item = T> + 'a>;
+    type IntoIter = Box<dyn CloneableIterator<'a, T> + 'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0
     }
 }
 
-impl<'a, T, I: Iterator<Item = T> + 'a> From<I> for Successor<'a, T> {
+/// Construct a `Successor` from any iterator that implements `Clone`.
+///
+/// We require the iterator to be `Clone` so that the boxed trait object can be
+/// cloned cheaply. This avoids collecting into a `Vec`.
+impl<'a, T: 'a, I> From<I> for Successor<'a, T>
+where
+    I: Iterator<Item = T> + Clone + 'a,
+{
     fn from(value: I) -> Self {
         Self(Box::new(value))
     }
@@ -90,6 +142,10 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + StateDisplay {
     }
 
     /// Transfer function: return successor abstract states for a pcode operation.
+    ///
+    /// The returned `Successor` must be constructed from an iterator that
+    /// implements `Clone`. This lets CPA clients clone the successor sequence
+    /// cheaply when needed.
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self>;
 }
 

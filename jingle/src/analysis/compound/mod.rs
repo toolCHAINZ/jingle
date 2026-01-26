@@ -38,7 +38,10 @@ where
         // consume it twice (IntoState takes self by value).
         let left = Clone::clone(&self).into_state(&c.0);
         let right = self.into_state(&c.1);
-        CompoundState(left, right)
+        CompoundState {
+            s1: left,
+            s2: right,
+        }
     }
 }
 /// Implementation of LocationState for CompoundState.
@@ -52,10 +55,10 @@ where
         &'a self,
         t: &'a T,
     ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
-        self.0.get_operation(t)
+        self.s1.get_operation(t)
     }
 
     fn get_location(&self) -> Option<ConcretePcodeAddress> {
-        self.0.get_location()
+        self.s1.get_location()
     }
 }
