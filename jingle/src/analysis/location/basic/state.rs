@@ -16,7 +16,6 @@ use crate::{
             state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor},
         },
         direct_valuation::DirectValuationState,
-        direct_valuation2::DirectValuation2State,
         location::basic::DirectLocationAnalysis,
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
@@ -167,7 +166,7 @@ impl AbstractState for DirectLocationState {
         self.inner
             .transfer(op)
             .into_iter()
-            .map(|next_addr| dbg!(DirectLocationState::new(next_addr, self.call_behavior)))
+            .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
             .into()
     }
 }
@@ -186,13 +185,18 @@ impl LocationState for DirectLocationState {
 }
 
 impl DirectLocationState {
-    pub fn strengthen_from_valuation2(&self, _v: &DirectValuation2State) -> Option<Self> {
-        todo!()
-    }
-
-    pub fn strengthen_from_valuation(&self, v: &DirectValuationState) -> Option<Self> {
-        dbg!(self, v);
-        None
+    pub fn strengthen_from_valuation(&mut self, v: &DirectValuationState) {
+        match &self.inner {
+            PcodeAddressLattice::Computed(indirect_var_node) => {
+                let ptr_value = v.get_value(&indirect_var_node.pointer_location);
+                if let Some(value) = ptr_value {
+                    if let Some(v) = value.as_const() {
+                        self.inner = PcodeAddressLattice::Const(v.into())
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -219,12 +223,6 @@ impl CfgState for DirectLocationState {
         self.inner.value().cloned()
     }
 }
-
-register_strengthen!(
-    DirectLocationState,
-    DirectValuation2State,
-    DirectLocationState::strengthen_from_valuation2
-);
 
 register_strengthen!(
     DirectLocationState,

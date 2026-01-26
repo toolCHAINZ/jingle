@@ -1,13 +1,11 @@
 #![allow(unused)]
 
-use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
+use jingle::analysis::Analysis;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
-use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
-use jingle::analysis::unwinding::BoundedBackEdgeVisitAnalysis;
-use jingle::analysis::unwinding2::UnwindExt;
-use jingle::analysis::{Analysis, RunnableAnalysis};
+use jingle::analysis::location::CallBehavior;
+use jingle::analysis::{cpa::RunnableConfigurableProgramAnalysis, location::unwound_location};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
@@ -43,7 +41,7 @@ fn main() {
     // Run unwinding analysis - back-edges are computed internally
     tracing::info!("Running unwinding analysis with bounded back-edge visit counting");
 
-    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch).unwind(20);
+    let location_analysis = unwound_location(CallBehavior::Branch, 20);
 
     // Wrap with CfgReducer
     let mut analysis_with_cfg = location_analysis.with_residue(CfgReducer::new());

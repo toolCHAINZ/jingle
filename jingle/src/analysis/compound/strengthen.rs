@@ -21,7 +21,7 @@ macro_rules! register_strengthen {
             // wrapper used to adapt the concrete fn signature `fn(&$From, &$To) -> Option<$From>`
             // into the registry-required `fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>`.
             fn wrapper(a: &mut dyn std::any::Any, b: &dyn std::any::Any) {
-                let a = a.downcast_ref::<$From>();
+                let a = a.downcast_mut::<$From>();
                 let b = b.downcast_ref::<$To>();
                 if let Some(a) = a
                     && let Some(b) = b

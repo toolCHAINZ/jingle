@@ -7,7 +7,7 @@ use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::direct_valuation::{
-    DirectValuationAnalysis, DirectValuationState, VarnodeValue,
+    DirectValuationAnalysis, DirectValuationState, VarNodeValuation,
 };
 use jingle::analysis::location::{CallBehavior, LocationAnalysis};
 use jingle::analysis::pcode_store::PcodeStore;
@@ -29,7 +29,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::TRACE)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -67,7 +67,7 @@ fn main() {
     let cfg = compound_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     // We'll collect valuation info keyed by concrete addresses encountered in the CFG.
-    let mut stack_offsets: HashMap<ConcretePcodeAddress, VarnodeValue> = HashMap::new();
+    let mut stack_offsets: HashMap<ConcretePcodeAddress, VarNodeValuation> = HashMap::new();
     let mut direct_valuations: HashMap<ConcretePcodeAddress, DirectValuationState> = HashMap::new();
 
     // `cfg.nodes()` yields `&N` where N = (DirectLocationState, DirectValuationState).
@@ -96,12 +96,7 @@ fn main() {
     for loc in &locations {
         let offset_info = stack_offsets
             .get(loc)
-            .map(|value| match value {
-                VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
-                VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
-                VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
-                _ => " [stack: unknown]".to_string(),
-            })
+            .map(|value| format!("{}", value.display(loaded.arch_info())))
             .unwrap_or_default();
 
         let val_count = direct_valuations
@@ -156,12 +151,7 @@ fn main() {
         let offset_info = leaf
             .get_location()
             .and_then(|a| stack_offsets.get(&a))
-            .map(|value| match value {
-                VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
-                VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
-                VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
-                _ => " [stack: unknown]".to_string(),
-            })
+            .map(|value| format!("{}", value.display(loaded.arch_info())))
             .unwrap_or_default();
 
         println!("  {}{}", leaf_loc, offset_info);
@@ -175,7 +165,7 @@ fn main() {
                 if count == 0 {
                     println!("      (no written locations)");
                 } else {
-                    for (vn, val) in state.written_locations() {
+                    for (vn, val) in state.written_locations().iter() {
                         println!(
                             "      {} = {}",
                             vn.display(loaded.arch_info()),
@@ -192,7 +182,7 @@ fn main() {
                 leaf.s1.inner().display(loaded.arch_info())
             );
             println!("      Valuations:");
-            for ele in leaf.s2.written_locations() {
+            for ele in leaf.s2.written_locations().iter() {
                 println!(
                     "        {} = {}",
                     ele.0.display(loaded.arch_info()),
@@ -208,7 +198,7 @@ fn main() {
 
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|v| matches!(v, VarnodeValue::Entry(_) | VarnodeValue::Offset(_, _)))
+        .filter(|v| !matches!(v, VarNodeValuation::Top))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);
