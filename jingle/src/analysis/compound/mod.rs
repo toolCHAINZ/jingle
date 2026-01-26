@@ -2,7 +2,7 @@ use crate::{
     analysis::{
         Analysis,
         compound::{
-            reducer::CompoundReducer, state::CompoundState, strengthen::ComponentStrengthen,
+            reducer::CompoundReducer, state::CompoundState2, strengthen::ComponentStrengthen,
         },
         cpa::{
             ConfigurableProgramAnalysis, IntoState,
@@ -22,7 +22,7 @@ where
     A::State: ComponentStrengthen,
     B::State: ComponentStrengthen,
 {
-    type State = CompoundState<A::State, B::State>;
+    type State = CompoundState2<A::State, B::State>;
 
     type Reducer = CompoundReducer<A, B>;
 }
@@ -38,7 +38,7 @@ where
         // consume it twice (IntoState takes self by value).
         let left = Clone::clone(&self).into_state(&c.0);
         let right = self.into_state(&c.1);
-        CompoundState {
+        CompoundState2 {
             s1: left,
             s2: right,
         }
@@ -46,7 +46,7 @@ where
 }
 /// Implementation of LocationState for CompoundState.
 /// The location information comes from the left component.
-impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState<S1, S2>
+impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState2<S1, S2>
 where
     S1: 'static,
     S2: 'static,

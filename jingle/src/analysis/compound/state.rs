@@ -104,8 +104,9 @@ macro_rules! named_tuple {
                 iproduct!($(
                     self.$field.transfer(opcode_ref).into_iter()
                 ),+).map(|($($field),+)| {
-
-                    $name{$($field),+}
+                    let mut state = $name{$($field),+};
+                    state.do_strengthen();
+                    state
                 }).into()
             }
         }
@@ -113,9 +114,59 @@ macro_rules! named_tuple {
 
 }
 
-named_tuple!(CompoundState, s1: S1, s2: S2);
+named_tuple!(CompoundState2, s1: S1, s2: S2);
+named_tuple!(CompoundState3, s1: S1, s2: S2, s3: S3);
+named_tuple!(CompoundState4, s1: S1, s2: S2, s3: S3, s4: S4);
 
-impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for CompoundState<A, B> {
+impl<S1: ComponentStrengthen, S2: ComponentStrengthen> CompoundState2<S1, S2> {
+    fn do_strengthen(&mut self) {
+        self.s1.try_strengthen(&self.s2);
+        self.s2.try_strengthen(&self.s1);
+    }
+}
+
+impl<S1: ComponentStrengthen, S2: ComponentStrengthen, S3: ComponentStrengthen>
+    CompoundState3<S1, S2, S3>
+{
+    fn do_strengthen(&mut self) {
+        self.s1.try_strengthen(&self.s2);
+        self.s1.try_strengthen(&self.s3);
+
+        self.s2.try_strengthen(&self.s1);
+        self.s2.try_strengthen(&self.s3);
+
+        self.s3.try_strengthen(&self.s1);
+        self.s3.try_strengthen(&self.s2);
+    }
+}
+
+impl<
+    S1: ComponentStrengthen,
+    S2: ComponentStrengthen,
+    S3: ComponentStrengthen,
+    S4: ComponentStrengthen,
+> CompoundState4<S1, S2, S3, S4>
+{
+    fn do_strengthen(&mut self) {
+        self.s1.try_strengthen(&self.s2);
+        self.s1.try_strengthen(&self.s3);
+        self.s1.try_strengthen(&self.s4);
+
+        self.s2.try_strengthen(&self.s1);
+        self.s2.try_strengthen(&self.s3);
+        self.s2.try_strengthen(&self.s4);
+
+        self.s3.try_strengthen(&self.s1);
+        self.s3.try_strengthen(&self.s2);
+        self.s3.try_strengthen(&self.s4);
+
+        self.s4.try_strengthen(&self.s1);
+        self.s4.try_strengthen(&self.s2);
+        self.s4.try_strengthen(&self.s3);
+    }
+}
+
+impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for CompoundState2<A, B> {
     type Model = A::Model;
 
     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
@@ -133,7 +184,7 @@ impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for Comp
     }
 }
 
-impl<S1: LowerHex, S2: LowerHex> LowerHex for CompoundState<S1, S2> {
+impl<S1: LowerHex, S2: LowerHex> LowerHex for CompoundState2<S1, S2> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({:x}, {:x})", self.s1, self.s2)
     }

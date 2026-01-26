@@ -1,5 +1,5 @@
 use crate::analysis::{
-    compound::state::CompoundState,
+    compound::state::CompoundState2,
     cpa::{ConfigurableProgramAnalysis, residue::Residue},
 };
 
@@ -9,7 +9,7 @@ pub struct CompoundReducer<A: ConfigurableProgramAnalysis, B: ConfigurableProgra
 }
 
 impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
-    Residue<CompoundState<A::State, B::State>> for CompoundReducer<A, B>
+    Residue<CompoundState2<A::State, B::State>> for CompoundReducer<A, B>
 {
     type Output = (
         <A::Reducer as Residue<A::State>>::Output,
@@ -30,9 +30,9 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
 
     fn merged_state(
         &mut self,
-        curr_state: &CompoundState<A::State, B::State>,
-        dest_state: &CompoundState<A::State, B::State>,
-        merged_state: &CompoundState<A::State, B::State>,
+        curr_state: &CompoundState2<A::State, B::State>,
+        dest_state: &CompoundState2<A::State, B::State>,
+        merged_state: &CompoundState2<A::State, B::State>,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
     ) {
         self.a
@@ -43,8 +43,8 @@ impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
 
     fn new_state(
         &mut self,
-        state: &CompoundState<A::State, B::State>,
-        dest_state: &CompoundState<A::State, B::State>,
+        state: &CompoundState2<A::State, B::State>,
+        dest_state: &CompoundState2<A::State, B::State>,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
     ) {
         self.a.new_state(&state.0, &dest_state.0, op);
