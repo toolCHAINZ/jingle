@@ -1,5 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
@@ -66,5 +66,11 @@ impl AbstractState for BoundedBranchState {
             })
             .into()
         }
+    }
+}
+
+impl StateDisplay for BoundedBranchState {
+    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.branch_count)
     }
 }

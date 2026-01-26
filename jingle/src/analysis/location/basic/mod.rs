@@ -5,7 +5,7 @@ use crate::analysis::cpa::reducer::CfgReducer;
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::location::basic::state::{CallBehavior, DirectLocationState};
 
-mod state;
+pub mod state;
 
 #[cfg(test)]
 mod tests;
