@@ -44,21 +44,3 @@ where
         }
     }
 }
-/// Implementation of LocationState for CompoundState.
-/// The location information comes from the left component.
-impl<S1: LocationState, S2: AbstractState> LocationState for CompoundState2<S1, S2>
-where
-    S1: 'static,
-    S2: 'static,
-{
-    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
-        &'a self,
-        t: &'a T,
-    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
-        self.s1.get_operation(t)
-    }
-
-    fn get_location(&self) -> Option<ConcretePcodeAddress> {
-        self.s1.get_location()
-    }
-}
