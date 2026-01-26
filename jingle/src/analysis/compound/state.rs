@@ -1,8 +1,8 @@
 use itertools::iproduct;
 use jingle_sleigh::SleighArchInfo;
 use std::fmt::Debug;
+use std::fmt::LowerHex;
 use std::hash::Hash;
-use std::{any::Any, fmt::LowerHex};
 
 use crate::analysis::cpa::state::LocationState;
 use crate::{
@@ -114,11 +114,12 @@ macro_rules! named_tuple {
                 opcode: B,
             ) -> Successor<'a, Self> {
                 let opcode_ref = opcode.borrow();
-
+                dbg!(&self);
                 iproduct!(
                     self.$first_field.transfer(opcode_ref).into_iter()
                     $(, self.$field.transfer(opcode_ref).into_iter() )+
                 ).map(|( first $(, $field )+ )| {
+                    dbg!(&first);
                     // destructure names from the tuple into the struct fields
                     let mut state = $name { $first_field: first, $( $field ),+ };
                     state.do_strengthen();

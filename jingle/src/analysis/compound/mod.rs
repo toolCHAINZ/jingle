@@ -1,17 +1,10 @@
-use crate::{
-    analysis::{
-        Analysis,
-        compound::{
-            reducer::{CompoundReducer, CompoundReducer2, CompoundReducer3, CompoundReducer4},
-            state::{CompoundState2, CompoundState3, CompoundState4},
-            strengthen::ComponentStrengthen,
-        },
-        cpa::{
-            ConfigurableProgramAnalysis, IntoState,
-            state::{AbstractState, LocationState},
-        },
+use crate::analysis::{
+    compound::{
+        reducer::{CompoundReducer2, CompoundReducer3, CompoundReducer4},
+        state::{CompoundState2, CompoundState3, CompoundState4},
+        strengthen::ComponentStrengthen,
     },
-    modeling::machine::cpu::concrete::ConcretePcodeAddress,
+    cpa::{ConfigurableProgramAnalysis, IntoState},
 };
 
 pub mod reducer;

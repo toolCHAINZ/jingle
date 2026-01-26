@@ -1,16 +1,16 @@
 #![allow(unused)]
 
+use jingle::analysis::Analysis;
 use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
-use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
 use jingle::analysis::direct_valuation::{
     DirectValuationAnalysis, DirectValuationState, VarnodeValue,
 };
+use jingle::analysis::location::{CallBehavior, LocationAnalysis};
 use jingle::analysis::pcode_store::PcodeStore;
-use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::display::JingleDisplayable;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
@@ -54,7 +54,7 @@ fn main() {
 
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
-    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch);
+    let location_analysis = LocationAnalysis::new(CallBehavior::Branch);
     let valuation_analysis = DirectValuationAnalysis::new(loaded.arch_info().clone());
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
@@ -74,12 +74,12 @@ fn main() {
     // Use `cloned()` to get owned tuples so we can inspect and store values.
     for node in cfg.nodes().cloned() {
         // Extract the concrete program location (if any) from the left component.
-        if let Some(addr) = node.0.get_location() {
+        if let Some(addr) = node.s1.get_location() {
             // Extract stack pointer info from the DirectValuationState (right component).
-            if let Some(sp_value) = node.1.get_value(&stack_pointer) {
+            if let Some(sp_value) = node.s2.get_value(&stack_pointer) {
                 stack_offsets.insert(addr, sp_value.clone());
             }
-            direct_valuations.insert(addr, node.1.clone());
+            direct_valuations.insert(addr, node.s2.clone());
         }
     }
 
@@ -189,10 +189,10 @@ fn main() {
         } else {
             println!(
                 "    Computed loc: {}",
-                leaf.0.inner().display(loaded.arch_info())
+                leaf.s1.inner().display(loaded.arch_info())
             );
             println!("      Valuations:");
-            for ele in leaf.1.written_locations() {
+            for ele in leaf.s2.written_locations() {
                 println!(
                     "        {} = {}",
                     ele.0.display(loaded.arch_info()),

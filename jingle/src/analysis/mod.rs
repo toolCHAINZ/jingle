@@ -9,7 +9,6 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 pub mod back_edge;
 // mod bounded_visit;
 mod bmc;
-pub mod bounded_branch;
 pub mod cfg;
 pub mod compound;
 pub mod cpa;

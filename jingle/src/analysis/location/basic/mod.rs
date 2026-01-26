@@ -1,5 +1,3 @@
-use crate::analysis::Analysis;
-
 use crate::analysis::cpa::reducer::CfgReducer;
 
 use crate::analysis::cpa::ConfigurableProgramAnalysis;

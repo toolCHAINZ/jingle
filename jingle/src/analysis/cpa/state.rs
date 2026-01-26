@@ -158,5 +158,4 @@ pub trait LocationState: AbstractState {
 // Provide StateDisplay impls for known concrete state types by delegating to Debug.
 // Only include impls for modules that are actually declared in the project.
 impl_state_display_via_debug!(crate::analysis::back_edge::BackEdgeState);
-impl_state_display_via_debug!(crate::analysis::bounded_branch::state::BoundedBranchState);
 impl_state_display_via_debug!(crate::analysis::cpa::lattice::pcode::PcodeAddressLattice);

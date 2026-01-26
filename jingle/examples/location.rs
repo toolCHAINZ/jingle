@@ -1,12 +1,11 @@
 #![allow(unused)]
 
-use jingle::analysis::bounded_branch::BoundedBranchAnalysis;
+use jingle::analysis::Analysis;
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
-use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
-use jingle::analysis::{Analysis, RunnableAnalysis};
+use jingle::analysis::location::{CallBehavior, LocationAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
@@ -25,7 +24,7 @@ fn main() {
         .join("Documents/test_funcs/build/example");
     let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
 
-    let mut direct = DirectLocationAnalysis::new(CallBehavior::Branch);
+    let mut direct = LocationAnalysis::new(CallBehavior::Branch);
     // Run the analysis. For a `ResidueWrapper` with `CfgReducer`, `run` returns
     // the built `PcodeCfg` as the reducer output, so capture it here.
     let pcode_graph = direct.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));

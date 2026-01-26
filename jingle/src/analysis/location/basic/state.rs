@@ -167,7 +167,7 @@ impl AbstractState for DirectLocationState {
         self.inner
             .transfer(op)
             .into_iter()
-            .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
+            .map(|next_addr| dbg!(DirectLocationState::new(next_addr, self.call_behavior)))
             .into()
     }
 }

@@ -1,9 +1,8 @@
 pub mod state;
 
-use crate::analysis::Analysis;
-use crate::analysis::bounded_branch::state::BoundedBranchState;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
+use crate::analysis::location::bound::state::BoundedBranchState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
 pub struct BoundedBranchAnalysis {
