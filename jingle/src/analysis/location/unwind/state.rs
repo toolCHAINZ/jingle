@@ -93,7 +93,7 @@ impl UnwindingState {
         let mut visited = HashSet::new();
         visited.insert(location);
         Self {
-            location: location,
+            location,
             visited,
             back_edge_counts: HashMap::new(),
             max_count,

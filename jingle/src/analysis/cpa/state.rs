@@ -32,7 +32,7 @@ impl Add for MergeOutcome {
 
 impl AddAssign for MergeOutcome {
     fn add_assign(&mut self, rhs: Self) {
-        (*self) = self.clone() + rhs
+        (*self) = *self + rhs
     }
 }
 
