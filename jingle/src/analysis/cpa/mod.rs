@@ -111,21 +111,27 @@ where
                         was_merged = true;
                     }
                 }
-                if !was_merged {
-                    // record that a new state was reach without merging
+
+                // If we merged the destination into an existing reached state, we've already
+                // enqueued the merged (reached) state, so skip further handling for this dest.
+                if was_merged {
+                    continue;
+                }
+
+                // Only record a new state in the reducer if it will actually be added to `reached`.
+                if !dest_state.stop(reached.iter()) {
+                    // record that a new state was reached without merging
                     tracing::debug!(
                         "Adding new state without merging: {}",
                         StateDisplayWrapper(&dest_state)
                     );
                     reducer.new_state(&state, &dest_state, &op);
-                }
 
-                if !dest_state.stop(reached.iter()) {
                     tracing::trace!("    Adding new state to waitlist and reached");
                     waitlist.push_back(dest_state.clone());
                     reached.push_back(dest_state.clone());
                     new_states += 1;
-                } else if !was_merged {
+                } else {
                     tracing::trace!("    State stopped (already covered)");
                     stopped_states += 1;
                 }

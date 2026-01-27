@@ -29,7 +29,6 @@ macro_rules! named_tuple {
         }
 
         impl<$F: PartialOrd, $( $T: PartialOrd ),+> PartialOrd for $name<$F, $( $T ),+> {
-            #[allow(unused_assignments)]
             fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
                 // Lexicographic comparison: compare fields in declaration order,
                 // returning the first non-Equal ordering. If any component's
@@ -41,12 +40,12 @@ macro_rules! named_tuple {
                     if curr == Ordering::Equal{
                         curr = next;
                     }else{
-                        if(curr != next){
+                        if(curr != next && next != Ordering::Equal){
                             return None;
                         }
                     }
                 )+
-                Some(Ordering::Equal)
+                Some(curr)
             }
         }
 
