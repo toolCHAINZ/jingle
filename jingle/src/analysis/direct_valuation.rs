@@ -341,11 +341,22 @@ impl JingleDisplayable for VarNodeValuation {
     }
 }
 
+/// How to merge conflicting valuations for a single varnode when joining states.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum MergeBehavior {
+    /// Combine differing valuations into an `Or(...)` expression (higher precision).
+    Or,
+    /// Converge differing valuations to `Top` (lower precision, useful when locations are not unwound).
+    Top,
+}
+
 /// State for the VarNodeValuation-based direct valuation CPA.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DirectValuationState {
     written_locations: VarNodeMap<VarNodeValuation>,
     arch_info: SleighArchInfo,
+    /// Merge behavior controlling how conflicting valuations are handled during `join`.
+    merge_behavior: MergeBehavior,
 }
 
 impl Hash for DirectValuationState {
@@ -355,6 +366,8 @@ impl Hash for DirectValuationState {
             vn.hash(state);
             val.hash(state);
         }
+        // include merge behavior in the hash so states with different merge behaviors are distinct
+        self.merge_behavior.hash(state);
         self.arch_info.hash(state);
     }
 }
@@ -370,10 +383,21 @@ impl StateDisplay for DirectValuationState {
 }
 
 impl DirectValuationState {
+    /// Create a new state with the default merge behavior of `Or`.
     pub fn new(arch_info: SleighArchInfo) -> Self {
         Self {
             written_locations: VarNodeMap::new(),
             arch_info,
+            merge_behavior: MergeBehavior::Or,
+        }
+    }
+
+    /// Create a new state specifying the desired merge behavior.
+    pub fn new_with_behavior(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
+        Self {
+            written_locations: VarNodeMap::new(),
+            arch_info,
+            merge_behavior,
         }
     }
 
@@ -558,10 +582,7 @@ impl PartialOrd for VarNodeValuation {
 }
 
 impl JoinSemiLattice for VarNodeValuation {
-    fn join(&mut self, _other: &Self) {
-        // The state-level join will handle conflicts by reverting to Entry(varnode).
-        // Individual valuation join is a no-op here.
-    }
+    fn join(&mut self, _other: &Self) {}
 }
 
 impl PartialOrd for DirectValuationState {
@@ -590,7 +611,7 @@ impl JoinSemiLattice for DirectValuationState {
     fn join(&mut self, other: &Self) {
         // For each varnode present in `other`:
         // - if present in self with same valuation -> keep
-        // - if present in self with different valuation -> revert to Entry(varnode) (approximate via Or)
+        // - if present in self with different valuation -> combine according to merge_behavior
         // - if absent in self -> clone from other
         for (key, other_val) in other.written_locations.iter() {
             match self.written_locations.get_mut(key) {
@@ -598,10 +619,20 @@ impl JoinSemiLattice for DirectValuationState {
                     if my_val == &VarNodeValuation::Top || other_val == &VarNodeValuation::Top {
                         *my_val = VarNodeValuation::Top;
                     } else if my_val != other_val {
-                        // create Or(...) of the two, then simplify the result
-                        let combined =
-                            VarNodeValuation::Or(Arc::new((my_val.clone(), other_val.clone())));
-                        *my_val = combined.simplify();
+                        match self.merge_behavior {
+                            MergeBehavior::Or => {
+                                // create Or(...) of the two, then simplify the result
+                                let combined = VarNodeValuation::Or(Arc::new((
+                                    my_val.clone(),
+                                    other_val.clone(),
+                                )));
+                                *my_val = combined.simplify();
+                            }
+                            MergeBehavior::Top => {
+                                // converge differing values to Top (less precise, but useful when not unwinding locations)
+                                *my_val = VarNodeValuation::Top;
+                            }
+                        }
                     }
                 }
                 None => {
@@ -630,11 +661,17 @@ impl AbstractState for DirectValuationState {
 
 pub struct DirectValuationAnalysis {
     arch_info: SleighArchInfo,
+    /// Default merge behavior for states produced by this analysis.
+    merge_behavior: MergeBehavior,
 }
 
 impl DirectValuationAnalysis {
-    pub fn new(arch_info: SleighArchInfo) -> Self {
-        Self { arch_info }
+    /// Create with the default merge behavior (`Or`).
+    pub fn new(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
+        Self {
+            arch_info,
+            merge_behavior,
+        }
     }
 }
 
@@ -651,6 +688,7 @@ impl IntoState<DirectValuationAnalysis> for ConcretePcodeAddress {
         DirectValuationState {
             written_locations: VarNodeMap::new(),
             arch_info: c.arch_info.clone(),
+            merge_behavior: c.merge_behavior,
         }
     }
 }

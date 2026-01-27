@@ -43,7 +43,7 @@ fn main() {
 
     let location_analysis = (
         BasicLocationAnalysis::new(CallBehavior::Branch),
-        UnwindingAnalysis::new(4),
+        UnwindingAnalysis::new(10),
     );
 
     // Wrap with CfgReducer

@@ -77,34 +77,24 @@ macro_rules! named_tuple {
             for $name<$F, $( $T ),+>
         {
             fn merge(&mut self, other: &Self) -> MergeOutcome {
-                let mut overall_outcome = MergeOutcome::NoOp;
-                let outcome = self.$first_field.merge(&other.$first_field);
-                if outcome == MergeOutcome::NoOp{
-                    return overall_outcome;
-                }else{
-                    overall_outcome = outcome;
+                let mut res = MergeOutcome::NoOp;
+                res += self.$first_field.merge(&other.$first_field);
+                if res == MergeOutcome::NoOp{
+                    return res;
                 }
+
                 $(
-                    let outcome = self.$field.merge(&other.$field);
-                    if outcome == MergeOutcome::NoOp{
-                        return overall_outcome;
-                    }else{
-                        overall_outcome = outcome;
+                    res += self.$field.merge(&other.$field);
+                    if res == MergeOutcome::NoOp{
+                        return res;
                     }
                 )+
-                overall_outcome
+                res
             }
 
             fn stop<'a, I: Iterator<Item = &'a Self>>(&'a self, states: I) -> bool {
-                // A state should stop if all components would stop
-                // We need to collect states since we can't clone the iterator
-                let states_vec: Vec<&Self> = states.collect();
-                let mut res = true;
-                res &= self.$first_field.stop(states_vec.iter().map(|s| &s.$first_field));
-                $(
-                    res &= self.$field.stop(states_vec.iter().map(|s| &s.$field));
-                )+
-                res
+                // todo: maybe should allow customizing this?
+                self.stop_sep(states)
             }
 
             fn transfer<'a, B: std::borrow::Borrow<jingle_sleigh::PcodeOperation>>(

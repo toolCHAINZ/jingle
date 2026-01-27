@@ -5,6 +5,7 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
+use std::ops::{Add, AddAssign};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
@@ -15,6 +16,23 @@ pub enum MergeOutcome {
 impl MergeOutcome {
     pub fn merged(&self) -> bool {
         matches!(self, MergeOutcome::Merged)
+    }
+}
+
+impl Add for MergeOutcome {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::NoOp, Self::NoOp) => Self::NoOp,
+            _ => Self::Merged,
+        }
+    }
+}
+
+impl AddAssign for MergeOutcome {
+    fn add_assign(&mut self, rhs: Self) {
+        (*self) = self.clone() + rhs
     }
 }
 

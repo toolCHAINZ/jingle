@@ -6,6 +6,7 @@ pub mod state;
 pub mod vec_reducer;
 
 pub use final_reducer::FinalReducer;
+use tracing::{Level, span};
 pub use vec_reducer::VecReducer;
 
 use crate::analysis::cfg::model::StateDisplayWrapper;
@@ -69,8 +70,10 @@ where
 
         let mut iteration = 0;
         while let Some(state) = waitlist.pop_front() {
+            let span = span!(Level::DEBUG, "cpa", iteration);
+            let _enter = span.enter();
             iteration += 1;
-            tracing::trace!("Iteration {}: Processing state {:?}", iteration, state);
+            tracing::trace!("Processing state {:?}", state);
             tracing::trace!(
                 "  Waitlist size: {}, Reached size: {}",
                 waitlist.len(),
@@ -80,7 +83,7 @@ where
             let op = state.get_operation(pcode_store);
             tracing::trace!(
                 "  Operation at state: {:?}",
-                op.as_ref().map(|p| format!("{:?}", p.as_ref()))
+                op.as_ref().map(|p| format!("{:x}", p.as_ref()))
             );
 
             let mut new_states = 0;
@@ -91,7 +94,7 @@ where
                 .iter()
                 .flat_map(|op| state.transfer(op.as_ref()).into_iter())
             {
-                tracing::trace!(
+                tracing::debug!(
                     "    Transfer produced dest_state: {}",
                     StateDisplayWrapper(&dest_state)
                 );
@@ -100,8 +103,8 @@ where
                 for reached_state in reached.iter_mut() {
                     let old_reached = reached_state.clone();
                     if reached_state.merge(&dest_state).merged() {
-                        tracing::trace!("    Merged dest_state into existing reached_state");
-                        tracing::trace!(
+                        tracing::debug!("    Merged dest_state into existing reached_state");
+                        tracing::debug!(
                             "      Merged state: {}",
                             StateDisplayWrapper(reached_state)
                         );
@@ -119,14 +122,14 @@ where
                 }
 
                 // Only record a new state in the reducer if it will actually be added to `reached`.
-                if !dest_state.stop(reached.iter()) {
-                    // record that a new state was reached without merging
-                    tracing::debug!(
-                        "Adding new state without merging: {}",
-                        StateDisplayWrapper(&dest_state)
-                    );
-                    reducer.new_state(&state, &dest_state, &op);
+                // record that a new state was reached without merging
+                tracing::debug!(
+                    "Adding new state without merging: {}",
+                    StateDisplayWrapper(&dest_state)
+                );
+                reducer.new_state(&state, &dest_state, &op);
 
+                if !dest_state.stop(reached.iter()) {
                     tracing::trace!("    Adding new state to waitlist and reached");
                     waitlist.push_back(dest_state.clone());
                     reached.push_back(dest_state.clone());

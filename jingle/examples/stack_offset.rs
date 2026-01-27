@@ -7,7 +7,7 @@ use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::direct_valuation::{
-    DirectValuationAnalysis, DirectValuationState, VarNodeValuation,
+    DirectValuationAnalysis, DirectValuationState, MergeBehavior, VarNodeValuation,
 };
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
@@ -29,7 +29,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
+        .with_max_level(tracing::Level::DEBUG)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -55,7 +55,8 @@ fn main() {
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
     let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
-    let valuation_analysis = DirectValuationAnalysis::new(loaded.arch_info().clone());
+    let valuation_analysis =
+        DirectValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
     let mut compound_with_cfg =
