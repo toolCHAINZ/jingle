@@ -16,7 +16,7 @@ use crate::{
             state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor},
         },
         direct_valuation::DirectValuationState,
-        location::basic::DirectLocationAnalysis,
+        location::basic::BasicLocationAnalysis,
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
     register_strengthen,
@@ -35,12 +35,12 @@ pub enum CallBehavior {
 
 /// State wrapper that customizes call handling
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DirectLocationState {
+pub struct BasicLocationState {
     inner: PcodeAddressLattice,
     call_behavior: CallBehavior,
 }
 
-impl DirectLocationState {
+impl BasicLocationState {
     pub fn new(addr: PcodeAddressLattice, call_behavior: CallBehavior) -> Self {
         Self {
             inner: addr,
@@ -67,38 +67,38 @@ impl DirectLocationState {
     }
 }
 
-impl IntoState<DirectLocationAnalysis> for ConcretePcodeAddress {
+impl IntoState<BasicLocationAnalysis> for ConcretePcodeAddress {
     fn into_state(
         self,
-        c: &DirectLocationAnalysis,
-    ) -> <DirectLocationAnalysis as ConfigurableProgramAnalysis>::State {
-        DirectLocationState {
+        c: &BasicLocationAnalysis,
+    ) -> <BasicLocationAnalysis as ConfigurableProgramAnalysis>::State {
+        BasicLocationState {
             call_behavior: c.call_behavior,
             inner: PcodeAddressLattice::Const(self),
         }
     }
 }
 
-impl From<DirectLocationState> for PcodeAddressLattice {
-    fn from(state: DirectLocationState) -> Self {
+impl From<BasicLocationState> for PcodeAddressLattice {
+    fn from(state: BasicLocationState) -> Self {
         state.inner
     }
 }
 
-impl Display for DirectLocationState {
+impl Display for BasicLocationState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // PcodeAddressLattice doesn't implement Display, so we use Debug
         write!(f, "{:?}", self.inner)
     }
 }
 
-impl LowerHex for DirectLocationState {
+impl LowerHex for BasicLocationState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         LowerHex::fmt(&self.inner, f)
     }
 }
 
-impl PartialOrd for DirectLocationState {
+impl PartialOrd for BasicLocationState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.call_behavior != other.call_behavior {
             None
@@ -108,20 +108,20 @@ impl PartialOrd for DirectLocationState {
     }
 }
 
-impl JoinSemiLattice for DirectLocationState {
+impl JoinSemiLattice for BasicLocationState {
     fn join(&mut self, other: &Self) {
         self.inner.join(&other.inner);
     }
 }
 
-impl StateDisplay for DirectLocationState {
+impl StateDisplay for BasicLocationState {
     fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Use LowerHex format for the inner PcodeAddressLattice
         write!(f, "{:x}", self.inner)
     }
 }
 
-impl AbstractState for DirectLocationState {
+impl AbstractState for BasicLocationState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.inner.merge(&other.inner)
     }
@@ -140,7 +140,7 @@ impl AbstractState for DirectLocationState {
                     // Follow the call like a branch
                     if let PcodeAddressLattice::Const(_addr) = &self.inner {
                         let call_target = ConcretePcodeAddress::from(dest.offset);
-                        return once(DirectLocationState::location(
+                        return once(BasicLocationState::location(
                             call_target,
                             self.call_behavior,
                         ))
@@ -151,8 +151,7 @@ impl AbstractState for DirectLocationState {
                     // Fall through to next instruction
                     if let PcodeAddressLattice::Const(addr) = &self.inner {
                         let next = addr.next_pcode();
-                        return once(DirectLocationState::location(next, self.call_behavior))
-                            .into();
+                        return once(BasicLocationState::location(next, self.call_behavior)).into();
                     }
                 }
                 CallBehavior::Terminate => {
@@ -166,12 +165,12 @@ impl AbstractState for DirectLocationState {
         self.inner
             .transfer(op)
             .into_iter()
-            .map(|next_addr| DirectLocationState::new(next_addr, self.call_behavior))
+            .map(|next_addr| BasicLocationState::new(next_addr, self.call_behavior))
             .into()
     }
 }
 
-impl LocationState for DirectLocationState {
+impl LocationState for BasicLocationState {
     fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
         &'a self,
         t: &'a T,
@@ -184,7 +183,7 @@ impl LocationState for DirectLocationState {
     }
 }
 
-impl DirectLocationState {
+impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &DirectValuationState) {
         if let PcodeAddressLattice::Computed(indirect_var_node) = &self.inner {
             let ptr_value = v.get_value(&indirect_var_node.pointer_location);
@@ -197,7 +196,7 @@ impl DirectLocationState {
     }
 }
 
-impl CfgState for DirectLocationState {
+impl CfgState for BasicLocationState {
     type Model = MachineState;
 
     fn new_const(&self, i: &jingle_sleigh::SleighArchInfo) -> Self::Model {
@@ -222,7 +221,7 @@ impl CfgState for DirectLocationState {
 }
 
 register_strengthen!(
-    DirectLocationState,
+    BasicLocationState,
     DirectValuationState,
-    DirectLocationState::strengthen_from_valuation
+    BasicLocationState::strengthen_from_valuation
 );

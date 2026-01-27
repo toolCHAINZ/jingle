@@ -15,7 +15,7 @@ use crate::{
             lattice::JoinSemiLattice,
             state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor},
         },
-        location::{basic::state::DirectLocationState, unwind::BackEdgeCountCPA},
+        location::{basic::state::BasicLocationState, unwind::UnwindingAnalysis},
     },
     modeling::machine::cpu::concrete::ConcretePcodeAddress,
     register_strengthen,
@@ -27,7 +27,7 @@ type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
 /// Internal state for tracking back-edge visits.
 /// This is the "sub" analysis that keeps track of visited locations and back-edge counts.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BackEdgeCountState {
+pub struct UnwindingState {
     /// Current location
     location: Option<ConcretePcodeAddress>,
     /// Set of visited locations in the current path
@@ -38,7 +38,7 @@ pub struct BackEdgeCountState {
     max_count: usize,
 }
 
-impl Hash for BackEdgeCountState {
+impl Hash for UnwindingState {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut v: Vec<_> = self.back_edge_counts.iter().collect();
         v.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap_or(a.1.cmp(b.1)));
@@ -46,7 +46,7 @@ impl Hash for BackEdgeCountState {
     }
 }
 
-impl Display for BackEdgeCountState {
+impl Display for UnwindingState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BackEdgeCount(loc: {:?}, edges: {{", self.location)?;
 
@@ -65,7 +65,7 @@ impl Display for BackEdgeCountState {
     }
 }
 
-impl LowerHex for BackEdgeCountState {
+impl LowerHex for UnwindingState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BackEdgeCount(loc: ")?;
 
@@ -92,7 +92,7 @@ impl LowerHex for BackEdgeCountState {
     }
 }
 
-impl BackEdgeCountState {
+impl UnwindingState {
     fn with_location(location: ConcretePcodeAddress, max_count: usize) -> Self {
         let mut visited = HashSet::new();
         visited.insert(location);
@@ -133,7 +133,7 @@ impl BackEdgeCountState {
     }
 }
 
-impl PartialOrd for BackEdgeCountState {
+impl PartialOrd for UnwindingState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.location == other.location && self.back_edge_counts == other.back_edge_counts {
             Some(Ordering::Equal)
@@ -143,7 +143,7 @@ impl PartialOrd for BackEdgeCountState {
     }
 }
 
-impl JoinSemiLattice for BackEdgeCountState {
+impl JoinSemiLattice for UnwindingState {
     fn join(&mut self, other: &Self) {
         // Join by taking the maximum count for each back-edge
         for (edge, &count) in &other.back_edge_counts {
@@ -155,7 +155,7 @@ impl JoinSemiLattice for BackEdgeCountState {
     }
 }
 
-impl StateDisplay for BackEdgeCountState {
+impl StateDisplay for UnwindingState {
     fn fmt_state(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -165,7 +165,7 @@ impl StateDisplay for BackEdgeCountState {
     }
 }
 
-impl AbstractState for BackEdgeCountState {
+impl AbstractState for UnwindingState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.merge_sep(other)
     }
@@ -186,14 +186,10 @@ impl AbstractState for BackEdgeCountState {
     }
 }
 
-impl IntoState<BackEdgeCountCPA> for ConcretePcodeAddress {
-    fn into_state(self, c: &BackEdgeCountCPA) -> BackEdgeCountState {
-        BackEdgeCountState::with_location(self, c.max_count)
+impl IntoState<UnwindingAnalysis> for ConcretePcodeAddress {
+    fn into_state(self, c: &UnwindingAnalysis) -> UnwindingState {
+        UnwindingState::with_location(self, c.max_count)
     }
 }
 
-register_strengthen!(
-    BackEdgeCountState,
-    DirectLocationState,
-    BackEdgeCountState::move_to
-);
+register_strengthen!(UnwindingState, BasicLocationState, UnwindingState::move_to);

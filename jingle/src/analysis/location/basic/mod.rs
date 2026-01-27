@@ -1,18 +1,18 @@
 use crate::analysis::cpa::reducer::CfgReducer;
 
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
-use crate::analysis::location::basic::state::{CallBehavior, DirectLocationState};
+use crate::analysis::location::basic::state::{BasicLocationState, CallBehavior};
 
 pub mod state;
 
 #[cfg(test)]
 mod tests;
 
-pub struct DirectLocationAnalysis {
+pub struct BasicLocationAnalysis {
     call_behavior: CallBehavior,
 }
 
-impl DirectLocationAnalysis {
+impl BasicLocationAnalysis {
     pub fn call_behavior(&self) -> CallBehavior {
         self.call_behavior
     }
@@ -26,7 +26,7 @@ impl DirectLocationAnalysis {
     }
 }
 
-impl ConfigurableProgramAnalysis for DirectLocationAnalysis {
-    type State = DirectLocationState;
+impl ConfigurableProgramAnalysis for BasicLocationAnalysis {
+    type State = BasicLocationState;
     type Reducer = CfgReducer<Self::State>;
 }

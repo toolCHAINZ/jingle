@@ -1,7 +1,7 @@
 use crate::{
     analysis::{
         cpa::{lattice::pcode::PcodeAddressLattice, state::AbstractState},
-        location::basic::state::DirectLocationState,
+        location::basic::state::BasicLocationState,
     },
     modeling::machine::cpu::concrete::ConcretePcodeAddress,
 };
@@ -12,7 +12,7 @@ use jingle_sleigh::{PcodeOperation, VarNode};
 #[test]
 fn test_call_behavior_branch() {
     let state =
-        DirectLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
+        BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
 
     let call_op = PcodeOperation::Call {
         dest: VarNode {
@@ -35,7 +35,7 @@ fn test_call_behavior_branch() {
 #[test]
 fn test_call_behavior_step_over() {
     let state =
-        DirectLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::StepOver);
+        BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::StepOver);
 
     let call_op = PcodeOperation::Call {
         dest: VarNode {
@@ -57,7 +57,7 @@ fn test_call_behavior_step_over() {
 #[test]
 fn test_call_behavior_terminate() {
     let state =
-        DirectLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Terminate);
+        BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Terminate);
 
     let call_op = PcodeOperation::Call {
         dest: VarNode {

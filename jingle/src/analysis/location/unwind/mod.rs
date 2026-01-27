@@ -1,22 +1,22 @@
 use crate::analysis::{
     cpa::{ConfigurableProgramAnalysis, residue::EmptyResidue},
-    location::unwind::state::BackEdgeCountState,
+    location::unwind::state::UnwindingState,
 };
 
-mod state;
+pub(crate) mod state;
 
 /// Internal CPA for back-edge counting
-pub struct BackEdgeCountCPA {
+pub struct UnwindingAnalysis {
     max_count: usize,
 }
 
-impl BackEdgeCountCPA {
+impl UnwindingAnalysis {
     pub fn new(max_count: usize) -> Self {
         Self { max_count }
     }
 }
 
-impl ConfigurableProgramAnalysis for BackEdgeCountCPA {
-    type State = BackEdgeCountState;
-    type Reducer = EmptyResidue<BackEdgeCountState>;
+impl ConfigurableProgramAnalysis for UnwindingAnalysis {
+    type State = UnwindingState;
+    type Reducer = EmptyResidue<UnwindingState>;
 }

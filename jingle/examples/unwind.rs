@@ -1,11 +1,11 @@
 #![allow(unused)]
 
-use jingle::analysis::Analysis;
+use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
-use jingle::analysis::location::CallBehavior;
-use jingle::analysis::{cpa::RunnableConfigurableProgramAnalysis, location::unwound_location};
+use jingle::analysis::location::{CallBehavior, UnwindingAnalysis};
+use jingle::analysis::{Analysis, location::BasicLocationAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
@@ -22,7 +22,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::TRACE)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -41,7 +41,10 @@ fn main() {
     // Run unwinding analysis - back-edges are computed internally
     tracing::info!("Running unwinding analysis with bounded back-edge visit counting");
 
-    let location_analysis = unwound_location(CallBehavior::Branch, 20);
+    let location_analysis = (
+        BasicLocationAnalysis::new(CallBehavior::Branch),
+        UnwindingAnalysis::new(20),
+    );
 
     // Wrap with CfgReducer
     let mut analysis_with_cfg = location_analysis.with_residue(CfgReducer::new());
@@ -67,7 +70,7 @@ fn main() {
             .count();
         println!("  0x{:x} (visited {} times)", loc, count);
     }
-    fs::write("dot.dot", format!("{:x}", Dot::new(cfg.graph())));
+    fs::write("dot.dot", format!("{:?}", Dot::new(cfg.graph())));
     println!(
         "\nTotal CFG nodes with unwinding: {}",
         cfg.graph().node_count()

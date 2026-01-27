@@ -9,7 +9,7 @@ use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::direct_valuation::{
     DirectValuationAnalysis, DirectValuationState, VarNodeValuation,
 };
-use jingle::analysis::location::{CallBehavior, LocationAnalysis};
+use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::display::JingleDisplayable;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -54,7 +54,7 @@ fn main() {
 
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
-    let location_analysis = LocationAnalysis::new(CallBehavior::Branch);
+    let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
     let valuation_analysis = DirectValuationAnalysis::new(loaded.arch_info().clone());
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
