@@ -1,5 +1,6 @@
 use itertools::iproduct;
 use jingle_sleigh::SleighArchInfo;
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::LowerHex;
 use std::hash::Hash;
@@ -28,23 +29,21 @@ macro_rules! named_tuple {
         }
 
         impl<$F: PartialOrd, $( $T: PartialOrd ),+> PartialOrd for $name<$F, $( $T ),+> {
+            #[allow(unused_assignments)]
             fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-                use std::cmp::Ordering;
                 // Lexicographic comparison: compare fields in declaration order,
                 // returning the first non-Equal ordering. If any component's
                 // partial_cmp returns None, propagate None.
-                match self.$first_field.partial_cmp(&other.$first_field) {
-                    None => return None,
-                    Some(Ordering::Less) => return Some(Ordering::Less),
-                    Some(Ordering::Greater) => return Some(Ordering::Greater),
-                    Some(Ordering::Equal) => {}
-                }
+                let mut curr = self.$first_field.partial_cmp(&other.$first_field)?;
+
                 $(
-                    match self.$field.partial_cmp(&other.$field) {
-                        None => return None,
-                        Some(Ordering::Less) => return Some(Ordering::Less),
-                        Some(Ordering::Greater) => return Some(Ordering::Greater),
-                        Some(Ordering::Equal) => {}
+                    let next = self.$field.partial_cmp(&other.$field)?;
+                    if curr == Ordering::Equal{
+                        curr = next;
+                    }else{
+                        if(curr != next){
+                            return None;
+                        }
                     }
                 )+
                 Some(Ordering::Equal)

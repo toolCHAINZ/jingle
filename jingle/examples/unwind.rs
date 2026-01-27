@@ -22,7 +22,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
+        .with_max_level(tracing::Level::INFO)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -43,7 +43,7 @@ fn main() {
 
     let location_analysis = (
         BasicLocationAnalysis::new(CallBehavior::Branch),
-        UnwindingAnalysis::new(20),
+        UnwindingAnalysis::new(4),
     );
 
     // Wrap with CfgReducer

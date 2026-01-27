@@ -154,7 +154,7 @@ fn main() {
             .map(|value| format!("{}", value.display(loaded.arch_info())))
             .unwrap_or_default();
 
-        println!("  {}{}", leaf_loc, offset_info);
+        println!("  {} {}", leaf_loc, offset_info);
 
         // Print detailed DirectValuationState for this leaf (if available)
         if let Some(addr) = leaf.get_location() {

@@ -29,7 +29,7 @@ type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UnwindingState {
     /// Current location
-    location: Option<ConcretePcodeAddress>,
+    location: ConcretePcodeAddress,
     /// Set of visited locations in the current path
     visited: HashSet<ConcretePcodeAddress>,
     /// Map of back-edge to visit count
@@ -48,7 +48,7 @@ impl Hash for UnwindingState {
 
 impl Display for UnwindingState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BackEdgeCount(loc: {:?}, edges: {{", self.location)?;
+        write!(f, "BackEdgeCount(loc: {}, edges: {{", self.location)?;
 
         // Sort the back-edge counts for deterministic output
         let mut edges: Vec<_> = self.back_edge_counts.iter().collect();
@@ -69,11 +69,7 @@ impl LowerHex for UnwindingState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BackEdgeCount(loc: ")?;
 
-        if let Some(loc) = &self.location {
-            write!(f, "{:#x}", loc)?;
-        } else {
-            write!(f, "None")?;
-        }
+        write!(f, "{:#x}", self.location)?;
 
         write!(f, ", edges: {{")?;
 
@@ -97,7 +93,7 @@ impl UnwindingState {
         let mut visited = HashSet::new();
         visited.insert(location);
         Self {
-            location: Some(location),
+            location: location,
             visited,
             back_edge_counts: HashMap::new(),
             max_count,
@@ -112,23 +108,18 @@ impl UnwindingState {
     }
 
     /// Move to a new location, updating visited set and back-edge counts
-    fn move_to<L: LocationState>(&self, other: &L) -> Option<Self> {
-        let new_location = other.get_location()?;
+    fn move_to<L: LocationState>(&mut self, other: &L) {
+        if let Some(new_location) = other.get_location() {
+            // Check if this is a back-edge (new_location is already in visited set)
+            if self.visited.contains(&new_location) {
+                let edge = (self.location, new_location);
+                *self.back_edge_counts.entry(edge).or_insert(0) += 1;
 
-        // Check if this is a back-edge (new_location is already in visited set)
-        if self.visited.contains(&new_location) {
-            let mut new_state = self.clone();
-            if let Some(from) = self.location {
-                let edge = (from, new_location);
-                *new_state.back_edge_counts.entry(edge).or_insert(0) += 1;
+                // Update visited set and location
+            } else {
+                self.visited.insert(new_location);
             }
-
-            // Update visited set and location
-            new_state.visited.insert(new_location);
-            new_state.location = Some(new_location);
-            Some(new_state)
-        } else {
-            None
+            self.location = new_location;
         }
     }
 }
@@ -159,7 +150,7 @@ impl StateDisplay for UnwindingState {
     fn fmt_state(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "BackEdgeCount({:?}, counts: {:?})",
+            "BackEdgeCount({:x}, counts: {:?})",
             self.location, self.back_edge_counts
         )
     }
