@@ -18,7 +18,7 @@ use std::borrow::{Borrow, Cow};
 /// - `PcodeOpRef` lets the store return either without exposing `Cow` to callers.
 ///
 /// Basic usage
-/// ```rust
+/// ```ignore
 /// // Get an op from a pcode store (may be borrowed or owned internally)
 /// if let Some(op_ref) = store.get_pcode_op_at(addr) {
 ///     // Use the borrowed reference for transfer/inspection:
