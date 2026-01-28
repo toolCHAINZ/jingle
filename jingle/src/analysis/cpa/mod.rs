@@ -6,9 +6,9 @@ pub mod state;
 pub mod vec_reducer;
 
 pub use final_reducer::FinalReducer;
+use tracing::{Level, span};
 pub use vec_reducer::VecReducer;
 
-use crate::analysis::cfg::model::StateDisplayWrapper;
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
@@ -69,8 +69,10 @@ where
 
         let mut iteration = 0;
         while let Some(state) = waitlist.pop_front() {
+            let span = span!(Level::DEBUG, "cpa", iteration);
+            let _enter = span.enter();
             iteration += 1;
-            tracing::trace!("Iteration {}: Processing state {:?}", iteration, state);
+            tracing::trace!("Processing state {:?}", state);
             tracing::trace!(
                 "  Waitlist size: {}, Reached size: {}",
                 waitlist.len(),
@@ -80,7 +82,7 @@ where
             let op = state.get_operation(pcode_store);
             tracing::trace!(
                 "  Operation at state: {:?}",
-                op.as_ref().map(|p| format!("{:?}", p.as_ref()))
+                op.as_ref().map(|p| format!("{:x}", p.as_ref()))
             );
 
             let mut new_states = 0;
@@ -91,41 +93,38 @@ where
                 .iter()
                 .flat_map(|op| state.transfer(op.as_ref()).into_iter())
             {
-                tracing::trace!(
-                    "    Transfer produced dest_state: {}",
-                    StateDisplayWrapper(&dest_state)
-                );
+                tracing::trace!("    Transfer produced dest_state: {}", dest_state);
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
                     let old_reached = reached_state.clone();
                     if reached_state.merge(&dest_state).merged() {
-                        tracing::trace!("    Merged dest_state into existing reached_state");
-                        tracing::trace!(
-                            "      Merged state: {}",
-                            StateDisplayWrapper(reached_state)
-                        );
+                        tracing::debug!("    Merged dest_state into existing reached_state");
+                        tracing::debug!("      Merged state: {}", reached_state);
                         reducer.merged_state(&state, &old_reached, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;
                     }
                 }
-                if !was_merged {
-                    // record that a new state was reach without merging
-                    tracing::debug!(
-                        "Adding new state without merging: {}",
-                        StateDisplayWrapper(&dest_state)
-                    );
-                    reducer.new_state(&state, &dest_state, &op);
+
+                // If we merged the destination into an existing reached state, we've already
+                // enqueued the merged (reached) state, so skip further handling for this dest.
+                if was_merged {
+                    continue;
                 }
+
+                // Only record a new state in the reducer if it will actually be added to `reached`.
+                // record that a new state was reached without merging
+                tracing::debug!("Adding new state without merging: {}", dest_state);
+                reducer.new_state(&state, &dest_state, &op);
 
                 if !dest_state.stop(reached.iter()) {
                     tracing::trace!("    Adding new state to waitlist and reached");
                     waitlist.push_back(dest_state.clone());
                     reached.push_back(dest_state.clone());
                     new_states += 1;
-                } else if !was_merged {
+                } else {
                     tracing::trace!("    State stopped (already covered)");
                     stopped_states += 1;
                 }

@@ -1,16 +1,16 @@
 #![allow(unused)]
 
-use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
+use jingle::analysis::Analysis;
 use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle::analysis::cpa::reducer::CfgReducer;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
-use jingle::analysis::direct_location::{CallBehavior, DirectLocationAnalysis};
+use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::direct_valuation::{
-    DirectValuationAnalysis, DirectValuationState, VarnodeValue,
+    DirectValuationAnalysis, DirectValuationState, MergeBehavior, VarNodeValuation,
 };
+use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
-use jingle::analysis::{Analysis, RunnableAnalysis};
 use jingle::display::JingleDisplayable;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
@@ -29,7 +29,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::DEBUG)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -54,8 +54,9 @@ fn main() {
 
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
-    let location_analysis = DirectLocationAnalysis::new(CallBehavior::Branch);
-    let valuation_analysis = DirectValuationAnalysis::new(loaded.arch_info().clone());
+    let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
+    let valuation_analysis =
+        DirectValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
     let mut compound_with_cfg =
@@ -67,19 +68,19 @@ fn main() {
     let cfg = compound_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     // We'll collect valuation info keyed by concrete addresses encountered in the CFG.
-    let mut stack_offsets: HashMap<ConcretePcodeAddress, VarnodeValue> = HashMap::new();
+    let mut stack_offsets: HashMap<ConcretePcodeAddress, VarNodeValuation> = HashMap::new();
     let mut direct_valuations: HashMap<ConcretePcodeAddress, DirectValuationState> = HashMap::new();
 
     // `cfg.nodes()` yields `&N` where N = (DirectLocationState, DirectValuationState).
     // Use `cloned()` to get owned tuples so we can inspect and store values.
     for node in cfg.nodes().cloned() {
         // Extract the concrete program location (if any) from the left component.
-        if let Some(addr) = node.0.get_location() {
+        if let Some(addr) = node.s1.get_location() {
             // Extract stack pointer info from the DirectValuationState (right component).
-            if let Some(sp_value) = node.1.get_value(&stack_pointer) {
+            if let Some(sp_value) = node.s2.get_value(&stack_pointer) {
                 stack_offsets.insert(addr, sp_value.clone());
             }
-            direct_valuations.insert(addr, node.1.clone());
+            direct_valuations.insert(addr, node.s2.clone());
         }
     }
 
@@ -96,12 +97,7 @@ fn main() {
     for loc in &locations {
         let offset_info = stack_offsets
             .get(loc)
-            .map(|value| match value {
-                VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
-                VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
-                VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
-                _ => " [stack: unknown]".to_string(),
-            })
+            .map(|value| format!("{}", value.display(loaded.arch_info())))
             .unwrap_or_default();
 
         let val_count = direct_valuations
@@ -156,15 +152,10 @@ fn main() {
         let offset_info = leaf
             .get_location()
             .and_then(|a| stack_offsets.get(&a))
-            .map(|value| match value {
-                VarnodeValue::Entry(_) => " [stack: Entry (0)]".to_string(),
-                VarnodeValue::Offset(_, off) => format!(" [stack: {:+}]", off),
-                VarnodeValue::Const(c) => format!(" [stack: const 0x{:x}]", c),
-                _ => " [stack: unknown]".to_string(),
-            })
+            .map(|value| format!("{}", value.display(loaded.arch_info())))
             .unwrap_or_default();
 
-        println!("  {}{}", leaf_loc, offset_info);
+        println!("  {} {}", leaf_loc, offset_info);
 
         // Print detailed DirectValuationState for this leaf (if available)
         if let Some(addr) = leaf.get_location() {
@@ -175,7 +166,7 @@ fn main() {
                 if count == 0 {
                     println!("      (no written locations)");
                 } else {
-                    for (vn, val) in state.written_locations() {
+                    for (vn, val) in state.written_locations().iter() {
                         println!(
                             "      {} = {}",
                             vn.display(loaded.arch_info()),
@@ -189,10 +180,10 @@ fn main() {
         } else {
             println!(
                 "    Computed loc: {}",
-                leaf.0.inner().display(loaded.arch_info())
+                leaf.s1.inner().display(loaded.arch_info())
             );
             println!("      Valuations:");
-            for ele in leaf.1.written_locations() {
+            for ele in leaf.s2.written_locations().iter() {
                 println!(
                     "        {} = {}",
                     ele.0.display(loaded.arch_info()),
@@ -208,7 +199,7 @@ fn main() {
 
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|v| matches!(v, VarnodeValue::Entry(_) | VarnodeValue::Offset(_, _)))
+        .filter(|v| !matches!(v, VarNodeValuation::Top))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);

@@ -3,10 +3,14 @@ use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
+use std::fmt::Display;
 use std::iter::{empty, once};
 
 /// A simple analysis counting the number of branches on a path,
 /// terminating when it hits the max
+///
+/// todo: refactor and extend this type to allow for bounding different
+/// things: program transitions, jumps, states matching a predicate?
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct BoundedBranchState {
     pub branch_count: usize,
@@ -63,5 +67,11 @@ impl AbstractState for BoundedBranchState {
             })
             .into()
         }
+    }
+}
+
+impl Display for BoundedBranchState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.branch_count)
     }
 }

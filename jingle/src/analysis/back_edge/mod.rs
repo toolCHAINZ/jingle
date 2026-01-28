@@ -1,4 +1,3 @@
-use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::residue::Residue;
@@ -9,22 +8,34 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+use std::hash::DefaultHasher;
 
 pub type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
 
 #[derive(Clone, Debug, Default)]
 pub struct BackEdges {
     // todo: make generic?
-    edges: HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>>,
+    edges: std::sync::Arc<HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>>>,
 }
 
 impl BackEdges {
+    /// Ensure we have unique ownership of the inner map and return a mutable
+    /// reference to it. Uses `Arc::make_mut` for copy-on-write semantics so
+    /// clones share until mutated.
+    fn ensure_unique(
+        &mut self,
+    ) -> &mut HashMap<ConcretePcodeAddress, HashSet<ConcretePcodeAddress>> {
+        std::sync::Arc::make_mut(&mut self.edges)
+    }
+
     pub fn has(&self, from: &ConcretePcodeAddress, to: &ConcretePcodeAddress) -> bool {
         self.edges.get(from).is_some_and(|s| s.contains(to))
     }
 
     pub fn add(&mut self, from: ConcretePcodeAddress, to: ConcretePcodeAddress) {
-        self.edges.entry(from).or_default().insert(to);
+        let map = self.ensure_unique();
+        map.entry(from).or_default().insert(to);
     }
 
     pub fn get_all_for(
@@ -34,7 +45,7 @@ impl BackEdges {
         self.edges.get(from).cloned()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = BackEdge> {
+    pub fn iter(&self) -> impl Iterator<Item = BackEdge> + '_ {
         self.edges
             .iter()
             .flat_map(|(src, edges)| edges.iter().map(|dst| (*src, *dst)))
@@ -112,7 +123,6 @@ impl AbstractState for BackEdgeState {
 
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self> {
         let opcode = opcode.borrow();
-
         self.location
             .transfer(opcode)
             .into_iter()
@@ -131,6 +141,14 @@ impl LocationState for BackEdgeState {
 
     fn get_location(&self) -> Option<ConcretePcodeAddress> {
         self.location.value().cloned()
+    }
+}
+
+impl Display for BackEdgeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let hasher = DefaultHasher::new();
+        self.path_visits.s
+        write!(f, "{:x}{}", self.location, self.)
     }
 }
 
@@ -236,7 +254,5 @@ impl ConfigurableProgramAnalysis for BackEdgeCPA {
     type State = BackEdgeState;
     type Reducer = BackEdgeReducer;
 }
-
-impl Analysis for BackEdgeCPA {}
 
 pub type BackEdgeAnalysis = BackEdgeCPA;

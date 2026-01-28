@@ -6,43 +6,24 @@ use crate::analysis::cpa::{
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
-pub mod back_edge;
-// mod bounded_visit;
-pub mod cfg;
-pub mod cpa;
-pub mod direct_location;
-// mod location;
 mod bmc;
-pub mod bounded_branch;
+pub mod cfg;
 pub mod compound;
+pub mod cpa;
 pub mod ctl;
 pub mod direct_valuation;
+pub mod location;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
-pub mod unwinding;
-pub mod unwinding2;
 pub mod varnode;
-
-/// A compatibility wrapper around types implementing the Configurable Program Analysis (CPA).
-/// The intent here is to provide some structure for running and combining CPAs. This trait
-/// allows for specifying a way to define the CPA's input (assuming a
-/// [PcodeCfg](crate::analysis::cfg::PcodeCfg), indexed by
-/// [ConcretePcodeAddress]s).
-///
-/// The output of an analysis is simply the `Vec<Self::State>` of reached states. Consumers
-/// that need to extract additional information (e.g., built-up CFGs) should do so by accessing
-/// the analysis struct directly after running.
-///
-/// This trait can be implemented by types that may or may not be runnable. For runnable analyses,
-/// see [`RunnableAnalysis`].
-pub trait Analysis: ConfigurableProgramAnalysis {}
+pub mod varnode_map;
 
 /// A trait for analyses that can be run. This is automatically implemented for all
 /// [`Analysis`] types whose CPA state implements [`LocationState`].
 ///
 /// Types can override the default `run` implementation to provide custom behavior.
-pub trait RunnableAnalysis: Analysis
+pub trait Analysis
 where
     Self: RunnableConfigurableProgramAnalysis,
     Self::State: LocationState,
@@ -68,19 +49,15 @@ where
 
 /// Blanket implementation: any Analysis with LocationState automatically gets RunnableAnalysis
 /// with the default run implementation
-impl<T> RunnableAnalysis for T
+impl<T> Analysis for T
 where
-    T: Analysis,
     T: RunnableConfigurableProgramAnalysis,
     T::State: LocationState,
 {
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: RunnableAnalysis>(
-        &self,
-        mut t: T,
-    ) -> <T::Reducer as Residue<T::State>>::Output
+    fn run_analysis<T: Analysis>(&self, mut t: T) -> <T::Reducer as Residue<T::State>>::Output
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
         ConcretePcodeAddress: IntoState<T>,

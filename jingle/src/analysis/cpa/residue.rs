@@ -83,24 +83,6 @@ impl<A: ConfigurableProgramAnalysis, R: Residue<A::State>> ConfigurableProgramAn
     type Reducer = R;
 }
 
-/// Delegate `Analysis` to the wrapped analysis so that `ResidueWrapper` can be
-/// used anywhere an `Analysis` is expected (notably to call `run` / `run_cpa`).
-/// We forward `make_output` to the wrapped analysis implementation.
-///
-/// Constraints:
-/// - `A` must itself implement `Analysis` and be runnable (i.e. implement
-///   `RunnableConfigurableProgramAnalysis`).
-/// - The wrapped state's `A::State` must implement `LocationState` so that the
-///   blanket `RunnableConfigurableProgramAnalysis` impl applies to
-///   `ResidueWrapper` as well.
-impl<A, R> crate::analysis::Analysis for ResidueWrapper<A, R>
-where
-    A: crate::analysis::Analysis + crate::analysis::cpa::RunnableConfigurableProgramAnalysis,
-    R: Residue<A::State>,
-    A::State: crate::analysis::cpa::state::LocationState,
-{
-}
-
 /// Delegate `IntoState` for the wrapper so callers can pass the same initial
 /// input they would for the inner analysis when invoking `run` on the wrapper.
 ///

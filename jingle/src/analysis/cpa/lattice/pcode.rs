@@ -5,7 +5,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter, LowerHex};
+use std::fmt::{Debug, Display, Formatter, LowerHex};
 use std::hash::Hash;
 use std::iter::{empty, once};
 
@@ -192,7 +192,16 @@ impl LocationState for PcodeAddressLattice {
     }
 }
 
-impl crate::analysis::compound::Strengthen<crate::analysis::direct_valuation::DirectValuationState>
-    for PcodeAddressLattice
-{
+impl Display for PcodeAddressLattice {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PcodeAddressLattice::Const(concrete_pcode_address) => {
+                write!(f, "{:x}", concrete_pcode_address)
+            }
+            PcodeAddressLattice::Computed(indirect_var_node) => {
+                write!(f, "{:x}", indirect_var_node)
+            }
+            PcodeAddressLattice::Top => write!(f, "Top"),
+        }
+    }
 }

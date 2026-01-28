@@ -1,290 +1,379 @@
-//! Direct Valuation Analysis
-//!
-//! This module provides a Configurable Program Analysis that acts as a lightweight pcode interpreter.
-//! It tracks the abstract values of all directly-written varnodes through program execution.
-//!
-//! The analysis uses a four-level lattice for varnode values:
-//! - Entry: the original value of a varnode at function entry
-//! - Offset: a constant signed offset relative to the entry value
-//! - Const: a constant value, not dependent on the entry value
-//! - Top: indeterminate/unknown value
-//!
-//! This analysis is particularly useful for tracking stack offsets, register values, and
-//! understanding how constants propagate through the program.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use jingle::analysis::{Analysis, RunnableAnalysis};
-//! use jingle::analysis::direct_location::DirectLocationAnalysis;
-//! use jingle::analysis::direct_valuation::DirectValuationAnalysis;
-//!
-//! // Create a compound analysis: location tracking + direct valuation
-//! let location_analysis = DirectLocationAnalysis::new(&loaded);
-//! let valuation_analysis = DirectValuationAnalysis::with_entry_varnode(loaded.info.clone(), stack_pointer_varnode);
-//!
-//! let mut compound_analysis = (location_analysis, valuation_analysis);
-//!
-//! // Run the analysis
-//! let states = compound_analysis.run(&loaded, compound_analysis.make_initial_state(entry_addr.into()));
-//!
-//! // Extract results
-//! for state in &states {
-//!     if let FlatLattice::Value(addr) = &state.left {
-//!         println!("At {:x}:", addr);
-//!         for (varnode, value) in state.right.written_locations() {
-//!             println!("  {:?} = {:?}", varnode, value);
-//!         }
-//!     }
-//! }
-//! ```
-
-use crate::analysis::Analysis;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
+use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplayable;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::fmt::{Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
-/// Represents the abstract value of a varnode in the analysis
+/// Symbolic valuation built from varnodes and constants.
+///
+/// This valuation intentionally does not include a Top element. Unknown or conflicting
+/// information is handled at the state join level by reverting the varnode to the
+/// `Entry(varnode)` form. This is acceptable for unwound / bounded analyses.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum VarnodeValue {
-    /// The original entry value of this varnode (e.g., stack pointer at function entry)
+pub enum VarNodeValuation {
     Entry(VarNode),
-    /// A constant signed offset relative to the entry value
-    Offset(VarNode, i64),
-    /// A concrete constant value, not dependent on any entry value
-    Const(u64),
-    /// A value loaded from memory at a known pointer location
-    Loaded(Box<VarnodeValue>),
-    /// Unknown/indeterminate value (top of lattice)
+    Const(VarNode),
+
+    // Binary operators now use a single Arc'ed tuple rather than two boxed children.
+    Mult(Arc<(VarNodeValuation, VarNodeValuation)>),
+    Add(Arc<(VarNodeValuation, VarNodeValuation)>),
+    Sub(Arc<(VarNodeValuation, VarNodeValuation)>),
+    BitAnd(Arc<(VarNodeValuation, VarNodeValuation)>),
+    BitOr(Arc<(VarNodeValuation, VarNodeValuation)>),
+    BitXor(Arc<(VarNodeValuation, VarNodeValuation)>),
+    Or(Arc<(VarNodeValuation, VarNodeValuation)>),
+
+    // Unary operators remain single Arc child
+    BitNegate(Arc<VarNodeValuation>),
+    Load(Arc<VarNodeValuation>),
     Top,
 }
 
-impl VarnodeValue {
-    /// Check if this is a constant value
-    pub fn is_const(&self) -> bool {
-        matches!(self, VarnodeValue::Const(_))
+impl VarNodeValuation {
+    fn from_varnode_or_entry(state: &DirectValuationState, vn: &VarNode) -> Self {
+        if vn.space_index == VarNode::CONST_SPACE_INDEX {
+            VarNodeValuation::Const(vn.clone())
+        } else if let Some(v) = state.written_locations.get(vn) {
+            v.clone()
+        } else {
+            VarNodeValuation::Entry(vn.clone())
+        }
     }
 
-    /// Get the constant value if it exists
+    #[allow(dead_code)]
+    fn from_varnode_or_entry_simple(vn: &VarNode) -> Self {
+        if vn.space_index == VarNode::CONST_SPACE_INDEX {
+            VarNodeValuation::Const(vn.clone())
+        } else {
+            VarNodeValuation::Entry(vn.clone())
+        }
+    }
+
+    /// Extract constant value if this is a Const variant
     pub fn as_const(&self) -> Option<u64> {
         match self {
-            VarnodeValue::Const(v) => Some(*v),
+            VarNodeValuation::Const(vn) => Some(vn.offset),
             _ => None,
         }
     }
 
-    /// Check if this is an entry value
-    pub fn is_entry(&self) -> bool {
-        matches!(self, VarnodeValue::Entry(_))
+    /// Create a constant VarNode with the given value and size
+    fn make_const(value: u64, size: usize) -> Self {
+        VarNodeValuation::Const(VarNode {
+            space_index: VarNode::CONST_SPACE_INDEX,
+            offset: value,
+            size,
+        })
     }
 
-    /// Check if this is an offset value
-    pub fn is_offset(&self) -> bool {
-        matches!(self, VarnodeValue::Offset(_, _))
-    }
-
-    /// Check if this is a loaded value
-    pub fn is_loaded(&self) -> bool {
-        matches!(self, VarnodeValue::Loaded(_))
-    }
-
-    /// Get the loaded pointer value if it exists
-    pub fn as_loaded(&self) -> Option<&VarnodeValue> {
+    /// Perform simple simplifications on the top two levels of the expression tree.
+    /// This reduces expression height by folding constants and flattening nested operations.
+    ///
+    /// NOTE: This is now functional and returns a new simplified VarNodeValuation instead
+    /// of mutating the receiver.
+    fn simplify(&self) -> Self {
         match self {
-            VarnodeValue::Loaded(v) => Some(v.as_ref()),
-            _ => None,
-        }
-    }
+            // Arithmetic operations
+            VarNodeValuation::Add(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
 
-    /// Add a constant to this value
-    fn add(&self, delta: i64) -> Self {
-        match self {
-            VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), delta),
-            VarnodeValue::Offset(vn, offset) => {
-                let sum = offset.wrapping_add(delta);
-                if sum != 0 {
-                    VarnodeValue::Offset(vn.clone(), offset.wrapping_add(delta))
-                } else {
-                    VarnodeValue::Entry(vn.clone())
+                // Const + Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = &a {
+                        let size = vn.size;
+                        return Self::make_const(av.wrapping_add(bv), size);
+                    }
                 }
-            }
-            VarnodeValue::Const(val) => VarnodeValue::Const(val.wrapping_add(delta as u64)),
-            VarnodeValue::Loaded(_) => VarnodeValue::Top,
-            VarnodeValue::Top => VarnodeValue::Top,
-        }
-    }
 
-    /// Subtract a constant from this value
-    fn sub(&self, delta: i64) -> Self {
-        match self {
-            VarnodeValue::Entry(vn) => VarnodeValue::Offset(vn.clone(), -delta),
-            VarnodeValue::Offset(vn, offset) => {
-                let diff = offset.wrapping_sub(delta);
-                if diff != 0 {
-                    VarnodeValue::Offset(vn.clone(), diff)
-                } else {
-                    VarnodeValue::Entry(vn.clone())
+                // Flatten nested Add with Const: (Add(x, Const(c1)) + Const(c2)) -> Add(x, Const(c1+c2))
+                if let Some(bv) = b.as_const() {
+                    if let VarNodeValuation::Add(inner_ab) = &a {
+                        let inner_pair = inner_ab.as_ref();
+                        let inner_a = inner_pair.0.clone();
+                        let inner_b = inner_pair.1.clone();
+                        if let Some(inner_bv) = inner_b.as_const() {
+                            if let VarNodeValuation::Const(vn) = &inner_b {
+                                let size = vn.size;
+                                let new_inner_b = Self::make_const(inner_bv.wrapping_add(bv), size);
+                                return VarNodeValuation::Add(Arc::new((inner_a, new_inner_b)));
+                            }
+                        }
+                    }
                 }
+
+                // Symmetric case: Const(c1) + Add(x, Const(c2)) -> Add(x, Const(c1+c2))
+                if let Some(av) = a.as_const() {
+                    if let VarNodeValuation::Add(inner_ab) = &b {
+                        let inner_pair = inner_ab.as_ref();
+                        let inner_a = inner_pair.0.clone();
+                        let inner_b = inner_pair.1.clone();
+                        if let Some(inner_bv) = inner_b.as_const() {
+                            if let VarNodeValuation::Const(vn) = &inner_b {
+                                let size = vn.size;
+                                let new_inner_b = Self::make_const(av.wrapping_add(inner_bv), size);
+                                return VarNodeValuation::Add(Arc::new((inner_a, new_inner_b)));
+                            }
+                        }
+                    }
+                }
+
+                VarNodeValuation::Add(Arc::new((a, b)))
             }
-            VarnodeValue::Const(val) => VarnodeValue::Const(val.wrapping_sub(delta as u64)),
-            VarnodeValue::Loaded(_) => VarnodeValue::Top,
-            VarnodeValue::Top => VarnodeValue::Top,
-        }
-    }
 
-    /// Negate this value
-    fn negate(&self) -> Self {
-        match self {
-            VarnodeValue::Const(val) => VarnodeValue::Const((*val as i64).wrapping_neg() as u64),
-            _ => VarnodeValue::Top,
-        }
-    }
+            VarNodeValuation::Sub(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
 
-    /// Bitwise AND with another value
-    fn and(&self, other: &Self) -> Self {
-        match (self, other) {
-            (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a & b),
-            (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
-            _ => VarnodeValue::Top,
-        }
-    }
+                // Const - Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = &a {
+                        let size = vn.size;
+                        return Self::make_const(av.wrapping_sub(bv), size);
+                    }
+                }
 
-    /// Bitwise OR with another value
-    fn or(&self, other: &Self) -> Self {
-        match (self, other) {
-            (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a | b),
-            (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
-            _ => VarnodeValue::Top,
-        }
-    }
+                // x - Const(0) = x
+                if let Some(0) = b.as_const() {
+                    return a;
+                }
 
-    /// Bitwise XOR with another value
-    fn xor(&self, other: &Self) -> Self {
-        match (self, other) {
-            (VarnodeValue::Const(a), VarnodeValue::Const(b)) => VarnodeValue::Const(a ^ b),
-            (VarnodeValue::Top, _) | (_, VarnodeValue::Top) => VarnodeValue::Top,
-            _ => VarnodeValue::Top,
+                VarNodeValuation::Sub(Arc::new((a, b)))
+            }
+
+            VarNodeValuation::Mult(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
+
+                // Const * Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = &a {
+                        let size = vn.size;
+                        return Self::make_const(av.wrapping_mul(bv), size);
+                    }
+                }
+
+                // x * Const(0) = Const(0)
+                if let Some(0) = b.as_const() {
+                    return b;
+                }
+                if let Some(0) = a.as_const() {
+                    return a;
+                }
+
+                // x * Const(1) = x
+                if let Some(1) = b.as_const() {
+                    return a;
+                }
+                if let Some(1) = a.as_const() {
+                    return b;
+                }
+
+                VarNodeValuation::Mult(Arc::new((a, b)))
+            }
+
+            // Bitwise operations
+            VarNodeValuation::BitAnd(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
+
+                // Const & Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = &a {
+                        let size = vn.size;
+                        return Self::make_const(av & bv, size);
+                    }
+                }
+
+                // x & Const(0) = Const(0)
+                if let Some(0) = b.as_const() {
+                    return b;
+                }
+                if let Some(0) = a.as_const() {
+                    return a;
+                }
+
+                VarNodeValuation::BitAnd(Arc::new((a, b)))
+            }
+
+            VarNodeValuation::BitOr(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
+
+                // Const | Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = &a {
+                        let size = vn.size;
+                        return Self::make_const(av | bv, size);
+                    }
+                }
+
+                // x | Const(0) = x
+                if let Some(0) = b.as_const() {
+                    return a;
+                }
+                if let Some(0) = a.as_const() {
+                    return b;
+                }
+
+                VarNodeValuation::BitOr(Arc::new((a, b)))
+            }
+
+            VarNodeValuation::BitXor(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
+
+                // Const ^ Const = Const
+                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
+                    if let VarNodeValuation::Const(vn) = &a {
+                        let size = vn.size;
+                        return Self::make_const(av ^ bv, size);
+                    }
+                }
+
+                // x ^ Const(0) = x
+                if let Some(0) = b.as_const() {
+                    return a;
+                }
+                if let Some(0) = a.as_const() {
+                    return b;
+                }
+
+                VarNodeValuation::BitXor(Arc::new((a, b)))
+            }
+
+            VarNodeValuation::BitNegate(a) => {
+                let a_s = a.as_ref().simplify();
+
+                // ~Const = Const
+                if let Some(av) = a_s.as_const() {
+                    if let VarNodeValuation::Const(vn) = &a_s {
+                        let size = vn.size;
+                        let mask = if size >= 8 {
+                            u64::MAX
+                        } else {
+                            (1u64 << (size * 8)) - 1
+                        };
+                        return Self::make_const(!av & mask, size);
+                    }
+                }
+
+                VarNodeValuation::BitNegate(Arc::new(a_s))
+            }
+
+            VarNodeValuation::Load(a) => {
+                let a_s = a.as_ref().simplify();
+                VarNodeValuation::Load(Arc::new(a_s))
+            }
+
+            VarNodeValuation::Or(ab) => {
+                let pair = ab.as_ref();
+                let a = pair.0.simplify();
+                let b = pair.1.simplify();
+
+                // Const || Const = Const (approximate by folding identical exprs)
+                if a == b {
+                    return a;
+                }
+
+                VarNodeValuation::Or(Arc::new((a, b)))
+            }
+
+            // Entry, Const, and Top don't need simplification
+            VarNodeValuation::Entry(vn) => VarNodeValuation::Entry(vn.clone()),
+            VarNodeValuation::Const(vn) => VarNodeValuation::Const(vn.clone()),
+            VarNodeValuation::Top => VarNodeValuation::Top,
         }
     }
 }
 
-impl JingleDisplayable for VarnodeValue {
+impl JingleDisplayable for VarNodeValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            VarnodeValue::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
-            VarnodeValue::Offset(vn, offset) => {
-                if *offset >= 0 {
-                    write!(f, "{}+{:#x}", vn.display(info), offset)
-                } else {
-                    write!(f, "{}-{:#x}", vn.display(info), offset)
-                }
+            VarNodeValuation::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
+            VarNodeValuation::Const(vn) => write!(f, "{}", vn.display(info)),
+            VarNodeValuation::Mult(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}*{})", pair.0.display(info), pair.1.display(info))
             }
-            VarnodeValue::Const(val) => write!(f, "{:#x}", val),
-            VarnodeValue::Loaded(ptr_val) => {
-                write!(f, "Load({})", ptr_val.display(info))
+            VarNodeValuation::Add(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}+{})", pair.0.display(info), pair.1.display(info))
             }
-            VarnodeValue::Top => write!(f, "⊤"),
+            VarNodeValuation::Sub(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}-{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitAnd(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}&{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitOr(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}|{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitXor(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}^{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::BitNegate(a) => write!(f, "(~{})", a.display(info)),
+            VarNodeValuation::Or(ab) => {
+                let pair = ab.as_ref();
+                write!(f, "({}||{})", pair.0.display(info), pair.1.display(info))
+            }
+            VarNodeValuation::Load(a) => write!(f, "Load({})", a.display(info)),
+            VarNodeValuation::Top => write!(f, "⊤"),
         }
     }
 }
 
-impl PartialOrd for VarnodeValue {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use VarnodeValue::*;
-        match (self, other) {
-            // Bottom is less than everything except itself
-            // Top is greater than everything except itself
-            (Top, Top) => Some(Ordering::Equal),
-            (Top, _) => Some(Ordering::Greater),
-            (_, Top) => Some(Ordering::Less),
-
-            // Equal entries
-            (Entry(a), Entry(b)) if a == b => Some(Ordering::Equal),
-
-            // Entry is less than its offset variants
-            (Entry(a), Offset(b, _)) if a == b => Some(Ordering::Less),
-            (Offset(a, _), Entry(b)) if a == b => Some(Ordering::Greater),
-
-            // Equal offset variants
-            (Offset(a, off_a), Offset(b, off_b)) if a == b && off_a == off_b => {
-                Some(Ordering::Equal)
-            }
-
-            // Equal constants
-            (Const(a), Const(b)) if a == b => Some(Ordering::Equal),
-
-            // Loaded values
-            (Loaded(a), Loaded(b)) => a.partial_cmp(b),
-
-            // Everything else is incomparable
-            _ => None,
-        }
-    }
+/// How to merge conflicting valuations for a single varnode when joining states.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum MergeBehavior {
+    /// Combine differing valuations into an `Or(...)` expression (higher precision).
+    Or,
+    /// Converge differing valuations to `Top` (lower precision, useful when locations are not unwound).
+    Top,
 }
 
-impl JoinSemiLattice for VarnodeValue {
-    fn join(&mut self, other: &Self) {
-        use VarnodeValue::*;
-        *self = match (&*self, other) {
-            (Top, _) | (_, Top) => Top,
-            (Entry(a), Entry(b)) if a == b => Entry(a.clone()),
-            (Entry(a), Offset(b, off)) | (Offset(b, off), Entry(a)) if a == b => {
-                Offset(a.clone(), *off)
-            }
-            (Offset(a, off_a), Offset(b, off_b)) if a == b && off_a == off_b => {
-                Offset(a.clone(), *off_a)
-            }
-            (Const(a), Const(b)) if a == b => Const(*a),
-            (Loaded(a), Loaded(b)) => {
-                let mut joined = a.as_ref().clone();
-                joined.join(b.as_ref());
-                if joined == Top {
-                    Top
-                } else {
-                    Loaded(Box::new(joined))
-                }
-            }
-            _ => Top,
-        };
-    }
-}
-
-/// Abstract state for direct valuation analysis
-///
-/// This state tracks the values of varnodes that have been written directly from constants.
-/// The map contains all known written locations at a given code location.
+/// State for the VarNodeValuation-based direct valuation CPA.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DirectValuationState {
-    /// Map of written varnodes to their values
-    written_locations: HashMap<VarNode, VarnodeValue>,
-    /// Architecture information for space type lookups
+    written_locations: VarNodeMap<VarNodeValuation>,
     arch_info: SleighArchInfo,
+    /// Merge behavior controlling how conflicting valuations are handled during `join`.
+    merge_behavior: MergeBehavior,
 }
 
 impl Hash for DirectValuationState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mut sorted = self.written_locations.keys().collect::<Vec<_>>();
-        sorted.sort_by_key(|k| (k.space_index, k.offset, k.size));
-        for vn in sorted.iter() {
+        // `VarNodeMap` stores keys in sorted order; iterate deterministically.
+        for (vn, val) in self.written_locations.iter() {
             vn.hash(state);
-            self.written_locations[vn].hash(state);
+            val.hash(state);
         }
+        // include merge behavior in the hash so states with different merge behaviors are distinct
+        self.merge_behavior.hash(state);
         self.arch_info.hash(state);
     }
 }
 
-impl StateDisplay for DirectValuationState {
-    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
-        // Compute hash using the same algorithm as the Hash impl
+impl Display for DirectValuationState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         use std::collections::hash_map::DefaultHasher;
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
@@ -294,477 +383,186 @@ impl StateDisplay for DirectValuationState {
 }
 
 impl DirectValuationState {
-    /// Create a new empty direct valuation state
+    /// Create a new state with the default merge behavior of `Or`.
     pub fn new(arch_info: SleighArchInfo) -> Self {
         Self {
-            written_locations: HashMap::new(),
+            written_locations: VarNodeMap::new(),
             arch_info,
+            merge_behavior: MergeBehavior::Or,
         }
     }
 
-    /// Get the value of a written varnode
-    pub fn get_value(&self, varnode: &VarNode) -> Option<&VarnodeValue> {
+    /// Create a new state specifying the desired merge behavior.
+    pub fn new_with_behavior(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
+        Self {
+            written_locations: VarNodeMap::new(),
+            arch_info,
+            merge_behavior,
+        }
+    }
+
+    pub fn get_value(&self, varnode: &VarNode) -> Option<&VarNodeValuation> {
         self.written_locations.get(varnode)
     }
 
-    /// Get all written locations
-    pub fn written_locations(&self) -> &HashMap<VarNode, VarnodeValue> {
+    pub fn written_locations(&self) -> &VarNodeMap<VarNodeValuation> {
         &self.written_locations
     }
 
-    /// Get the value of a varnode, returns Top if not found
-    fn get_value_or_top(&self, varnode: &VarNode) -> VarnodeValue {
-        self.written_locations
-            .get(varnode)
-            .cloned()
-            .unwrap_or(VarnodeValue::Entry(varnode.clone()))
-    }
-
-    /// Extract constant value from a varnode (either from state or const space)
-    fn extract_const(&self, varnode: &VarNode) -> Option<u64> {
-        if varnode.space_index == VarNode::CONST_SPACE_INDEX {
-            Some(varnode.offset)
-        } else {
-            self.get_value(varnode).and_then(|v| v.as_const())
-        }
-    }
-
-    /// Transfer function for direct valuation analysis - lightweight pcode interpreter
+    /// Transfer function: build symbolic valuations for pcode operations.
+    ///
+    /// Note: This returns a new state (functional) instead of mutating in place.
     fn transfer_impl(&self, op: &PcodeOperation) -> Self {
         let mut new_state = self.clone();
 
-        // Handle writes based on operation
         if let Some(output) = op.output() {
             match output {
                 GeneralizedVarNode::Direct(output_vn) => {
-                    let result_value = match op {
-                        // Copy: preserve the value
+                    let result_val = match op {
+                        // Copy
                         PcodeOperation::Copy { input, .. } => {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input.offset)
+                                VarNodeValuation::Const(input.clone())
                             } else {
-                                self.get_value_or_top(input)
+                                VarNodeValuation::from_varnode_or_entry(self, input)
                             }
                         }
 
-                        // Integer arithmetic operations
+                        // Adds (treat many boolean/bitwise ops as Add/Or/Xor approximations)
                         PcodeOperation::IntAdd { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-
-                            match (val0, val1) {
-                                (VarnodeValue::Const(a), VarnodeValue::Const(b)) => {
-                                    VarnodeValue::Const(a.wrapping_add(b))
-                                }
-                                (val, VarnodeValue::Const(c)) | (VarnodeValue::Const(c), val) => {
-                                    val.add(c as i64)
-                                }
-                                _ => VarnodeValue::Top,
-                            }
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::Add(Arc::new((a, b)))
                         }
 
                         PcodeOperation::IntSub { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-
-                            match (val0, val1) {
-                                (VarnodeValue::Const(a), VarnodeValue::Const(b)) => {
-                                    VarnodeValue::Const(a.wrapping_sub(b))
-                                }
-                                (val, VarnodeValue::Const(c)) => val.sub(c as i64),
-                                // Subtracting entry from entry gives 0 offset
-                                (VarnodeValue::Entry(a), VarnodeValue::Entry(b)) if a == b => {
-                                    VarnodeValue::Const(0)
-                                }
-                                (VarnodeValue::Offset(a, off_a), VarnodeValue::Entry(b))
-                                    if a == b =>
-                                {
-                                    VarnodeValue::Const(off_a as u64)
-                                }
-                                (
-                                    VarnodeValue::Offset(a, off_a),
-                                    VarnodeValue::Offset(b, off_b),
-                                ) if a == b => VarnodeValue::Const((off_a - off_b) as u64),
-                                _ => VarnodeValue::Top,
-                            }
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::Sub(Arc::new((a, b)))
                         }
 
                         PcodeOperation::IntMult { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                VarnodeValue::Const(a.wrapping_mul(b))
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntDiv { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                if b != 0 {
-                                    VarnodeValue::Const(a.wrapping_div(b))
-                                } else {
-                                    VarnodeValue::Top
-                                }
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntSignedDiv { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                if b != 0 {
-                                    VarnodeValue::Const((a as i64).wrapping_div(b as i64) as u64)
-                                } else {
-                                    VarnodeValue::Top
-                                }
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntRem { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                if b != 0 {
-                                    VarnodeValue::Const(a.wrapping_rem(b))
-                                } else {
-                                    VarnodeValue::Top
-                                }
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntSignedRem { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                if b != 0 {
-                                    VarnodeValue::Const((a as i64).wrapping_rem(b as i64) as u64)
-                                } else {
-                                    VarnodeValue::Top
-                                }
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntNegate { input, .. } => {
-                            if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input.offset)
-                            } else {
-                                self.get_value_or_top(input).negate()
-                            }
-                        }
-
-                        PcodeOperation::Int2Comp { input, .. } => {
-                            if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const((!(input.offset as i64)) as u64)
-                            } else if let Some(c) = self.extract_const(input) {
-                                VarnodeValue::Const(!c)
-                            } else {
-                                VarnodeValue::Top
-                            }
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::Mult(Arc::new((a, b)))
                         }
 
                         // Bitwise operations
-                        PcodeOperation::IntAnd { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-                            val0.and(&val1)
+                        PcodeOperation::IntAnd { input0, input1, .. }
+                        | PcodeOperation::BoolAnd { input0, input1, .. } => {
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::BitAnd(Arc::new((a, b)))
                         }
 
-                        PcodeOperation::IntOr { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
+                        PcodeOperation::IntXor { input0, input1, .. }
+                        | PcodeOperation::BoolXor { input0, input1, .. } => {
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::BitXor(Arc::new((a, b)))
+                        }
+
+                        PcodeOperation::IntOr { input0, input1, .. }
+                        | PcodeOperation::BoolOr { input0, input1, .. } => {
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::BitOr(Arc::new((a, b)))
+                        }
+                        PcodeOperation::IntLeftShift { input0, input1, .. }
+                        | PcodeOperation::IntRightShift { input0, input1, .. }
+                        | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
+                            // Approximate shifts as an Add of the operands (conservative symbolic form)
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input0);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input1);
+                            VarNodeValuation::Add(Arc::new((a, b)))
+                        }
+
+                        PcodeOperation::IntNegate { input, .. } => {
+                            // Represent negate as Sub(Const(0), input)
+                            let zero = VarNode {
+                                space_index: VarNode::CONST_SPACE_INDEX,
+                                offset: 0,
+                                size: input.size,
                             };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
+                            let a = VarNodeValuation::Const(zero);
+                            let b = VarNodeValuation::from_varnode_or_entry(self, input);
+                            VarNodeValuation::Sub(Arc::new((a, b)))
+                        }
+
+                        PcodeOperation::Int2Comp { input, .. } => {
+                            // Approximate two's complement by bit-negation
+                            let a = VarNodeValuation::from_varnode_or_entry(self, input);
+                            VarNodeValuation::BitNegate(Arc::new(a))
+                        }
+
+                        // Load - track pointer expression
+                        PcodeOperation::Load { input, .. } => {
+                            let ptr = &input.pointer_location;
+                            let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
+                                VarNodeValuation::Const(ptr.clone())
                             } else {
-                                self.get_value_or_top(input1)
+                                VarNodeValuation::from_varnode_or_entry(self, ptr)
                             };
-                            val0.or(&val1)
+                            VarNodeValuation::Load(Arc::new(pv))
                         }
 
-                        PcodeOperation::IntXor { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-                            val0.xor(&val1)
-                        }
-
-                        PcodeOperation::IntLeftShift { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                VarnodeValue::Const(a.wrapping_shl(b as u32))
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntRightShift { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                VarnodeValue::Const(a.wrapping_shr(b as u32))
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                VarnodeValue::Const((a as i64).wrapping_shr(b as u32) as u64)
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        // Sign/Zero extension - preserve constants
+                        // Casts/extensions - preserve symbolic value
                         PcodeOperation::IntSExt { input, .. }
                         | PcodeOperation::IntZExt { input, .. } => {
-                            if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input.offset)
-                            } else {
-                                self.get_value_or_top(input)
-                            }
+                            VarNodeValuation::from_varnode_or_entry(self, input)
                         }
 
-                        // Comparison operations - we can't track these precisely, so Top
-                        PcodeOperation::IntEqual { .. }
-                        | PcodeOperation::IntNotEqual { .. }
-                        | PcodeOperation::IntLess { .. }
-                        | PcodeOperation::IntLessEqual { .. }
-                        | PcodeOperation::IntSignedLess { .. }
-                        | PcodeOperation::IntSignedLessEqual { .. } => VarnodeValue::Top,
-
-                        // Boolean operations
-                        PcodeOperation::BoolAnd { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-                            val0.and(&val1)
-                        }
-
-                        PcodeOperation::BoolOr { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-                            val0.or(&val1)
-                        }
-
-                        PcodeOperation::BoolXor { input0, input1, .. } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-                            let val1 = if input1.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input1.offset)
-                            } else {
-                                self.get_value_or_top(input1)
-                            };
-                            val0.xor(&val1)
-                        }
-
-                        PcodeOperation::BoolNegate { input, .. } => {
-                            if let Some(c) = self.extract_const(input) {
-                                VarnodeValue::Const(if c == 0 { 1 } else { 0 })
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        // Piece/SubPiece
-                        PcodeOperation::Piece { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                // High bits from input0, low bits from input1
-                                // This is simplified - proper implementation depends on sizes
-                                VarnodeValue::Const((a << (input1.size * 8)) | b)
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::SubPiece { input0, input1, .. } => {
-                            if let Some(offset_const) = self.extract_const(input1) {
-                                if let Some(val) = self.extract_const(input0) {
-                                    VarnodeValue::Const(val >> (offset_const * 8))
-                                } else {
-                                    VarnodeValue::Top
-                                }
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        // Load - track the pointer value if known
-                        PcodeOperation::Load { input, .. } => {
-                            // Get the value of the pointer
-                            let pointer = &input.pointer_location;
-                            let pointer_value = if pointer.space_index == VarNode::CONST_SPACE_INDEX
-                            {
-                                VarnodeValue::Const(pointer.offset)
-                            } else {
-                                self.get_value_or_top(pointer)
-                            };
-
-                            // Wrap it in Loaded to indicate this was loaded from memory
-                            VarnodeValue::Loaded(Box::new(pointer_value))
-                        }
-
-                        // Cast - preserve value
-                        PcodeOperation::Cast { input, .. } => {
-                            if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input.offset)
-                            } else {
-                                self.get_value_or_top(input)
-                            }
-                        }
-
-                        // PtrAdd - special handling for pointer arithmetic
-                        PcodeOperation::PtrAdd {
-                            input0,
-                            input1,
-                            input2,
-                            ..
-                        } => {
-                            let val0 = if input0.space_index == VarNode::CONST_SPACE_INDEX {
-                                VarnodeValue::Const(input0.offset)
-                            } else {
-                                self.get_value_or_top(input0)
-                            };
-
-                            // input2 is the element size (must be constant)
-                            let elem_size = input2.offset as i64;
-
-                            if let Some(index) = self.extract_const(input1) {
-                                let offset = (index as i64).wrapping_mul(elem_size);
-                                val0.add(offset)
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::PtrSub { input0, input1, .. } => {
-                            if let (Some(a), Some(b)) =
-                                (self.extract_const(input0), self.extract_const(input1))
-                            {
-                                VarnodeValue::Const(a.wrapping_sub(b))
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        // PopCount, LzCount - only track constants
-                        PcodeOperation::PopCount { input, .. } => {
-                            if let Some(c) = self.extract_const(input) {
-                                VarnodeValue::Const(c.count_ones() as u64)
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        PcodeOperation::LzCount { input, .. } => {
-                            if let Some(c) = self.extract_const(input) {
-                                VarnodeValue::Const(c.leading_zeros() as u64)
-                            } else {
-                                VarnodeValue::Top
-                            }
-                        }
-
-                        // Everything else: Top
-                        _ => VarnodeValue::Top,
+                        // Default: be conservative and mark as Top
+                        _ => VarNodeValuation::Top,
                     };
-
-                    new_state.written_locations.insert(output_vn, result_value);
+                    // simplify returns a new value
+                    let simplified = result_val.simplify();
+                    new_state.written_locations.insert(output_vn, simplified);
                 }
+
                 GeneralizedVarNode::Indirect(_) => {
-                    // Indirect writes are not tracked
+                    // Indirect writes are not tracked by this CPA.
                 }
             }
         }
 
-        // Clear internal space varnodes on control flow operations to non-const destinations
+        // Clear internal-space varnodes on control-flow to non-const destinations (same policy as direct_valuation.rs)
         match op {
             PcodeOperation::Branch { input } | PcodeOperation::CBranch { input0: input, .. } => {
-                // Check if the branch destination is NOT in the const space
                 if input.space_index != VarNode::CONST_SPACE_INDEX {
-                    // Clear all varnodes in internal spaces
-                    new_state.written_locations.retain(|vn, _| {
-                        self.arch_info
+                    // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
+                    let mut to_remove: Vec<VarNode> = Vec::new();
+                    for (vn, _) in new_state.written_locations.iter() {
+                        let keep = self
+                            .arch_info
                             .get_space(vn.space_index)
                             .map(|space| space._type != SpaceType::IPTR_INTERNAL)
-                            .unwrap_or(true) // Keep if space info not found
-                    });
+                            .unwrap_or(true);
+                        if !keep {
+                            to_remove.push(vn.clone());
+                        }
+                    }
+                    for k in to_remove {
+                        new_state.written_locations.remove(&k);
+                    }
                 }
             }
-            PcodeOperation::BranchInd { .. } => {
-                // Indirect branches always go to non-const space, so clear internal varnodes
-                new_state.written_locations.retain(|vn, _| {
-                    self.arch_info
+            PcodeOperation::BranchInd { .. } | PcodeOperation::CallInd { .. } => {
+                // Similar retain behavior as above for branch-indirect.
+                let mut to_remove: Vec<VarNode> = Vec::new();
+                for (vn, _) in new_state.written_locations.iter() {
+                    let keep = self
+                        .arch_info
                         .get_space(vn.space_index)
                         .map(|space| space._type != SpaceType::IPTR_INTERNAL)
-                        .unwrap_or(true)
-                });
+                        .unwrap_or(true);
+                    if !keep {
+                        to_remove.push(vn.clone());
+                    }
+                }
+                for k in to_remove {
+                    new_state.written_locations.remove(&k);
+                }
             }
             _ => {}
         }
@@ -773,49 +571,75 @@ impl DirectValuationState {
     }
 }
 
+impl PartialOrd for VarNodeValuation {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self == other {
+            Some(Ordering::Equal)
+        } else {
+            None
+        }
+    }
+}
+
+impl JoinSemiLattice for VarNodeValuation {
+    fn join(&mut self, _other: &Self) {}
+}
+
 impl PartialOrd for DirectValuationState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Two states are comparable if all their entries are comparable
-        // and they have the same keys
+        // Make states comparable only when they have the same keys and identical valuations.
         if self.written_locations.len() != other.written_locations.len() {
             return None;
         }
 
-        let mut overall = Ordering::Equal;
-        for (key, value) in &self.written_locations {
+        for (key, val) in self.written_locations.iter() {
             match other.written_locations.get(key) {
-                Some(other_value) => match value.partial_cmp(other_value) {
-                    Some(Ordering::Equal) => continue,
-                    Some(Ordering::Less) => {
-                        if overall == Ordering::Greater {
-                            return None;
-                        }
-                        overall = Ordering::Less;
+                Some(other_val) => {
+                    if val != other_val {
+                        return None;
                     }
-                    Some(Ordering::Greater) => {
-                        if overall == Ordering::Less {
-                            return None;
-                        }
-                        overall = Ordering::Greater;
-                    }
-                    None => return None,
-                },
+                }
                 None => return None,
             }
         }
 
-        Some(overall)
+        Some(Ordering::Equal)
     }
 }
 
 impl JoinSemiLattice for DirectValuationState {
     fn join(&mut self, other: &Self) {
-        // Join the maps
-        for (key, other_value) in &other.written_locations {
-            self.written_locations
-                .entry(key.clone())
-                .and_modify(|v| v.join(other_value))
-                .or_insert_with(|| other_value.clone());
+        // For each varnode present in `other`:
+        // - if present in self with same valuation -> keep
+        // - if present in self with different valuation -> combine according to merge_behavior
+        // - if absent in self -> clone from other
+        for (key, other_val) in other.written_locations.iter() {
+            match self.written_locations.get_mut(key) {
+                Some(my_val) => {
+                    if my_val == &VarNodeValuation::Top || other_val == &VarNodeValuation::Top {
+                        *my_val = VarNodeValuation::Top;
+                    } else if my_val != other_val {
+                        match self.merge_behavior {
+                            MergeBehavior::Or => {
+                                // create Or(...) of the two, then simplify the result
+                                let combined = VarNodeValuation::Or(Arc::new((
+                                    my_val.clone(),
+                                    other_val.clone(),
+                                )));
+                                *my_val = combined.simplify();
+                            }
+                            MergeBehavior::Top => {
+                                // converge differing values to Top (less precise, but useful when not unwinding locations)
+                                *my_val = VarNodeValuation::Top;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    self.written_locations
+                        .insert(key.clone(), other_val.clone());
+                }
+            }
         }
     }
 }
@@ -835,32 +659,19 @@ impl AbstractState for DirectValuationState {
     }
 }
 
-// Strengthen implementations for compound analysis
-impl
-    crate::analysis::compound::Strengthen<crate::analysis::cpa::lattice::pcode::PcodeAddressLattice>
-    for DirectValuationState
-{
-}
-
-/// The Direct Valuation CPA
-///
-/// This analysis can optionally track a specific varnode as an "entry" value (e.g., stack pointer).
-/// If provided, this varnode will be initialized with Entry(varnode) instead of Top.
 pub struct DirectValuationAnalysis {
-    /// Architecture information for space type lookups
     arch_info: SleighArchInfo,
+    /// Default merge behavior for states produced by this analysis.
+    merge_behavior: MergeBehavior,
 }
 
 impl DirectValuationAnalysis {
-    /// Create a new DirectValuationAnalysis without any entry varnode
-    pub fn new(arch_info: SleighArchInfo) -> Self {
-        Self { arch_info }
-    }
-
-    /// Create a new DirectValuationAnalysis with a specific entry varnode
-    /// (e.g., stack pointer that starts at Entry value)
-    pub fn with_entry_varnode(arch_info: SleighArchInfo, _entry_varnode: VarNode) -> Self {
-        Self { arch_info }
+    /// Create with the default merge behavior (`Or`).
+    pub fn new(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
+        Self {
+            arch_info,
+            merge_behavior,
+        }
     }
 }
 
@@ -869,294 +680,15 @@ impl ConfigurableProgramAnalysis for DirectValuationAnalysis {
     type Reducer = EmptyResidue<Self::State>;
 }
 
-impl Analysis for DirectValuationAnalysis {}
-
 impl IntoState<DirectValuationAnalysis> for ConcretePcodeAddress {
     fn into_state(
         self,
         c: &DirectValuationAnalysis,
     ) -> <DirectValuationAnalysis as ConfigurableProgramAnalysis>::State {
         DirectValuationState {
-            written_locations: Default::default(),
+            written_locations: VarNodeMap::new(),
             arch_info: c.arch_info.clone(),
+            merge_behavior: c.merge_behavior,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use jingle_sleigh::{SleighEndianness, SpaceInfo};
-
-    // Helper to create a mock SleighArchInfo for testing
-    fn mock_arch_info() -> SleighArchInfo {
-        let spaces = vec![
-            SpaceInfo {
-                name: "const".to_string(),
-                index: 0,
-                index_size_bytes: 8,
-                word_size_bytes: 1,
-                _type: SpaceType::IPTR_CONSTANT,
-                endianness: SleighEndianness::Little,
-            },
-            SpaceInfo {
-                name: "ram".to_string(),
-                index: 1,
-                index_size_bytes: 8,
-                word_size_bytes: 1,
-                _type: SpaceType::IPTR_PROCESSOR,
-                endianness: SleighEndianness::Little,
-            },
-            SpaceInfo {
-                name: "register".to_string(),
-                index: 2,
-                index_size_bytes: 8,
-                word_size_bytes: 1,
-                _type: SpaceType::IPTR_PROCESSOR,
-                endianness: SleighEndianness::Little,
-            },
-            SpaceInfo {
-                name: "unique".to_string(),
-                index: 3,
-                index_size_bytes: 8,
-                word_size_bytes: 1,
-                _type: SpaceType::IPTR_INTERNAL,
-                endianness: SleighEndianness::Little,
-            },
-        ];
-        SleighArchInfo::new(
-            "test:LE:64:default".to_string(),
-            std::iter::empty(),
-            spaces.into_iter(),
-            1,
-            vec![],
-        )
-    }
-
-    #[test]
-    fn test_varnode_value_ordering() {
-        let const_10 = VarnodeValue::Const(10);
-        let const_20 = VarnodeValue::Const(20);
-        let top = VarnodeValue::Top;
-
-        assert!(const_10 < top);
-        assert!(const_10.partial_cmp(&const_20).is_none());
-    }
-
-    #[test]
-    fn test_varnode_value_join() {
-        let mut val1 = VarnodeValue::Const(10);
-        let val2 = VarnodeValue::Const(10);
-        val1.join(&val2);
-        assert_eq!(val1, VarnodeValue::Const(10));
-
-        let mut val1 = VarnodeValue::Const(10);
-        let val2 = VarnodeValue::Const(20);
-        val1.join(&val2);
-        assert_eq!(val1, VarnodeValue::Top);
-    }
-
-    #[test]
-    fn test_copy_from_constant() {
-        let state = DirectValuationState::new(mock_arch_info());
-        let output = VarNode {
-            space_index: 1,
-            offset: 100,
-            size: 8,
-        };
-        let input = VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: 42,
-            size: 8,
-        };
-        let op = PcodeOperation::Copy {
-            input: input.clone(),
-            output: output.clone(),
-        };
-
-        let new_state = state.transfer_impl(&op);
-        assert_eq!(new_state.get_value(&output), Some(&VarnodeValue::Const(42)));
-    }
-
-    #[test]
-    fn test_copy_from_non_constant() {
-        let state = DirectValuationState::new(mock_arch_info());
-        let output = VarNode {
-            space_index: 1,
-            offset: 100,
-            size: 8,
-        };
-        let input = VarNode {
-            space_index: 2,
-            offset: 200,
-            size: 8,
-        };
-        let op = PcodeOperation::Copy {
-            input: input.clone(),
-            output: output.clone(),
-        };
-
-        let new_state = state.transfer_impl(&op);
-        assert_eq!(
-            new_state.get_value(&output),
-            Some(&VarnodeValue::Entry(input))
-        );
-    }
-
-    #[test]
-    fn test_branch_clears_internal_space() {
-        let mut state = DirectValuationState::new(mock_arch_info());
-
-        // Add some tracked varnodes in different spaces
-        let ram_vn = VarNode {
-            space_index: 1, // ram (PROCESSOR space)
-            offset: 100,
-            size: 8,
-        };
-        let reg_vn = VarNode {
-            space_index: 2, // register (PROCESSOR space)
-            offset: 8,
-            size: 8,
-        };
-        let unique_vn = VarNode {
-            space_index: 3, // unique (INTERNAL space)
-            offset: 0x1000,
-            size: 8,
-        };
-
-        state
-            .written_locations
-            .insert(ram_vn.clone(), VarnodeValue::Const(42));
-        state
-            .written_locations
-            .insert(reg_vn.clone(), VarnodeValue::Const(100));
-        state
-            .written_locations
-            .insert(unique_vn.clone(), VarnodeValue::Const(200));
-
-        // Branch to a non-const destination (ram space)
-        let branch_dest = VarNode {
-            space_index: 1, // ram space
-            offset: 0x1000,
-            size: 8,
-        };
-        let branch_op = PcodeOperation::Branch { input: branch_dest };
-
-        let new_state = state.transfer_impl(&branch_op);
-
-        // Processor space varnodes should be retained
-        assert_eq!(new_state.get_value(&ram_vn), Some(&VarnodeValue::Const(42)));
-        assert_eq!(
-            new_state.get_value(&reg_vn),
-            Some(&VarnodeValue::Const(100))
-        );
-
-        // Internal space varnodes should be cleared
-        assert_eq!(new_state.get_value(&unique_vn), None);
-    }
-
-    #[test]
-    fn test_branch_to_const_does_not_clear() {
-        let mut state = DirectValuationState::new(mock_arch_info());
-
-        // Add a tracked varnode in internal space
-        let unique_vn = VarNode {
-            space_index: 3, // unique (INTERNAL space)
-            offset: 0x1000,
-            size: 8,
-        };
-        state
-            .written_locations
-            .insert(unique_vn.clone(), VarnodeValue::Const(200));
-
-        // Branch to a const space destination (e.g., for relative branching within an instruction)
-        let branch_dest = VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: 0x10,
-            size: 8,
-        };
-        let branch_op = PcodeOperation::Branch { input: branch_dest };
-
-        let new_state = state.transfer_impl(&branch_op);
-
-        // Internal space varnodes should NOT be cleared for const-space branches
-        assert_eq!(
-            new_state.get_value(&unique_vn),
-            Some(&VarnodeValue::Const(200))
-        );
-    }
-
-    #[test]
-    fn test_cbranch_clears_internal_space() {
-        let mut state = DirectValuationState::new(mock_arch_info());
-
-        let unique_vn = VarNode {
-            space_index: 3, // unique (INTERNAL space)
-            offset: 0x1000,
-            size: 8,
-        };
-        state
-            .written_locations
-            .insert(unique_vn.clone(), VarnodeValue::Const(200));
-
-        // Conditional branch to a non-const destination
-        let branch_dest = VarNode {
-            space_index: 1, // ram space
-            offset: 0x1000,
-            size: 8,
-        };
-        let condition = VarNode {
-            space_index: 2,
-            offset: 0,
-            size: 1,
-        };
-        let cbranch_op = PcodeOperation::CBranch {
-            input0: branch_dest,
-            input1: condition,
-        };
-
-        let new_state = state.transfer_impl(&cbranch_op);
-
-        // Internal space varnodes should be cleared
-        assert_eq!(new_state.get_value(&unique_vn), None);
-    }
-
-    #[test]
-    fn test_varnode_value_display() {
-        let info = mock_arch_info();
-
-        // Test Top
-        let top = VarnodeValue::Top;
-        assert_eq!(format!("{}", top.display(&info)), "⊤");
-
-        // Test Const
-        let const_val = VarnodeValue::Const(0x42);
-        assert_eq!(format!("{}", const_val.display(&info)), "0x42");
-
-        // Test Entry
-        let reg_vn = VarNode {
-            space_index: 2,
-            offset: 8,
-            size: 8,
-        };
-        let entry = VarnodeValue::Entry(reg_vn.clone());
-        let display_str = format!("{}", entry.display(&info));
-        assert!(display_str.contains("Entry"));
-
-        // Test Offset with positive offset
-        let offset_pos = VarnodeValue::Offset(reg_vn.clone(), 16);
-        let display_str = format!("{}", offset_pos.display(&info));
-        assert!(display_str.contains("+0x10"));
-
-        // Test Offset with negative offset
-        let offset_neg = VarnodeValue::Offset(reg_vn.clone(), -8);
-        let display_str = format!("{}", offset_neg.display(&info));
-        assert!(display_str.contains("-0x8") || display_str.contains("0xfffffffffffffff8"));
-
-        // Test Loaded
-        let loaded = VarnodeValue::Loaded(Box::new(VarnodeValue::Const(0x1000)));
-        let display_str = format!("{}", loaded.display(&info));
-        assert!(display_str.contains("Load"));
-        assert!(display_str.contains("0x1000"));
     }
 }
