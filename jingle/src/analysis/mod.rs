@@ -11,11 +11,11 @@ pub mod cfg;
 pub mod compound;
 pub mod cpa;
 pub mod ctl;
-pub mod direct_valuation;
 pub mod location;
 #[expect(unused)]
 mod path;
 pub mod pcode_store;
+pub mod valuation;
 pub mod varnode;
 pub mod varnode_map;
 
