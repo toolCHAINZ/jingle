@@ -100,6 +100,18 @@ impl<'a, T> Debug for DynIterBox<'a, T> {
 ///
 /// This stores a boxed, cloneable iterator so the `Successor` itself can be
 /// `Clone` without forcing collection of items into a `Vec`.
+///
+/// This structure, [DynIterBox], and [ClonableIter] are my quick best-effort at
+/// balancing the following goals:
+///
+/// * [AbstractState::transfer] returns an iterator.
+/// * [AbstractState::transfer] impls can return heterogenous iterator types easily
+///   (e.g. one path returns [std::iter::empty] and another returns [std::iter::once])
+/// * [AbstractState] Implementations don't have to juggle an associated type or generic
+///   arguments for the transfer function.
+/// * The iterators produced by [AbstractState::transfer] can be cloned for usage with `iproduct`
+///
+/// There's definitely some trade-offs with this approach and this might change in the future.
 pub struct Successor<'a, T>(DynIterBox<'a, T>);
 
 impl<'a, T> Successor<'a, T> {

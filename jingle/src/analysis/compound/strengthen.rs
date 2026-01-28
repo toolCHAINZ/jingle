@@ -15,14 +15,22 @@ pub struct StrengthenFactory(pub fn() -> (TypeId, TypeId, StrengthenFn));
 inventory::collect!(StrengthenFactory);
 
 #[macro_export]
+/// [AbstractState]s that can Strengthen other states can be registered through
+/// this function. The first argument, the target state type, gets strengthened
+/// by the second argument, the source state type, using the third argument, a
+/// function that takes a target state as a mutable reference and the source state
+/// as a const reference.
+///
+/// For a strengthen implementation to be sound with respect to the CPA literature,
+/// it must ensure that the strengthened state is <= the original version.
 macro_rules! register_strengthen {
-    ($From:ty, $To:ty, $func:path) => {
+    ($Target:ty, $Source:ty, $func:path) => {
         const _: () = {
-            // wrapper used to adapt the concrete fn signature `fn(&$From, &$To) -> Option<$From>`
+            // wrapper used to adapt the concrete fn signature `fn(&$Target, &$Source) -> Option<$Target>`
             // into the registry-required `fn(&dyn Any, &dyn Any) -> Option<Box<dyn Any>>`.
             fn wrapper(a: &mut dyn std::any::Any, b: &dyn std::any::Any) {
-                let a = a.downcast_mut::<$From>();
-                let b = b.downcast_ref::<$To>();
+                let a = a.downcast_mut::<$Target>();
+                let b = b.downcast_ref::<$Source>();
                 if let Some(a) = a
                     && let Some(b) = b
                 {
@@ -37,8 +45,8 @@ macro_rules! register_strengthen {
                 fn(&mut dyn std::any::Any, &dyn std::any::Any),
             ) {
                 (
-                    std::any::TypeId::of::<$From>(),
-                    std::any::TypeId::of::<$To>(),
+                    std::any::TypeId::of::<$Target>(),
+                    std::any::TypeId::of::<$Source>(),
                     wrapper,
                 )
             }
@@ -84,4 +92,7 @@ pub trait ComponentStrengthen: 'static {
     }
 }
 
+/// Strengthening impls are registered at link time and dynamically fetched
+/// at runtime using [inventory]. This trait is therefore implemented for all
+/// states, since every state can query the registry.
 impl<T: AbstractState> ComponentStrengthen for T where T: 'static {}
