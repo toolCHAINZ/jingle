@@ -11,7 +11,7 @@ use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::rc::Rc;
 
 // Z3 bitvector support (assume updated API without explicit Context lifetimes)
 // Import the `Ast` trait so we can call `simplify()` and `ite()` on AST nodes.
@@ -24,8 +24,8 @@ use z3::ast::{Ast, BV};
 #[derive(Clone, Debug)]
 pub enum SmtVal {
     Val(BV),
-    Load(Arc<SmtVal>),
-    Or(Arc<(SmtVal, SmtVal)>),
+    Load(Rc<SmtVal>),
+    Or(Rc<(SmtVal, SmtVal)>),
     Top,
 }
 
@@ -68,7 +68,7 @@ impl JingleDisplayable for SmtVal {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
             SmtVal::Top => write!(f, "⊤"),
-            SmtVal::Val(v) => write!(f, "{}", v.to_string()),
+            SmtVal::Val(v) => write!(f, "{}", v),
             SmtVal::Load(ptr) => write!(f, "Load({})", ptr.display(info)),
             SmtVal::Or(pair) => write!(
                 f,
@@ -90,7 +90,7 @@ fn simplify_smtval(v: SmtVal) -> SmtVal {
         SmtVal::Load(ptr) => {
             // recursively simplify the inner pointer expression
             let inner = simplify_smtval((*ptr).clone());
-            SmtVal::Load(Arc::new(inner))
+            SmtVal::Load(Rc::new(inner))
         }
         SmtVal::Or(pair) => {
             // simplify both sides of the Or
@@ -100,7 +100,7 @@ fn simplify_smtval(v: SmtVal) -> SmtVal {
             if left_s == right_s {
                 left_s
             } else {
-                SmtVal::Or(Arc::new((left_s, right_s)))
+                SmtVal::Or(Rc::new((left_s, right_s)))
             }
         }
         SmtVal::Top => SmtVal::Top,
@@ -315,7 +315,7 @@ impl SmtValuationState {
                             } else {
                                 new_state.from_varnode_or_entry(ptr)
                             };
-                            SmtVal::Load(Arc::new(pv))
+                            SmtVal::Load(Rc::new(pv))
                         }
 
                         // Casts/extensions - preserve symbolic value via BV ops
@@ -474,7 +474,7 @@ impl JoinSemiLattice for SmtValuationState {
                                 // which mirrors the simple valuation representation. This preserves the two
                                 // alternative valuations and lets `simplify_smtval` attempt to canonicalize them.
                                 let combined =
-                                    SmtVal::Or(Arc::new((my_val.clone(), other_val.clone())));
+                                    SmtVal::Or(Rc::new((my_val.clone(), other_val.clone())));
                                 *my_val = simplify_smtval(combined);
                             }
                             MergeBehavior::Top => {
