@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.4.2...jingle-v0.5.0) - 2026-01-28
+
+### Added
+
+- [**breaking**] SMT valuation analysis ([#135](https://github.com/toolCHAINZ/jingle/pull/135))
+- specialized varnode map data structure, analysis refactor ([#134](https://github.com/toolCHAINZ/jingle/pull/134))
+- Allow Location Lattice Elements in CFGs ([#132](https://github.com/toolCHAINZ/jingle/pull/132))
+
+### Other
+
+- Trait Cleanup and PcodeOpRef ([#133](https://github.com/toolCHAINZ/jingle/pull/133))
+- Analysis Refactoring ([#129](https://github.com/toolCHAINZ/jingle/pull/129))
+
 ## [0.4.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.4.1...jingle-v0.4.2) - 2025-12-21
 
 ### Fixed
