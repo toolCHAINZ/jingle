@@ -8,9 +8,7 @@ use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
-use jingle::analysis::valuation::{
-    MergeBehavior, SimpleValuation, SimpleValuationAnalysis, SimpleValuationState,
-};
+use jingle::analysis::valuation::{MergeBehavior, SmtVal, SmtValuationAnalysis, SmtValuationState};
 use jingle::display::JingleDisplayable;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
@@ -29,13 +27,13 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::INFO)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
         .init();
 
-    tracing::info!("Starting stack offset analysis using DirectValuationAnalysis");
+    tracing::info!("Starting stack offset analysis using SmtValuationAnalysis");
 
     // Load binary via gimli-backed image context (adjust paths to your setup)
     let bin_path = env::home_dir()
@@ -52,11 +50,11 @@ fn main() {
         size: 8,        // 8 bytes for 64-bit
     };
 
-    // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
+    // Build a compound analysis: BasicLocationAnalysis (left) + SmtValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
     let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
     let valuation_analysis =
-        SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
+        SmtValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
     let mut compound_with_cfg =
@@ -64,19 +62,19 @@ fn main() {
 
     tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 
-    // Run the analysis. The Residue/CfgReducer final output is a `PcodeCfg<(DirectLocationState, DirectValuationState)>`
+    // Run the analysis. The Residue/CfgReducer final output is a `PcodeCfg<(LocationState, SmtValuationState)>`
     let cfg = compound_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     // We'll collect valuation info keyed by concrete addresses encountered in the CFG.
-    let mut stack_offsets: HashMap<ConcretePcodeAddress, SimpleValuation> = HashMap::new();
-    let mut direct_valuations: HashMap<ConcretePcodeAddress, SimpleValuationState> = HashMap::new();
+    let mut stack_offsets: HashMap<ConcretePcodeAddress, SmtVal> = HashMap::new();
+    let mut direct_valuations: HashMap<ConcretePcodeAddress, SmtValuationState> = HashMap::new();
 
-    // `cfg.nodes()` yields `&N` where N = (DirectLocationState, DirectValuationState).
+    // `cfg.nodes()` yields `&N` where N = (LocationState, SmtValuationState).
     // Use `cloned()` to get owned tuples so we can inspect and store values.
     for node in cfg.nodes().cloned() {
         // Extract the concrete program location (if any) from the left component.
         if let Some(addr) = node.s1.get_location() {
-            // Extract stack pointer info from the DirectValuationState (right component).
+            // Extract stack pointer info from the SmtValuationState (right component).
             if let Some(sp_value) = node.s2.get_value(&stack_pointer) {
                 stack_offsets.insert(addr, sp_value.clone());
             }
@@ -85,7 +83,7 @@ fn main() {
     }
 
     // Print summary header
-    println!("Stack Offset Analysis Results using DirectValuationAnalysis:");
+    println!("Stack Offset Analysis Results using SmtValuationAnalysis:");
     println!("=============================================================\n");
 
     // List CFG nodes (program locations)
@@ -102,7 +100,7 @@ fn main() {
 
         let val_count = direct_valuations
             .get(loc)
-            .map(|v: &SimpleValuationState| v.written_locations().len())
+            .map(|v: &SmtValuationState| v.written_locations().len())
             .unwrap_or(0);
 
         let val_info = if val_count > 0 {
@@ -157,11 +155,11 @@ fn main() {
 
         println!("  {} {}", leaf_loc, offset_info);
 
-        // Print detailed DirectValuationState for this leaf (if available)
+        // Print detailed SmtValuationState for this leaf (if available)
         if let Some(addr) = leaf.get_location() {
             if let Some(state) = direct_valuations.get(&addr) {
                 let count = state.written_locations().len();
-                println!("    DirectValuationState: {} tracked varnode(s)", count);
+                println!("    SmtValuationState: {} tracked varnode(s)", count);
 
                 if count == 0 {
                     println!("      (no written locations)");
@@ -175,7 +173,7 @@ fn main() {
                     }
                 }
             } else {
-                println!("    (no DirectValuationState recorded for this location)");
+                println!("    (no SmtValuationState recorded for this location)");
             }
         } else {
             println!(
@@ -199,7 +197,7 @@ fn main() {
 
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|v| !matches!(v, SimpleValuation::Top))
+        .filter(|v| !matches!(v, SmtVal::Top))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);
@@ -207,16 +205,19 @@ fn main() {
         "  Total tracked varnodes across all locations: {}",
         direct_valuations
             .values()
-            .map(|v: &SimpleValuationState| v.written_locations().len())
+            .map(|v: &SmtValuationState| v.written_locations().len())
             .sum::<usize>()
     );
 
     println!("\n  Notes:");
-    println!("  - `DirectValuationAnalysis` acts as a lightweight p-code interpreter that tracks");
-    println!("    directly-written varnodes. The stack pointer can be seeded as an Entry value");
     println!(
-        "    and the analysis will track `Offset(sp, delta)` values as the program modifies it."
+        "  - `SmtValuationAnalysis` uses Z3 bitvectors to represent entry values and operations."
     );
+    println!("    Loads are recorded as pointer expressions (not resolved to memory contents) so");
+    println!("    pointer tracking remains symbolic. The `Or` merge constructs selector-based");
+    println!("    `ite` expressions to preserve precision when valuations diverge.");
     println!("  - This example demonstrates how to run a compound analysis and extract both the");
-    println!("    constructed CFG (via `CfgReducer`) and per-location valuation information.");
+    println!(
+        "    constructed CFG (via `CfgReducer`) and per-location SMT-backed valuation information."
+    );
 }
