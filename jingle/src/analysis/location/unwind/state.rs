@@ -1,7 +1,7 @@
 use std::{
     borrow::Borrow,
     cmp::Ordering,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt::{Debug, Display, Formatter, LowerHex},
     hash::{Hash, Hasher},
 };
@@ -87,7 +87,7 @@ impl LowerHex for UnwindingState {
 
 impl UnwindingState {
     fn with_location(location: ConcretePcodeAddress, max_count: usize) -> Self {
-        let mut dominators = vec![location];
+        let dominators = vec![location];
         Self {
             location,
             dominators,
@@ -151,7 +151,7 @@ impl JoinSemiLattice for UnwindingState {
 
         // For back-edge counts, take the maximum count for each edge across both maps.
         for (edge, &other_count) in other.back_edge_counts.iter() {
-            let key = edge.clone();
+            let key = *edge;
             let entry = self.back_edge_counts.entry(key).or_insert(0);
             if *entry < other_count {
                 *entry = other_count;
