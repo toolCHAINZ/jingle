@@ -15,8 +15,8 @@ use crate::{
             lattice::{JoinSemiLattice, pcode::PcodeAddressLattice},
             state::{AbstractState, LocationState, MergeOutcome, Successor},
         },
-        direct_valuation::DirectValuationState,
         location::basic::BasicLocationAnalysis,
+        valuation::SimpleValuationState,
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
     register_strengthen,
@@ -177,7 +177,7 @@ impl LocationState for BasicLocationState {
 }
 
 impl BasicLocationState {
-    pub fn strengthen_from_valuation(&mut self, v: &DirectValuationState) {
+    pub fn strengthen_from_valuation(&mut self, v: &SimpleValuationState) {
         if let PcodeAddressLattice::Computed(indirect_var_node) = &self.inner {
             let ptr_value = v.get_value(&indirect_var_node.pointer_location);
             if let Some(value) = ptr_value {
@@ -215,6 +215,6 @@ impl CfgState for BasicLocationState {
 
 register_strengthen!(
     BasicLocationState,
-    DirectValuationState,
+    SimpleValuationState,
     BasicLocationState::strengthen_from_valuation
 );
