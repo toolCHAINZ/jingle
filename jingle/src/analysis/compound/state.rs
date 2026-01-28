@@ -1,22 +1,22 @@
-use itertools::iproduct;
-use jingle_sleigh::SleighArchInfo;
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::fmt::LowerHex;
-use std::hash::Hash;
-
 use crate::analysis::cpa::state::LocationState;
 use crate::{
     analysis::{
-        cfg::{CfgState, model::StateDisplayWrapper},
+        cfg::CfgState,
         compound::strengthen::ComponentStrengthen,
         cpa::{
             lattice::JoinSemiLattice,
-            state::{AbstractState, MergeOutcome, StateDisplay, Successor},
+            state::{AbstractState, MergeOutcome, Successor},
         },
     },
     modeling::machine::cpu::concrete::ConcretePcodeAddress,
 };
+use itertools::iproduct;
+use jingle_sleigh::SleighArchInfo;
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::LowerHex;
+use std::hash::Hash;
 
 macro_rules! named_tuple {
     // capture: struct name, first field, then repeated `ident: TypeIdent`
@@ -58,14 +58,13 @@ macro_rules! named_tuple {
             }
         }
 
-        impl<$F: StateDisplay, $( $T: StateDisplay ),+> StateDisplay for $name<$F, $( $T ),+> {
-            fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl<$F: Display, $( $T: Display ),+> Display for $name<$F, $( $T ),+> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "(")?;
-                self.$first_field.fmt_state(f)?;
-                write!(f, ", ")?;
+                self.$first_field.fmt(f)?;
                 $(
-                    self.$field.fmt_state(f)?;
-                    write!(f, ", ")?;
+                    write!(f, ",")?;
+                    self.$field.fmt(f)?;
                 )+
                 write!(f, ")")
             }
@@ -78,14 +77,16 @@ macro_rules! named_tuple {
         {
             fn merge(&mut self, other: &Self) -> MergeOutcome {
                 let mut res = MergeOutcome::NoOp;
+                let eq = self.$first_field == other.$first_field;
                 res += self.$first_field.merge(&other.$first_field);
-                if res == MergeOutcome::NoOp{
+                if !eq && res == MergeOutcome::NoOp{
                     return res;
                 }
 
                 $(
+                    let eq = self.$field == other.$field;
                     res += self.$field.merge(&other.$field);
-                    if res == MergeOutcome::NoOp{
+                    if !eq && res == MergeOutcome::NoOp{
                         return res;
                     }
                 )+
@@ -115,7 +116,7 @@ macro_rules! named_tuple {
         }
 
         // CfgState implementation: use the first component for model and location.
-        impl<$F: CfgState, $( $T: StateDisplay + Clone + Debug + Hash + Eq ),+> CfgState for $name<$F, $( $T ),+> {
+        impl<$F: CfgState, $( $T: Display + Clone + Debug + Hash + Eq ),+> CfgState for $name<$F, $( $T ),+> {
             type Model = $F::Model;
 
             fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
@@ -127,7 +128,7 @@ macro_rules! named_tuple {
                 // StateDisplayWrapper forms for the remaining components.
                 let mut id = self.$first_field.model_id();
                 $(
-                    id = format!("{}_{}", id, StateDisplayWrapper(&self.$field));
+                    id = format!("{}_{}", id, &self.$field);
                 )+
                 id
             }

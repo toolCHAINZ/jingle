@@ -13,7 +13,7 @@ use crate::{
         cpa::{
             IntoState,
             lattice::JoinSemiLattice,
-            state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor},
+            state::{AbstractState, LocationState, MergeOutcome, Successor},
         },
         location::{basic::state::BasicLocationState, unwind::UnwindingAnalysis},
     },
@@ -31,7 +31,7 @@ pub struct UnwindingState {
     /// Current location
     location: ConcretePcodeAddress,
     /// Set of visited locations in the current path
-    visited: HashSet<ConcretePcodeAddress>,
+    dominators: Vec<ConcretePcodeAddress>,
     /// Map of back-edge to visit count
     back_edge_counts: HashMap<BackEdge, usize>,
     /// Maximum allowed visits for any back-edge
@@ -48,8 +48,6 @@ impl Hash for UnwindingState {
 
 impl Display for UnwindingState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BackEdgeCount(loc: {}, edges: {{", self.location)?;
-
         // Sort the back-edge counts for deterministic output
         let mut edges: Vec<_> = self.back_edge_counts.iter().collect();
         edges.sort_by_key(|(edge, _)| *edge);
@@ -58,10 +56,9 @@ impl Display for UnwindingState {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "({:?} -> {:?}): {}", edge.0, edge.1, count)?;
+            write!(f, "({:x} -> {:x}):{}", edge.0, edge.1, count)?;
         }
-
-        write!(f, "}})")
+        Ok(())
     }
 }
 
@@ -90,11 +87,10 @@ impl LowerHex for UnwindingState {
 
 impl UnwindingState {
     fn with_location(location: ConcretePcodeAddress, max_count: usize) -> Self {
-        let mut visited = HashSet::new();
-        visited.insert(location);
+        let mut dominators = vec![location];
         Self {
             location,
-            visited,
+            dominators,
             back_edge_counts: HashMap::new(),
             max_count,
         }
@@ -111,13 +107,13 @@ impl UnwindingState {
     fn move_to<L: LocationState>(&mut self, other: &L) {
         if let Some(new_location) = other.get_location() {
             // Check if this is a back-edge (new_location is already in visited set)
-            if self.visited.contains(&new_location) {
+            if let Some(idx) = self.dominators.iter().position(|p| p == &new_location) {
                 let edge = (self.location, new_location);
                 *self.back_edge_counts.entry(edge).or_insert(0) += 1;
-
+                self.dominators.truncate(idx);
                 // Update visited set and location
             } else {
-                self.visited.insert(new_location);
+                self.dominators.push(new_location);
             }
             self.location = new_location;
         }
@@ -136,29 +132,39 @@ impl PartialOrd for UnwindingState {
 
 impl JoinSemiLattice for UnwindingState {
     fn join(&mut self, other: &Self) {
-        // Join by taking the maximum count for each back-edge
-        for (edge, &count) in &other.back_edge_counts {
-            let entry = self.back_edge_counts.entry(*edge).or_insert(0);
-            *entry = (*entry).max(count);
-        }
-        // Merge visited sets
-        self.visited.extend(&other.visited);
-    }
-}
+        // Merge max_count conservatively (choose the larger limit)
+        self.max_count = self.max_count.max(other.max_count);
 
-impl StateDisplay for UnwindingState {
-    fn fmt_state(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "BackEdgeCount({:x}, counts: {:?})",
-            self.location, self.back_edge_counts
-        )
+        let uneq_idx = self
+            .dominators
+            .iter()
+            .zip(&other.dominators)
+            .position(|(a, b)| a != b);
+
+        if let Some(uneq_idx) = uneq_idx {
+            self.dominators.truncate(uneq_idx);
+        }
+
+        if self.dominators.last() != Some(&self.location) {
+            self.dominators.push(self.location);
+        }
+
+        // For back-edge counts, take the maximum count for each edge across both maps.
+        for (edge, &other_count) in other.back_edge_counts.iter() {
+            let key = edge.clone();
+            let entry = self.back_edge_counts.entry(key).or_insert(0);
+            if *entry < other_count {
+                *entry = other_count;
+            }
+        }
+        // Existing edges in self.back_edge_counts remain as they are (they already represent
+        // the maximum with respect to themselves).
     }
 }
 
 impl AbstractState for UnwindingState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
-        self.merge_sep(other)
+        self.merge_join(other)
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {

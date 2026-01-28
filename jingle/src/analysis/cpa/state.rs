@@ -4,7 +4,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter, Result as FmtResult};
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::ops::{Add, AddAssign};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -153,27 +153,8 @@ where
     }
 }
 
-/// Local trait for formatting abstract states.
-///
-/// We use this instead of `Display` on `AbstractState` to avoid orphan/coherence
-/// issues (e.g., with generic tuple impls).
-pub trait StateDisplay {
-    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult;
-}
-
-/// Helper macro to implement `StateDisplay` for a concrete type by delegating to `Debug`.
-macro_rules! impl_state_display_via_debug {
-    ($ty:ty) => {
-        impl StateDisplay for $ty {
-            fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
-                write!(f, "{self:?}")
-            }
-        }
-    };
-}
-
 /// Core trait for abstract states used by the CPA.
-pub trait AbstractState: JoinSemiLattice + Clone + Debug + StateDisplay {
+pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
     /// Merge `other` into `self`. Mutate `self` and return whether merging occurred.
     /// The mutated `self` MUST be >= than it was before.
     fn merge(&mut self, other: &Self) -> MergeOutcome;
@@ -219,8 +200,3 @@ pub trait LocationState: AbstractState {
     fn get_operation<'a, T: PcodeStore + ?Sized>(&'a self, t: &'a T) -> Option<PcodeOpRef<'a>>;
     fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }
-
-// Provide StateDisplay impls for known concrete state types by delegating to Debug.
-// Only include impls for modules that are actually declared in the project.
-impl_state_display_via_debug!(crate::analysis::back_edge::BackEdgeState);
-impl_state_display_via_debug!(crate::analysis::cpa::lattice::pcode::PcodeAddressLattice);

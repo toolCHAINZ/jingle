@@ -1,8 +1,9 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
+use std::fmt::Display;
 use std::iter::{empty, once};
 
 /// A simple analysis counting the number of branches on a path,
@@ -69,8 +70,8 @@ impl AbstractState for BoundedBranchState {
     }
 }
 
-impl StateDisplay for BoundedBranchState {
-    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for BoundedBranchState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.branch_count)
     }
 }

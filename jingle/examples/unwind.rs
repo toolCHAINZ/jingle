@@ -43,7 +43,7 @@ fn main() {
 
     let location_analysis = (
         BasicLocationAnalysis::new(CallBehavior::Branch),
-        UnwindingAnalysis::new(10),
+        UnwindingAnalysis::new(2),
     );
 
     // Wrap with CfgReducer
@@ -70,7 +70,7 @@ fn main() {
             .count();
         println!("  0x{:x} (visited {} times)", loc, count);
     }
-    fs::write("dot.dot", format!("{:?}", Dot::new(cfg.graph())));
+    fs::write("dot.dot", format!("{}", Dot::new(cfg.graph())));
     println!(
         "\nTotal CFG nodes with unwinding: {}",
         cfg.graph().node_count()

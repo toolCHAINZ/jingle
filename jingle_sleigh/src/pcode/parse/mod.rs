@@ -149,7 +149,7 @@ pub(crate) fn parse_pcode(
 
             // Iterate over all inner pairs to collect components
             for inner_pair in inner {
-                dbg!(inner_pair.as_rule());
+                inner_pair.as_rule();
                 match inner_pair.as_rule() {
                     Rule::varnode => {
                         // First varnode is output, subsequent ones would be in callother_args

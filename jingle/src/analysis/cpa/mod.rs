@@ -9,7 +9,6 @@ pub use final_reducer::FinalReducer;
 use tracing::{Level, span};
 pub use vec_reducer::VecReducer;
 
-use crate::analysis::cfg::model::StateDisplayWrapper;
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
@@ -94,20 +93,14 @@ where
                 .iter()
                 .flat_map(|op| state.transfer(op.as_ref()).into_iter())
             {
-                tracing::debug!(
-                    "    Transfer produced dest_state: {}",
-                    StateDisplayWrapper(&dest_state)
-                );
+                tracing::trace!("    Transfer produced dest_state: {}", dest_state);
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
                     let old_reached = reached_state.clone();
                     if reached_state.merge(&dest_state).merged() {
                         tracing::debug!("    Merged dest_state into existing reached_state");
-                        tracing::debug!(
-                            "      Merged state: {}",
-                            StateDisplayWrapper(reached_state)
-                        );
+                        tracing::debug!("      Merged state: {}", reached_state);
                         reducer.merged_state(&state, &old_reached, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
@@ -123,10 +116,7 @@ where
 
                 // Only record a new state in the reducer if it will actually be added to `reached`.
                 // record that a new state was reached without merging
-                tracing::debug!(
-                    "Adding new state without merging: {}",
-                    StateDisplayWrapper(&dest_state)
-                );
+                tracing::debug!("Adding new state without merging: {}", dest_state);
                 reducer.new_state(&state, &dest_state, &op);
 
                 if !dest_state.stop(reached.iter()) {

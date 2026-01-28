@@ -13,7 +13,7 @@ use crate::{
         cpa::{
             ConfigurableProgramAnalysis, IntoState,
             lattice::{JoinSemiLattice, pcode::PcodeAddressLattice},
-            state::{AbstractState, LocationState, MergeOutcome, StateDisplay, Successor},
+            state::{AbstractState, LocationState, MergeOutcome, Successor},
         },
         direct_valuation::DirectValuationState,
         location::basic::BasicLocationAnalysis,
@@ -88,7 +88,7 @@ impl From<BasicLocationState> for PcodeAddressLattice {
 impl Display for BasicLocationState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // PcodeAddressLattice doesn't implement Display, so we use Debug
-        write!(f, "{:?}", self.inner)
+        write!(f, "{}", self.inner)
     }
 }
 
@@ -111,13 +111,6 @@ impl PartialOrd for BasicLocationState {
 impl JoinSemiLattice for BasicLocationState {
     fn join(&mut self, other: &Self) {
         self.inner.join(&other.inner);
-    }
-}
-
-impl StateDisplay for BasicLocationState {
-    fn fmt_state(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Use LowerHex format for the inner PcodeAddressLattice
-        write!(f, "{:x}", self.inner)
     }
 }
 

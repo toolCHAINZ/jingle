@@ -1,7 +1,6 @@
 use crate::JingleError;
 // use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
-use crate::analysis::cpa::state::StateDisplay;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -120,41 +119,3 @@ impl<N: CfgStateModel, T: ModelTransition<N>> ModelTransition<N> for Vec<T> {
         Ok(state)
     }
 }
-
-/// Implement `CfgState` for a couple of tuple arities where the first element
-/// implements `CfgState`. These implementations delegate model creation and
-/// location-related methods to the first (0th) element of the tuple.
-///
-/// For tuples where the later elements implement `StateDisplay`, include the
-/// display output of those elements in the `model_id`. This makes the model id
-/// more descriptive when tuples carry additional metadata.
-///
-/// To format `StateDisplay`-capable components here we use a small local wrapper
-/// that implements `Display` by delegating to `StateDisplay::fmt_state`. This
-/// avoids requiring the inner components to implement `std::fmt::Display` and
-/// keeps coherence rules satisfied.
-pub(crate) struct StateDisplayWrapper<'a, S: StateDisplay>(pub &'a S);
-
-impl<'a, S: StateDisplay> std::fmt::Display for StateDisplayWrapper<'a, S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt_state(f)
-    }
-}
-
-// impl<A: CfgState, B: StateDisplay + Clone + Debug + Hash + Eq> CfgState for CompoundState<A, B> {
-//     type Model = A::Model;
-
-//     fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
-//         self.0.new_const(i)
-//     }
-
-//     fn model_id(&self) -> String {
-//         // Incorporate the display output from the second element into the model id.
-//         // Use an underscore separator to keep ids readable and safe.
-//         format!("{}_{}", self.0.model_id(), StateDisplayWrapper(&self.1))
-//     }
-
-//     fn location(&self) -> Option<ConcretePcodeAddress> {
-//         self.0.location()
-//     }
-// }

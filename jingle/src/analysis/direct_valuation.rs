@@ -1,6 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
-use crate::analysis::cpa::state::{AbstractState, MergeOutcome, StateDisplay, Successor};
+use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplayable;
@@ -8,7 +8,7 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::fmt::{Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -372,8 +372,8 @@ impl Hash for DirectValuationState {
     }
 }
 
-impl StateDisplay for DirectValuationState {
-    fn fmt_state(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for DirectValuationState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         use std::collections::hash_map::DefaultHasher;
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);

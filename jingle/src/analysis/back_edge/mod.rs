@@ -8,6 +8,8 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+use std::hash::DefaultHasher;
 
 pub type BackEdge = (ConcretePcodeAddress, ConcretePcodeAddress);
 
@@ -139,6 +141,14 @@ impl LocationState for BackEdgeState {
 
     fn get_location(&self) -> Option<ConcretePcodeAddress> {
         self.location.value().cloned()
+    }
+}
+
+impl Display for BackEdgeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let hasher = DefaultHasher::new();
+        self.path_visits.s
+        write!(f, "{:x}{}", self.location, self.)
     }
 }
 
