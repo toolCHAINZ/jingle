@@ -7,13 +7,13 @@
 </div>
 
 # `jingle`: SMT Modeling for `p-code`
-`jingle` is a library that models (a fragment of) Ghidra's `p-code` in the language of SMT. It represents states of
-the `p-code` Virtual Machine as expressions on the `QF_ABV` logic, and represents `p-code` operations as relations
-between these states.
+`jingle` provides SMT modeling Ghidra's `p-code`. It represents states of
+the `p-code` Virtual Machine as expressions on the `QF_ABV` logic, and represents `p-code` operations as relations between these states. It additionally implements the Configurable
+Program Analysis algorithm over pcode allowing for quickly implementing flexible custom analyses.
 
-**ALPHA SOFTWARE:  this software is fresh, largely untested, and subject to change. It is not yet using semantic versioning.**
+**ALPHA SOFTWARE:  this software is suitable for research usage but is not yet ready to be used in production.**
 
-This repository contains a [Cargo Workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for two
+This repository contains a [Cargo Workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for three
 related crates:
 
 * [`jingle_sleigh`](./jingle_sleigh): a Rust FFI in front of [Ghidra](https://github.com/NationalSecurityAgency/ghidra)'
@@ -21,14 +21,11 @@ related crates:
   code translator: `SLEIGH`. `SLEIGH` is written in C++ and can be
   found [here](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/Decompiler/src/decompile/cpp).
   This crate contains a private internal low-level API to `SLEIGH` and exposes an idiomatic high-level API to consumers.
-* [`jingle`](./jingle): a set of functions built on top of `jingle_sleigh` that defines an encoding of `p-code` operations
-  into SMT, using [z3.rs](https://github.com/prove-rs/z3.rs). `jingle` is currently
-  designed for providing formulas for use in decision procedures over individual program traces. As such, it does not yet
-  expose APIs for constructing or reasoning about control-flow graphs, though this is under development.
+* [`jingle`](./jingle): defines SMT modeling of p-code states and operations using [z3.rs](https://github.com/prove-rs/z3.rs) as well as a small program analysis framework. `jingle` implements [Configurable Program Analysis](https://doi.org/10.1007/978-3-319-10575-8_16), allowing for flexible custom program analysis, as well as pre-built analyses for building SMT models of unwound p-code programs.
 * [`jingle_python`](./jingle_python): a set of [pyo3](https://pyo3.rs) bindings for `jingle`. These bindings expose a 
   simple interface to both SLEIGH and our logical modeling of `p-code` in SMT. SMT formulae are exposed wrapped in
   their "native" python z3 classes, allowing easy integration with other tools. These bindings are _especially_ raw and
-  subject to change.
+  subject to change and do not yet expose any of the program analysis APIs.
 
 ## Usage
 
@@ -49,13 +46,13 @@ The only thing ghidra is used for here is as a standardized folder layout for `s
 You can install a simple CLI demonstrating jingle's modeling by running
 
 ```sh
-cargo install --features  bin jingle
+cargo install --features bin jingle
 ```
 
 If you are using the [CLI](./jingle),
 then provide the path to ghidra as an argument in your first run.
 
-The CLI produces disassembly, pcode, and SMT models for small hex-encoded instruction encodings.
+The CLI produces disassembly, pcode, and SMT models for small hex-encoded instruction encodings. Note that the CLI uses an older version of `jingle`'s modeling that does not support arbitrary control flow.
 
 
 ## Development
