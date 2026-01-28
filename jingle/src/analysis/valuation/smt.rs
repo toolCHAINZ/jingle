@@ -129,7 +129,7 @@ impl SmtValuationState {
 
     /// Return an `SmtVal` for a varnode: constants -> `Val(BV)`, written locations -> stored valuation,
     /// otherwise create/reuse a named entry `BV`.
-    fn from_varnode_or_entry(&mut self, vn: &VarNode) -> SmtVal {
+    fn get_valuation_or_entry(&mut self, vn: &VarNode) -> SmtVal {
         // Constant literal -> concrete BV
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
             let bits = (vn.size * 8) as u32;
@@ -212,14 +212,14 @@ impl SmtValuationState {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
                                 SmtVal::Val(BV::from_u64(input.offset, (input.size * 8) as u32))
                             } else {
-                                new_state.from_varnode_or_entry(input)
+                                new_state.get_valuation_or_entry(input)
                             }
                         }
 
                         // Arithmetic
                         PcodeOperation::IntAdd { input0, input1, .. } => {
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvadd(&b)),
                                 _ => SmtVal::Top,
@@ -227,8 +227,8 @@ impl SmtValuationState {
                         }
 
                         PcodeOperation::IntSub { input0, input1, .. } => {
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvsub(&b)),
                                 _ => SmtVal::Top,
@@ -236,8 +236,8 @@ impl SmtValuationState {
                         }
 
                         PcodeOperation::IntMult { input0, input1, .. } => {
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvmul(&b)),
                                 _ => SmtVal::Top,
@@ -247,8 +247,8 @@ impl SmtValuationState {
                         // Bitwise operations
                         PcodeOperation::IntAnd { input0, input1, .. }
                         | PcodeOperation::BoolAnd { input0, input1, .. } => {
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvand(&b)),
                                 _ => SmtVal::Top,
@@ -257,8 +257,8 @@ impl SmtValuationState {
 
                         PcodeOperation::IntXor { input0, input1, .. }
                         | PcodeOperation::BoolXor { input0, input1, .. } => {
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvxor(&b)),
                                 _ => SmtVal::Top,
@@ -267,8 +267,8 @@ impl SmtValuationState {
 
                         PcodeOperation::IntOr { input0, input1, .. }
                         | PcodeOperation::BoolOr { input0, input1, .. } => {
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvor(&b)),
                                 _ => SmtVal::Top,
@@ -279,8 +279,8 @@ impl SmtValuationState {
                         | PcodeOperation::IntRightShift { input0, input1, .. }
                         | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
                             // Approximate shifts as Add of operands (conservative)
-                            let a = new_state.from_varnode_or_entry(input0);
-                            let b = new_state.from_varnode_or_entry(input1);
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
                                 (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvadd(&b)),
                                 _ => SmtVal::Top,
@@ -288,7 +288,7 @@ impl SmtValuationState {
                         }
 
                         PcodeOperation::IntNegate { input, .. } => {
-                            let a = new_state.from_varnode_or_entry(input);
+                            let a = new_state.get_valuation_or_entry(input);
                             match a {
                                 SmtVal::Val(a) => {
                                     let bits = a.get_size();
@@ -300,7 +300,7 @@ impl SmtValuationState {
                         }
 
                         PcodeOperation::Int2Comp { input, .. } => {
-                            let a = new_state.from_varnode_or_entry(input);
+                            let a = new_state.get_valuation_or_entry(input);
                             match a {
                                 SmtVal::Val(a) => SmtVal::Val(a.bvnot()),
                                 _ => SmtVal::Top,
@@ -313,7 +313,7 @@ impl SmtValuationState {
                             let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
                                 SmtVal::Val(BV::from_u64(ptr.offset, (ptr.size * 8) as u32))
                             } else {
-                                new_state.from_varnode_or_entry(ptr)
+                                new_state.get_valuation_or_entry(ptr)
                             };
                             SmtVal::Load(Rc::new(pv))
                         }
@@ -321,7 +321,7 @@ impl SmtValuationState {
                         // Casts/extensions - preserve symbolic value via BV ops
                         PcodeOperation::IntSExt { input, .. }
                         | PcodeOperation::IntZExt { input, .. } => {
-                            let a = new_state.from_varnode_or_entry(input);
+                            let a = new_state.get_valuation_or_entry(input);
                             match a {
                                 SmtVal::Val(a) => {
                                     let in_bits = a.get_size();
