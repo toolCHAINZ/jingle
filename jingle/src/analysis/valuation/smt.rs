@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 // Z3 bitvector support (assume updated API without explicit Context lifetimes)
 // Import the `Ast` trait so we can call `simplify()` and `ite()` on AST nodes.
-use z3::ast::{Ast, BV, Bool};
+use z3::ast::{Ast, BV};
 
 /// SMT-backed valuation for varnodes:
 /// - `Val(BV)` stores an actual bitvector expression
@@ -25,6 +25,7 @@ use z3::ast::{Ast, BV, Bool};
 pub enum SmtVal {
     Val(BV),
     Load(Arc<SmtVal>),
+    Or(Arc<(SmtVal, SmtVal)>),
     Top,
 }
 
@@ -34,6 +35,7 @@ impl PartialEq for SmtVal {
             (SmtVal::Top, SmtVal::Top) => true,
             (SmtVal::Val(a), SmtVal::Val(b)) => a.to_string() == b.to_string(),
             (SmtVal::Load(pa), SmtVal::Load(pb)) => pa == pb,
+            (SmtVal::Or(a), SmtVal::Or(b)) => a.as_ref() == b.as_ref(),
             _ => false,
         }
     }
@@ -53,6 +55,11 @@ impl Hash for SmtVal {
                 "Load".hash(state);
                 inner.hash(state);
             }
+            SmtVal::Or(pair) => {
+                "Or".hash(state);
+                pair.as_ref().0.hash(state);
+                pair.as_ref().1.hash(state);
+            }
         }
     }
 }
@@ -63,6 +70,12 @@ impl JingleDisplayable for SmtVal {
             SmtVal::Top => write!(f, "⊤"),
             SmtVal::Val(v) => write!(f, "{}", v.to_string()),
             SmtVal::Load(ptr) => write!(f, "Load({})", ptr.display(info)),
+            SmtVal::Or(pair) => write!(
+                f,
+                "({}||{})",
+                pair.as_ref().0.display(info),
+                pair.as_ref().1.display(info)
+            ),
         }
     }
 }
@@ -79,6 +92,17 @@ fn simplify_smtval(v: SmtVal) -> SmtVal {
             let inner = simplify_smtval((*ptr).clone());
             SmtVal::Load(Arc::new(inner))
         }
+        SmtVal::Or(pair) => {
+            // simplify both sides of the Or
+            let left_s = simplify_smtval(pair.0.clone());
+            let right_s = simplify_smtval(pair.1.clone());
+            // If both sides simplify to the same expression, return one side
+            if left_s == right_s {
+                left_s
+            } else {
+                SmtVal::Or(Arc::new((left_s, right_s)))
+            }
+        }
         SmtVal::Top => SmtVal::Top,
     }
 }
@@ -92,9 +116,12 @@ pub struct SmtValuationState {
     written_locations: VarNodeMap<SmtVal>,
     /// Cache of entry (initial) bitvector variables for varnodes that haven't been written to.
     entry_cache: VarNodeMap<BV>,
+    /// Cache of the deterministic names used for entry variables so we always create a
+    /// `BV` with the same name for the same `VarNode` (prevents duplicate `fresh_const` variants).
+    name_cache: VarNodeMap<String>,
     arch_info: SleighArchInfo,
     merge_behavior: MergeBehavior,
-    // Use Z3's fresh_const APIs instead of maintaining a local UID/counter.
+    // Use Z3's deterministic-named constants to avoid duplicate hints becoming different fresh symbols.
 }
 
 impl SmtValuationState {
@@ -123,8 +150,21 @@ impl SmtValuationState {
         let sanitized = display_str.replace(' ', "_");
         let base = format!("entry_{}_s{}_o{}", sanitized, vn.size, vn.offset);
         let bits = (vn.size * 8) as u32;
-        // Use Z3's fresh_const to create a unique entry BV name without local bookkeeping.
-        let bv = BV::fresh_const(base.as_str(), bits);
+
+        // If we already chose a deterministic name for this VarNode, reuse it and create a BV
+        // with that name (so we consistently refer to the same symbol across the analysis).
+        if let Some(name) = self.name_cache.get(vn) {
+            let bv = BV::new_const(name.as_str(), bits);
+            self.entry_cache.insert(vn.clone(), bv.clone());
+            return SmtVal::Val(bv);
+        }
+
+        // Otherwise, pick a deterministic name (based on the varnode display) and remember it.
+        // Use `new_const` with this deterministic name so future requests for the same varnode
+        // produce a BV with the same printed name (avoids duplicate hints getting different `!n` suffixes).
+        let chosen_name = base;
+        self.name_cache.insert(vn.clone(), chosen_name.clone());
+        let bv = BV::new_const(chosen_name.as_str(), bits);
         self.entry_cache.insert(vn.clone(), bv.clone());
         SmtVal::Val(bv)
     }
@@ -133,6 +173,7 @@ impl SmtValuationState {
         Self {
             written_locations: VarNodeMap::new(),
             entry_cache: VarNodeMap::new(),
+            name_cache: VarNodeMap::new(),
             arch_info,
             merge_behavior: MergeBehavior::Or,
         }
@@ -142,6 +183,7 @@ impl SmtValuationState {
         Self {
             written_locations: VarNodeMap::new(),
             entry_cache: VarNodeMap::new(),
+            name_cache: VarNodeMap::new(),
             arch_info,
             merge_behavior,
         }
@@ -428,48 +470,12 @@ impl JoinSemiLattice for SmtValuationState {
                             MergeBehavior::Or => {
                                 // Prefer to create an ite selector when both are `Val`.
                                 // If both are `Load(...)` try to merge inner pointer expressions.
-                                match (my_val.clone(), other_val.clone()) {
-                                    (SmtVal::Val(a), SmtVal::Val(b)) => {
-                                        // create selector
-                                        let sel = Bool::fresh_const(&format!(
-                                            "merge_sel_{}_{}",
-                                            key.space_index, key.offset
-                                        ));
-                                        let merged_bv = sel.ite(&a, &b);
-                                        *my_val = simplify_smtval(SmtVal::Val(merged_bv));
-                                    }
-                                    (SmtVal::Load(pa), SmtVal::Load(pb)) => {
-                                        // If both loads point to simple BVs, we can ite their inners.
-                                        if *pa == *pb {
-                                            *my_val = SmtVal::Load(pa);
-                                        } else {
-                                            // Clone the inner SmtVal so we own the BV ASTs and can match without borrowing issues
-                                            let inner_a = (*pa).clone();
-                                            let inner_b = (*pb).clone();
-                                            match (inner_a, inner_b) {
-                                                (SmtVal::Val(a), SmtVal::Val(b)) => {
-                                                    // Create selector using Z3 fresh_const so we don't need local UID state.
-                                                    let sel = Bool::fresh_const(&format!(
-                                                        "merge_sel_load_{}_{}",
-                                                        key.space_index, key.offset
-                                                    ));
-                                                    let merged_inner = sel.ite(&a, &b);
-                                                    *my_val = simplify_smtval(SmtVal::Load(
-                                                        Arc::new(SmtVal::Val(merged_inner)),
-                                                    ));
-                                                }
-                                                _ => {
-                                                    // Conservative fallback
-                                                    *my_val = SmtVal::Top;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    _ => {
-                                        // Heterogeneous variants; fallback to Top for simplicity.
-                                        *my_val = SmtVal::Top;
-                                    }
-                                }
+                                // Instead of introducing ite selectors in SMT, prefer a symbolic `Or(...)` AST
+                                // which mirrors the simple valuation representation. This preserves the two
+                                // alternative valuations and lets `simplify_smtval` attempt to canonicalize them.
+                                let combined =
+                                    SmtVal::Or(Arc::new((my_val.clone(), other_val.clone())));
+                                *my_val = simplify_smtval(combined);
                             }
                             MergeBehavior::Top => {
                                 *my_val = SmtVal::Top;
@@ -539,6 +545,7 @@ impl IntoState<SmtValuationAnalysis> for ConcretePcodeAddress {
         SmtValuationState {
             written_locations: VarNodeMap::new(),
             entry_cache: VarNodeMap::new(),
+            name_cache: VarNodeMap::new(),
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
         }
