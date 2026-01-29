@@ -26,6 +26,10 @@ impl LowerHex for ConcretePcodeAddress {
 }
 
 impl ConcretePcodeAddress {
+    pub fn new(machine: PcodeMachineAddress, pcode: PcodeOffset) -> Self {
+        Self { machine, pcode }
+    }
+
     pub fn next_pcode(&self) -> Self {
         self.add_pcode_offset(1)
     }
