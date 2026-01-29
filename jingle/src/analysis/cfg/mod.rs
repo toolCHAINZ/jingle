@@ -279,6 +279,90 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn smt_model(self, info: SleighArchInfo) -> ModeledPcodeCfg<N, D> {
         ModeledPcodeCfg::new(self, info)
     }
+
+    /// Build a sub-CFG from a set of `NodeIndex` values.
+    ///
+    /// This will include:
+    /// - all nodes whose indices are in `selected`
+    /// - all edges between those nodes
+    ///
+    /// If the resulting subgraph has more than one connected component (treating edges as undirected
+    /// for connectivity), this function will panic.
+    pub fn sub_cfg_from_indices(&self, selected: &HashSet<NodeIndex>) -> PcodeCfg<N, D> {
+        // Build the set of NodeIndex that we will include: exactly the selected nodes.
+        // Do NOT include outgoing neighbors or nodes that only have incoming edges into the selected set.
+        let mut include: HashSet<NodeIndex> = HashSet::new();
+        for &idx in selected {
+            include.insert(idx);
+        }
+
+        // Collect the nodes to work with
+        let nodes: Vec<NodeIndex> = include.iter().copied().collect();
+
+        // If there are nodes, verify the induced subgraph is a single (undirected) component.
+        if !nodes.is_empty() {
+            let mut visited: HashSet<NodeIndex> = HashSet::new();
+            let mut stack: Vec<NodeIndex> = Vec::new();
+
+            // Start from the first node
+            stack.push(nodes[0]);
+            visited.insert(nodes[0]);
+
+            while let Some(u) = stack.pop() {
+                // Outgoing neighbors
+                for e in self.graph.edges_directed(u, Direction::Outgoing) {
+                    let v = e.target();
+                    if include.contains(&v) && visited.insert(v) {
+                        stack.push(v);
+                    }
+                }
+                // Incoming neighbors (treat graph as undirected for connectivity)
+                for e in self.graph.edges_directed(u, Direction::Incoming) {
+                    let v = e.source();
+                    if include.contains(&v) && visited.insert(v) {
+                        stack.push(v);
+                    }
+                }
+            }
+
+            if visited.len() != include.len() {
+                panic!("sub_cfg_from_indices produced more than one component");
+            }
+        }
+
+        // Build the new graph and maps containing only the included nodes and edges between them
+        let mut new_graph = StableDiGraph::<N, EmptyEdge>::default();
+        let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
+        let mut new_ops: HashMap<N, D> = HashMap::new();
+
+        // Add nodes and their ops
+        for &old_idx in &nodes {
+            let n = self.graph.node_weight(old_idx).unwrap().clone();
+            let new_idx = new_graph.add_node(n.clone());
+            new_indices.insert(n.clone(), new_idx);
+            if let Some(op) = self.ops.get(&n) {
+                new_ops.insert(n.clone(), op.clone());
+            }
+        }
+
+        // Add edges where both endpoints are included
+        for edge in self.graph.edge_indices() {
+            let (from, to) = self.graph.edge_endpoints(edge).unwrap();
+            if include.contains(&from) && include.contains(&to) {
+                let from_w = self.graph.node_weight(from).unwrap();
+                let to_w = self.graph.node_weight(to).unwrap();
+                let from_new = *new_indices.get(from_w).unwrap();
+                let to_new = *new_indices.get(to_w).unwrap();
+                new_graph.add_edge(from_new, to_new, EmptyEdge);
+            }
+        }
+
+        PcodeCfg {
+            graph: new_graph,
+            ops: new_ops,
+            indices: new_indices,
+        }
+    }
 }
 
 impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
