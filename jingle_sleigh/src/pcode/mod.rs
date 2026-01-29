@@ -416,9 +416,9 @@ impl PcodeOperation {
             BranchInd { input, .. } => {
                 vec![input.into()]
             }
-            Call { args, .. } => {
-                let b: Vec<_> = args.iter().map(GeneralizedVarNode::from).collect();
-
+            Call { args, dest, .. } => {
+                let mut b = vec![GeneralizedVarNode::from(dest)];
+                b.extend(args.iter().map(GeneralizedVarNode::from));
                 b
             }
             CallInd { input, .. } => {
