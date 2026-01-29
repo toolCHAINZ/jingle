@@ -285,23 +285,15 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     /// This will include:
     /// - all nodes whose indices are in `selected`
     /// - all edges between those nodes
-    /// - any nodes outside `selected` that are direct successors (i.e. reachable via an outgoing edge from a selected node)
     ///
     /// If the resulting subgraph has more than one connected component (treating edges as undirected
     /// for connectivity), this function will panic.
     pub fn sub_cfg_from_indices(&self, selected: &HashSet<NodeIndex>) -> PcodeCfg<N, D> {
-        // Build the set of NodeIndex that we will include: selected + direct successors
+        // Build the set of NodeIndex that we will include: exactly the selected nodes.
+        // Do NOT include outgoing neighbors or nodes that only have incoming edges into the selected set.
         let mut include: HashSet<NodeIndex> = HashSet::new();
         for &idx in selected {
             include.insert(idx);
-        }
-
-        // Add any nodes that are direct successors (outgoing) of the selected nodes.
-        // NOTE: do NOT include nodes that only have incoming edges into the selected set.
-        for &idx in selected {
-            for e in self.graph.edges_directed(idx, Direction::Outgoing) {
-                include.insert(e.target());
-            }
         }
 
         // Collect the nodes to work with
