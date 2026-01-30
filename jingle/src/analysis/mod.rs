@@ -34,7 +34,7 @@ where
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
     fn run<T: PcodeStore, I: IntoState<Self>>(
-        &mut self,
+        &self,
         store: T,
         initial_state: I,
     ) -> <Self::Reducer as Residue<Self::State>>::Output {

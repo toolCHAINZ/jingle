@@ -52,7 +52,7 @@ where
     ///
     /// Returns an iterator over abstract states reached from the initial abstract state.
     fn run_cpa<I: Borrow<Self::State>, P: PcodeStore>(
-        &mut self,
+        &self,
         initial: I,
         pcode_store: &P,
     ) -> <<Self as ConfigurableProgramAnalysis>::Reducer as Residue<Self::State>>::Output {
