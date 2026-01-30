@@ -73,6 +73,13 @@ impl<A: ConfigurableProgramAnalysis, R: Residue<A::State>> ResidueWrapper<A, R> 
             _phantom: Default::default(),
         }
     }
+
+    pub fn with_residue<V: Residue<A::State>>(self, _r: V) -> ResidueWrapper<A, V> {
+        ResidueWrapper {
+            a: self.a,
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<A: ConfigurableProgramAnalysis, R: Residue<A::State>> ConfigurableProgramAnalysis
