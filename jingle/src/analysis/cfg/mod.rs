@@ -31,7 +31,10 @@ impl LowerHex for EmptyEdge {
 #[derive(Debug)]
 pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
     pub(crate) graph: StableDiGraph<N, EmptyEdge>,
-    pub(crate) ops: HashMap<N, D>,
+    // Key pcode ops by concrete p-code address so lookups by address are efficient.
+    // For CFG states `N` that can produce a `ConcretePcodeAddress` via `location()`,
+    // we provide lookup helpers that map a `N` to its address and query this map.
+    pub(crate) ops: HashMap<ConcretePcodeAddress, D>,
     pub(crate) indices: HashMap<N, NodeIndex>,
 }
 
@@ -82,7 +85,8 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     }
 
     pub(crate) fn transition(&self) -> Option<&D> {
-        self.cfg.cfg.ops.get(&self.location)
+        // Lookup the transition by the concrete address of the current location (if any)
+        self.cfg.cfg.get_op_at(&self.location)
     }
 
     pub fn location(&self) -> &N {
@@ -122,8 +126,12 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.indices.contains_key(node.borrow())
     }
 
+    /// Lookup an op by a CFG state `N` by first resolving its concrete p-code address via
+    /// `location()` and then performing the address-keyed lookup.
     pub fn get_op_at<T: Borrow<N>>(&self, addr: T) -> Option<&D> {
-        self.ops.get(addr.borrow())
+        let n = addr.borrow();
+        // If the state has an associated concrete address, look up by that address.
+        n.location().and_then(|a| self.ops.get(&a))
     }
 
     pub fn add_node<T: Borrow<N>>(&mut self, node: T) {
@@ -197,17 +205,30 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             self.indices.remove(old_weight.borrow());
 
             // Update the ops map: prefer the op from new_weight if it exists, otherwise use old_weight's op
-            let op_to_keep = self
-                .ops
-                .get(new_weight.borrow())
-                .or_else(|| self.ops.get(old_weight.borrow()))
-                .cloned();
+            // Prefer the op from `new_weight` (by its concrete address), otherwise fall back to `old_weight`.
+            let op_to_keep = {
+                let new_loc = new_weight.borrow().location();
+                let old_loc = old_weight.borrow().location();
+                new_loc
+                    .and_then(|a| self.ops.get(&a).cloned())
+                    .or_else(|| old_loc.and_then(|a| self.ops.get(&a).cloned()))
+            };
 
-            self.ops.remove(old_weight.borrow());
-            self.ops.remove(new_weight.borrow());
+            // Remove any existing ops keyed by the concrete addresses of the old/new weights.
+            if let Some(loc) = old_weight.borrow().location() {
+                self.ops.remove(&loc);
+            }
+            if let Some(loc) = new_weight.borrow().location() {
+                self.ops.remove(&loc);
+            }
 
             if let Some(op) = op_to_keep {
-                self.ops.insert(new_weight.borrow().clone(), op);
+                if let Some(loc) = new_weight.borrow().location() {
+                    self.ops.insert(loc, op);
+                } else {
+                    // If the new_weight has no concrete location, we cannot re-insert under an address.
+                    dbg!("Missing new_weight location for op insertion!");
+                }
             } else {
                 dbg!("Missing op!");
             }
@@ -225,7 +246,10 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         let op = op.borrow();
         self.add_node(from);
         self.add_node(to);
-        self.ops.insert(from.clone(), op.clone());
+        // Insert op keyed by the concrete address of `from` (if available).
+        if let Some(loc) = from.location() {
+            self.ops.insert(loc, op.clone());
+        }
         let from_idx = *self.indices.get(from).unwrap();
         let to_idx = *self.indices.get(to).unwrap();
         // Return early if the edge already exists
@@ -339,15 +363,18 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         // Build the new graph and maps containing only the included nodes and edges between them
         let mut new_graph = StableDiGraph::<N, EmptyEdge>::default();
         let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
-        let mut new_ops: HashMap<N, D> = HashMap::new();
+        // New ops map keyed by concrete pcode addresses (consistent with the parent CFG)
+        let mut new_ops: HashMap<ConcretePcodeAddress, D> = HashMap::new();
 
-        // Add nodes and their ops
+        // Add nodes and their ops (copy ops by address if the node exposes a concrete address)
         for &old_idx in &nodes {
             let n = self.graph.node_weight(old_idx).unwrap().clone();
             let new_idx = new_graph.add_node(n.clone());
             new_indices.insert(n.clone(), new_idx);
-            if let Some(op) = self.ops.get(&n) {
-                new_ops.insert(n.clone(), op.clone());
+            if let Some(loc) = n.location() {
+                if let Some(op) = self.ops.get(&loc) {
+                    new_ops.insert(loc, op.clone());
+                }
             }
         }
 
@@ -387,20 +414,26 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         use petgraph::visit::EdgeRef;
         // Step 1: Initialize new graph and maps
         let mut graph = StableDiGraph::<N, EmptyEdge>::default();
-        let mut ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
+        // ops keyed by concrete pcode addresses
+        let mut ops: HashMap<ConcretePcodeAddress, Vec<PcodeOperation>> = HashMap::new();
         let mut indices: HashMap<N, NodeIndex> = HashMap::new();
         // Step 2: Wrap each op in a Vec and add nodes
         for node in self.graph.node_indices() {
             let n = self.graph.node_weight(node).unwrap().clone();
-            let op = self
-                .ops
-                .get(&n)
-                .map(|op| vec![op.clone()])
-                .unwrap_or_default();
+            let op = if let Some(loc) = n.location() {
+                self.ops
+                    .get(&loc)
+                    .map(|op| vec![op.clone()])
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
             let idx = graph.add_node(n.clone());
             graph.add_node(n.clone());
             indices.insert(n.clone(), idx);
-            ops.insert(n, op);
+            if let Some(loc) = n.location() {
+                ops.insert(loc, op);
+            }
         }
         // Step 3: Add edges
         for edge in self.graph.edge_indices() {
@@ -431,10 +464,16 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
                 // Merge target into node
                 let src_n = graph.node_weight(node).unwrap().clone();
                 let tgt_n = graph.node_weight(target).unwrap().clone();
-                // Fix borrow: collect target ops first
-                let tgt_ops = ops.get(&tgt_n).cloned().unwrap_or_default();
+                // Fix borrow: collect target ops first (by concrete address)
+                let tgt_ops = if let Some(tgt_loc) = tgt_n.location() {
+                    ops.get(&tgt_loc).cloned().unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
                 if !tgt_ops.is_empty() {
-                    ops.entry(src_n.clone()).or_default().extend(tgt_ops);
+                    if let Some(src_loc) = src_n.location() {
+                        ops.entry(src_loc).or_default().extend(tgt_ops);
+                    }
                 }
                 // Redirect outgoing edges of target to source
                 let tgt_out_edges: Vec<_> = graph
@@ -446,7 +485,9 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
                 }
                 // Remove target node and its ops
                 graph.remove_node(target);
-                ops.remove(&tgt_n);
+                if let Some(tgt_loc) = tgt_n.location() {
+                    ops.remove(&tgt_loc);
+                }
                 indices.remove(&tgt_n);
                 changed = true;
                 break; // Restart after each merge
@@ -454,7 +495,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
         }
         // Step 5: Build a new graph using only connected nodes
         let mut new_graph = StableDiGraph::<N, EmptyEdge>::default();
-        let mut new_ops: HashMap<N, Vec<PcodeOperation>> = HashMap::new();
+        let mut new_ops: HashMap<ConcretePcodeAddress, Vec<PcodeOperation>> = HashMap::new();
         let mut new_indices: HashMap<N, NodeIndex> = HashMap::new();
         // Collect connected nodes
         let connected_nodes: Vec<_> = graph
@@ -475,8 +516,10 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             let n = graph.node_weight(*node).unwrap().clone();
             let idx = new_graph.add_node(n.clone());
             new_indices.insert(n.clone(), idx);
-            if let Some(op) = ops.get(&n) {
-                new_ops.insert(n, op.clone());
+            if let Some(loc) = n.location() {
+                if let Some(op) = ops.get(&loc) {
+                    new_ops.insert(loc, op.clone());
+                }
             }
         }
         // Add edges between connected nodes
