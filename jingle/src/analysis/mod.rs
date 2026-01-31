@@ -6,7 +6,6 @@ use crate::analysis::cpa::{
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
-mod bmc;
 pub mod cfg;
 pub mod compound;
 pub mod cpa;
