@@ -267,6 +267,12 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             .map(move |idx| self.graph.node_weight(idx).unwrap())
     }
 
+    pub fn entry_nodes(&self) -> impl Iterator<Item = &N> {
+        self.graph
+            .externals(Direction::Incoming)
+            .map(move |idx| self.graph.node_weight(idx).unwrap())
+    }
+
     pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
         self.ops.values()
     }

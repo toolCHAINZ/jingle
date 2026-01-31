@@ -34,7 +34,7 @@ where
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
     fn run<T: PcodeStore, I: IntoState<Self>>(
-        &mut self,
+        &self,
         store: T,
         initial_state: I,
     ) -> <Self::Reducer as Residue<Self::State>>::Output {
@@ -57,7 +57,7 @@ where
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: Analysis>(&self, mut t: T) -> <T::Reducer as Residue<T::State>>::Output
+    fn run_analysis<T: Analysis>(&self, t: T) -> <T::Reducer as Residue<T::State>>::Output
     where
         <T as ConfigurableProgramAnalysis>::State: LocationState,
         ConcretePcodeAddress: IntoState<T>,
