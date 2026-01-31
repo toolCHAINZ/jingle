@@ -134,6 +134,10 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         n.location().and_then(|a| self.ops.get(&a))
     }
 
+    pub fn get_op_at_address<C: Borrow<ConcretePcodeAddress>>(&self, addr: C) -> Option<&D> {
+        self.ops.get(addr.borrow())
+    }
+
     pub fn add_node<T: Borrow<N>>(&mut self, node: T) {
         let node = node.borrow();
         if !self.indices.contains_key(node) {
@@ -398,13 +402,13 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 }
 
-impl PcodeStore for PcodeCfg<ConcretePcodeAddress, PcodeOperation> {
+impl<L: CfgState> PcodeStore for PcodeCfg<L, PcodeOperation> {
     fn get_pcode_op_at<'a, T: Borrow<ConcretePcodeAddress>>(
         &'a self,
         addr: T,
     ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
         let addr = *addr.borrow();
-        self.get_op_at(addr)
+        self.get_op_at_address(addr)
             .map(crate::analysis::pcode_store::PcodeOpRef::from)
     }
 }
