@@ -29,7 +29,7 @@ impl LowerHex for EmptyEdge {
 }
 
 #[derive(Debug)]
-pub struct PcodeCfg<N: CfgState = ConcretePcodeAddress, D = PcodeOperation> {
+pub struct PcodeCfg<N, D> {
     pub(crate) graph: StableDiGraph<N, EmptyEdge>,
     // Key pcode ops by concrete p-code address so lookups by address are efficient.
     // For CFG states `N` that can produce a `ConcretePcodeAddress` via `location()`,

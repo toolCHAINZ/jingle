@@ -2,12 +2,13 @@
 
 use jingle::analysis::Analysis;
 use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use jingle::analysis::cpa::reducer::CfgReducer;
+use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
+use jingle::analysis::pcode_store::{self, PcodeOpRef};
 use jingle::analysis::valuation::{
     MergeBehavior, SimpleValuation, SimpleValuationAnalysis, SimpleValuationState,
 };
@@ -58,9 +59,8 @@ fn main() {
     let valuation_analysis =
         SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
 
-    // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
-    let mut compound_with_cfg =
-        (location_analysis, valuation_analysis).with_residue(CfgReducer::new());
+    // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer (factory)
+    let mut compound_with_cfg = (location_analysis, valuation_analysis).with_residue(CFG);
 
     tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 
@@ -133,7 +133,7 @@ fn main() {
 
                 let op_str = cfg
                     .get_op_at(node)
-                    .map(|o: &jingle_sleigh::PcodeOperation| format!("{}", o))
+                    .map(|o: &PcodeOpRef<'_>| format!("{}", o.as_ref()))
                     .unwrap_or_else(|| "no-op".to_string());
 
                 println!("  {} -> {}: {}", origin_str, succ_str, op_str);

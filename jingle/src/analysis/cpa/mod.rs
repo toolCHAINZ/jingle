@@ -1,13 +1,12 @@
-pub mod final_reducer;
+// Keep module declarations grouped at the top for readability.
 pub mod lattice;
-pub mod reducer;
 pub mod residue;
 pub mod state;
-pub mod vec_reducer;
+// `vec_reducer` and the other reducer implementations have been moved into `residue/`.
 
-pub use final_reducer::FinalReducer;
+// Re-export ergonomic factory constants and the moved `FinalReducer` from the `residue` module
+pub use crate::analysis::cpa::residue::{CFG, FinalReducer, VEC};
 use tracing::{Level, span};
-pub use vec_reducer::VecReducer;
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};
@@ -36,7 +35,10 @@ pub trait ConfigurableProgramAnalysis: Sized {
     /// An abstract state.
     type State: AbstractState + Debug;
 
-    type Reducer: Residue<Self::State>;
+    // Reducer is a generic associated type parameterized by an op lifetime `'op`.
+    // This allows reducers to be expressed that accept/store `PcodeOpRef<'op>`
+    // without requiring clones.
+    type Reducer<'op>: residue::Residue<'op, Self::State>;
 }
 
 /**
@@ -51,13 +53,22 @@ where
     /// The CPA algorithm. Implementors should not need to customize this function.
     ///
     /// Returns an iterator over abstract states reached from the initial abstract state.
-    fn run_cpa<I: Borrow<Self::State>, P: PcodeStore>(
+    ///
+    /// The function is generic over an `'op` lifetime which is the lifetime of
+    /// p-code operation references returned by the `PcodeStore` (i.e. the store's
+    /// borrow lifetime). The reducer type is instantiated for that same `'op`
+    /// lifetime so it can accept `PcodeOpRef<'op>` without cloning.
+    fn run_cpa<'op, I: Borrow<Self::State>, P: PcodeStore + ?Sized>(
         &self,
         initial: I,
-        pcode_store: &P,
-    ) -> <<Self as ConfigurableProgramAnalysis>::Reducer as Residue<Self::State>>::Output {
+        pcode_store: &'op P,
+    ) -> <<Self as ConfigurableProgramAnalysis>::Reducer<'op> as residue::Residue<'op, Self::State>>::Output
+    where
+        Self::State: 'op,
+    {
         let initial = initial.borrow();
-        let mut reducer = Self::Reducer::new();
+        // Construct the reducer specialized for the `'op` lifetime.
+        let mut reducer = <Self::Reducer<'op> as residue::Residue<'op, Self::State>>::new();
 
         let mut waitlist: VecDeque<Self::State> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
@@ -79,6 +90,8 @@ where
                 reached.len()
             );
 
+            // Ask the state for the operation using the borrowed pcode_store.
+            // The returned `op` will have lifetime `'op`.
             let op = state.get_operation(pcode_store);
             tracing::trace!(
                 "  Operation at state: {:?}",
@@ -101,6 +114,8 @@ where
                     if reached_state.merge(&dest_state).merged() {
                         tracing::debug!("    Merged dest_state into existing reached_state");
                         tracing::debug!("      Merged state: {}", reached_state);
+                        // Call the reducer's merged_state with the operation reference `op`
+                        // that has lifetime `'op`.
                         reducer.merged_state(&state, &old_reached, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
@@ -117,6 +132,8 @@ where
                 // Only record a new state in the reducer if it will actually be added to `reached`.
                 // record that a new state was reached without merging
                 tracing::debug!("Adding new state without merging: {}", dest_state);
+                // Pass the borrowed `op` (of lifetime `'op`) to the reducer. The reducer
+                // type was instantiated for `'op` above and accepts `PcodeOpRef<'op>`.
                 reducer.new_state(&state, &dest_state, &op);
 
                 if !dest_state.stop(reached.iter()) {
@@ -150,8 +167,11 @@ where
         reducer.finalize()
     }
 
-    fn with_residue<R: Residue<Self::State>>(self, r: R) -> ResidueWrapper<Self, R> {
-        ResidueWrapper::wrap(self, r)
+    fn with_residue<F>(self, f: F) -> ResidueWrapper<Self, F>
+    where
+        for<'op> F: crate::analysis::cpa::residue::ReducerFactoryForState<Self>,
+    {
+        ResidueWrapper::wrap(self, f)
     }
 }
 

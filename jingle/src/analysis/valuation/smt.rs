@@ -534,7 +534,7 @@ impl SmtValuationAnalysis {
 
 impl ConfigurableProgramAnalysis for SmtValuationAnalysis {
     type State = SmtValuationState;
-    type Reducer = EmptyResidue<Self::State>;
+    type Reducer<'op> = EmptyResidue<Self::State>;
 }
 
 impl IntoState<SmtValuationAnalysis> for ConcretePcodeAddress {

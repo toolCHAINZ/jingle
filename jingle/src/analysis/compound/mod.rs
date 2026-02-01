@@ -20,7 +20,7 @@ where
 {
     type State = CompoundState2<A::State, B::State>;
 
-    type Reducer = CompoundReducer2<A, B>;
+    type Reducer<'op> = CompoundReducer2<'op, A, B>;
 }
 
 impl<A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis, T> IntoState<(A, B)> for T
@@ -52,7 +52,7 @@ where
     type State = CompoundState3<A::State, B::State, C::State>;
 
     // 3-ary reducer
-    type Reducer = CompoundReducer3<A, B, C>;
+    type Reducer<'op> = CompoundReducer3<'op, A, B, C>;
 }
 
 impl<
@@ -96,7 +96,7 @@ where
     type State = CompoundState4<A::State, B::State, C::State, D::State>;
 
     // 4-ary reducer
-    type Reducer = CompoundReducer4<A, B, C, D>;
+    type Reducer<'op> = CompoundReducer4<'op, A, B, C, D>;
 }
 
 impl<

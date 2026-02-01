@@ -158,7 +158,7 @@ macro_rules! named_tuple {
             $( $T: 'static ),+
         {
             fn get_operation<'a, P: crate::analysis::pcode_store::PcodeStore + ?Sized>(
-                &'a self,
+                &self,
                 t: &'a P,
             ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
                 self.$first_field.get_operation(t)

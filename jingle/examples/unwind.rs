@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
-use jingle::analysis::cpa::reducer::CfgReducer;
+use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::location::{CallBehavior, UnwindingAnalysis};
@@ -46,8 +46,8 @@ fn main() {
         UnwindingAnalysis::new(2),
     );
 
-    // Wrap with CfgReducer
-    let mut analysis_with_cfg = location_analysis.with_residue(CfgReducer::new());
+    // Wrap with CfgReducer (pass the factory ZST)
+    let mut analysis_with_cfg = location_analysis.with_residue(CFG);
 
     // Run the unwinding analysis
     let cfg = analysis_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));

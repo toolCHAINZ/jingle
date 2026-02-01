@@ -1,4 +1,4 @@
-use crate::analysis::cpa::reducer::CfgReducer;
+use crate::analysis::cpa::residue::CfgReducer;
 
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::location::basic::state::{BasicLocationState, CallBehavior};
@@ -28,5 +28,5 @@ impl BasicLocationAnalysis {
 
 impl ConfigurableProgramAnalysis for BasicLocationAnalysis {
     type State = BasicLocationState;
-    type Reducer = CfgReducer<Self::State>;
+    type Reducer<'op> = CfgReducer<'op, Self::State>;
 }

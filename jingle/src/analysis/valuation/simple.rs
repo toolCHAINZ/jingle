@@ -709,7 +709,7 @@ impl SimpleValuationAnalysis {
 
 impl ConfigurableProgramAnalysis for SimpleValuationAnalysis {
     type State = SimpleValuationState;
-    type Reducer = EmptyResidue<Self::State>;
+    type Reducer<'op> = EmptyResidue<Self::State>;
 }
 
 impl IntoState<SimpleValuationAnalysis> for ConcretePcodeAddress {
