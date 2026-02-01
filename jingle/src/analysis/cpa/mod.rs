@@ -1,13 +1,12 @@
-pub mod final_reducer;
+// Keep module declarations grouped at the top for readability.
 pub mod lattice;
 pub mod reducer;
 pub mod residue;
 pub mod state;
-pub mod vec_reducer;
 
-pub use final_reducer::FinalReducer;
+// Re-export ergonomic factory constants and the moved `FinalReducer` from the `residue` module
+pub use crate::analysis::cpa::residue::{CFG, FinalReducer, VEC};
 use tracing::{Level, span};
-pub use vec_reducer::VecReducer;
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
 use crate::analysis::cpa::state::{AbstractState, LocationState};

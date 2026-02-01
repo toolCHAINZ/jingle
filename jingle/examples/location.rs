@@ -2,7 +2,7 @@
 
 use jingle::analysis::Analysis;
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
-use jingle::analysis::cpa::reducer::CfgReducer;
+use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};

@@ -135,3 +135,40 @@ where
         self.compute_final_states()
     }
 }
+
+/// Zero-sized factory for constructing `FinalReducer` instances.
+///
+/// Exported as a public zero-sized type so callers can pass the factory value
+/// (or the `FINAL` const) to APIs like `with_residue`.
+#[derive(Debug, Clone, Copy)]
+pub struct FinalReducerFactory;
+
+impl FinalReducerFactory {
+    /// Create a new factory value (const-friendly).
+    pub const fn new() -> Self {
+        FinalReducerFactory
+    }
+}
+
+impl Default for FinalReducerFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Ergonomic public constant that can be passed to `with_residue(...)`.
+pub const FINAL: FinalReducerFactory = FinalReducerFactory;
+
+/// Implement the reducer factory trait so this factory can be used by the CPA
+/// wrapping mechanisms to instantiate `FinalReducer<A::State>`.
+impl<A> crate::analysis::cpa::residue::ReducerFactoryForState<A> for FinalReducerFactory
+where
+    A: crate::analysis::cpa::ConfigurableProgramAnalysis,
+    A::State: crate::analysis::cpa::state::AbstractState,
+{
+    type Reducer<'op> = FinalReducer<A::State>;
+
+    fn make<'op>(&self) -> Self::Reducer<'op> {
+        FinalReducer::default()
+    }
+}

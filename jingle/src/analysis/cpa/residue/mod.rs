@@ -1,3 +1,7 @@
+pub mod cfg;
+pub mod r#final;
+pub mod vec;
+
 use std::marker::PhantomData;
 
 use crate::analysis::pcode_store::PcodeOpRef;
@@ -62,15 +66,6 @@ impl<'a, T: AbstractState> Residue<'a, T> for EmptyResidue<T> {
 ///
 /// Implementations of this trait should be ZSTs (zero-sized types) that can
 /// construct a reducer instance for a specific `'op` when requested.
-///
-/// Example:
-/// ```ignore
-/// pub struct CfgReducerFactory;
-/// impl<A> ReducerFactoryForState<A> for CfgReducerFactory where A: ConfigurableProgramAnalysis {
-///     type Reducer<'op> = crate::analysis::cpa::reducer::CfgReducer<'op, A::State>;
-///     fn make<'op>(&self) -> Self::Reducer<'op> { crate::analysis::cpa::reducer::CfgReducer::new() }
-/// }
-/// ```
 pub trait ReducerFactoryForState<A: ConfigurableProgramAnalysis> {
     /// The reducer type for a given `'op` lifetime.
     type Reducer<'op>: Residue<'op, A::State>;
@@ -145,3 +140,10 @@ where
         self.into_state(&c.a)
     }
 }
+
+// Single public re-exports of reducer factories and types for ergonomic use.
+// These are provided by the child modules above (`cfg`, `vec`, and `final`) and
+// exposed here so consumers can write `use crate::analysis::cpa::residue::CFG;`.
+pub use self::cfg::{CFG, CfgReducer, CfgReducerFactory};
+pub use self::r#final::FinalReducer;
+pub use self::vec::{VEC, VecReducer, VecReducerFactory};

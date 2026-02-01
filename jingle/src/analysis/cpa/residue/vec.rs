@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::analysis::cpa::residue::Residue;
+use super::Residue;
 use crate::analysis::cpa::state::AbstractState;
 
 /// A simple reducer that records every visited destination state in a `Vec`.
@@ -10,10 +10,8 @@ use crate::analysis::cpa::state::AbstractState;
 /// recorded occurrences of the `dest_state` are replaced with clones of the
 /// `merged_state`, so the collected history reflects merges performed by the CPA.
 ///
-/// Note: replacement equality is determined by comparing `Debug` output of
-/// states. This avoids adding extra trait bounds on `S` (such as `PartialEq`),
-/// at the cost of relying on the stability/uniqueness of the `Debug` output for
-/// the concrete state types used.
+/// Note: replacement equality is determined by comparing entries (requires
+/// the state type to implement equality). This mirrors the previous behavior.
 pub struct VecReducer<S>
 where
     S: AbstractState,
@@ -69,10 +67,6 @@ where
 
     /// When two abstract states are merged, replace earlier occurrences of
     /// `dest_state` in the recorded `visited` list with clones of `merged_state`.
-    ///
-    /// Replacement is performed by comparing `Debug` representations of entries
-    /// to the `dest_state` Debug representation. This avoids additional trait
-    /// bounds on `S` (such as `PartialEq`), at the cost of relying on Debug.
     fn merged_state(
         &mut self,
         _curr_state: &S,
@@ -94,5 +88,44 @@ where
     /// Return the collected visited states.
     fn finalize(self) -> Self::Output {
         self.visited
+    }
+}
+
+/// Zero-sized factory for constructing `VecReducer` instances.
+///
+/// Exported as a public value `VEC` so callers can write:
+/// ```ignore
+/// let wrapped = analysis.with_residue(VEC);
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct VecReducerFactory;
+
+impl VecReducerFactory {
+    /// Const-friendly constructor for the factory.
+    pub const fn new() -> Self {
+        VecReducerFactory
+    }
+}
+
+impl Default for VecReducerFactory {
+    fn default() -> Self {
+        VecReducerFactory::new()
+    }
+}
+
+/// Ergonomic public constant factory value.
+pub const VEC: VecReducerFactory = VecReducerFactory;
+
+/// Implement the reducer factory trait to allow the CPA wrapper machinery to
+/// instantiate a `VecReducer<'op, A::State>` for any analysis `A`.
+impl<A> super::ReducerFactoryForState<A> for VecReducerFactory
+where
+    A: crate::analysis::cpa::ConfigurableProgramAnalysis,
+    A::State: AbstractState,
+{
+    type Reducer<'op> = VecReducer<A::State>;
+
+    fn make<'op>(&self) -> Self::Reducer<'op> {
+        VecReducer::default()
     }
 }
