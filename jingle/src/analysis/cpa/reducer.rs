@@ -3,7 +3,6 @@ use crate::analysis::cfg::PcodeCfg;
 use crate::analysis::cpa::residue::Residue;
 use crate::analysis::cpa::state::LocationState;
 use crate::analysis::pcode_store::PcodeOpRef;
-use jingle_sleigh::PcodeOperation;
 
 /// A generic reducer that adapts an arbitrary CPA into a "reducer" which
 /// records reductions/transitions into a `PcodeCfg`.
@@ -26,6 +25,15 @@ where
 {
     /// The constructed Pcode CFG capturing reductions observed during analysis.
     pub cfg: PcodeCfg<N, PcodeOpRef<'a>>,
+}
+
+impl<'a, N> Default for CfgReducer<'a, N>
+where
+    N: LocationState + CfgState,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'a, N> CfgReducer<'a, N>
@@ -108,6 +116,12 @@ where
 /// particular p-code operation borrow lifetime `'op`. This ZST is intended to be
 /// passed to `with_residue` so examples can write `with_residue(CfgReducerFactory)`.
 pub struct CfgReducerFactory;
+
+impl Default for CfgReducerFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl CfgReducerFactory {
     pub const fn new() -> Self {

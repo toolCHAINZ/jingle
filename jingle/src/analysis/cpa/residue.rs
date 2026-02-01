@@ -90,7 +90,6 @@ where
     for<'op> F: ReducerFactoryForState<A>,
 {
     a: A,
-    factory: F,
     _phantom: PhantomData<F>,
 }
 
@@ -99,23 +98,21 @@ where
     for<'op> F: ReducerFactoryForState<A>,
 {
     /// Wrap an analysis together with a reducer factory.
-    pub fn wrap(a: A, factory: F) -> Self {
+    pub fn wrap(a: A, _: F) -> Self {
         Self {
             a,
-            factory,
             _phantom: Default::default(),
         }
     }
 
     /// Convenience: allow converting an existing factory to another factory
     /// via the `with_residue`-style chain. This mirrors the previous ergonomics.
-    pub fn with_residue<G>(self, factory: G) -> ResidueWrapper<A, G>
+    pub fn with_residue<G>(self, _: G) -> ResidueWrapper<A, G>
     where
         for<'op> G: ReducerFactoryForState<A>,
     {
         ResidueWrapper {
             a: self.a,
-            factory,
             _phantom: Default::default(),
         }
     }

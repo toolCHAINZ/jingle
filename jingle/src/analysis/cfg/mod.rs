@@ -1,4 +1,4 @@
-use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
+use crate::analysis::pcode_store::PcodeStore;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
