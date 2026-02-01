@@ -28,5 +28,5 @@ impl BasicLocationAnalysis {
 
 impl ConfigurableProgramAnalysis for BasicLocationAnalysis {
     type State = BasicLocationState;
-    type Reducer = CfgReducer<Self::State>;
+    type Reducer<'op> = CfgReducer<'op, Self::State>;
 }

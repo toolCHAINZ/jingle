@@ -197,6 +197,12 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
 
 /// States that know their program location.
 pub trait LocationState: AbstractState {
-    fn get_operation<'a, T: PcodeStore + ?Sized>(&'a self, t: &'a T) -> Option<PcodeOpRef<'a>>;
+    /// Retrieve the p-code operation for this location from a pcode store.
+    ///
+    /// Relaxed lifetime: the returned operation borrows from the provided
+    /// `PcodeStore` reference only; the state (`&self`) is not required to be
+    /// borrowed for the same lifetime. This allows callers to obtain an op
+    /// tied to the store borrow without forcing the state to outlive that borrow.
+    fn get_operation<'a, T: PcodeStore + ?Sized>(&self, t: &'a T) -> Option<PcodeOpRef<'a>>;
     fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }

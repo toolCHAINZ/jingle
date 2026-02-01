@@ -1,6 +1,7 @@
 use crate::JingleError;
 // use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::flat::FlatLattice;
+use crate::analysis::pcode_store::PcodeOpRef;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -105,6 +106,12 @@ impl CfgState for FlatLattice<ConcretePcodeAddress> {
 }
 
 impl<N: CfgStateModel> ModelTransition<N> for PcodeOperation {
+    fn transition(&self, init: &N) -> Result<N, JingleError> {
+        init.apply(self)
+    }
+}
+
+impl<'a, N: CfgStateModel> ModelTransition<N> for PcodeOpRef<'a> {
     fn transition(&self, init: &N) -> Result<N, JingleError> {
         init.apply(self)
     }

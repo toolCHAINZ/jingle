@@ -32,17 +32,23 @@ where
     /// The default implementation uses the standard CPA algorithm and delegates
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
-    fn run<T: PcodeStore, I: IntoState<Self>>(
+    fn run<'op, T: PcodeStore + ?Sized, I: IntoState<Self>>(
         &self,
-        store: T,
+        store: &'op T,
         initial_state: I,
-    ) -> <Self::Reducer as Residue<Self::State>>::Output {
+    ) -> <<Self as ConfigurableProgramAnalysis>::Reducer<'op> as Residue<'op, Self::State>>::Output
+    where
+        Self::State: 'op,
+    {
         // Use the CPA's `make_initial_state` helper so CPAs that need access to `self`
         // when constructing their initial state can do so. The default `make_initial_state`
         // simply calls `.into()` so this is fully backwards compatible.
         let initial = initial_state.into_state(self);
 
-        self.run_cpa(initial, &store)
+        // Delegate to the generic `run_cpa` implementation, instantiating the reducer
+        // for the `'op` lifetime and passing the pcode store by reference so callers
+        // can provide borrowed `PcodeOpRef<'op>` values from the store without cloning.
+        self.run_cpa(initial, store)
     }
 }
 
@@ -56,12 +62,16 @@ where
 }
 
 pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
-    fn run_analysis<T: Analysis>(&self, t: T) -> <T::Reducer as Residue<T::State>>::Output
+    fn run_analysis<'op, T: Analysis>(
+        &'op self,
+        t: T,
+    ) -> <<T as ConfigurableProgramAnalysis>::Reducer<'op> as Residue<'op, T::State>>::Output
     where
-        <T as ConfigurableProgramAnalysis>::State: LocationState,
+        <T as ConfigurableProgramAnalysis>::State: LocationState + 'op,
         ConcretePcodeAddress: IntoState<T>,
     {
         let state = self.get_entry();
+        // Pass `self` as the pcode store reference with lifetime `'op`.
         t.run(self, state)
     }
 }

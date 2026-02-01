@@ -20,42 +20,49 @@ use jingle_sleigh::PcodeOperation;
 /// - The reducer does not attempt to modify the wrapped CPA's behavior; it
 ///   only observes the CPA via the `residue` and `merged` hooks and updates the
 ///   CFG accordingly.
-pub struct CfgReducer<N>
+pub struct CfgReducer<'a, N>
 where
     N: LocationState + CfgState,
 {
     /// The constructed Pcode CFG capturing reductions observed during analysis.
-    pub cfg: PcodeCfg<N, PcodeOperation>,
+    pub cfg: PcodeCfg<N, PcodeOpRef<'a>>,
 }
 
-impl<N> CfgReducer<N>
+impl<'a, N> CfgReducer<'a, N>
 where
     N: LocationState + CfgState,
 {
+    /// Create an empty `CfgReducer` for this lifetime and state type.
+    pub fn new() -> Self {
+        Self {
+            cfg: PcodeCfg::new(),
+        }
+    }
+
     /// Take ownership of the built CFG, replacing it with an empty one.
-    pub fn take_cfg(&mut self) -> PcodeCfg<N, PcodeOperation> {
+    pub fn take_cfg(&mut self) -> PcodeCfg<N, PcodeOpRef<'a>> {
         std::mem::take(&mut self.cfg)
     }
 }
 
-impl<N> Residue<N> for CfgReducer<N>
+impl<'a, N> Residue<'a, N> for CfgReducer<'a, N>
 where
     N: LocationState + CfgState,
 {
-    type Output = PcodeCfg<N>;
+    type Output = PcodeCfg<N, PcodeOpRef<'a>>;
     /// Record a reduction/transition from `state` to `dest_state` into the CFG.
     ///
     /// This mirrors the logic previously implemented in the unwinding CPA's
     /// `reduce` method, but generalized: we convert both CPA states into `N`
     /// via the mapper and add nodes/edges to the cfg. If `op` is `None`,
     /// only the source node is added (no edge).
-    fn new_state(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOpRef<'_>>) {
+    fn new_state(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOpRef<'a>>) {
         self.cfg.add_node(state);
 
         if let Some(op) = op {
             // Convert the wrapped op into an owned PcodeOperation before inserting.
             // `PcodeOpRef` derefs to `PcodeOperation`; call `as_ref().clone()` to obtain an owned op.
-            let owned_op = op.as_ref().clone();
+            let owned_op = op.clone();
             // add_edge will insert nodes if missing
             self.cfg.add_edge(state, dest_state, owned_op);
         }
@@ -72,7 +79,7 @@ where
         state: &N,
         dest_state: &N,
         merged_state: &N,
-        op: &Option<PcodeOpRef<'_>>,
+        op: &Option<PcodeOpRef<'a>>,
     ) {
         tracing::debug!("merged called: dest_state and merged_state provided");
         // If operation is not present we can't deterministically reconstruct
@@ -81,7 +88,7 @@ where
         // We only proceed when there is an op provided (matches unwinding impl).
         self.cfg.replace_and_combine_nodes(dest_state, merged_state);
         if let Some(op) = op {
-            let owned_op = op.as_ref().clone();
+            let owned_op = op.clone();
             self.cfg.add_edge(state, merged_state, owned_op);
         }
     }
@@ -94,5 +101,32 @@ where
 
     fn finalize(self) -> Self::Output {
         self.cfg
+    }
+}
+
+/// Zero-sized factory for constructing `CfgReducer` instances specialized to a
+/// particular p-code operation borrow lifetime `'op`. This ZST is intended to be
+/// passed to `with_residue` so examples can write `with_residue(CfgReducerFactory)`.
+pub struct CfgReducerFactory;
+
+impl CfgReducerFactory {
+    pub const fn new() -> Self {
+        CfgReducerFactory
+    }
+}
+
+impl<A> crate::analysis::cpa::residue::ReducerFactoryForState<A> for CfgReducerFactory
+where
+    A: crate::analysis::cpa::ConfigurableProgramAnalysis,
+    A::State: crate::analysis::cpa::state::LocationState + crate::analysis::cfg::CfgState,
+{
+    type Reducer<'op> = crate::analysis::cpa::reducer::CfgReducer<'op, A::State>;
+
+    fn make<'op>(&self) -> Self::Reducer<'op> {
+        // Construct a reducer with an empty cfg. The concrete `'op` lifetime is
+        // supplied by the caller (run_cpa) when instantiating the factory.
+        crate::analysis::cpa::reducer::CfgReducer {
+            cfg: PcodeCfg::new(),
+        }
     }
 }

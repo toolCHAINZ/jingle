@@ -1,7 +1,10 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use std::borrow::{Borrow, Cow};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt::Debug,
+};
 
 /// PcodeOpRef — a small, ergonomic wrapper for p-code operations
 ///
@@ -31,6 +34,7 @@ use std::borrow::{Borrow, Cow};
 /// Note: there is no
 /// `into_owned` method on `PcodeOpRef` in order to keep the
 /// abstraction minimal; callers that need an owned value can call `.as_ref().clone()`.
+#[derive(Clone)]
 pub struct PcodeOpRef<'a>(std::borrow::Cow<'a, PcodeOperation>);
 
 impl<'a> AsRef<PcodeOperation> for PcodeOpRef<'a> {
@@ -55,6 +59,15 @@ impl<'a> From<PcodeOperation> for PcodeOpRef<'a> {
 impl<'a> From<&'a PcodeOperation> for PcodeOpRef<'a> {
     fn from(op: &'a PcodeOperation) -> Self {
         PcodeOpRef(Cow::Borrowed(op))
+    }
+}
+
+impl<'a> Debug for PcodeOpRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Cow::Borrowed(o) => o.fmt(f),
+            Cow::Owned(o) => o.fmt(f),
+        }
     }
 }
 

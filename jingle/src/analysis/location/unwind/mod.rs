@@ -18,5 +18,5 @@ impl UnwindingAnalysis {
 
 impl ConfigurableProgramAnalysis for UnwindingAnalysis {
     type State = UnwindingState;
-    type Reducer = EmptyResidue<UnwindingState>;
+    type Reducer<'op> = EmptyResidue<UnwindingState>;
 }

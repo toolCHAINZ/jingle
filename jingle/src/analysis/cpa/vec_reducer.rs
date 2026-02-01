@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<S> Residue<S> for VecReducer<S>
+impl<'a, S> Residue<'a, S> for VecReducer<S>
 where
     S: AbstractState,
 {
@@ -62,7 +62,7 @@ where
         &mut self,
         _state: &S,
         dest_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
         self.visited.push(dest_state.clone());
     }
@@ -78,7 +78,7 @@ where
         _curr_state: &S,
         dest_state: &S,
         merged_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
         for entry in &mut self.visited {
             if entry == dest_state {

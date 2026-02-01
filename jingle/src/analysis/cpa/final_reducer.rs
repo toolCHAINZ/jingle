@@ -66,7 +66,7 @@ where
     }
 }
 
-impl<S> Residue<S> for FinalReducer<S>
+impl<'a, S> Residue<'a, S> for FinalReducer<S>
 where
     S: AbstractState,
 {
@@ -80,7 +80,7 @@ where
         &mut self,
         state: &S,
         dest_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
         // The source state has successors, so it's not final
         if !self.non_final_states.iter().any(|s| s == state) {
@@ -103,7 +103,7 @@ where
         curr_state: &S,
         original_merged_state: &S,
         merged_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'_>>,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
         // The current state has successors, so it's not final
         if !self.non_final_states.iter().any(|s| s == curr_state) {

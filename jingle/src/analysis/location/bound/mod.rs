@@ -17,7 +17,7 @@ impl BoundedBranchAnalysis {
 
 impl ConfigurableProgramAnalysis for BoundedBranchAnalysis {
     type State = BoundedBranchState;
-    type Reducer = EmptyResidue<Self::State>;
+    type Reducer<'op> = EmptyResidue<Self::State>;
 }
 
 impl IntoState<BoundedBranchAnalysis> for ConcretePcodeAddress {
