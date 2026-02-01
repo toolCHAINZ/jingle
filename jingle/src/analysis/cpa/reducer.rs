@@ -129,6 +129,14 @@ impl CfgReducerFactory {
     }
 }
 
+/// Public constant factory value for ergonomic usage.
+///
+/// Prefer passing `CFG` to `with_residue` in examples and user code:
+/// ```ignore
+/// let analysis_with_cfg = analysis.with_residue(CFG);
+/// ```
+pub const CFG: CfgReducerFactory = CfgReducerFactory;
+
 impl<A> crate::analysis::cpa::residue::ReducerFactoryForState<A> for CfgReducerFactory
 where
     A: crate::analysis::cpa::ConfigurableProgramAnalysis,

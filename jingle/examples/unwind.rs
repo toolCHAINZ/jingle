@@ -47,7 +47,7 @@ fn main() {
     );
 
     // Wrap with CfgReducer (pass the factory ZST)
-    let mut analysis_with_cfg = location_analysis.with_residue(CfgReducerFactory::new());
+    let mut analysis_with_cfg = location_analysis.with_residue(CFG);
 
     // Run the unwinding analysis
     let cfg = analysis_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));

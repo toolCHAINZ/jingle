@@ -2,7 +2,7 @@
 
 use jingle::analysis::Analysis;
 use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use jingle::analysis::cpa::reducer::CfgReducerFactory;
+use jingle::analysis::cpa::reducer::CFG;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
@@ -60,8 +60,7 @@ fn main() {
         SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer (factory)
-    let mut compound_with_cfg =
-        (location_analysis, valuation_analysis).with_residue(CfgReducerFactory::new());
+    let mut compound_with_cfg = (location_analysis, valuation_analysis).with_residue(CFG);
 
     tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 

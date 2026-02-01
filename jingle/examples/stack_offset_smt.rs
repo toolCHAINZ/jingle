@@ -58,8 +58,7 @@ fn main() {
         SmtValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer
-    let mut compound_with_cfg =
-        (location_analysis, valuation_analysis).with_residue(CfgReducerFactory::new());
+    let mut compound_with_cfg = (location_analysis, valuation_analysis).with_residue(CFG);
 
     tracing::info!("Starting analysis run at address 0x{:x}", FUNC_NESTED);
 
