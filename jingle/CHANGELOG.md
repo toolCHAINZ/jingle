@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.0...jingle-v0.5.1) - 2026-02-01
+
+### Added
+
+- Refactor analysis traits to reduce copies ([#146](https://github.com/toolCHAINZ/jingle/pull/146))
+- Add get_op_at_address method and generalize PcodeStore impl ([#145](https://github.com/toolCHAINZ/jingle/pull/145))
+- track pcode ops in cfg by address instead of abstract state ([#144](https://github.com/toolCHAINZ/jingle/pull/144))
+- Minor Analysis Tweaks ([#142](https://github.com/toolCHAINZ/jingle/pull/142))
+- add an api to get a sub-graph ([#141](https://github.com/toolCHAINZ/jingle/pull/141))
+- add constructor method to ConcretePcodeAddress ([#139](https://github.com/toolCHAINZ/jingle/pull/139))
+
+### Removed
+
+- remove unused back-edge analysis and unwoundcfg wrapper type ([#143](https://github.com/toolCHAINZ/jingle/pull/143))
+
 ## [0.5.0](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.4.2...jingle-v0.5.0) - 2026-01-28
 
 ### Added
