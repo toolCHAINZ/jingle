@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
-use jingle::analysis::cpa::reducer::CfgReducerFactory;
+use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
 use jingle::analysis::location::{CallBehavior, UnwindingAnalysis};

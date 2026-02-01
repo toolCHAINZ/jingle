@@ -1,4 +1,4 @@
-use crate::analysis::cpa::reducer::CfgReducer;
+use crate::analysis::cpa::residue::CfgReducer;
 
 use crate::analysis::cpa::ConfigurableProgramAnalysis;
 use crate::analysis::location::basic::state::{BasicLocationState, CallBehavior};
