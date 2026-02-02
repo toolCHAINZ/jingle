@@ -1,4 +1,5 @@
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
+use jingle_sleigh::JingleDisplay;
 use jingle_sleigh::VarNode;
 use jingle_sleigh::display::JingleDisplayWrapper;
 use pyo3::pyclass;
