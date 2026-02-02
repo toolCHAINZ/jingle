@@ -1,5 +1,7 @@
 pub mod branch;
+pub mod op_ref;
 pub(crate) mod parse;
+pub use op_ref::PcodeOpRef;
 
 use crate::context::CallInfo;
 use crate::pcode::PcodeOperation::{

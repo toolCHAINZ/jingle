@@ -1,7 +1,7 @@
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::{
-    GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOperation, SleighArchInfo, SpaceType,
-    VarNode,
+    GeneralizedVarNode, IndirectVarNode, Instruction, PcodeOpRef, PcodeOperation, SleighArchInfo,
+    SpaceType, VarNode,
 };
 use std::fmt::{Display, Formatter};
 use z3::ast::Ast;
@@ -137,6 +137,13 @@ impl JingleDisplayable for Instruction {
             writeln!(f, "\t{}", x.display(ctx))?;
         }
         Ok(())
+    }
+}
+
+impl<'a> JingleDisplayable for PcodeOpRef<'a> {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, ctx: &SleighArchInfo) -> std::fmt::Result {
+        // Delegate to the inner `PcodeOperation`'s Jingle display implementation.
+        self.as_ref().fmt_jingle(f, ctx)
     }
 }
 
