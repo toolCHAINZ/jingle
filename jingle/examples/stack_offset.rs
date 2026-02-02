@@ -5,7 +5,7 @@ use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::LocationState;
-use jingle::analysis::cpa::{FinalReducer, RunnableConfigurableProgramAnalysis};
+use jingle::analysis::cpa::{RunnableConfigurableProgramAnalysis, TerminatingReducer};
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::pcode_store::{self, PcodeOpRef};
