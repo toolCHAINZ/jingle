@@ -203,6 +203,7 @@ pub trait LocationState: AbstractState {
     /// `PcodeStore` reference only; the state (`&self`) is not required to be
     /// borrowed for the same lifetime. This allows callers to obtain an op
     /// tied to the store borrow without forcing the state to outlive that borrow.
-    fn get_operation<'a, T: PcodeStore + ?Sized>(&self, t: &'a T) -> Option<PcodeOpRef<'a>>;
+    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(&self, t: &'op T)
+    -> Option<PcodeOpRef<'op>>;
     fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }

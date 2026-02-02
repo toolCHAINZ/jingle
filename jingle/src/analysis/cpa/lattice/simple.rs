@@ -81,10 +81,10 @@ impl<S: AbstractState + PartialJoinSemiLattice> AbstractState for SimpleLattice<
 }
 
 impl<S: LocationState + AbstractState + PartialJoinSemiLattice> LocationState for SimpleLattice<S> {
-    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+    fn get_operation<'op, T: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
         &self,
-        t: &'a T,
-    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
+        t: &'op T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
         match self {
             SimpleLattice::Value(a) => a.get_operation(t),
             SimpleLattice::Top => None,

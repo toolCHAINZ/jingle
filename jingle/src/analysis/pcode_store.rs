@@ -73,25 +73,28 @@ impl<'a> Debug for PcodeOpRef<'a> {
 
 /// A store of p-code operations.
 ///
-/// Implementations return `Option<PcodeOpRef<'a>>`. Callers that only need to
+/// Implementations return `Option<PcodeOpRef<'op>>`. Callers that only need to
 /// observe/borrow the operation should use `op_ref.as_ref()` to get a `&PcodeOperation`.
 /// If an owned operation is required, clone via `.as_ref().clone()`.
-pub trait PcodeStore {
-    fn get_pcode_op_at<'a, T: Borrow<ConcretePcodeAddress>>(
-        &'a self,
+///
+/// The trait is lifetime-parameterized so stores can tie the returned operation
+/// reference lifetime to the borrow of the store, avoiding unnecessary cloning.
+pub trait PcodeStore<'op> {
+    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
+        &'op self,
         addr: T,
-    ) -> Option<PcodeOpRef<'a>>;
+    ) -> Option<PcodeOpRef<'op>>;
 }
 
 pub trait EntryPoint {
     fn get_entry(&self) -> ConcretePcodeAddress;
 }
 
-impl<'a> PcodeStore for LoadedSleighContext<'a> {
-    fn get_pcode_op_at<'b, T: Borrow<ConcretePcodeAddress>>(
-        &'b self,
+impl<'a> PcodeStore<'a> for LoadedSleighContext<'a> {
+    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
+        &'a self,
         addr: T,
-    ) -> Option<PcodeOpRef<'b>> {
+    ) -> Option<PcodeOpRef<'a>> {
         let addr = addr.borrow();
         // `instruction_at` produces an owned `Instruction` per call. Its `ops`
         // are owned inside that `Instruction`, so we cannot return references
@@ -105,11 +108,11 @@ impl<'a> PcodeStore for LoadedSleighContext<'a> {
     }
 }
 
-impl<T: PcodeStore + ?Sized> PcodeStore for &T {
-    fn get_pcode_op_at<'a, B: Borrow<ConcretePcodeAddress>>(
-        &'a self,
+impl<'op, T: PcodeStore<'op> + ?Sized> PcodeStore<'op> for &T {
+    fn get_pcode_op_at<B: Borrow<ConcretePcodeAddress>>(
+        &'op self,
         addr: B,
-    ) -> Option<PcodeOpRef<'a>> {
+    ) -> Option<PcodeOpRef<'op>> {
         (*self).get_pcode_op_at(addr)
     }
 }

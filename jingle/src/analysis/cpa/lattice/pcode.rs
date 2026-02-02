@@ -175,7 +175,7 @@ impl AbstractState for PcodeAddressLattice {
 }
 
 impl LocationState for PcodeAddressLattice {
-    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore<'a> + ?Sized>(
         &self,
         t: &'a T,
     ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {

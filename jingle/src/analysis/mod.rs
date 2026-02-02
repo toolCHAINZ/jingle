@@ -32,7 +32,7 @@ where
     /// The default implementation uses the standard CPA algorithm and delegates
     /// to `make_output` for any post-processing. Types can override this to provide
     /// custom run behavior.
-    fn run<'op, T: PcodeStore + ?Sized, I: IntoState<Self>>(
+    fn run<'op, T: PcodeStore<'op> + ?Sized, I: IntoState<Self>>(
         &self,
         store: &'op T,
         initial_state: I,
@@ -61,7 +61,7 @@ where
 {
 }
 
-pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
+pub trait AnalyzableEntry: for<'op> PcodeStore<'op> + EntryPoint + Sized {
     fn run_analysis<'op, T: Analysis>(
         &'op self,
         t: T,
@@ -76,4 +76,4 @@ pub trait AnalyzableEntry: PcodeStore + EntryPoint + Sized {
     }
 }
 
-impl<T: PcodeStore + EntryPoint> AnalyzableEntry for T {}
+impl<T: for<'op> PcodeStore<'op> + EntryPoint> AnalyzableEntry for T {}

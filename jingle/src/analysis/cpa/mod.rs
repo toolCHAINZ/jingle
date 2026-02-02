@@ -58,7 +58,7 @@ where
     /// p-code operation references returned by the `PcodeStore` (i.e. the store's
     /// borrow lifetime). The reducer type is instantiated for that same `'op`
     /// lifetime so it can accept `PcodeOpRef<'op>` without cloning.
-    fn run_cpa<'op, I: Borrow<Self::State>, P: PcodeStore + ?Sized>(
+    fn run_cpa<'op, I: Borrow<Self::State>, P: PcodeStore<'op> + ?Sized>(
         &self,
         initial: I,
         pcode_store: &'op P,
