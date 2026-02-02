@@ -10,7 +10,7 @@ use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::pcode_store::{self, PcodeOpRef};
 use jingle::analysis::valuation::{MergeBehavior, SmtVal, SmtValuationAnalysis, SmtValuationState};
-use jingle::display::JingleDisplayable;
+use jingle::display::JingleDisplay;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
 use jingle_sleigh::context::image::gimli::load_with_gimli;

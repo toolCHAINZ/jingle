@@ -1,7 +1,7 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hex::decode;
-use jingle::display::JingleDisplayable;
+use jingle::display::JingleDisplay;
 use jingle::modeling::{ModeledBlock, ModelingContext, State};
 use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::loaded::LoadedSleighContext;

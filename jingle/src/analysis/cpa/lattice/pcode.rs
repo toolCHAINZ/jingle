@@ -1,6 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
-use crate::display::JingleDisplayable;
+use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
 use std::borrow::Borrow;
@@ -22,7 +22,7 @@ pub enum PcodeAddressLattice {
     Top,
 }
 
-impl JingleDisplayable for PcodeAddressLattice {
+impl JingleDisplay for PcodeAddressLattice {
     fn fmt_jingle(
         &self,
         f: &mut Formatter<'_>,

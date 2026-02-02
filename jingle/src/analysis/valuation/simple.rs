@@ -3,7 +3,7 @@ use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::varnode_map::VarNodeMap;
-use crate::display::JingleDisplayable;
+use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
@@ -333,7 +333,7 @@ impl SimpleValuation {
     }
 }
 
-impl JingleDisplayable for SimpleValuation {
+impl JingleDisplay for SimpleValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
             SimpleValuation::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
