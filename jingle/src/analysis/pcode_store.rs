@@ -1,7 +1,6 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::PcodeOperation;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use std::{borrow::Borrow, fmt::Debug};
+use std::borrow::Borrow;
 
 pub use jingle_sleigh::PcodeOpRef;
 
