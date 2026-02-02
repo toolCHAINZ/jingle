@@ -1,4 +1,3 @@
-use crate::display::JingleDisplayable;
 use crate::modeling::{ModeledBlock, ModelingContext};
 use crate::python::instruction::PythonInstruction;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
@@ -6,6 +5,7 @@ use crate::python::state::PythonState;
 use crate::python::varode_iterator::VarNodeIterator;
 use crate::sleigh::Instruction;
 use jingle_sleigh::SleighArchInfo;
+use jingle_sleigh::display::JingleDisplay;
 use pyo3::{PyResult, pyclass, pymethods};
 use std::borrow::Borrow;
 

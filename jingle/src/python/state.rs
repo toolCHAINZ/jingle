@@ -1,9 +1,9 @@
-use crate::display::JingleDisplayable;
 use crate::modeling::State;
 use crate::python::resolved_varnode::PythonResolvedVarNode;
 use crate::python::sleigh_context::PythonLoadedSleighContext;
 use crate::python::z3::ast::PythonAst;
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
+use jingle_sleigh::display::JingleDisplayWrapper;
 use jingle_sleigh::{IndirectVarNode, VarNode};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;

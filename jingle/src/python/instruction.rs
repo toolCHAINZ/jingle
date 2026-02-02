@@ -1,7 +1,7 @@
-use crate::display::JingleDisplayable;
 use crate::sleigh::context::loaded::LoadedSleighContext;
 use crate::sleigh::{Instruction, PcodeOperation};
 use jingle_sleigh::SleighArchInfo;
+use jingle_sleigh::display::JingleDisplay;
 use pyo3::{pyclass, pymethods};
 use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};

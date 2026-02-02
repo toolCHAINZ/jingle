@@ -1,18 +1,18 @@
-use crate::display::JingleDisplay;
 use crate::varnode::{ResolvedIndirectVarNode, ResolvedVarnode};
 use jingle_sleigh::VarNode;
+use jingle_sleigh::display::JingleDisplayWrapper;
 use pyo3::pyclass;
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub enum PythonResolvedVarNodeInner {
-    Direct(JingleDisplay<VarNode>),
-    Indirect(JingleDisplay<ResolvedIndirectVarNode>),
+    Direct(JingleDisplayWrapper<VarNode>),
+    Indirect(JingleDisplayWrapper<ResolvedIndirectVarNode>),
 }
 #[derive(Clone)]
 #[pyclass(unsendable, str, name = "ResolvedVarNode")]
 pub struct PythonResolvedVarNode {
-    pub inner: JingleDisplay<ResolvedVarnode>,
+    pub inner: JingleDisplayWrapper<ResolvedVarnode>,
 }
 
 impl Display for PythonResolvedVarNode {
@@ -21,7 +21,7 @@ impl Display for PythonResolvedVarNode {
     }
 }
 
-impl From<JingleDisplay<ResolvedVarnode>> for PythonResolvedVarNode {
+impl From<JingleDisplayWrapper<ResolvedVarnode>> for PythonResolvedVarNode {
     fn from(value: JingleDisplay<ResolvedVarnode>) -> Self {
         Self { inner: value }
     }
