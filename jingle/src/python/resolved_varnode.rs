@@ -23,7 +23,7 @@ impl Display for PythonResolvedVarNode {
 }
 
 impl From<JingleDisplayWrapper<ResolvedVarnode>> for PythonResolvedVarNode {
-    fn from(value: JingleDisplay<ResolvedVarnode>) -> Self {
+    fn from(value: JingleDisplayWrapper<ResolvedVarnode>) -> Self {
         Self { inner: value }
     }
 }
