@@ -427,8 +427,17 @@ impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOpRef<'op>> {
     }
 }
 
-impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
-    pub fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>> {
+/// Trait providing a `basic_blocks` transformation for CFGs whose op storage type
+/// can yield a reference to a `PcodeOperation` via `AsRef<PcodeOperation>`.
+pub trait BasicBlocks<N: CfgState> {
+    fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>>;
+}
+
+impl<N: CfgState, D: AsRef<PcodeOperation>> BasicBlocks<N> for PcodeCfg<N, D>
+where
+    PcodeOperation: Clone,
+{
+    fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>> {
         use petgraph::visit::EdgeRef;
         // Step 1: Initialize new graph and maps
         let mut graph = StableDiGraph::<N, EmptyEdge>::default();
@@ -441,7 +450,7 @@ impl<N: CfgState> PcodeCfg<N, PcodeOperation> {
             let op = if let Some(loc) = n.location() {
                 self.ops
                     .get(&loc)
-                    .map(|op| vec![op.clone()])
+                    .map(|opd| vec![opd.as_ref().clone()])
                     .unwrap_or_default()
             } else {
                 Vec::new()
