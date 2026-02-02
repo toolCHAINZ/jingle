@@ -78,6 +78,14 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
     }
 }
 
+impl From<&PcodeMachineAddress> for ConcretePcodeAddress {
+    fn from(value: &PcodeMachineAddress) -> Self {
+        Self {
+            machine: value.clone(),
+            pcode: 0,
+        }
+    }
+}
 /// Simple in-function transition handling, transitioning from one address to the
 /// next per uninterpreted/unanalyzed pcode. The implementation is used for
 /// the initial exploration of a CFG. The analyses built around this have
