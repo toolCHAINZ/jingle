@@ -1,4 +1,4 @@
-use crate::analysis::pcode_store::PcodeStore;
+use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgState, CfgStateModel, ModelTransition};
@@ -402,14 +402,28 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 }
 
-impl<L: CfgState> PcodeStore for PcodeCfg<L, PcodeOperation> {
-    fn get_pcode_op_at<'a, T: Borrow<ConcretePcodeAddress>>(
-        &'a self,
+impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOperation> {
+    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
+        &'op self,
         addr: T,
-    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
         let addr = *addr.borrow();
         self.get_op_at_address(addr)
             .map(crate::analysis::pcode_store::PcodeOpRef::from)
+    }
+}
+
+impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOpRef<'op>> {
+    fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
+        &'op self,
+        addr: T,
+    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
+        let addr = *addr.borrow();
+        // The CFG stores `PcodeOpRef<'static>` values. We can return a borrowed
+        // `PcodeOpRef<'op>` that references the inner operation without cloning.
+        self.get_op_at_address(addr).map(|op_ref_static| {
+            crate::analysis::pcode_store::PcodeOpRef::from(op_ref_static.as_ref())
+        })
     }
 }
 

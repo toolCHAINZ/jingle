@@ -157,10 +157,10 @@ macro_rules! named_tuple {
             $F: 'static,
             $( $T: 'static ),+
         {
-            fn get_operation<'a, P: crate::analysis::pcode_store::PcodeStore + ?Sized>(
+            fn get_operation<'op, P: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
                 &self,
-                t: &'a P,
-            ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
+                t: &'op P,
+            ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
                 self.$first_field.get_operation(t)
             }
 
