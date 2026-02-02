@@ -148,7 +148,7 @@ impl SmtValuationState {
 
         let display_str = format!("{}", vn.display(&self.arch_info));
         let sanitized = display_str.replace(' ', "_");
-        let base = format!("entry_{}_s{}_o{}", sanitized, vn.size, vn.offset);
+        let base = format!("entry_{}", sanitized);
         let bits = (vn.size * 8) as u32;
 
         // If we already chose a deterministic name for this VarNode, reuse it and create a BV
