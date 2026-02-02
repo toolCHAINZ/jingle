@@ -5,7 +5,6 @@ use crate::analysis::cpa::{
 };
 use crate::analysis::pcode_store::{EntryPoint, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use std::borrow::Borrow;
 
 pub mod cfg;
 pub mod compound;
