@@ -121,6 +121,9 @@ pub struct SmtValuationState {
     name_cache: VarNodeMap<String>,
     arch_info: SleighArchInfo,
     merge_behavior: MergeBehavior,
+    /// Small (u16) identifier used to disambiguate entry variables coming from different
+    /// analysis invocations / starting states. This value is preserved across `clone`.
+    id: u16,
     // Use Z3's deterministic-named constants to avoid duplicate hints becoming different fresh symbols.
 }
 
@@ -148,7 +151,9 @@ impl SmtValuationState {
 
         let display_str = format!("{}", vn.display(&self.arch_info));
         let sanitized = display_str.replace(' ', "_");
-        let base = format!("entry_{}_s{}_o{}", sanitized, vn.size, vn.offset);
+        // Include the state's unique id in the entry variable name to avoid collisions
+        // between different analysis invocations / starting states.
+        let base = format!("entry_{}_{}", sanitized, self.id);
         let bits = (vn.size * 8) as u32;
 
         // If we already chose a deterministic name for this VarNode, reuse it and create a BV
@@ -170,22 +175,36 @@ impl SmtValuationState {
     }
 
     pub fn new(arch_info: SleighArchInfo) -> Self {
+        // Derive a compact u16 id from the arch info so states get an identifier even when
+        // created via this constructor. This id will persist through clone.
+        let mut hasher = DefaultHasher::new();
+        arch_info.hash(&mut hasher);
+        let id = (hasher.finish() & 0xffff) as u16;
+
         Self {
             written_locations: VarNodeMap::new(),
             entry_cache: VarNodeMap::new(),
             name_cache: VarNodeMap::new(),
             arch_info,
             merge_behavior: MergeBehavior::Or,
+            id,
         }
     }
 
     pub fn new_with_behavior(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
+        // Derive a compact u16 id from the arch info so states get an identifier even when
+        // created via this constructor. This id will persist through clone.
+        let mut hasher = DefaultHasher::new();
+        arch_info.hash(&mut hasher);
+        let id = (hasher.finish() & 0xffff) as u16;
+
         Self {
             written_locations: VarNodeMap::new(),
             entry_cache: VarNodeMap::new(),
             name_cache: VarNodeMap::new(),
             arch_info,
             merge_behavior,
+            id,
         }
     }
 
@@ -542,12 +561,20 @@ impl IntoState<SmtValuationAnalysis> for ConcretePcodeAddress {
         self,
         c: &SmtValuationAnalysis,
     ) -> <SmtValuationAnalysis as ConfigurableProgramAnalysis>::State {
+        // Compute a compact u16 id derived from the concrete address and analysis arch info.
+        // This gives each starting state a small unique identifier that will be preserved when cloned.
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        c.arch_info.hash(&mut hasher);
+        let id = (hasher.finish() & 0xffff) as u16;
+
         SmtValuationState {
             written_locations: VarNodeMap::new(),
             entry_cache: VarNodeMap::new(),
             name_cache: VarNodeMap::new(),
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
+            id,
         }
     }
 }
