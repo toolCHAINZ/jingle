@@ -322,11 +322,14 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     ///
     /// If the resulting subgraph has more than one connected component (treating edges as undirected
     /// for connectivity), this function will panic.
-    pub fn sub_cfg_from_indices(&self, selected: &HashSet<NodeIndex>) -> PcodeCfg<N, D> {
+    pub fn sub_cfg_from_indices<I: Iterator<Item = NodeIndex>>(
+        &self,
+        selected: I,
+    ) -> PcodeCfg<N, D> {
         // Build the set of NodeIndex that we will include: exactly the selected nodes.
         // Do NOT include outgoing neighbors or nodes that only have incoming edges into the selected set.
         let mut include: HashSet<NodeIndex> = HashSet::new();
-        for &idx in selected {
+        for idx in selected {
             include.insert(idx);
         }
 
