@@ -30,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
           submodules: true
       - uses: actions/setup-python@v5
         with:
@@ -77,6 +78,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
           submodules: true
 
       - name: Set up QEMU
@@ -87,7 +89,7 @@ jobs:
         with:
           arch: ${{ matrix.platform.arch }}
           distro: ubuntu20.04
-          githubToken: ${{ github.token }}
+          githubToken: ${{ secrets.PUBLIC_REPO_TOKEN }}
           run: |
             set -eux
             cd jingle_python
@@ -160,6 +162,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
           submodules: true
       - uses: actions/setup-python@v5
         with:
@@ -183,6 +186,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
           submodules: true
       - name: Build sdist
         uses: PyO3/maturin-action@v1
