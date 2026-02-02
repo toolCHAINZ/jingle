@@ -1,5 +1,5 @@
 pub mod cfg;
-pub mod r#final;
+pub mod terminating;
 pub mod vec;
 
 use std::marker::PhantomData;
@@ -145,5 +145,5 @@ where
 // These are provided by the child modules above (`cfg`, `vec`, and `final`) and
 // exposed here so consumers can write `use crate::analysis::cpa::residue::CFG;`.
 pub use self::cfg::{CFG, CfgReducer, CfgReducerFactory};
-pub use self::r#final::FinalReducer;
+pub use self::terminating::TerminatingReducer;
 pub use self::vec::{VEC, VecReducer, VecReducerFactory};

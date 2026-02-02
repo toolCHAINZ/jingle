@@ -5,7 +5,7 @@ pub mod state;
 // `vec_reducer` and the other reducer implementations have been moved into `residue/`.
 
 // Re-export ergonomic factory constants and the moved `FinalReducer` from the `residue` module
-pub use crate::analysis::cpa::residue::{CFG, FinalReducer, VEC};
+pub use crate::analysis::cpa::residue::{CFG, TerminatingReducer, VEC};
 use tracing::{Level, span};
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
