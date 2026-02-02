@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.1...jingle-v0.5.2) - 2026-02-02
+
+### Added
+
+- Add lifetime to pcodestore ([#147](https://github.com/toolCHAINZ/jingle/pull/147))
+
+### Other
+
+- generalize display impls, rename trait, move it to jingle_sleigh ([#151](https://github.com/toolCHAINZ/jingle/pull/151))
+- move basic_block cfg impl to a trait and auto-impl for any edge type that is AsRef<PcodeOperation>
+- rename final => terminating ([#149](https://github.com/toolCHAINZ/jingle/pull/149))
+
 ## [0.5.1](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.0...jingle-v0.5.1) - 2026-02-01
 
 ### Added
