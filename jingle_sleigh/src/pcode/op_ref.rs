@@ -56,3 +56,11 @@ impl<'a> LowerHex for PcodeOpRef<'a> {
         LowerHex::fmt(self.as_ref(), f)
     }
 }
+
+/// Implement the JingleDisplay trait for `PcodeOpRef` by delegating to the
+/// inner `PcodeOperation`'s `fmt_jingle` implementation.
+impl<'a> crate::display::JingleDisplay for PcodeOpRef<'a> {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &crate::SleighArchInfo) -> std::fmt::Result {
+        self.as_ref().fmt_jingle(f, info)
+    }
+}
