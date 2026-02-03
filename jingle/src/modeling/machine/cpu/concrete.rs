@@ -81,7 +81,7 @@ impl From<PcodeMachineAddress> for ConcretePcodeAddress {
 impl From<&PcodeMachineAddress> for ConcretePcodeAddress {
     fn from(value: &PcodeMachineAddress) -> Self {
         Self {
-            machine: value.clone(),
+            machine: *value,
             pcode: 0,
         }
     }
