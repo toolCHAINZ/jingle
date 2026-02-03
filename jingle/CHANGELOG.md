@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.2...jingle-v0.5.3) - 2026-02-03
+
+### Added
+
+- Add From<&PcodeMachineAddress> for ConcretePcodeAddress ([#155](https://github.com/toolCHAINZ/jingle/pull/155))
+
+### Changed
+
+- sub_cfg_from_indices  accepts any iterator for nodes ([#152](https://github.com/toolCHAINZ/jingle/pull/152))
+
+### Other
+
+- simplify smt valuation names and make them unique ([#154](https://github.com/toolCHAINZ/jingle/pull/154))
+
 ## [0.5.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.1...jingle-v0.5.2) - 2026-02-02
 
 ### Added
