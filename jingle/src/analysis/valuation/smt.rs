@@ -535,6 +535,24 @@ impl Display for SmtValuationState {
     }
 }
 
+impl JingleDisplay for SmtValuationState {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        // Render the written locations in a concise form using the Sleigh arch display context.
+        write!(f, "SmtValuationState {{")?;
+        let mut first = true;
+        for (vn, val) in self.written_locations.iter() {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            // Use the JingleDisplay implementations for VarNode and SmtVal
+            write!(f, "{} = {}", vn.display(info), val.display(info))?;
+        }
+        write!(f, "}}")?;
+        Ok(())
+    }
+}
+
 pub struct SmtValuationAnalysis {
     arch_info: SleighArchInfo,
     /// Default merge behavior for states produced by this analysis.
