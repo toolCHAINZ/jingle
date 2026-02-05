@@ -96,11 +96,50 @@ fn simplify_smtval(v: SmtVal) -> SmtVal {
             // simplify both sides of the Or
             let left_s = simplify_smtval(pair.0.clone());
             let right_s = simplify_smtval(pair.1.clone());
-            // If both sides simplify to the same expression, return one side
-            if left_s == right_s {
-                left_s
-            } else {
-                SmtVal::Or(Rc::new((left_s, right_s)))
+
+            // Collect flattened non-Or parts from nested Ors.
+            fn collect_parts(e: SmtVal, out: &mut Vec<SmtVal>) {
+                match e {
+                    SmtVal::Or(p) => {
+                        // p.0 and p.1 are owned SmtVal; recurse into them
+                        let l = p.0.clone();
+                        let r = p.1.clone();
+                        collect_parts(l, out);
+                        collect_parts(r, out);
+                    }
+                    other => out.push(other),
+                }
+            }
+
+            let mut parts: Vec<SmtVal> = Vec::new();
+            collect_parts(left_s, &mut parts);
+            collect_parts(right_s, &mut parts);
+
+            // Deduplicate while preserving order.
+            let mut uniq: Vec<SmtVal> = Vec::new();
+            'outer: for p in parts {
+                for q in &uniq {
+                    if p == *q {
+                        continue 'outer;
+                    }
+                }
+                uniq.push(p);
+            }
+
+            // Collapse according to the number of unique parts.
+            match uniq.len() {
+                0 => SmtVal::Top, // defensive: shouldn't happen, but be conservative
+                1 => uniq.into_iter().next().unwrap(),
+                _ => {
+                    // Fold into a left-associative chain of Ors.
+                    let mut iter = uniq.into_iter();
+                    let first = iter.next().unwrap();
+                    let mut acc = first;
+                    for item in iter {
+                        acc = SmtVal::Or(Rc::new((acc, item)));
+                    }
+                    acc
+                }
             }
         }
         SmtVal::Top => SmtVal::Top,
@@ -488,12 +527,30 @@ impl JoinSemiLattice for SmtValuationState {
                         match self.merge_behavior {
                             MergeBehavior::Or => {
                                 // Prefer to create an ite selector when both are `Val`.
-                                // If both are `Load(...)` try to merge inner pointer expressions.
-                                // Instead of introducing ite selectors in SMT, prefer a symbolic `Or(...)` AST
-                                // which mirrors the simple valuation representation. This preserves the two
-                                // alternative valuations and lets `simplify_smtval` attempt to canonicalize them.
-                                let combined =
-                                    SmtVal::Or(Rc::new((my_val.clone(), other_val.clone())));
+                                // If both are `Load(...)`, merge inner pointer expressions into a
+                                // single `Load(Or(...))` so we don't create an `Or(Load(...), Load(...))`
+                                // which later simplifies less effectively.
+                                let combined = {
+                                    // `my_val` is `&mut SmtVal`, `other_val` is `&SmtVal`.
+                                    // Match on their referenced forms to avoid moving out of borrows.
+                                    match (&*my_val, other_val) {
+                                        (SmtVal::Load(a_rc), SmtVal::Load(b_rc)) => {
+                                            // a_rc and b_rc are &Rc<SmtVal>; obtain owned inner SmtVal clones
+                                            let a_inner = (*a_rc).as_ref().clone();
+                                            let b_inner = (*b_rc).as_ref().clone();
+                                            let inner_or = SmtVal::Or(Rc::new((a_inner, b_inner)));
+                                            SmtVal::Load(Rc::new(inner_or))
+                                        }
+                                        _ => {
+                                            // Fallback: create a symbolic Or of the two full values.
+                                            // Clone the owned values rather than trying to move them.
+                                            SmtVal::Or(Rc::new((
+                                                (*my_val).clone(),
+                                                other_val.clone(),
+                                            )))
+                                        }
+                                    }
+                                };
                                 *my_val = simplify_smtval(combined);
                             }
                             MergeBehavior::Top => {
