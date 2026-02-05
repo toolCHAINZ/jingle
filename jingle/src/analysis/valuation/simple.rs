@@ -61,6 +61,15 @@ impl SimpleValuation {
         }))
     }
 
+    /// Helper to pick a reasonable size for a new constant when folding results.
+    /// Prefer sizes found on Entry/Const varnodes; fall back to 8 bytes (64-bit).
+    fn derive_size_from(val: &SimpleValuation) -> usize {
+        match val {
+            SimpleValuation::Const(vn) | SimpleValuation::Entry(vn) => vn.as_ref().size,
+            _ => 8,
+        }
+    }
+
     /// Perform simple simplifications on the top two levels of the expression tree.
     /// This reduces expression height by folding constants and flattening nested operations.
     ///
@@ -69,33 +78,245 @@ impl SimpleValuation {
     fn simplify(&self) -> Self {
         match self {
             SimpleValuation::Add(a_intern, b_intern) => {
-                let a = a_intern.as_ref().simplify();
-                let b = b_intern.as_ref().simplify();
-                match (a, b) {
+                // simplify children first
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // use references for pattern matching to avoid moving `a_s` or `b_s` prematurely
+                match (&a_s, &b_s) {
                     // (#a + #b) -> #(a + b)
                     (Self::Const(a_vn), Self::Const(b_vn)) => {
                         let mut vn = a_vn.as_ref().clone();
                         vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
-                        Self::Const(Intern::new(vn))
+                        return Self::Const(Intern::new(vn));
                     }
+
                     // ((expr + #a) + #b) -> (expr + #(a + b))
                     (Self::Add(inner_a, inner_b), Self::Const(b_vn))
                     | (Self::Const(b_vn), Self::Add(inner_a, inner_b)) => {
-                        // only fold when the right child of the inner add is a constant
                         match inner_b.as_ref() {
                             Self::Const(inner_b_vn) => {
                                 let mut vn = inner_b_vn.as_ref().clone();
                                 vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
                                 let new_const = Self::Const(Intern::new(vn));
-                                Self::Add(inner_a.clone(), Intern::new(new_const))
+                                return Self::Add(inner_a.clone(), Intern::new(new_const));
                             }
-                            _ => self.clone(),
+                            // if inner right isn't a constant, fallthrough to rebuilding
+                            _ => {}
                         }
                     }
-                    _ => self.clone(),
+
+                    // expr + 0 -> expr ; 0 + expr -> expr
+                    _ => {
+                        if let Some(0) = b_s.as_const() {
+                            return a_s;
+                        }
+                        if let Some(0) = a_s.as_const() {
+                            return b_s;
+                        }
+                    }
                 }
+
+                // default: rebuild with clones of simplified children
+                Self::Add(Intern::new(a_s), Intern::new(b_s))
             }
-            _ => self.clone(),
+
+            SimpleValuation::Sub(a_intern, b_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // both const -> fold
+                if let (Some(av), Some(bv)) = (a_s.as_const(), b_s.as_const()) {
+                    // find a concrete const varnode to reuse size info
+                    if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                        let mut vn = a_vn.as_ref().clone();
+                        vn.offset = vn.offset.wrapping_sub(b_vn.as_ref().offset);
+                        return Self::Const(Intern::new(vn));
+                    }
+                }
+
+                // expr - 0 -> expr
+                if b_s.as_const() == Some(0) {
+                    return a_s;
+                }
+
+                // x - x -> 0
+                if a_s == b_s {
+                    let size = Self::derive_size_from(&a_s);
+                    return Self::make_const(0, size);
+                }
+
+                Self::Sub(Intern::new(a_s), Intern::new(b_s))
+            }
+
+            SimpleValuation::Mul(a_intern, b_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // both const -> fold
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = vn.offset.wrapping_mul(b_vn.as_ref().offset);
+                    return Self::Const(Intern::new(vn));
+                }
+
+                // expr * 1 -> expr ; 1 * expr -> expr
+                if a_s.as_const() == Some(1) {
+                    return b_s;
+                }
+                if b_s.as_const() == Some(1) {
+                    return a_s;
+                }
+
+                // expr * 0 -> 0 ; 0 * expr -> 0
+                if a_s.as_const() == Some(0) || b_s.as_const() == Some(0) {
+                    // choose size from a or b if available
+                    let size = match (&a_s, &b_s) {
+                        (Self::Const(vn), _)
+                        | (_, Self::Const(vn))
+                        | (Self::Entry(vn), _)
+                        | (_, Self::Entry(vn)) => vn.as_ref().size,
+                        _ => 8,
+                    };
+                    return Self::make_const(0, size);
+                }
+
+                Self::Mul(Intern::new(a_s), Intern::new(b_s))
+            }
+
+            SimpleValuation::BitAnd(a_intern, b_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // both const -> fold
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = a_vn.as_ref().offset & b_vn.as_ref().offset;
+                    return Self::Const(Intern::new(vn));
+                }
+
+                // x & 0 -> 0
+                if a_s.as_const() == Some(0) || b_s.as_const() == Some(0) {
+                    let size = match (&a_s, &b_s) {
+                        (Self::Const(vn), _)
+                        | (_, Self::Const(vn))
+                        | (Self::Entry(vn), _)
+                        | (_, Self::Entry(vn)) => vn.as_ref().size,
+                        _ => 8,
+                    };
+                    return Self::make_const(0, size);
+                }
+
+                // x & x -> x
+                if a_s == b_s {
+                    return a_s;
+                }
+
+                Self::BitAnd(Intern::new(a_s), Intern::new(b_s))
+            }
+
+            SimpleValuation::BitOr(a_intern, b_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // both const -> fold
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = a_vn.as_ref().offset | b_vn.as_ref().offset;
+                    return Self::Const(Intern::new(vn));
+                }
+
+                // x | 0 -> x
+                if b_s.as_const() == Some(0) {
+                    return a_s;
+                }
+                if a_s.as_const() == Some(0) {
+                    return b_s;
+                }
+
+                // x | x -> x
+                if a_s == b_s {
+                    return a_s;
+                }
+
+                Self::BitOr(Intern::new(a_s), Intern::new(b_s))
+            }
+
+            SimpleValuation::BitXor(a_intern, b_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // both const -> fold
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = a_vn.as_ref().offset ^ b_vn.as_ref().offset;
+                    return Self::Const(Intern::new(vn));
+                }
+
+                // x ^ 0 -> x ; 0 ^ x -> x
+                if b_s.as_const() == Some(0) {
+                    return a_s;
+                }
+                if a_s.as_const() == Some(0) {
+                    return b_s;
+                }
+
+                // x ^ x -> 0
+                if a_s == b_s {
+                    let size = Self::derive_size_from(&a_s);
+                    return Self::make_const(0, size);
+                }
+
+                Self::BitXor(Intern::new(a_s), Intern::new(b_s))
+            }
+
+            SimpleValuation::Or(a_intern, b_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                let b_s = b_intern.as_ref().simplify();
+
+                // both const -> numeric OR (conservative fold)
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = a_vn.as_ref().offset | b_vn.as_ref().offset;
+                    return Self::Const(Intern::new(vn));
+                }
+
+                if a_s == b_s {
+                    return a_s;
+                }
+
+                Self::Or(Intern::new(a_s), Intern::new(b_s))
+            }
+
+            SimpleValuation::BitNegate(a_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+
+                if let Self::Const(vn) = &a_s {
+                    let mut new_vn = vn.as_ref().clone();
+                    let bits = (new_vn.size as u64).saturating_mul(8);
+                    let mask = if bits == 0 {
+                        0u64
+                    } else if bits >= 64 {
+                        u64::MAX
+                    } else {
+                        (1u64 << (bits as u32)) - 1
+                    };
+                    new_vn.offset = (!new_vn.offset) & mask;
+                    return Self::Const(Intern::new(new_vn));
+                }
+
+                Self::BitNegate(Intern::new(a_s))
+            }
+
+            SimpleValuation::Load(a_intern) => {
+                let a_s = a_intern.as_ref().simplify();
+                Self::Load(Intern::new(a_s))
+            }
+
+            // Entry, Const, Top - nothing to simplify beyond cloning
+            SimpleValuation::Entry(_) | SimpleValuation::Const(_) | SimpleValuation::Top => {
+                self.clone()
+            }
         }
     }
 }
