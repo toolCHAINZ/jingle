@@ -72,6 +72,7 @@ impl SimpleValuation {
                 let a = a_intern.as_ref().simplify();
                 let b = b_intern.as_ref().simplify();
                 match (a, b) {
+                    // (#a + #b) -> #(a + b)
                     (Self::Const(a_vn), Self::Const(b_vn)) => {
                         let mut vn = a_vn.as_ref().clone();
                         vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
