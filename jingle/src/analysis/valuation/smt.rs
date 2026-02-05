@@ -333,14 +333,27 @@ impl SmtValuationState {
                             }
                         }
 
-                        PcodeOperation::IntLeftShift { input0, input1, .. }
-                        | PcodeOperation::IntRightShift { input0, input1, .. }
-                        | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
-                            // Approximate shifts as Add of operands (conservative)
+                        PcodeOperation::IntLeftShift { input0, input1, .. } => {
                             let a = new_state.get_valuation_or_entry(input0);
                             let b = new_state.get_valuation_or_entry(input1);
                             match (a, b) {
-                                (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvadd(&b)),
+                                (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvshl(&b)),
+                                _ => SmtVal::Top,
+                            }
+                        }
+                        PcodeOperation::IntRightShift { input0, input1, .. } => {
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
+                            match (a, b) {
+                                (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvlshr(&b)),
+                                _ => SmtVal::Top,
+                            }
+                        }
+                        PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
+                            let a = new_state.get_valuation_or_entry(input0);
+                            let b = new_state.get_valuation_or_entry(input1);
+                            match (a, b) {
+                                (SmtVal::Val(a), SmtVal::Val(b)) => SmtVal::Val(a.bvashr(&b)),
                                 _ => SmtVal::Top,
                             }
                         }
