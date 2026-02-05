@@ -1,5 +1,5 @@
 mod simple;
-mod smt;
+// mod smt;
 
 pub use simple::{MergeBehavior, SimpleValuation, SimpleValuationAnalysis, SimpleValuationState};
-pub use smt::{SmtVal, SmtValuationAnalysis, SmtValuationState};
+// pub use smt::{SmtVal, SmtValuationAnalysis, SmtValuationState};

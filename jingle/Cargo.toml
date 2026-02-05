@@ -37,6 +37,7 @@ petgraph = "0.8.2"
 sorted-vec = "0.8.10"
 inventory = "0.3.21"
 itertools = "0.14.0"
+internment = "0.8.6"
 
 [features]
 default = []

@@ -5,73 +5,60 @@ use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use internment::Intern;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// Symbolic valuation built from varnodes and constants.
-///
-/// This valuation intentionally does not include a Top element. Unknown or conflicting
-/// information is handled at the state join level by reverting the varnode to the
-/// `Entry(varnode)` form. This is acceptable for unwound / bounded analyses.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SimpleValuation {
-    Entry(VarNode),
-    Const(VarNode),
+    Entry(Intern<VarNode>),
+    Const(Intern<VarNode>),
 
-    // Binary operators now use a single Arc'ed tuple rather than two boxed children.
-    Mult(Arc<(SimpleValuation, SimpleValuation)>),
-    Add(Arc<(SimpleValuation, SimpleValuation)>),
-    Sub(Arc<(SimpleValuation, SimpleValuation)>),
-    BitAnd(Arc<(SimpleValuation, SimpleValuation)>),
-    BitOr(Arc<(SimpleValuation, SimpleValuation)>),
-    BitXor(Arc<(SimpleValuation, SimpleValuation)>),
-    Or(Arc<(SimpleValuation, SimpleValuation)>),
+    // Binary operators now use interned children (via `internment`) rather than Arc'd tuples.
+    Mul(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    Add(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    Sub(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    BitAnd(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    BitOr(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    BitXor(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    Or(Intern<SimpleValuation>, Intern<SimpleValuation>),
 
-    // Unary operators remain single Arc child
-    BitNegate(Arc<SimpleValuation>),
-    Load(Arc<SimpleValuation>),
+    // Unary operators remain single interned child
+    BitNegate(Intern<SimpleValuation>),
+    Load(Intern<SimpleValuation>),
     Top,
 }
 
 impl SimpleValuation {
     fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            SimpleValuation::Const(vn.clone())
+            SimpleValuation::Const(Intern::new(vn.clone()))
         } else if let Some(v) = state.written_locations.get(vn) {
             v.clone()
         } else {
-            SimpleValuation::Entry(vn.clone())
-        }
-    }
-
-    #[allow(dead_code)]
-    fn from_varnode_or_entry_simple(vn: &VarNode) -> Self {
-        if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            SimpleValuation::Const(vn.clone())
-        } else {
-            SimpleValuation::Entry(vn.clone())
+            SimpleValuation::Entry(Intern::new(vn.clone()))
         }
     }
 
     /// Extract constant value if this is a Const variant
     pub fn as_const(&self) -> Option<u64> {
         match self {
-            SimpleValuation::Const(vn) => Some(vn.offset),
+            SimpleValuation::Const(vn) => Some(vn.as_ref().offset),
             _ => None,
         }
     }
 
     /// Create a constant VarNode with the given value and size
     fn make_const(value: u64, size: usize) -> Self {
-        SimpleValuation::Const(VarNode {
+        SimpleValuation::Const(Intern::new(VarNode {
             space_index: VarNode::CONST_SPACE_INDEX,
             offset: value,
             size,
-        })
+        }))
     }
 
     /// Perform simple simplifications on the top two levels of the expression tree.
@@ -81,254 +68,33 @@ impl SimpleValuation {
     /// of mutating the receiver.
     fn simplify(&self) -> Self {
         match self {
-            // Arithmetic operations
-            SimpleValuation::Add(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const + Const = Const
-                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let SimpleValuation::Const(vn) = &a {
-                        let size = vn.size;
-                        return Self::make_const(av.wrapping_add(bv), size);
+            SimpleValuation::Add(a_intern, b_intern) => {
+                let a = a_intern.as_ref().simplify();
+                let b = b_intern.as_ref().simplify();
+                match (a, b) {
+                    (Self::Const(a_vn), Self::Const(b_vn)) => {
+                        let mut vn = a_vn.as_ref().clone();
+                        vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
+                        Self::Const(Intern::new(vn))
                     }
-                }
-
-                // Handle Add(Sub(x, Const(c1)), Const(c2)) -> Add(x, Const(c2 - c1))
-                if let Some(bv) = b.as_const() {
-                    if let SimpleValuation::Sub(inner_ab) = &a {
-                        let inner_pair = inner_ab.as_ref();
-                        let inner_a = inner_pair.0.clone();
-                        let inner_b = inner_pair.1.clone();
-                        if let Some(inner_bv) = inner_b.as_const() {
-                            if let SimpleValuation::Const(vn) = &inner_b {
-                                let size = vn.size;
-                                let new_const = Self::make_const(bv.wrapping_sub(inner_bv), size);
-                                return SimpleValuation::Add(Arc::new((inner_a, new_const)));
+                    // ((expr + #a) + #b) -> (expr + #(a + b))
+                    (Self::Add(inner_a, inner_b), Self::Const(b_vn))
+                    | (Self::Const(b_vn), Self::Add(inner_a, inner_b)) => {
+                        // only fold when the right child of the inner add is a constant
+                        match inner_b.as_ref() {
+                            Self::Const(inner_b_vn) => {
+                                let mut vn = inner_b_vn.as_ref().clone();
+                                vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
+                                let new_const = Self::Const(Intern::new(vn));
+                                Self::Add(inner_a.clone(), Intern::new(new_const))
                             }
+                            _ => self.clone(),
                         }
                     }
+                    _ => self.clone(),
                 }
-
-                // Handle Add(Const(c1), Sub(x, Const(c2))) -> Add(x, Const(c1 - c2))
-                if let Some(av) = a.as_const() {
-                    if let SimpleValuation::Sub(inner_ab) = &b {
-                        let inner_pair = inner_ab.as_ref();
-                        let inner_a = inner_pair.0.clone();
-                        let inner_b = inner_pair.1.clone();
-                        if let Some(inner_bv) = inner_b.as_const() {
-                            if let SimpleValuation::Const(vn) = &inner_b {
-                                let size = vn.size;
-                                let new_const = Self::make_const(av.wrapping_sub(inner_bv), size);
-                                return SimpleValuation::Add(Arc::new((inner_a, new_const)));
-                            }
-                        }
-                    }
-                }
-
-                // Flatten nested Add with Const: (Add(x, Const(c1)) + Const(c2)) -> Add(x, Const(c1+c2))
-                if let Some(bv) = b.as_const() {
-                    if let SimpleValuation::Add(inner_ab) = &a {
-                        let inner_pair = inner_ab.as_ref();
-                        let inner_a = inner_pair.0.clone();
-                        let inner_b = inner_pair.1.clone();
-                        if let Some(inner_bv) = inner_b.as_const() {
-                            if let SimpleValuation::Const(vn) = &inner_b {
-                                let size = vn.size;
-                                let new_inner_b = Self::make_const(inner_bv.wrapping_add(bv), size);
-                                return SimpleValuation::Add(Arc::new((inner_a, new_inner_b)));
-                            }
-                        }
-                    }
-                }
-
-                // Symmetric case: Const(c1) + Add(x, Const(c2)) -> Add(x, Const(c1+c2))
-                if let Some(av) = a.as_const() {
-                    if let SimpleValuation::Add(inner_ab) = &b {
-                        let inner_pair = inner_ab.as_ref();
-                        let inner_a = inner_pair.0.clone();
-                        let inner_b = inner_pair.1.clone();
-                        if let Some(inner_bv) = inner_b.as_const() {
-                            if let SimpleValuation::Const(vn) = &inner_b {
-                                let size = vn.size;
-                                let new_inner_b = Self::make_const(av.wrapping_add(inner_bv), size);
-                                return SimpleValuation::Add(Arc::new((inner_a, new_inner_b)));
-                            }
-                        }
-                    }
-                }
-
-                SimpleValuation::Add(Arc::new((a, b)))
             }
-
-            SimpleValuation::Sub(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const - Const = Const
-                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let SimpleValuation::Const(vn) = &a {
-                        let size = vn.size;
-                        return Self::make_const(av.wrapping_sub(bv), size);
-                    }
-                }
-
-                // x - Const(0) = x
-                if let Some(0) = b.as_const() {
-                    return a;
-                }
-
-                SimpleValuation::Sub(Arc::new((a, b)))
-            }
-
-            SimpleValuation::Mult(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const * Const = Const
-                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let SimpleValuation::Const(vn) = &a {
-                        let size = vn.size;
-                        return Self::make_const(av.wrapping_mul(bv), size);
-                    }
-                }
-
-                // x * Const(0) = Const(0)
-                if let Some(0) = b.as_const() {
-                    return b;
-                }
-                if let Some(0) = a.as_const() {
-                    return a;
-                }
-
-                // x * Const(1) = x
-                if let Some(1) = b.as_const() {
-                    return a;
-                }
-                if let Some(1) = a.as_const() {
-                    return b;
-                }
-
-                SimpleValuation::Mult(Arc::new((a, b)))
-            }
-
-            // Bitwise operations
-            SimpleValuation::BitAnd(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const & Const = Const
-                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let SimpleValuation::Const(vn) = &a {
-                        let size = vn.size;
-                        return Self::make_const(av & bv, size);
-                    }
-                }
-
-                // x & Const(0) = Const(0)
-                if let Some(0) = b.as_const() {
-                    return b;
-                }
-                if let Some(0) = a.as_const() {
-                    return a;
-                }
-
-                SimpleValuation::BitAnd(Arc::new((a, b)))
-            }
-
-            SimpleValuation::BitOr(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const | Const = Const
-                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let SimpleValuation::Const(vn) = &a {
-                        let size = vn.size;
-                        return Self::make_const(av | bv, size);
-                    }
-                }
-
-                // x | Const(0) = x
-                if let Some(0) = b.as_const() {
-                    return a;
-                }
-                if let Some(0) = a.as_const() {
-                    return b;
-                }
-
-                SimpleValuation::BitOr(Arc::new((a, b)))
-            }
-
-            SimpleValuation::BitXor(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const ^ Const = Const
-                if let (Some(av), Some(bv)) = (a.as_const(), b.as_const()) {
-                    if let SimpleValuation::Const(vn) = &a {
-                        let size = vn.size;
-                        return Self::make_const(av ^ bv, size);
-                    }
-                }
-
-                // x ^ Const(0) = x
-                if let Some(0) = b.as_const() {
-                    return a;
-                }
-                if let Some(0) = a.as_const() {
-                    return b;
-                }
-
-                SimpleValuation::BitXor(Arc::new((a, b)))
-            }
-
-            SimpleValuation::BitNegate(a) => {
-                let a_s = a.as_ref().simplify();
-
-                // ~Const = Const
-                if let Some(av) = a_s.as_const() {
-                    if let SimpleValuation::Const(vn) = &a_s {
-                        let size = vn.size;
-                        let mask = if size >= 8 {
-                            u64::MAX
-                        } else {
-                            (1u64 << (size * 8)) - 1
-                        };
-                        return Self::make_const(!av & mask, size);
-                    }
-                }
-
-                SimpleValuation::BitNegate(Arc::new(a_s))
-            }
-
-            SimpleValuation::Load(a) => {
-                let a_s = a.as_ref().simplify();
-                SimpleValuation::Load(Arc::new(a_s))
-            }
-
-            SimpleValuation::Or(ab) => {
-                let pair = ab.as_ref();
-                let a = pair.0.simplify();
-                let b = pair.1.simplify();
-
-                // Const || Const = Const (approximate by folding identical exprs)
-                if a == b {
-                    return a;
-                }
-
-                SimpleValuation::Or(Arc::new((a, b)))
-            }
-
-            // Entry, Const, and Top don't need simplification
-            SimpleValuation::Entry(vn) => SimpleValuation::Entry(vn.clone()),
-            SimpleValuation::Const(vn) => SimpleValuation::Const(vn.clone()),
-            SimpleValuation::Top => SimpleValuation::Top,
+            _ => self.clone(),
         }
     }
 }
@@ -336,38 +102,66 @@ impl SimpleValuation {
 impl JingleDisplay for SimpleValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            SimpleValuation::Entry(vn) => write!(f, "Entry({})", vn.display(info)),
-            SimpleValuation::Const(vn) => write!(f, "{}", vn.display(info)),
-            SimpleValuation::Mult(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}*{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::Entry(vn) => write!(f, "Entry({})", vn.as_ref().display(info)),
+            SimpleValuation::Const(vn) => write!(f, "{}", vn.as_ref().display(info)),
+            SimpleValuation::Mul(a, b) => {
+                write!(
+                    f,
+                    "({}*{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::Add(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}+{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::Add(a, b) => {
+                write!(
+                    f,
+                    "({}+{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::Sub(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}-{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::Sub(a, b) => {
+                write!(
+                    f,
+                    "({}-{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::BitAnd(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}&{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::BitAnd(a, b) => {
+                write!(
+                    f,
+                    "({}&{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::BitOr(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}|{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::BitOr(a, b) => {
+                write!(
+                    f,
+                    "({}|{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::BitXor(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}^{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::BitXor(a, b) => {
+                write!(
+                    f,
+                    "({}^{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::BitNegate(a) => write!(f, "(~{})", a.display(info)),
-            SimpleValuation::Or(ab) => {
-                let pair = ab.as_ref();
-                write!(f, "({}||{})", pair.0.display(info), pair.1.display(info))
+            SimpleValuation::BitNegate(a) => write!(f, "(~{})", a.as_ref().display(info)),
+            SimpleValuation::Or(a, b) => {
+                write!(
+                    f,
+                    "({}||{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
             }
-            SimpleValuation::Load(a) => write!(f, "Load({})", a.display(info)),
+            SimpleValuation::Load(a) => write!(f, "Load({})", a.as_ref().display(info)),
             SimpleValuation::Top => write!(f, "⊤"),
         }
     }
@@ -414,6 +208,24 @@ impl Display for SimpleValuationState {
     }
 }
 
+impl JingleDisplay for SimpleValuationState {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        // Render the written locations in a concise form using the Sleigh arch display context.
+        write!(f, "SimpleValuationState {{")?;
+        let mut first = true;
+        for (vn, val) in self.written_locations.iter() {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            // Use the JingleDisplay implementations for VarNode and SimpleValuation
+            write!(f, "{} = {}", vn.display(info), val.display(info))?;
+        }
+        write!(f, "}}")?;
+        Ok(())
+    }
+}
+
 impl SimpleValuationState {
     /// Create a new state with the default merge behavior of `Or`.
     pub fn new(arch_info: SleighArchInfo) -> Self {
@@ -454,29 +266,28 @@ impl SimpleValuationState {
                         // Copy
                         PcodeOperation::Copy { input, .. } => {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                SimpleValuation::Const(input.clone())
+                                SimpleValuation::Const(Intern::new(input.clone()))
                             } else {
                                 SimpleValuation::from_varnode_or_entry(self, input)
                             }
                         }
 
-                        // Adds (treat many boolean/bitwise ops as Add/Or/Xor approximations)
                         PcodeOperation::IntAdd { input0, input1, .. } => {
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Add(Arc::new((a, b)))
+                            SimpleValuation::Add(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntSub { input0, input1, .. } => {
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Sub(Arc::new((a, b)))
+                            SimpleValuation::Sub(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntMult { input0, input1, .. } => {
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Mult(Arc::new((a, b)))
+                            SimpleValuation::Mul(Intern::new(a), Intern::new(b))
                         }
 
                         // Bitwise operations
@@ -484,21 +295,21 @@ impl SimpleValuationState {
                         | PcodeOperation::BoolAnd { input0, input1, .. } => {
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::BitAnd(Arc::new((a, b)))
+                            SimpleValuation::BitAnd(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntXor { input0, input1, .. }
                         | PcodeOperation::BoolXor { input0, input1, .. } => {
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::BitXor(Arc::new((a, b)))
+                            SimpleValuation::BitXor(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntOr { input0, input1, .. }
                         | PcodeOperation::BoolOr { input0, input1, .. } => {
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::BitOr(Arc::new((a, b)))
+                            SimpleValuation::BitOr(Intern::new(a), Intern::new(b))
                         }
                         PcodeOperation::IntLeftShift { input0, input1, .. }
                         | PcodeOperation::IntRightShift { input0, input1, .. }
@@ -506,36 +317,31 @@ impl SimpleValuationState {
                             // Approximate shifts as an Add of the operands (conservative symbolic form)
                             let a = SimpleValuation::from_varnode_or_entry(self, input0);
                             let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Add(Arc::new((a, b)))
+                            SimpleValuation::Add(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntNegate { input, .. } => {
-                            // Represent negate as Sub(Const(0), input)
-                            let zero = VarNode {
-                                space_index: VarNode::CONST_SPACE_INDEX,
-                                offset: 0,
-                                size: input.size,
-                            };
-                            let a = SimpleValuation::Const(zero);
+                            // Represent negate as Sub(Const(0), input) using make_const
+                            let a = SimpleValuation::make_const(0, input.size);
                             let b = SimpleValuation::from_varnode_or_entry(self, input);
-                            SimpleValuation::Sub(Arc::new((a, b)))
+                            SimpleValuation::Sub(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::Int2Comp { input, .. } => {
                             // Approximate two's complement by bit-negation
                             let a = SimpleValuation::from_varnode_or_entry(self, input);
-                            SimpleValuation::BitNegate(Arc::new(a))
+                            SimpleValuation::BitNegate(Intern::new(a))
                         }
 
                         // Load - track pointer expression
                         PcodeOperation::Load { input, .. } => {
                             let ptr = &input.pointer_location;
                             let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
-                                SimpleValuation::Const(ptr.clone())
+                                SimpleValuation::Const(Intern::new(ptr.clone()))
                             } else {
                                 SimpleValuation::from_varnode_or_entry(self, ptr)
                             };
-                            SimpleValuation::Load(Arc::new(pv))
+                            SimpleValuation::Load(Intern::new(pv))
                         }
 
                         // Casts/extensions - preserve symbolic value
@@ -654,10 +460,10 @@ impl JoinSemiLattice for SimpleValuationState {
                         match self.merge_behavior {
                             MergeBehavior::Or => {
                                 // create Or(...) of the two, then simplify the result
-                                let combined = SimpleValuation::Or(Arc::new((
-                                    my_val.clone(),
-                                    other_val.clone(),
-                                )));
+                                let combined = SimpleValuation::Or(
+                                    Intern::new(my_val.clone()),
+                                    Intern::new(other_val.clone()),
+                                );
                                 *my_val = combined.simplify();
                             }
                             MergeBehavior::Top => {

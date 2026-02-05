@@ -4,6 +4,7 @@ use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
+use crate::modeling::expression::apply_to_bvs;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
@@ -260,7 +261,22 @@ impl SmtValuationState {
     fn transfer_impl(&self, op: &PcodeOperation) -> Self {
         // Clone self to build a new state (functional update).
         let mut new_state = self.clone();
-
+        if let Some(output) = op.output() {
+            let inputs = op.inputs().iter().flat_map(|vn| {
+                match vn{
+                    GeneralizedVarNode::Direct(vn) => {
+                        match self.get_valuation_or_entry(vn){
+                            SmtVal::Val(bv) => todo!(),
+                            SmtVal::Load(smt_val) => todo!(),
+                            SmtVal::Or(_) => todo!(),
+                            SmtVal::Top => todo!(),
+                        }
+                    },
+                    GeneralizedVarNode::Indirect(_) => None,
+                }
+            });
+            apply_to_bvs(op, inputs)
+        }
         if let Some(output) = op.output() {
             match output {
                 GeneralizedVarNode::Direct(output_vn) => {
