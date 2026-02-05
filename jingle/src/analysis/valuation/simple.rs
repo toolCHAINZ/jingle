@@ -12,20 +12,6 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 
-/*
- * jingle/src/analysis/valuation/simple.rs
- *
- * Symbolic valuation built from VarNodes and constants.
- *
- * This file implements simple simplifications for the top two levels of the
- * valuation tree, including:
- *   - recursive simplification of inner expressions
- *   - constant folding for arithmetic and bitwise ops
- *   - basic algebraic rewrites (x + 0 = x, x ^ x = 0, etc.)
- *   - normalization: for commutative operators, ensure constants are positioned
- *     on the right (so folding / pattern matching is easier and predictable)
- */
-
 /// Symbolic valuation built from varnodes and constants.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SimpleValuation {
@@ -113,6 +99,11 @@ impl SimpleValuation {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
+                // if any child is Top, the result is Top
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
+
                 // both const -> fold
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
                     let mut vn = a_vn.as_ref().clone();
@@ -140,12 +131,17 @@ impl SimpleValuation {
                     }
                 }
 
+                // default: rebuild with simplified children
                 Self::Add(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::Sub(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
+
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
 
                 // both const -> fold
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
@@ -172,7 +168,11 @@ impl SimpleValuation {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                // normalization: prefer constant on right
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
+
+                // normalization: prefer constant on the right
                 let (left, right) = Self::normalize_commutative(a_s, b_s);
 
                 // both const -> fold
@@ -199,6 +199,10 @@ impl SimpleValuation {
             SimpleValuation::BitAnd(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
+
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
 
                 // normalization: constant on right
                 let (left, right) = Self::normalize_commutative(a_s, b_s);
@@ -228,6 +232,10 @@ impl SimpleValuation {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
+
                 // normalization: constant on right
                 let (left, right) = Self::normalize_commutative(a_s, b_s);
 
@@ -254,6 +262,10 @@ impl SimpleValuation {
             SimpleValuation::BitXor(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
+
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
 
                 // normalization: constant on right
                 let (left, right) = Self::normalize_commutative(a_s, b_s);
@@ -283,6 +295,10 @@ impl SimpleValuation {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
+                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
+
                 // both const -> numeric OR (conservative fold)
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
                     let mut vn = a_vn.as_ref().clone();
@@ -299,6 +315,10 @@ impl SimpleValuation {
 
             SimpleValuation::BitNegate(a_intern) => {
                 let a_s = a_intern.as_ref().simplify();
+
+                if matches!(a_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
 
                 if let Self::Const(vn) = &a_s {
                     let mut new_vn = vn.as_ref().clone();
@@ -319,6 +339,11 @@ impl SimpleValuation {
 
             SimpleValuation::Load(a_intern) => {
                 let a_s = a_intern.as_ref().simplify();
+
+                if matches!(a_s, SimpleValuation::Top) {
+                    return SimpleValuation::Top;
+                }
+
                 Self::Load(Intern::new(a_s))
             }
 
