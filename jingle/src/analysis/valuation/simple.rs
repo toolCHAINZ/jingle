@@ -1,3 +1,19 @@
+/*
+ * jingle/src/analysis/valuation/simple.rs
+ *
+ * Symbolic valuation built from VarNodes and constants.
+ *
+ * This file implements simple simplifications for the top two levels of the
+ * valuation tree, including:
+ *   - recursive simplification of inner expressions
+ *   - constant folding for arithmetic and bitwise ops
+ *   - basic algebraic rewrites (x + 0 = x, x ^ x = 0, etc.)
+ *   - normalization: for commutative operators, ensure constants are positioned
+ *     on the right (so folding / pattern matching is easier and predictable)
+ *
+ * Unit tests at the bottom exercise common rules.
+ */
+
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
@@ -70,6 +86,23 @@ impl SimpleValuation {
         }
     }
 
+    /// Normalize commutative operands so that constants (if present) are on the right.
+    /// Returns (left, right) possibly swapped.
+    fn normalize_commutative(
+        left: SimpleValuation,
+        right: SimpleValuation,
+    ) -> (SimpleValuation, SimpleValuation) {
+        let left_is_const = left.as_const().is_some();
+        let right_is_const = right.as_const().is_some();
+
+        // If left is const and right is not, swap them so constant is on right.
+        if left_is_const && !right_is_const {
+            (right, left)
+        } else {
+            (left, right)
+        }
+    }
+
     /// Perform simple simplifications on the top two levels of the expression tree.
     /// This reduces expression height by folding constants and flattening nested operations.
     ///
@@ -82,43 +115,34 @@ impl SimpleValuation {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                // use references for pattern matching to avoid moving `a_s` or `b_s` prematurely
-                match (&a_s, &b_s) {
-                    // (#a + #b) -> #(a + b)
-                    (Self::Const(a_vn), Self::Const(b_vn)) => {
-                        let mut vn = a_vn.as_ref().clone();
-                        vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
-                        return Self::Const(Intern::new(vn));
-                    }
+                // both const -> fold
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
+                    return Self::Const(Intern::new(vn));
+                }
 
-                    // ((expr + #a) + #b) -> (expr + #(a + b))
-                    (Self::Add(inner_a, inner_b), Self::Const(b_vn))
-                    | (Self::Const(b_vn), Self::Add(inner_a, inner_b)) => {
-                        match inner_b.as_ref() {
-                            Self::Const(inner_b_vn) => {
-                                let mut vn = inner_b_vn.as_ref().clone();
-                                vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
-                                let new_const = Self::Const(Intern::new(vn));
-                                return Self::Add(inner_a.clone(), Intern::new(new_const));
-                            }
-                            // if inner right isn't a constant, fallthrough to rebuilding
-                            _ => {}
-                        }
-                    }
+                // normalization: ensure constants are on the right
+                let (left, right) = Self::normalize_commutative(a_s, b_s);
 
-                    // expr + 0 -> expr ; 0 + expr -> expr
-                    _ => {
-                        if let Some(0) = b_s.as_const() {
-                            return a_s;
-                        }
-                        if let Some(0) = a_s.as_const() {
-                            return b_s;
+                // expr + 0 -> expr
+                if right.as_const() == Some(0) {
+                    return left;
+                }
+
+                // ((expr + #a) + #b) -> (expr + #(a + b))
+                if let SimpleValuation::Add(inner_a, inner_b) = &left {
+                    if let SimpleValuation::Const(inner_const_vn) = inner_b.as_ref() {
+                        if let SimpleValuation::Const(b_vn) = &right {
+                            let mut vn = inner_const_vn.as_ref().clone();
+                            vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
+                            let new_const = Self::Const(Intern::new(vn));
+                            return Self::Add(inner_a.clone(), Intern::new(new_const));
                         }
                     }
                 }
 
-                // default: rebuild with clones of simplified children
-                Self::Add(Intern::new(a_s), Intern::new(b_s))
+                Self::Add(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::Sub(a_intern, b_intern) => {
@@ -126,13 +150,10 @@ impl SimpleValuation {
                 let b_s = b_intern.as_ref().simplify();
 
                 // both const -> fold
-                if let (Some(av), Some(bv)) = (a_s.as_const(), b_s.as_const()) {
-                    // find a concrete const varnode to reuse size info
-                    if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
-                        let mut vn = a_vn.as_ref().clone();
-                        vn.offset = vn.offset.wrapping_sub(b_vn.as_ref().offset);
-                        return Self::Const(Intern::new(vn));
-                    }
+                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
+                    let mut vn = a_vn.as_ref().clone();
+                    vn.offset = vn.offset.wrapping_sub(b_vn.as_ref().offset);
+                    return Self::Const(Intern::new(vn));
                 }
 
                 // expr - 0 -> expr
@@ -160,28 +181,21 @@ impl SimpleValuation {
                     return Self::Const(Intern::new(vn));
                 }
 
-                // expr * 1 -> expr ; 1 * expr -> expr
-                if a_s.as_const() == Some(1) {
-                    return b_s;
-                }
-                if b_s.as_const() == Some(1) {
-                    return a_s;
+                // normalization: constants to the right
+                let (left, right) = Self::normalize_commutative(a_s, b_s);
+
+                // expr * 1 -> expr
+                if right.as_const() == Some(1) {
+                    return left;
                 }
 
-                // expr * 0 -> 0 ; 0 * expr -> 0
-                if a_s.as_const() == Some(0) || b_s.as_const() == Some(0) {
-                    // choose size from a or b if available
-                    let size = match (&a_s, &b_s) {
-                        (Self::Const(vn), _)
-                        | (_, Self::Const(vn))
-                        | (Self::Entry(vn), _)
-                        | (_, Self::Entry(vn)) => vn.as_ref().size,
-                        _ => 8,
-                    };
+                // expr * 0 -> 0
+                if right.as_const() == Some(0) {
+                    let size = Self::derive_size_from(&left);
                     return Self::make_const(0, size);
                 }
 
-                Self::Mul(Intern::new(a_s), Intern::new(b_s))
+                Self::Mul(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::BitAnd(a_intern, b_intern) => {
@@ -195,24 +209,21 @@ impl SimpleValuation {
                     return Self::Const(Intern::new(vn));
                 }
 
+                // normalization: constants to the right
+                let (left, right) = Self::normalize_commutative(a_s, b_s);
+
                 // x & 0 -> 0
-                if a_s.as_const() == Some(0) || b_s.as_const() == Some(0) {
-                    let size = match (&a_s, &b_s) {
-                        (Self::Const(vn), _)
-                        | (_, Self::Const(vn))
-                        | (Self::Entry(vn), _)
-                        | (_, Self::Entry(vn)) => vn.as_ref().size,
-                        _ => 8,
-                    };
+                if right.as_const() == Some(0) {
+                    let size = Self::derive_size_from(&left);
                     return Self::make_const(0, size);
                 }
 
                 // x & x -> x
-                if a_s == b_s {
-                    return a_s;
+                if left == right {
+                    return left;
                 }
 
-                Self::BitAnd(Intern::new(a_s), Intern::new(b_s))
+                Self::BitAnd(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::BitOr(a_intern, b_intern) => {
@@ -226,20 +237,20 @@ impl SimpleValuation {
                     return Self::Const(Intern::new(vn));
                 }
 
+                // normalization: constants to the right
+                let (left, right) = Self::normalize_commutative(a_s, b_s);
+
                 // x | 0 -> x
-                if b_s.as_const() == Some(0) {
-                    return a_s;
-                }
-                if a_s.as_const() == Some(0) {
-                    return b_s;
+                if right.as_const() == Some(0) {
+                    return left;
                 }
 
                 // x | x -> x
-                if a_s == b_s {
-                    return a_s;
+                if left == right {
+                    return left;
                 }
 
-                Self::BitOr(Intern::new(a_s), Intern::new(b_s))
+                Self::BitOr(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::BitXor(a_intern, b_intern) => {
@@ -253,21 +264,21 @@ impl SimpleValuation {
                     return Self::Const(Intern::new(vn));
                 }
 
-                // x ^ 0 -> x ; 0 ^ x -> x
-                if b_s.as_const() == Some(0) {
-                    return a_s;
-                }
-                if a_s.as_const() == Some(0) {
-                    return b_s;
+                // normalization: constants to the right
+                let (left, right) = Self::normalize_commutative(a_s, b_s);
+
+                // x ^ 0 -> x
+                if right.as_const() == Some(0) {
+                    return left;
                 }
 
                 // x ^ x -> 0
-                if a_s == b_s {
-                    let size = Self::derive_size_from(&a_s);
+                if left == right {
+                    let size = Self::derive_size_from(&left);
                     return Self::make_const(0, size);
                 }
 
-                Self::BitXor(Intern::new(a_s), Intern::new(b_s))
+                Self::BitXor(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::Or(a_intern, b_intern) => {
@@ -750,5 +761,99 @@ impl IntoState<SimpleValuationAnalysis> for ConcretePcodeAddress {
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jingle_sleigh::VarNode;
+
+    // Helpers to build VarNodes and SimpleValuation leaves
+    fn const_vn(val: u64, size: usize) -> VarNode {
+        VarNode {
+            space_index: VarNode::CONST_SPACE_INDEX,
+            offset: val,
+            size,
+        }
+    }
+
+    fn entry_vn(offset: u64, size: usize) -> VarNode {
+        // choose a non-const space index (arbitrary)
+        VarNode {
+            space_index: 1,
+            offset,
+            size,
+        }
+    }
+
+    fn const_val(val: u64, size: usize) -> SimpleValuation {
+        SimpleValuation::Const(Intern::new(const_vn(val, size)))
+    }
+
+    fn entry_val(offset: u64, size: usize) -> SimpleValuation {
+        SimpleValuation::Entry(Intern::new(entry_vn(offset, size)))
+    }
+
+    #[test]
+    fn test_add_constant_positioning_and_fold() {
+        // (#1 + x) -> (x + #1) and (#2 + #3) -> #5
+        let x = entry_val(0, 8);
+        let c1 = const_val(1, 8);
+        let c2 = const_val(2, 8);
+        let c3 = const_val(3, 8);
+
+        // (#1 + x) simplifies to (x + #1)
+        let expr = SimpleValuation::Add(Intern::new(c1.clone()), Intern::new(x.clone()));
+        let simplified = expr.simplify();
+        let expected = SimpleValuation::Add(Intern::new(x.clone()), Intern::new(c1.clone()));
+        assert_eq!(simplified, expected);
+
+        // (#2 + #3) -> #(5)
+        let expr2 = SimpleValuation::Add(Intern::new(c2.clone()), Intern::new(c3.clone()));
+        let simple2 = expr2.simplify();
+        assert_eq!(simple2.as_const(), Some(5));
+    }
+
+    #[test]
+    fn test_nested_add_constant_fold() {
+        // ((x + #2) + #3) -> (x + #5)
+        let x = entry_val(7, 8);
+        let c2 = const_val(2, 8);
+        let c3 = const_val(3, 8);
+
+        let inner = SimpleValuation::Add(Intern::new(x.clone()), Intern::new(c2.clone()));
+        let outer = SimpleValuation::Add(Intern::new(inner), Intern::new(c3.clone()));
+        let simple = outer.simplify();
+        let expected = SimpleValuation::Add(Intern::new(x.clone()), Intern::new(const_val(5, 8)));
+        assert_eq!(simple, expected);
+    }
+
+    #[test]
+    fn test_xor_x_x_zero() {
+        let x = entry_val(2, 8);
+        let xor = SimpleValuation::BitXor(Intern::new(x.clone()), Intern::new(x.clone()));
+        let simple = xor.simplify();
+        assert_eq!(simple.as_const(), Some(0));
+    }
+
+    #[test]
+    fn test_add_zero_identity() {
+        let x = entry_val(3, 8);
+        let zero = const_val(0, 8);
+        let expr = SimpleValuation::Add(Intern::new(x.clone()), Intern::new(zero.clone()));
+        let simple = expr.simplify();
+        // normalization keeps x on left when constant is right; identity removes constant
+        assert_eq!(simple, x);
+    }
+
+    #[test]
+    fn test_mul_one() {
+        let x = entry_val(4, 8);
+        let one = const_val(1, 8);
+        // (1 * x) -> (x * 1) -> x
+        let expr = SimpleValuation::Mul(Intern::new(one.clone()), Intern::new(x.clone()));
+        let simple = expr.simplify();
+        assert_eq!(simple, x);
     }
 }
