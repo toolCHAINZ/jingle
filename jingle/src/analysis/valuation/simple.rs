@@ -52,6 +52,19 @@ impl SimpleValuation {
         }
     }
 
+    /// Returns true if this valuation's root node is a unit variant
+    /// or has only a single child
+    pub fn is_unit_expression(&self) -> bool {
+        match self {
+            SimpleValuation::Entry(_)
+            | SimpleValuation::Const(_)
+            | SimpleValuation::BitNegate(_)
+            | SimpleValuation::Load(_)
+            | SimpleValuation::Top => true,
+            _ => false,
+        }
+    }
+
     /// Create a constant VarNode with the given value and size
     fn make_const(value: u64, size: usize) -> Self {
         SimpleValuation::Const(Intern::new(VarNode {
@@ -160,6 +173,20 @@ impl SimpleValuation {
                     let size = Self::derive_size_from(&a_s);
                     return Self::make_const(0, size);
                 }
+
+                // ((expr - #a) - #b) -> (expr - #(a + b))
+                if let SimpleValuation::Sub(inner_a, inner_b) = &a_s {
+                    if let SimpleValuation::Const(inner_const_vn) = inner_b.as_ref() {
+                        if let SimpleValuation::Const(b_vn) = &b_s {
+                            let mut vn = inner_const_vn.as_ref().clone();
+                            vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
+                            let new_const = Self::Const(Intern::new(vn));
+                            return Self::Sub(inner_a.clone(), Intern::new(new_const));
+                        }
+                    }
+                }
+
+                // todo: ((expr + #a) - #b) -> (expr + #(a - b)) if |a|>|b| or (expr - #(b - a)) if |b|>|a|
 
                 Self::Sub(Intern::new(a_s), Intern::new(b_s))
             }
@@ -356,9 +383,10 @@ impl SimpleValuation {
 }
 
 impl JingleDisplay for SimpleValuation {
+    // todo: only wrap in parens if it's a non-unit inner expresison
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            SimpleValuation::Entry(vn) => write!(f, "Entry({})", vn.as_ref().display(info)),
+            SimpleValuation::Entry(vn) => write!(f, "{}", vn.as_ref().display(info)),
             SimpleValuation::Const(vn) => write!(f, "{}", vn.as_ref().display(info)),
             SimpleValuation::Mul(a, b) => {
                 write!(

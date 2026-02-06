@@ -56,6 +56,8 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
     fn model_id(&self) -> String;
 
     /// Each CFG state is optionally associated with a concrete p-code address
+    /// todo: Rename this to concrete_location. Require implementers to implement
+    /// location() -> PcodeAddressLattice and provide concrete_location() by default
     fn location(&self) -> Option<ConcretePcodeAddress>;
 }
 
