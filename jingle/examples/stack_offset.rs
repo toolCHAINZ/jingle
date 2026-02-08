@@ -10,7 +10,7 @@ use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::pcode_store::{self, PcodeOpRef};
 use jingle::analysis::valuation::{
-    MergeBehavior, SimpleValuation, SimpleValuationAnalysis, SimpleValuationState,
+    MergeBehavior, SimpleValuationAnalysis, SimpleValuationState, SimpleValue,
 };
 use jingle::display::JingleDisplay;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -68,7 +68,7 @@ fn main() {
     let cfg = compound_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     // We'll collect valuation info keyed by concrete addresses encountered in the CFG.
-    let mut stack_offsets: HashMap<ConcretePcodeAddress, SimpleValuation> = HashMap::new();
+    let mut stack_offsets: HashMap<ConcretePcodeAddress, SimpleValue> = HashMap::new();
     let mut direct_valuations: HashMap<ConcretePcodeAddress, SimpleValuationState> = HashMap::new();
 
     // `cfg.nodes()` yields `&N` where N = (DirectLocationState, DirectValuationState).
@@ -199,7 +199,7 @@ fn main() {
 
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|v| !matches!(v, SimpleValuation::Top))
+        .filter(|v| !matches!(v, SimpleValue::Top))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);

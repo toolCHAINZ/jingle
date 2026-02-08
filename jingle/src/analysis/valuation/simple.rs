@@ -20,43 +20,43 @@ pub struct SimplValuationConst {
 }
 /// Symbolic valuation built from varnodes and constants.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum SimpleValuation {
+pub enum SimpleValue {
     Entry(Intern<VarNode>),
     Const(i64),
 
     // Binary operators now use interned children (via `internment`) rather than Arc'd tuples.
-    Mul(Intern<SimpleValuation>, Intern<SimpleValuation>),
-    Add(Intern<SimpleValuation>, Intern<SimpleValuation>),
-    Sub(Intern<SimpleValuation>, Intern<SimpleValuation>),
-    BitAnd(Intern<SimpleValuation>, Intern<SimpleValuation>),
-    BitOr(Intern<SimpleValuation>, Intern<SimpleValuation>),
-    BitXor(Intern<SimpleValuation>, Intern<SimpleValuation>),
-    Or(Intern<SimpleValuation>, Intern<SimpleValuation>),
+    Mul(Intern<SimpleValue>, Intern<SimpleValue>),
+    Add(Intern<SimpleValue>, Intern<SimpleValue>),
+    Sub(Intern<SimpleValue>, Intern<SimpleValue>),
+    BitAnd(Intern<SimpleValue>, Intern<SimpleValue>),
+    BitOr(Intern<SimpleValue>, Intern<SimpleValue>),
+    BitXor(Intern<SimpleValue>, Intern<SimpleValue>),
+    Or(Intern<SimpleValue>, Intern<SimpleValue>),
 
     // Unary operators remain single interned child
-    BitNegate(Intern<SimpleValuation>),
-    Load(Intern<SimpleValuation>),
+    BitNegate(Intern<SimpleValue>),
+    Load(Intern<SimpleValue>),
     Top,
 }
 
-impl SimpleValuation {
+impl SimpleValue {
     fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
             // todo: might have something like #ffff_ffff used to encode -1 for a 32-bit
             // operation. Need to look at the vn's size and use that to determine whether
             // the offset should be zero or sign extended
-            SimpleValuation::Const(vn.offset as i64)
+            SimpleValue::Const(vn.offset as i64)
         } else if let Some(v) = state.written_locations.get(vn) {
             v.clone()
         } else {
-            SimpleValuation::Entry(Intern::new(vn.clone()))
+            SimpleValue::Entry(Intern::new(vn.clone()))
         }
     }
 
     /// Extract constant value if this is a Const variant
     pub fn as_const(&self) -> Option<i64> {
         match self {
-            SimpleValuation::Const(val) => Some(*val),
+            SimpleValue::Const(val) => Some(*val),
             _ => None,
         }
     }
@@ -65,35 +65,32 @@ impl SimpleValuation {
     /// or has only a single child
     pub fn is_unit_expression(&self) -> bool {
         match self {
-            SimpleValuation::Entry(_)
-            | SimpleValuation::Const(_)
-            | SimpleValuation::BitNegate(_)
-            | SimpleValuation::Load(_)
-            | SimpleValuation::Top => true,
+            SimpleValue::Entry(_)
+            | SimpleValue::Const(_)
+            | SimpleValue::BitNegate(_)
+            | SimpleValue::Load(_)
+            | SimpleValue::Top => true,
             _ => false,
         }
     }
 
     /// Create a constant VarNode with the given value and size
     fn make_const(value: i64, _size: usize) -> Self {
-        SimpleValuation::Const(value)
+        SimpleValue::Const(value)
     }
 
     /// Helper to pick a reasonable size for a new constant when folding results.
     /// Prefer sizes found on Entry/Const varnodes; fall back to 8 bytes (64-bit).
-    fn derive_size_from(val: &SimpleValuation) -> usize {
+    fn derive_size_from(val: &SimpleValue) -> usize {
         match val {
-            SimpleValuation::Entry(vn) => vn.as_ref().size,
+            SimpleValue::Entry(vn) => vn.as_ref().size,
             _ => 8,
         }
     }
 
     /// Normalize commutative operands so that constants (if present) are on the right.
     /// Returns (left, right) possibly swapped.
-    fn normalize_commutative(
-        left: SimpleValuation,
-        right: SimpleValuation,
-    ) -> (SimpleValuation, SimpleValuation) {
+    fn normalize_commutative(left: SimpleValue, right: SimpleValue) -> (SimpleValue, SimpleValue) {
         let left_is_const = left.as_const().is_some();
         let right_is_const = right.as_const().is_some();
 
@@ -112,14 +109,14 @@ impl SimpleValuation {
     /// of mutating the receiver.
     fn simplify(&self) -> Self {
         match self {
-            SimpleValuation::Add(a_intern, b_intern) => {
+            SimpleValue::Add(a_intern, b_intern) => {
                 // simplify children first
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
                 // if any child is Top, the result is Top
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 // both const -> fold
@@ -153,9 +150,9 @@ impl SimpleValuation {
                 }
 
                 // ((expr + #a) + #b) -> (expr + #(a + b))
-                if let SimpleValuation::Add(left_inner_left, left_inner_right) = &left {
-                    if let SimpleValuation::Const(inner_right_const) = left_inner_right.as_ref() {
-                        if let SimpleValuation::Const(right_const) = &right {
+                if let SimpleValue::Add(left_inner_left, left_inner_right) = &left {
+                    if let SimpleValue::Const(inner_right_const) = left_inner_right.as_ref() {
+                        if let SimpleValue::Const(right_const) = &right {
                             let res = inner_right_const.wrapping_add(*right_const);
                             let new_const = Self::Const(res);
                             return Self::Add(left_inner_left.clone(), Intern::new(new_const))
@@ -165,9 +162,9 @@ impl SimpleValuation {
                 }
 
                 // ((expr - #a) + #b) -> (expr - #(a - b))
-                if let SimpleValuation::Sub(expr, a) = &left {
-                    if let SimpleValuation::Const(a_const) = a.as_ref() {
-                        if let SimpleValuation::Const(b) = &right {
+                if let SimpleValue::Sub(expr, a) = &left {
+                    if let SimpleValue::Const(a_const) = a.as_ref() {
+                        if let SimpleValue::Const(b) = &right {
                             let res = a_const.wrapping_sub(*b);
                             let new_const = Self::Const(res);
                             return Self::Sub(expr.clone(), Intern::new(new_const)).simplify();
@@ -179,12 +176,12 @@ impl SimpleValuation {
                 Self::Add(Intern::new(left), Intern::new(right))
             }
 
-            SimpleValuation::Sub(a_intern, b_intern) => {
+            SimpleValue::Sub(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 // both const -> fold
@@ -220,9 +217,9 @@ impl SimpleValuation {
                 }
 
                 // ((expr + #a) - #b) -> (expr + #(a - b))
-                if let SimpleValuation::Add(expr, a) = &left {
-                    if let SimpleValuation::Const(a) = a.as_ref() {
-                        if let SimpleValuation::Const(b) = &right {
+                if let SimpleValue::Add(expr, a) = &left {
+                    if let SimpleValue::Const(a) = a.as_ref() {
+                        if let SimpleValue::Const(b) = &right {
                             let res = a.wrapping_sub(*b);
                             let new_const = Self::Const(res);
                             return Self::Add(expr.clone(), Intern::new(new_const)).simplify();
@@ -231,9 +228,9 @@ impl SimpleValuation {
                 }
 
                 // ((expr - #a) - #b) -> (expr - #(a + b))
-                if let SimpleValuation::Sub(expr, a) = &left {
-                    if let SimpleValuation::Const(a) = a.as_ref() {
-                        if let SimpleValuation::Const(b) = &right {
+                if let SimpleValue::Sub(expr, a) = &left {
+                    if let SimpleValue::Const(a) = a.as_ref() {
+                        if let SimpleValue::Const(b) = &right {
                             let res = a.wrapping_add(*b);
                             let new_const = Self::Const(res);
                             return Self::Sub(expr.clone(), Intern::new(new_const)).simplify();
@@ -244,12 +241,12 @@ impl SimpleValuation {
                 Self::Sub(Intern::new(left), Intern::new(right))
             }
 
-            SimpleValuation::Mul(a_intern, b_intern) => {
+            SimpleValue::Mul(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 // normalization: prefer constant on the right
@@ -275,12 +272,12 @@ impl SimpleValuation {
                 Self::Mul(Intern::new(left), Intern::new(right))
             }
 
-            SimpleValuation::BitAnd(a_intern, b_intern) => {
+            SimpleValue::BitAnd(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 // normalization: constant on right
@@ -306,12 +303,12 @@ impl SimpleValuation {
                 Self::BitAnd(Intern::new(left), Intern::new(right))
             }
 
-            SimpleValuation::BitOr(a_intern, b_intern) => {
+            SimpleValue::BitOr(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 // normalization: constant on right
@@ -336,12 +333,12 @@ impl SimpleValuation {
                 Self::BitOr(Intern::new(left), Intern::new(right))
             }
 
-            SimpleValuation::BitXor(a_intern, b_intern) => {
+            SimpleValue::BitXor(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 // normalization: constant on right
@@ -367,12 +364,12 @@ impl SimpleValuation {
                 Self::BitXor(Intern::new(left), Intern::new(right))
             }
 
-            SimpleValuation::Or(a_intern, b_intern) => {
+            SimpleValue::Or(a_intern, b_intern) => {
                 let a_s = a_intern.as_ref().simplify();
                 let b_s = b_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) || matches!(b_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 if a_s == b_s {
@@ -382,40 +379,38 @@ impl SimpleValuation {
                 Self::Or(Intern::new(a_s), Intern::new(b_s))
             }
 
-            SimpleValuation::BitNegate(a_intern) => {
+            SimpleValue::BitNegate(a_intern) => {
                 let a_s = a_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 Self::BitNegate(Intern::new(a_s))
             }
 
-            SimpleValuation::Load(a_intern) => {
+            SimpleValue::Load(a_intern) => {
                 let a_s = a_intern.as_ref().simplify();
 
-                if matches!(a_s, SimpleValuation::Top) {
-                    return SimpleValuation::Top;
+                if matches!(a_s, SimpleValue::Top) {
+                    return SimpleValue::Top;
                 }
 
                 Self::Load(Intern::new(a_s))
             }
             // Entry, Const, Top - nothing to simplify beyond cloning
-            SimpleValuation::Entry(_) | SimpleValuation::Const(_) | SimpleValuation::Top => {
-                self.clone()
-            }
+            SimpleValue::Entry(_) | SimpleValue::Const(_) | SimpleValue::Top => self.clone(),
         }
     }
 }
 
-impl JingleDisplay for SimpleValuation {
+impl JingleDisplay for SimpleValue {
     // todo: only wrap in parens if it's a non-unit inner expresison
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            SimpleValuation::Entry(vn) => write!(f, "{}", vn.as_ref().display(info)),
-            SimpleValuation::Const(vn) => write!(f, "{:#x}", vn),
-            SimpleValuation::Mul(a, b) => {
+            SimpleValue::Entry(vn) => write!(f, "{}", vn.as_ref().display(info)),
+            SimpleValue::Const(vn) => write!(f, "{:#x}", vn),
+            SimpleValue::Mul(a, b) => {
                 write!(
                     f,
                     "({}*{})",
@@ -423,7 +418,7 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::Add(a, b) => {
+            SimpleValue::Add(a, b) => {
                 write!(
                     f,
                     "({}+{})",
@@ -431,7 +426,7 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::Sub(a, b) => {
+            SimpleValue::Sub(a, b) => {
                 write!(
                     f,
                     "({}-{})",
@@ -439,7 +434,7 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::BitAnd(a, b) => {
+            SimpleValue::BitAnd(a, b) => {
                 write!(
                     f,
                     "({}&{})",
@@ -447,7 +442,7 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::BitOr(a, b) => {
+            SimpleValue::BitOr(a, b) => {
                 write!(
                     f,
                     "({}|{})",
@@ -455,7 +450,7 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::BitXor(a, b) => {
+            SimpleValue::BitXor(a, b) => {
                 write!(
                     f,
                     "({}^{})",
@@ -463,8 +458,8 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::BitNegate(a) => write!(f, "(~{})", a.as_ref().display(info)),
-            SimpleValuation::Or(a, b) => {
+            SimpleValue::BitNegate(a) => write!(f, "(~{})", a.as_ref().display(info)),
+            SimpleValue::Or(a, b) => {
                 write!(
                     f,
                     "({}||{})",
@@ -472,8 +467,8 @@ impl JingleDisplay for SimpleValuation {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValuation::Load(a) => write!(f, "Load({})", a.as_ref().display(info)),
-            SimpleValuation::Top => write!(f, "⊤"),
+            SimpleValue::Load(a) => write!(f, "Load({})", a.as_ref().display(info)),
+            SimpleValue::Top => write!(f, "⊤"),
         }
     }
 }
@@ -490,7 +485,7 @@ pub enum MergeBehavior {
 /// State for the VarNodeValuation-based direct valuation CPA.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SimpleValuationState {
-    written_locations: VarNodeMap<SimpleValuation>,
+    written_locations: VarNodeMap<SimpleValue>,
     arch_info: SleighArchInfo,
     /// Merge behavior controlling how conflicting valuations are handled during `join`.
     merge_behavior: MergeBehavior,
@@ -556,11 +551,11 @@ impl SimpleValuationState {
         }
     }
 
-    pub fn get_value(&self, varnode: &VarNode) -> Option<&SimpleValuation> {
+    pub fn get_value(&self, varnode: &VarNode) -> Option<&SimpleValue> {
         self.written_locations.get(varnode)
     }
 
-    pub fn written_locations(&self) -> &VarNodeMap<SimpleValuation> {
+    pub fn written_locations(&self) -> &VarNodeMap<SimpleValue> {
         &self.written_locations
     }
 
@@ -577,71 +572,71 @@ impl SimpleValuationState {
                         // Copy
                         PcodeOperation::Copy { input, .. } => {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                SimpleValuation::Const(input.offset as i64)
+                                SimpleValue::Const(input.offset as i64)
                             } else {
-                                SimpleValuation::from_varnode_or_entry(self, input)
+                                SimpleValue::from_varnode_or_entry(self, input)
                             }
                         }
 
                         PcodeOperation::IntAdd { input0, input1, .. } => {
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Add(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::Add(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntSub { input0, input1, .. } => {
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Sub(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::Sub(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntMult { input0, input1, .. } => {
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Mul(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::Mul(Intern::new(a), Intern::new(b))
                         }
 
                         // Bitwise operations
                         PcodeOperation::IntAnd { input0, input1, .. }
                         | PcodeOperation::BoolAnd { input0, input1, .. } => {
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::BitAnd(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::BitAnd(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntXor { input0, input1, .. }
                         | PcodeOperation::BoolXor { input0, input1, .. } => {
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::BitXor(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::BitXor(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntOr { input0, input1, .. }
                         | PcodeOperation::BoolOr { input0, input1, .. } => {
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::BitOr(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::BitOr(Intern::new(a), Intern::new(b))
                         }
                         PcodeOperation::IntLeftShift { input0, input1, .. }
                         | PcodeOperation::IntRightShift { input0, input1, .. }
                         | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
                             // Approximate shifts as an Add of the operands (conservative symbolic form)
-                            let a = SimpleValuation::from_varnode_or_entry(self, input0);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input1);
-                            SimpleValuation::Add(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::from_varnode_or_entry(self, input0);
+                            let b = SimpleValue::from_varnode_or_entry(self, input1);
+                            SimpleValue::Add(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::IntNegate { input, .. } => {
                             // Represent negate as Sub(Const(0), input) using make_const
-                            let a = SimpleValuation::make_const(0, input.size);
-                            let b = SimpleValuation::from_varnode_or_entry(self, input);
-                            SimpleValuation::Sub(Intern::new(a), Intern::new(b))
+                            let a = SimpleValue::make_const(0, input.size);
+                            let b = SimpleValue::from_varnode_or_entry(self, input);
+                            SimpleValue::Sub(Intern::new(a), Intern::new(b))
                         }
 
                         PcodeOperation::Int2Comp { input, .. } => {
                             // Approximate two's complement by bit-negation
-                            let a = SimpleValuation::from_varnode_or_entry(self, input);
-                            SimpleValuation::BitNegate(Intern::new(a))
+                            let a = SimpleValue::from_varnode_or_entry(self, input);
+                            SimpleValue::BitNegate(Intern::new(a))
                         }
 
                         // Load - track pointer expression
@@ -649,21 +644,21 @@ impl SimpleValuationState {
                             let ptr = &input.pointer_location;
                             let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
                                 tracing::warn!("Constant address used in indirect load");
-                                SimpleValuation::Const(ptr.offset as i64)
+                                SimpleValue::Const(ptr.offset as i64)
                             } else {
-                                SimpleValuation::from_varnode_or_entry(self, ptr)
+                                SimpleValue::from_varnode_or_entry(self, ptr)
                             };
-                            SimpleValuation::Load(Intern::new(pv))
+                            SimpleValue::Load(Intern::new(pv))
                         }
 
                         // Casts/extensions - preserve symbolic value
                         PcodeOperation::IntSExt { input, .. }
                         | PcodeOperation::IntZExt { input, .. } => {
-                            SimpleValuation::from_varnode_or_entry(self, input)
+                            SimpleValue::from_varnode_or_entry(self, input)
                         }
 
                         // Default: be conservative and mark as Top
-                        _ => SimpleValuation::Top,
+                        _ => SimpleValue::Top,
                     };
                     // simplify returns a new value
                     let simplified = result_val.simplify();
@@ -721,7 +716,7 @@ impl SimpleValuationState {
     }
 }
 
-impl PartialOrd for SimpleValuation {
+impl PartialOrd for SimpleValue {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self == other {
             Some(Ordering::Equal)
@@ -731,7 +726,7 @@ impl PartialOrd for SimpleValuation {
     }
 }
 
-impl JoinSemiLattice for SimpleValuation {
+impl JoinSemiLattice for SimpleValue {
     fn join(&mut self, _other: &Self) {}
 }
 
@@ -766,13 +761,13 @@ impl JoinSemiLattice for SimpleValuationState {
         for (key, other_val) in other.written_locations.iter() {
             match self.written_locations.get_mut(key) {
                 Some(my_val) => {
-                    if my_val == &SimpleValuation::Top || other_val == &SimpleValuation::Top {
-                        *my_val = SimpleValuation::Top;
+                    if my_val == &SimpleValue::Top || other_val == &SimpleValue::Top {
+                        *my_val = SimpleValue::Top;
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Or => {
                                 // create Or(...) of the two, then simplify the result
-                                let combined = SimpleValuation::Or(
+                                let combined = SimpleValue::Or(
                                     Intern::new(my_val.clone()),
                                     Intern::new(other_val.clone()),
                                 );
@@ -780,7 +775,7 @@ impl JoinSemiLattice for SimpleValuationState {
                             }
                             MergeBehavior::Top => {
                                 // converge differing values to Top (less precise, but useful when not unwinding locations)
-                                *my_val = SimpleValuation::Top;
+                                *my_val = SimpleValue::Top;
                             }
                         }
                     }
