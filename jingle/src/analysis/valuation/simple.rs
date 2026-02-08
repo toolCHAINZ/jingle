@@ -11,12 +11,18 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
+use std::ops::{BitAnd, BitOr, BitXor};
 
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
+pub struct SimplValuationConst {
+    value: i64,
+    size: u8,
+}
 /// Symbolic valuation built from varnodes and constants.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SimpleValuation {
     Entry(Intern<VarNode>),
-    Const(Intern<VarNode>),
+    Const(i64),
 
     // Binary operators now use interned children (via `internment`) rather than Arc'd tuples.
     Mul(Intern<SimpleValuation>, Intern<SimpleValuation>),
@@ -36,7 +42,10 @@ pub enum SimpleValuation {
 impl SimpleValuation {
     fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            SimpleValuation::Const(Intern::new(vn.clone()))
+            // todo: might have something like #ffff_ffff used to encode -1 for a 32-bit
+            // operation. Need to look at the vn's size and use that to determine whether
+            // the offset should be zero or sign extended
+            SimpleValuation::Const(vn.offset as i64)
         } else if let Some(v) = state.written_locations.get(vn) {
             v.clone()
         } else {
@@ -45,9 +54,9 @@ impl SimpleValuation {
     }
 
     /// Extract constant value if this is a Const variant
-    pub fn as_const(&self) -> Option<u64> {
+    pub fn as_const(&self) -> Option<i64> {
         match self {
-            SimpleValuation::Const(vn) => Some(vn.as_ref().offset),
+            SimpleValuation::Const(val) => Some(*val),
             _ => None,
         }
     }
@@ -66,19 +75,15 @@ impl SimpleValuation {
     }
 
     /// Create a constant VarNode with the given value and size
-    fn make_const(value: u64, size: usize) -> Self {
-        SimpleValuation::Const(Intern::new(VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: value,
-            size,
-        }))
+    fn make_const(value: i64, _size: usize) -> Self {
+        SimpleValuation::Const(value)
     }
 
     /// Helper to pick a reasonable size for a new constant when folding results.
     /// Prefer sizes found on Entry/Const varnodes; fall back to 8 bytes (64-bit).
     fn derive_size_from(val: &SimpleValuation) -> usize {
         match val {
-            SimpleValuation::Const(vn) | SimpleValuation::Entry(vn) => vn.as_ref().size,
+            SimpleValuation::Entry(vn) => vn.as_ref().size,
             _ => 8,
         }
     }
@@ -118,28 +123,54 @@ impl SimpleValuation {
                 }
 
                 // both const -> fold
-                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
-                    return Self::Const(Intern::new(vn));
+                if let (Self::Const(a), Self::Const(b)) = (&a_s, &b_s) {
+                    let res = a.wrapping_add(*b);
+                    return Self::Const(res);
                 }
 
                 // normalization: ensure constants are on the right
                 let (left, right) = Self::normalize_commutative(a_s, b_s);
 
                 // expr + 0 -> expr
+                // expr + (- |a|) -> expr - a
+                match right.as_const() {
+                    Some(0) => {
+                        return left;
+                    }
+                    Some(a) => {
+                        if a < 0 {
+                            let sub =
+                                Self::Sub(Intern::new(left.clone()), Intern::new(Self::Const(-a)))
+                                    .simplify();
+                            return sub;
+                        }
+                    }
+                    _ => {}
+                }
+
                 if right.as_const() == Some(0) {
                     return left;
                 }
 
                 // ((expr + #a) + #b) -> (expr + #(a + b))
-                if let SimpleValuation::Add(inner_a, inner_b) = &left {
-                    if let SimpleValuation::Const(inner_const_vn) = inner_b.as_ref() {
-                        if let SimpleValuation::Const(b_vn) = &right {
-                            let mut vn = inner_const_vn.as_ref().clone();
-                            vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
-                            let new_const = Self::Const(Intern::new(vn));
-                            return Self::Add(inner_a.clone(), Intern::new(new_const));
+                if let SimpleValuation::Add(left_inner_left, left_inner_right) = &left {
+                    if let SimpleValuation::Const(inner_right_const) = left_inner_right.as_ref() {
+                        if let SimpleValuation::Const(right_const) = &right {
+                            let res = inner_right_const.wrapping_add(*right_const);
+                            let new_const = Self::Const(res);
+                            return Self::Add(left_inner_left.clone(), Intern::new(new_const))
+                                .simplify();
+                        }
+                    }
+                }
+
+                // ((expr - #a) + #b) -> (expr - #(a - b))
+                if let SimpleValuation::Sub(expr, a) = &left {
+                    if let SimpleValuation::Const(a_const) = a.as_ref() {
+                        if let SimpleValuation::Const(b) = &right {
+                            let res = a_const.wrapping_sub(*b);
+                            let new_const = Self::Const(res);
+                            return Self::Sub(expr.clone(), Intern::new(new_const)).simplify();
                         }
                     }
                 }
@@ -157,38 +188,60 @@ impl SimpleValuation {
                 }
 
                 // both const -> fold
-                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = vn.offset.wrapping_sub(b_vn.as_ref().offset);
-                    return Self::Const(Intern::new(vn));
+                if let (Self::Const(left), Self::Const(right)) = (&a_s, &b_s) {
+                    let res = left.wrapping_sub(*right);
+                    return Self::Const(res);
                 }
 
+                // normalization: ensure constants are on the right
+                let (left, right) = Self::normalize_commutative(a_s, b_s);
+
                 // expr - 0 -> expr
-                if b_s.as_const() == Some(0) {
-                    return a_s;
+                // expr - (- |a|) -> expr + a
+                match right.as_const() {
+                    Some(0) => {
+                        return left;
+                    }
+                    Some(a) => {
+                        if a < 0 {
+                            let sub =
+                                Self::Add(Intern::new(left.clone()), Intern::new(Self::Const(-a)))
+                                    .simplify();
+                            return sub;
+                        }
+                    }
+                    _ => {}
                 }
 
                 // x - x -> 0
-                if a_s == b_s {
-                    let size = Self::derive_size_from(&a_s);
+                if left == right {
+                    let size = Self::derive_size_from(&left);
                     return Self::make_const(0, size);
                 }
 
-                // ((expr - #a) - #b) -> (expr - #(a + b))
-                if let SimpleValuation::Sub(inner_a, inner_b) = &a_s {
-                    if let SimpleValuation::Const(inner_const_vn) = inner_b.as_ref() {
-                        if let SimpleValuation::Const(b_vn) = &b_s {
-                            let mut vn = inner_const_vn.as_ref().clone();
-                            vn.offset = vn.offset.wrapping_add(b_vn.as_ref().offset);
-                            let new_const = Self::Const(Intern::new(vn));
-                            return Self::Sub(inner_a.clone(), Intern::new(new_const));
+                // ((expr + #a) - #b) -> (expr + #(a - b))
+                if let SimpleValuation::Add(expr, a) = &left {
+                    if let SimpleValuation::Const(a) = a.as_ref() {
+                        if let SimpleValuation::Const(b) = &right {
+                            let res = a.wrapping_sub(*b);
+                            let new_const = Self::Const(res);
+                            return Self::Add(expr.clone(), Intern::new(new_const)).simplify();
                         }
                     }
                 }
 
-                // todo: ((expr + #a) - #b) -> (expr + #(a - b)) if |a|>|b| or (expr - #(b - a)) if |b|>|a|
+                // ((expr - #a) - #b) -> (expr - #(a + b))
+                if let SimpleValuation::Sub(expr, a) = &left {
+                    if let SimpleValuation::Const(a) = a.as_ref() {
+                        if let SimpleValuation::Const(b) = &right {
+                            let res = a.wrapping_add(*b);
+                            let new_const = Self::Const(res);
+                            return Self::Sub(expr.clone(), Intern::new(new_const)).simplify();
+                        }
+                    }
+                }
 
-                Self::Sub(Intern::new(a_s), Intern::new(b_s))
+                Self::Sub(Intern::new(left), Intern::new(right))
             }
 
             SimpleValuation::Mul(a_intern, b_intern) => {
@@ -204,9 +257,8 @@ impl SimpleValuation {
 
                 // both const -> fold
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&left, &right) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = vn.offset.wrapping_mul(b_vn.as_ref().offset);
-                    return Self::Const(Intern::new(vn));
+                    let res = a_vn.wrapping_mul(*b_vn);
+                    return Self::Const(res);
                 }
 
                 // expr * 1 -> expr
@@ -236,9 +288,8 @@ impl SimpleValuation {
 
                 // both const -> fold
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&left, &right) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = a_vn.as_ref().offset & b_vn.as_ref().offset;
-                    return Self::Const(Intern::new(vn));
+                    let res = a_vn.bitand(b_vn);
+                    return Self::Const(res);
                 }
 
                 // x & 0 -> 0
@@ -268,9 +319,8 @@ impl SimpleValuation {
 
                 // both const -> fold
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&left, &right) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = a_vn.as_ref().offset | b_vn.as_ref().offset;
-                    return Self::Const(Intern::new(vn));
+                    let res = a_vn.bitor(b_vn);
+                    return Self::Const(res);
                 }
 
                 // x | 0 -> x
@@ -299,9 +349,8 @@ impl SimpleValuation {
 
                 // both const -> fold
                 if let (Self::Const(a_vn), Self::Const(b_vn)) = (&left, &right) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = a_vn.as_ref().offset ^ b_vn.as_ref().offset;
-                    return Self::Const(Intern::new(vn));
+                    let res = a_vn.bitxor(b_vn);
+                    return Self::Const(res);
                 }
 
                 // x ^ 0 -> x
@@ -326,13 +375,6 @@ impl SimpleValuation {
                     return SimpleValuation::Top;
                 }
 
-                // both const -> numeric OR (conservative fold)
-                if let (Self::Const(a_vn), Self::Const(b_vn)) = (&a_s, &b_s) {
-                    let mut vn = a_vn.as_ref().clone();
-                    vn.offset = a_vn.as_ref().offset | b_vn.as_ref().offset;
-                    return Self::Const(Intern::new(vn));
-                }
-
                 if a_s == b_s {
                     return a_s;
                 }
@@ -347,20 +389,6 @@ impl SimpleValuation {
                     return SimpleValuation::Top;
                 }
 
-                if let Self::Const(vn) = &a_s {
-                    let mut new_vn = vn.as_ref().clone();
-                    let bits = (new_vn.size as u64).saturating_mul(8);
-                    let mask = if bits == 0 {
-                        0u64
-                    } else if bits >= 64 {
-                        u64::MAX
-                    } else {
-                        (1u64 << (bits as u32)) - 1
-                    };
-                    new_vn.offset = (!new_vn.offset) & mask;
-                    return Self::Const(Intern::new(new_vn));
-                }
-
                 Self::BitNegate(Intern::new(a_s))
             }
 
@@ -373,7 +401,6 @@ impl SimpleValuation {
 
                 Self::Load(Intern::new(a_s))
             }
-
             // Entry, Const, Top - nothing to simplify beyond cloning
             SimpleValuation::Entry(_) | SimpleValuation::Const(_) | SimpleValuation::Top => {
                 self.clone()
@@ -387,7 +414,7 @@ impl JingleDisplay for SimpleValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
             SimpleValuation::Entry(vn) => write!(f, "{}", vn.as_ref().display(info)),
-            SimpleValuation::Const(vn) => write!(f, "{}", vn.as_ref().display(info)),
+            SimpleValuation::Const(vn) => write!(f, "{:#x}", vn),
             SimpleValuation::Mul(a, b) => {
                 write!(
                     f,
@@ -550,7 +577,7 @@ impl SimpleValuationState {
                         // Copy
                         PcodeOperation::Copy { input, .. } => {
                             if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                SimpleValuation::Const(Intern::new(input.clone()))
+                                SimpleValuation::Const(input.offset as i64)
                             } else {
                                 SimpleValuation::from_varnode_or_entry(self, input)
                             }
@@ -621,7 +648,8 @@ impl SimpleValuationState {
                         PcodeOperation::Load { input, .. } => {
                             let ptr = &input.pointer_location;
                             let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
-                                SimpleValuation::Const(Intern::new(ptr.clone()))
+                                tracing::warn!("Constant address used in indirect load");
+                                SimpleValuation::Const(ptr.offset as i64)
                             } else {
                                 SimpleValuation::from_varnode_or_entry(self, ptr)
                             };

@@ -182,7 +182,7 @@ impl BasicLocationState {
             let ptr_value = v.get_value(&indirect_var_node.pointer_location);
             if let Some(value) = ptr_value {
                 if let Some(v) = value.as_const() {
-                    self.inner = PcodeAddressLattice::Const(v.into())
+                    self.inner = PcodeAddressLattice::Const(ConcretePcodeAddress::from(v as u64))
                 }
             }
         }
@@ -208,8 +208,8 @@ impl CfgState for BasicLocationState {
         }
     }
 
-    fn location(&self) -> Option<ConcretePcodeAddress> {
-        self.inner.value().cloned()
+    fn location(&self) -> PcodeAddressLattice {
+        self.inner.clone()
     }
 }
 
