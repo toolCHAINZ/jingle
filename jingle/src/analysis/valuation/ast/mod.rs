@@ -18,19 +18,7 @@ struct Add(Intern<SimpleValue>, Intern<SimpleValue>);
 struct Sub(Intern<SimpleValue>, Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct BitAnd(Intern<SimpleValue>, Intern<SimpleValue>);
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct BitOr(Intern<SimpleValue>, Intern<SimpleValue>);
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct BitXor(Intern<SimpleValue>, Intern<SimpleValue>);
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Or(Intern<SimpleValue>, Intern<SimpleValue>);
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct BitNegate(Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Load(Intern<SimpleValue>);
