@@ -9,23 +9,55 @@ use internment::Intern;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 
-use crate::analysis::valuation::ast::{Add, Entry, Load, Mul, Or, SimpleValue, Sub};
+use crate::analysis::valuation::ast::{Entry, SimpleValue};
 
-/// Re-export the AST SimpleValue so external modules that import through
-/// `analysis::valuation::simple::SimpleValue` keep working.
+/// How to merge conflicting valuations for a single varnode when joining states.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum MergeBehavior {
+    /// Combine differing valuations into an `Or(...)` expression (higher precision).
+    Or,
+    /// Converge differing valuations to `Top` (lower precision).
+    Top,
+}
 
-/// Provide helper to create a SimpleValue from a VarNode or Entry located
-/// in a SimpleValuationState. This mirrors the prior behavior that used
-/// a locally-defined `SimpleValue` enum.
+/// A container holding both direct writes (varnode -> value) and indirect writes
+/// ([pointer expression] -> value) produced by stores.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SimpleValuation {
+    pub direct_writes: VarNodeMap<SimpleValue>,
+    pub indirect_writes: HashMap<SimpleValue, SimpleValue>,
+}
+
+impl SimpleValuation {
+    pub fn new() -> Self {
+        Self {
+            direct_writes: VarNodeMap::new(),
+            indirect_writes: HashMap::new(),
+        }
+    }
+}
+
+/// State for the valuation CPA. Stores a `SimpleValuation` which contains both
+/// direct and indirect write maps.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SimpleValuationState {
+    valuation: SimpleValuation,
+    arch_info: SleighArchInfo,
+    /// Merge behavior controlling how conflicting valuations are handled during `join`.
+    merge_behavior: MergeBehavior,
+}
+
 impl SimpleValue {
-    /// Resolve a VarNode to an existing valuation in the state, a Const, or an Entry.
+    /// Resolve a VarNode to an existing valuation in the state's direct writes,
+    /// to a Const if the VarNode is a constant, or to an Entry if unseen.
     pub fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            SimpleValue::Const(vn.offset as i64)
-        } else if let Some(v) = state.written_locations.get(vn) {
+            SimpleValue::const_(vn.offset as i64)
+        } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
         } else {
             SimpleValue::Entry(Entry(Intern::new(vn.clone())))
@@ -33,33 +65,23 @@ impl SimpleValue {
     }
 }
 
-/// How to merge conflicting valuations for a single varnode when joining states.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum MergeBehavior {
-    /// Combine differing valuations into an `Or(...)` expression (higher precision).
-    Or,
-    /// Converge differing valuations to `Top` (lower precision, useful when locations are not unwound).
-    Top,
-}
-
-/// State for the VarNodeValuation-based direct valuation CPA.
-///
-/// The state stores a map of written varnodes -> SimpleValue (the AST representation).
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SimpleValuationState {
-    written_locations: VarNodeMap<SimpleValue>,
-    arch_info: SleighArchInfo,
-    /// Merge behavior controlling how conflicting valuations are handled during `join`.
-    merge_behavior: MergeBehavior,
-}
-
 impl Hash for SimpleValuationState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // `VarNodeMap` stores keys in sorted order; iterate deterministically.
-        for (vn, val) in self.written_locations.items() {
+        // Hash direct writes (VarNodeMap provides deterministic ordering).
+        for (vn, val) in self.valuation.direct_writes.items() {
             vn.hash(state);
             val.hash(state);
         }
+
+        // Hash indirect writes deterministically by sorting keys' debug representations.
+        // This keeps the hash stable across runs.
+        let mut kvs: Vec<_> = self.valuation.indirect_writes.iter().collect();
+        kvs.sort_by(|a, b| format!("{:?}", a.0).cmp(&format!("{:?}", b.0)));
+        for (k, v) in kvs {
+            k.hash(state);
+            v.hash(state);
+        }
+
         // include merge behavior and arch info in the hash
         self.merge_behavior.hash(state);
         self.arch_info.hash(state);
@@ -78,17 +100,27 @@ impl Display for SimpleValuationState {
 
 impl JingleDisplay for SimpleValuationState {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
-        // Render the written locations in a concise form using the Sleigh arch display context.
         write!(f, "SimpleValuationState {{")?;
         let mut first = true;
-        for (vn, val) in self.written_locations.items() {
+
+        // Direct writes (vn -> val)
+        for (vn, val) in self.valuation.direct_writes.items() {
             if !first {
                 write!(f, ", ")?;
             }
             first = false;
-            // Use the JingleDisplay implementations for VarNode and SimpleValue
             write!(f, "{} = {}", vn.display(info), val.display(info))?;
         }
+
+        // Indirect writes ([ptr_expr] -> val)
+        for (ptr, val) in &self.valuation.indirect_writes {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            write!(f, "[{}] = {}", ptr.display(info), val.display(info))?;
+        }
+
         write!(f, "}}")?;
         Ok(())
     }
@@ -98,7 +130,7 @@ impl SimpleValuationState {
     /// Create a new state with the default merge behavior of `Or`.
     pub fn new(arch_info: SleighArchInfo) -> Self {
         Self {
-            written_locations: VarNodeMap::new(),
+            valuation: SimpleValuation::new(),
             arch_info,
             merge_behavior: MergeBehavior::Or,
         }
@@ -107,143 +139,179 @@ impl SimpleValuationState {
     /// Create a new state specifying the desired merge behavior.
     pub fn new_with_behavior(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
         Self {
-            written_locations: VarNodeMap::new(),
+            valuation: SimpleValuation::new(),
             arch_info,
             merge_behavior,
         }
     }
 
     pub fn get_value(&self, varnode: &VarNode) -> Option<&SimpleValue> {
-        self.written_locations.get(varnode)
+        self.valuation.direct_writes.get(varnode)
     }
 
     pub fn written_locations(&self) -> &VarNodeMap<SimpleValue> {
-        &self.written_locations
+        &self.valuation.direct_writes
     }
 
     /// Transfer function: build symbolic valuations for pcode operations.
-    ///
-    /// Note: This returns a new state (functional) instead of mutating in place.
+    /// This returns a new state (functional) instead of mutating in place.
     fn transfer_impl(&self, op: &PcodeOperation) -> Self {
         let mut new_state = self.clone();
 
-        if let Some(output) = op.output() {
-            match output {
-                GeneralizedVarNode::Direct(output_vn) => {
-                    let result_val = match op {
-                        // Copy
-                        PcodeOperation::Copy { input, .. } => {
-                            if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                SimpleValue::Const(input.offset as i64)
-                            } else {
-                                SimpleValue::from_varnode_or_entry(self, input)
-                            }
-                        }
+        // Match on the operation. Handle stores (indirect) and direct-output ops.
+        match op {
+            // Store: record pointer -> value in indirect_writes
+            PcodeOperation::Store { output, input } => {
+                let ptr = &output.pointer_location;
+                let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
+                    tracing::warn!("Constant address used in indirect store");
+                    SimpleValue::const_(ptr.offset as i64)
+                } else {
+                    SimpleValue::from_varnode_or_entry(self, ptr)
+                };
+                let val = if input.space_index == VarNode::CONST_SPACE_INDEX {
+                    SimpleValue::const_(input.offset as i64)
+                } else {
+                    SimpleValue::from_varnode_or_entry(self, input)
+                };
+                new_state
+                    .valuation
+                    .indirect_writes
+                    .insert(pv.simplify(), val.simplify());
+            }
 
-                        PcodeOperation::IntAdd { input0, input1, .. } => {
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::add(a, b)
-                        }
-
-                        PcodeOperation::IntSub { input0, input1, .. } => {
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::sub(a, b)
-                        }
-
-                        PcodeOperation::IntMult { input0, input1, .. } => {
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::mul(a, b)
-                        }
-
-                        // Bool/bit operations - approximate/record
-                        PcodeOperation::IntAnd { input0, input1, .. }
-                        | PcodeOperation::BoolAnd { input0, input1, .. } => {
-                            // TODO: reintroduce BitAnd when needed
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            // represent as Or fallback for now if desired, otherwise Top
-                            SimpleValue::Top
-                        }
-
-                        PcodeOperation::IntXor { input0, input1, .. }
-                        | PcodeOperation::BoolXor { input0, input1, .. } => {
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            // not supported in this minimal AST; mark Top
-                            SimpleValue::Top
-                        }
-
-                        PcodeOperation::IntOr { input0, input1, .. }
-                        | PcodeOperation::BoolOr { input0, input1, .. } => {
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::or(a, b)
-                        }
-
-                        PcodeOperation::IntLeftShift { input0, input1, .. }
-                        | PcodeOperation::IntRightShift { input0, input1, .. }
-                        | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
-                            // Approximate shifts as an Add of the operands (conservative symbolic form)
-                            let a = SimpleValue::from_varnode_or_entry(self, input0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::add(a, b)
-                        }
-
-                        PcodeOperation::IntNegate { input, .. } => {
-                            // Represent negate as Sub(Const(0), input)
-                            let a = SimpleValue::const_(0);
-                            let b = SimpleValue::from_varnode_or_entry(self, input);
-                            SimpleValue::sub(a, b)
-                        }
-
-                        PcodeOperation::Int2Comp { input, .. } => {
-                            // approximate as Top or BitNegate when reintroduced
-                            let a = SimpleValue::from_varnode_or_entry(self, input);
-                            SimpleValue::Top
-                        }
-
-                        // Load - track pointer expression
-                        PcodeOperation::Load { input, .. } => {
-                            let ptr = &input.pointer_location;
-                            let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
-                                tracing::warn!("Constant address used in indirect load");
-                                SimpleValue::const_(ptr.offset as i64)
-                            } else {
-                                SimpleValue::from_varnode_or_entry(self, ptr)
-                            };
-                            SimpleValue::load(pv)
-                        }
-
-                        // Casts/extensions - preserve symbolic value
-                        PcodeOperation::IntSExt { input, .. }
-                        | PcodeOperation::IntZExt { input, .. } => {
-                            SimpleValue::from_varnode_or_entry(self, input)
-                        }
-
-                        // Default: be conservative and mark as Top
-                        _ => SimpleValue::Top,
-                    };
-                    // simplify returns a new value
-                    let simplified = result_val.simplify();
-                    new_state.written_locations.insert(output_vn, simplified);
-                }
-
-                GeneralizedVarNode::Indirect(_) => {
-                    // Indirect writes are not tracked by this CPA.
+            // Copy
+            PcodeOperation::Copy { input, .. } => {
+                let result = if input.space_index == VarNode::CONST_SPACE_INDEX {
+                    SimpleValue::const_(input.offset as i64)
+                } else {
+                    SimpleValue::from_varnode_or_entry(self, input)
+                };
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, result.simplify());
                 }
             }
+
+            PcodeOperation::IntAdd { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::add(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntSub { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::sub(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntMult { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::mul(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntOr { input0, input1, .. }
+            | PcodeOperation::BoolOr { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::or(a, b).simplify());
+                }
+            }
+
+            // Approximate shifts as addition (conservative)
+            PcodeOperation::IntLeftShift { input0, input1, .. }
+            | PcodeOperation::IntRightShift { input0, input1, .. }
+            | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::add(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntNegate { input, .. } => {
+                let a = SimpleValue::const_(0);
+                let b = SimpleValue::from_varnode_or_entry(self, input);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::sub(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::Int2Comp { input, .. } => {
+                // conservative
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::Top);
+                }
+            }
+
+            PcodeOperation::Load { input, .. } => {
+                let ptr = &input.pointer_location;
+                let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
+                    tracing::warn!("Constant address used in indirect load");
+                    SimpleValue::const_(ptr.offset as i64)
+                } else {
+                    SimpleValue::from_varnode_or_entry(self, ptr)
+                };
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, SimpleValue::load(pv).simplify());
+                }
+            }
+
+            PcodeOperation::IntSExt { input, .. } | PcodeOperation::IntZExt { input, .. } => {
+                let v = SimpleValue::from_varnode_or_entry(self, input);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .direct_writes
+                        .insert(output_vn, v.simplify());
+                }
+            }
+
+            // Other operations we don't model produce no tracked writes here.
+            _ => {}
         }
 
-        // Clear internal-space varnodes on control-flow to non-const destinations
+        // Clear internal-space varnodes on control-flow to non-const destinations (same policy as direct_valuation.rs)
         match op {
             PcodeOperation::Branch { input } | PcodeOperation::CBranch { input0: input, .. } => {
                 if input.space_index != VarNode::CONST_SPACE_INDEX {
                     // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
                     let mut to_remove: Vec<VarNode> = Vec::new();
-                    for (vn, _) in new_state.written_locations.items() {
+                    for (vn, _) in new_state.valuation.direct_writes.items() {
                         let keep = self
                             .arch_info
                             .get_space(vn.space_index)
@@ -254,14 +322,14 @@ impl SimpleValuationState {
                         }
                     }
                     for k in to_remove {
-                        new_state.written_locations.remove(&k);
+                        new_state.valuation.direct_writes.remove(&k);
                     }
                 }
             }
             PcodeOperation::BranchInd { .. } | PcodeOperation::CallInd { .. } => {
                 // Similar retain behavior as above for branch-indirect.
                 let mut to_remove: Vec<VarNode> = Vec::new();
-                for (vn, _) in new_state.written_locations.items() {
+                for (vn, _) in new_state.valuation.direct_writes.items() {
                     let keep = self
                         .arch_info
                         .get_space(vn.space_index)
@@ -272,7 +340,7 @@ impl SimpleValuationState {
                     }
                 }
                 for k in to_remove {
-                    new_state.written_locations.remove(&k);
+                    new_state.valuation.direct_writes.remove(&k);
                 }
             }
             _ => {}
@@ -298,15 +366,30 @@ impl JoinSemiLattice for SimpleValue {
 
 impl PartialOrd for SimpleValuationState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Make states comparable only when they have the same keys and identical valuations.
-        if self.written_locations.len() != other.written_locations.len() {
+        // Make states comparable only when they have the same direct keys and identical valuations.
+        if self.valuation.direct_writes.len() != other.valuation.direct_writes.len() {
             return None;
         }
 
-        for (key, val) in self.written_locations.items() {
-            match other.written_locations.get(key) {
+        for (key, val) in self.valuation.direct_writes.items() {
+            match other.valuation.direct_writes.get(key) {
                 Some(other_val) => {
                     if val != other_val {
+                        return None;
+                    }
+                }
+                None => return None,
+            }
+        }
+
+        // Also require indirect maps to be identical for comparability.
+        if self.valuation.indirect_writes.len() != other.valuation.indirect_writes.len() {
+            return None;
+        }
+        for (k, v) in &self.valuation.indirect_writes {
+            match other.valuation.indirect_writes.get(k) {
+                Some(ov) => {
+                    if v != ov {
                         return None;
                     }
                 }
@@ -320,31 +403,53 @@ impl PartialOrd for SimpleValuationState {
 
 impl JoinSemiLattice for SimpleValuationState {
     fn join(&mut self, other: &Self) {
-        // For each varnode present in `other`:
-        // - if present in self with same valuation -> keep
-        // - if present in self with different valuation -> combine according to merge_behavior
-        // - if absent in self -> clone from other
-        for (key, other_val) in other.written_locations.items() {
-            match self.written_locations.get_mut(key) {
+        // Merge direct writes
+        for (key, other_val) in other.valuation.direct_writes.items() {
+            match self.valuation.direct_writes.get_mut(key) {
                 Some(my_val) => {
                     if my_val == &SimpleValue::Top || other_val == &SimpleValue::Top {
                         *my_val = SimpleValue::Top;
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Or => {
-                                // create Or(...) of the two, then simplify the result
                                 let combined = SimpleValue::or(my_val.clone(), other_val.clone());
                                 *my_val = combined.simplify();
                             }
                             MergeBehavior::Top => {
-                                // converge differing values to Top (less precise)
                                 *my_val = SimpleValue::Top;
                             }
                         }
                     }
                 }
                 None => {
-                    self.written_locations
+                    self.valuation
+                        .direct_writes
+                        .insert(key.clone(), other_val.clone());
+                }
+            }
+        }
+
+        // Merge indirect writes (pointer -> value)
+        for (key, other_val) in &other.valuation.indirect_writes {
+            match self.valuation.indirect_writes.get_mut(key) {
+                Some(my_val) => {
+                    if my_val == &SimpleValue::Top || other_val == &SimpleValue::Top {
+                        *my_val = SimpleValue::Top;
+                    } else if my_val != other_val {
+                        match self.merge_behavior {
+                            MergeBehavior::Or => {
+                                let combined = SimpleValue::or(my_val.clone(), other_val.clone());
+                                *my_val = combined.simplify();
+                            }
+                            MergeBehavior::Top => {
+                                *my_val = SimpleValue::Top;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    self.valuation
+                        .indirect_writes
                         .insert(key.clone(), other_val.clone());
                 }
             }
@@ -354,10 +459,15 @@ impl JoinSemiLattice for SimpleValuationState {
 
 impl AbstractState for SimpleValuationState {
     fn merge(&mut self, other: &Self) -> MergeOutcome {
+        // Reuse the lattice join helper if available; otherwise, perform join and return a conservative outcome.
+        // Many CPAs provide `merge_join` via a helper trait in this codebase; call it if present.
+        // Fallback: perform a join (mutating self) and report that we merged.
+        // We'll try to call `merge_join` as in the original design.
         self.merge_join(other)
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
+        // Defer to the standard stop predicate helper if available.
         self.stop_sep(states)
     }
 
@@ -367,7 +477,6 @@ impl AbstractState for SimpleValuationState {
     }
 }
 
-/// Analysis entrypoint using the SimpleValue AST-based representation.
 pub struct SimpleValuationAnalysis {
     arch_info: SleighArchInfo,
     /// Default merge behavior for states produced by this analysis.
@@ -395,9 +504,32 @@ impl IntoState<SimpleValuationAnalysis> for ConcretePcodeAddress {
         c: &SimpleValuationAnalysis,
     ) -> <SimpleValuationAnalysis as ConfigurableProgramAnalysis>::State {
         SimpleValuationState {
-            written_locations: VarNodeMap::new(),
+            valuation: SimpleValuation::new(),
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
         }
+    }
+}
+
+impl SimpleValuationState {
+    /// Produce a state that assumes `other` holds; this is a conservative operation that
+    /// can be used to strengthen the state using another state's facts.
+    /// For now, return a clone with any direct writes from `other` overriding our own when present.
+    pub fn assuming(&self, other: &Self) -> Self {
+        let mut new = self.clone();
+
+        // For each direct write in `other`, adopt it if present (this is a conservative "assume")
+        for (vn, val) in other.valuation.direct_writes.items() {
+            new.valuation.direct_writes.insert(vn.clone(), val.clone());
+        }
+
+        // For indirect writes, also adopt other's indirect writes conservatively.
+        for (ptr, val) in &other.valuation.indirect_writes {
+            new.valuation
+                .indirect_writes
+                .insert(ptr.clone(), val.clone());
+        }
+
+        new
     }
 }

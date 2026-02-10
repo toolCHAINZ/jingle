@@ -30,7 +30,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::TRACE)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -57,7 +57,7 @@ fn main() {
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
     let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
     let valuation_analysis =
-        SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
+        SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Top);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer (factory)
     let mut compound_with_cfg = (location_analysis, valuation_analysis).with_residue(CFG);
@@ -190,6 +190,7 @@ fn main() {
                     ele.1.display(loaded.arch_info())
                 )
             }
+            println!("{}", leaf.s2.display(loaded.arch_info()));
         }
     }
 
