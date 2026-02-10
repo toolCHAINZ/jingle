@@ -11,13 +11,8 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
-use std::ops::{BitAnd, BitOr, BitXor};
+use std::ops::{BitAnd, BitOr, BitXor, Deref};
 
-#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
-pub struct SimplValuationConst {
-    value: i64,
-    size: u8,
-}
 /// Symbolic valuation built from varnodes and constants.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SimpleValue {
@@ -482,6 +477,18 @@ pub enum MergeBehavior {
     Top,
 }
 
+#[derive(Clone, Debug)]
+pub struct SimpleValuation(VarNodeMap<SimpleValue>);
+
+impl SimpleValuation {
+    pub fn assuming(&self, other: &Self) -> Self {
+        let mut new = self.clone();
+        for (vn, value) in new.0.items() {
+            if let Some(other) = other.0.get(vn) {}
+        }
+    }
+}
+
 /// State for the VarNodeValuation-based direct valuation CPA.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SimpleValuationState {
@@ -494,7 +501,7 @@ pub struct SimpleValuationState {
 impl Hash for SimpleValuationState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // `VarNodeMap` stores keys in sorted order; iterate deterministically.
-        for (vn, val) in self.written_locations.iter() {
+        for (vn, val) in self.written_locations.items() {
             vn.hash(state);
             val.hash(state);
         }
@@ -519,7 +526,7 @@ impl JingleDisplay for SimpleValuationState {
         // Render the written locations in a concise form using the Sleigh arch display context.
         write!(f, "SimpleValuationState {{")?;
         let mut first = true;
-        for (vn, val) in self.written_locations.iter() {
+        for (vn, val) in self.written_locations.items() {
             if !first {
                 write!(f, ", ")?;
             }
@@ -677,7 +684,7 @@ impl SimpleValuationState {
                 if input.space_index != VarNode::CONST_SPACE_INDEX {
                     // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
                     let mut to_remove: Vec<VarNode> = Vec::new();
-                    for (vn, _) in new_state.written_locations.iter() {
+                    for (vn, _) in new_state.written_locations.items() {
                         let keep = self
                             .arch_info
                             .get_space(vn.space_index)
@@ -695,7 +702,7 @@ impl SimpleValuationState {
             PcodeOperation::BranchInd { .. } | PcodeOperation::CallInd { .. } => {
                 // Similar retain behavior as above for branch-indirect.
                 let mut to_remove: Vec<VarNode> = Vec::new();
-                for (vn, _) in new_state.written_locations.iter() {
+                for (vn, _) in new_state.written_locations.items() {
                     let keep = self
                         .arch_info
                         .get_space(vn.space_index)
@@ -737,7 +744,7 @@ impl PartialOrd for SimpleValuationState {
             return None;
         }
 
-        for (key, val) in self.written_locations.iter() {
+        for (key, val) in self.written_locations.items() {
             match other.written_locations.get(key) {
                 Some(other_val) => {
                     if val != other_val {
@@ -758,7 +765,7 @@ impl JoinSemiLattice for SimpleValuationState {
         // - if present in self with same valuation -> keep
         // - if present in self with different valuation -> combine according to merge_behavior
         // - if absent in self -> clone from other
-        for (key, other_val) in other.written_locations.iter() {
+        for (key, other_val) in other.written_locations.items() {
             match self.written_locations.get_mut(key) {
                 Some(my_val) => {
                     if my_val == &SimpleValue::Top || other_val == &SimpleValue::Top {
@@ -835,5 +842,11 @@ impl IntoState<SimpleValuationAnalysis> for ConcretePcodeAddress {
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
         }
+    }
+}
+
+impl SimpleValuationState {
+    pub fn assuming(&self, other: &Self) -> Self {
+        todo!()
     }
 }

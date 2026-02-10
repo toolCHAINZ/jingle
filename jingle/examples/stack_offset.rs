@@ -166,7 +166,7 @@ fn main() {
                 if count == 0 {
                     println!("      (no written locations)");
                 } else {
-                    for (vn, val) in state.written_locations().iter() {
+                    for (vn, val) in state.written_locations().items() {
                         println!(
                             "      {} = {}",
                             vn.display(loaded.arch_info()),
@@ -183,7 +183,7 @@ fn main() {
                 leaf.s1.inner().display(loaded.arch_info())
             );
             println!("      Valuations:");
-            for ele in leaf.s2.written_locations().iter() {
+            for ele in leaf.s2.written_locations().items() {
                 println!(
                     "        {} = {}",
                     ele.0.display(loaded.arch_info()),
