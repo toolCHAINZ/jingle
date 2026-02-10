@@ -143,19 +143,19 @@ impl SimpleValuationState {
                         PcodeOperation::IntAdd { input0, input1, .. } => {
                             let a = SimpleValue::from_varnode_or_entry(self, input0);
                             let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::Add(Add(Intern::new(a), Intern::new(b)))
+                            SimpleValue::add(a, b)
                         }
 
                         PcodeOperation::IntSub { input0, input1, .. } => {
                             let a = SimpleValue::from_varnode_or_entry(self, input0);
                             let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::Sub(Sub(Intern::new(a), Intern::new(b)))
+                            SimpleValue::sub(a, b)
                         }
 
                         PcodeOperation::IntMult { input0, input1, .. } => {
                             let a = SimpleValue::from_varnode_or_entry(self, input0);
                             let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::Mul(Mul(Intern::new(a), Intern::new(b)))
+                            SimpleValue::mul(a, b)
                         }
 
                         // Bool/bit operations - approximate/record
@@ -180,7 +180,7 @@ impl SimpleValuationState {
                         | PcodeOperation::BoolOr { input0, input1, .. } => {
                             let a = SimpleValue::from_varnode_or_entry(self, input0);
                             let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::Or(Or(Intern::new(a), Intern::new(b)))
+                            SimpleValue::or(a, b)
                         }
 
                         PcodeOperation::IntLeftShift { input0, input1, .. }
@@ -189,14 +189,14 @@ impl SimpleValuationState {
                             // Approximate shifts as an Add of the operands (conservative symbolic form)
                             let a = SimpleValue::from_varnode_or_entry(self, input0);
                             let b = SimpleValue::from_varnode_or_entry(self, input1);
-                            SimpleValue::Add(Add(Intern::new(a), Intern::new(b)))
+                            SimpleValue::add(a, b)
                         }
 
                         PcodeOperation::IntNegate { input, .. } => {
                             // Represent negate as Sub(Const(0), input)
-                            let a = SimpleValue::Const(0);
+                            let a = SimpleValue::const_(0);
                             let b = SimpleValue::from_varnode_or_entry(self, input);
-                            SimpleValue::Sub(Sub(Intern::new(a), Intern::new(b)))
+                            SimpleValue::sub(a, b)
                         }
 
                         PcodeOperation::Int2Comp { input, .. } => {
@@ -210,11 +210,11 @@ impl SimpleValuationState {
                             let ptr = &input.pointer_location;
                             let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
                                 tracing::warn!("Constant address used in indirect load");
-                                SimpleValue::Const(ptr.offset as i64)
+                                SimpleValue::const_(ptr.offset as i64)
                             } else {
                                 SimpleValue::from_varnode_or_entry(self, ptr)
                             };
-                            SimpleValue::Load(Load(Intern::new(pv)))
+                            SimpleValue::load(pv)
                         }
 
                         // Casts/extensions - preserve symbolic value
@@ -333,10 +333,7 @@ impl JoinSemiLattice for SimpleValuationState {
                         match self.merge_behavior {
                             MergeBehavior::Or => {
                                 // create Or(...) of the two, then simplify the result
-                                let combined = SimpleValue::Or(Or(
-                                    Intern::new(my_val.clone()),
-                                    Intern::new(other_val.clone()),
-                                ));
+                                let combined = SimpleValue::or(my_val.clone(), other_val.clone());
                                 *my_val = combined.simplify();
                             }
                             MergeBehavior::Top => {

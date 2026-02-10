@@ -50,6 +50,45 @@ impl SimpleValue {
         }
     }
 
+    // --- Convenience constructors -------------------------------------------------
+
+    /// Construct an `Entry(...)` from a `VarNode`.
+    pub fn entry(vn: VarNode) -> Self {
+        SimpleValue::Entry(Entry(Intern::new(vn)))
+    }
+
+    /// Construct a `Const(...)`.
+    pub fn const_(v: i64) -> Self {
+        SimpleValue::Const(v)
+    }
+
+    /// Construct an `Add(...)` node from two children.
+    pub fn add(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::Add(Add(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct a `Sub(...)` node from two children.
+    pub fn sub(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::Sub(Sub(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct a `Mul(...)` node from two children.
+    pub fn mul(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::Mul(Mul(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `Or(...)` node from two children.
+    pub fn or(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::Or(Or(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct a `Load(...)` node from a child.
+    pub fn load(child: SimpleValue) -> Self {
+        SimpleValue::Load(Load(Intern::new(child)))
+    }
+
+    // Keep the older helpers (used by some simplifications) for parity:
+
     /// Create a constant SimpleValue with the given value and size.
     /// Size is currently not used in this representation, but kept for parity with the
     /// previous implementation which used sizes when constructing sized constants.
