@@ -118,6 +118,36 @@ impl SimpleValue {
             (left, right)
         }
     }
+
+    /// Normalize Or operands so that the canonical form has a non-Or on the left
+    /// and an Or on the right when one operand is an Or. This makes simplifications
+    /// like `Or(Or(a,b), c)` and `Or(c, Or(a,b))` handled uniformly.
+    fn normalize_or(left: SimpleValue, right: SimpleValue) -> (SimpleValue, SimpleValue) {
+        let left_is_or = matches!(left, SimpleValue::Or(_));
+        let right_is_or = matches!(right, SimpleValue::Or(_));
+
+        // If left is an Or and right is not, swap so the Or is on the right.
+        if left_is_or && !right_is_or {
+            (right, left)
+        } else {
+            (left, right)
+        }
+    }
+
+    /// Provide a coarse rank for variants so we can produce deterministic ordering
+    /// among different kinds of children when canonicalizing binary commutative nodes.
+    fn variant_rank(v: &SimpleValue) -> u8 {
+        match v {
+            SimpleValue::Const(_) => 0,
+            SimpleValue::Entry(_) => 1,
+            SimpleValue::Mul(_) => 2,
+            SimpleValue::Add(_) => 3,
+            SimpleValue::Sub(_) => 4,
+            SimpleValue::Or(_) => 5,
+            SimpleValue::Load(_) => 6,
+            SimpleValue::Top => 7,
+        }
+    }
 }
 
 impl Simplify for SimpleValue {
@@ -138,14 +168,7 @@ impl SimpleValue {
     /// This delegates to the same per-variant simplifiers that the `Simplify`
     /// implementations provide for the individual AST node structs.
     pub fn simplify(&self) -> SimpleValue {
-        match self {
-            SimpleValue::Mul(expr) => expr.simplify(),
-            SimpleValue::Add(expr) => expr.simplify(),
-            SimpleValue::Sub(expr) => expr.simplify(),
-            SimpleValue::Or(expr) => expr.simplify(),
-            SimpleValue::Load(expr) => expr.simplify(),
-            SimpleValue::Entry(_) | SimpleValue::Const(_) | SimpleValue::Top => self.clone(),
-        }
+        Simplify::simplify(self)
     }
 }
 
@@ -335,18 +358,69 @@ impl Simplify for Or {
         let a_intern = self.0;
         let b_intern = self.1;
 
+        // simplify children first
         let a_s = a_intern.as_ref().simplify();
         let b_s = b_intern.as_ref().simplify();
 
+        // if either child is Top, the result is Top
         if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
             return SimpleValue::Top;
         }
 
-        if a_s == b_s {
-            return a_s;
+        // normalize so that if one side is an Or and the other is not, the Or is on the right
+        // (canonical shape: non-Or on left, Or on right)
+        let (mut left, mut right) = SimpleValue::normalize_or(a_s, b_s);
+
+        // If both sides are non-Or, enforce deterministic ordering by variant rank.
+        if !matches!(left, SimpleValue::Or(_)) && !matches!(right, SimpleValue::Or(_)) {
+            if SimpleValue::variant_rank(&left) > SimpleValue::variant_rank(&right) {
+                std::mem::swap(&mut left, &mut right);
+            }
         }
 
-        SimpleValue::Or(Or(Intern::new(a_s), Intern::new(b_s)))
+        // identical children => just return one
+        if left == right {
+            return left;
+        }
+
+        // Collapse nested duplicates: Or(a, Or(a, b)) -> Or(a, b)
+        if let SimpleValue::Or(Or(inner_a, inner_b)) = &right {
+            if inner_a.as_ref() == &left {
+                return SimpleValue::Or(Or(Intern::new(left.clone()), inner_b.clone())).simplify();
+            }
+            if inner_b.as_ref() == &left {
+                return SimpleValue::Or(Or(Intern::new(left.clone()), inner_a.clone())).simplify();
+            }
+        }
+
+        // Factor common child between two Ors:
+        // Or(Or(a,b), Or(a,c)) -> Or(a, Or(b,c)) and symmetric variants.
+        if let (SimpleValue::Or(Or(l1, l2)), SimpleValue::Or(Or(r1, r2))) = (&left, &right) {
+            // check all combinations for equal common child
+            if l1.as_ref() == r1.as_ref() {
+                let inner = SimpleValue::Or(Or(l2.clone(), r2.clone())).simplify();
+                return SimpleValue::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner)))
+                    .simplify();
+            }
+            if l1.as_ref() == r2.as_ref() {
+                let inner = SimpleValue::Or(Or(l2.clone(), r1.clone())).simplify();
+                return SimpleValue::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner)))
+                    .simplify();
+            }
+            if l2.as_ref() == r1.as_ref() {
+                let inner = SimpleValue::Or(Or(l1.clone(), r2.clone())).simplify();
+                return SimpleValue::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner)))
+                    .simplify();
+            }
+            if l2.as_ref() == r2.as_ref() {
+                let inner = SimpleValue::Or(Or(l1.clone(), r1.clone())).simplify();
+                return SimpleValue::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner)))
+                    .simplify();
+            }
+        }
+
+        // default: rebuild with simplified children
+        SimpleValue::Or(Or(Intern::new(left), Intern::new(right)))
     }
 }
 
