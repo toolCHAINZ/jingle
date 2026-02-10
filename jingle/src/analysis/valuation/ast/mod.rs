@@ -1,31 +1,33 @@
+use crate::display::JingleDisplay;
 use internment::Intern;
-use jingle_sleigh::VarNode;
+use jingle_sleigh::{SleighArchInfo, VarNode};
+use std::fmt::Formatter;
 
 trait Simplify {
     fn simplify(&self) -> SimpleValue;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Entry(Intern<VarNode>);
+pub struct Entry(pub Intern<VarNode>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Mul(Intern<SimpleValue>, Intern<SimpleValue>);
+pub struct Mul(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Add(Intern<SimpleValue>, Intern<SimpleValue>);
+pub struct Add(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Sub(Intern<SimpleValue>, Intern<SimpleValue>);
+pub struct Sub(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Or(Intern<SimpleValue>, Intern<SimpleValue>);
+pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Load(Intern<SimpleValue>);
+pub struct Load(pub Intern<SimpleValue>);
 
 /// Symbolic valuation built from varnodes and constants.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-enum SimpleValue {
+pub enum SimpleValue {
     Entry(Entry),
     Const(i64),
 
@@ -81,6 +83,22 @@ impl SimpleValue {
 
 impl Simplify for SimpleValue {
     fn simplify(&self) -> SimpleValue {
+        match self {
+            SimpleValue::Mul(expr) => expr.simplify(),
+            SimpleValue::Add(expr) => expr.simplify(),
+            SimpleValue::Sub(expr) => expr.simplify(),
+            SimpleValue::Or(expr) => expr.simplify(),
+            SimpleValue::Load(expr) => expr.simplify(),
+            SimpleValue::Entry(_) | SimpleValue::Const(_) | SimpleValue::Top => self.clone(),
+        }
+    }
+}
+
+impl SimpleValue {
+    /// Inherent simplify method so callers don't need the `Simplify` trait in scope.
+    /// This delegates to the same per-variant simplifiers that the `Simplify`
+    /// implementations provide for the individual AST node structs.
+    pub fn simplify(&self) -> SimpleValue {
         match self {
             SimpleValue::Mul(expr) => expr.simplify(),
             SimpleValue::Add(expr) => expr.simplify(),
@@ -303,5 +321,48 @@ impl Simplify for Load {
         }
 
         SimpleValue::Load(Load(Intern::new(a_s)))
+    }
+}
+
+impl JingleDisplay for SimpleValue {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        match self {
+            SimpleValue::Entry(Entry(vn)) => write!(f, "{}", vn.as_ref().display(info)),
+            SimpleValue::Const(v) => write!(f, "{:#x}", v),
+            SimpleValue::Mul(Mul(a, b)) => {
+                write!(
+                    f,
+                    "({}*{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
+            }
+            SimpleValue::Add(Add(a, b)) => {
+                write!(
+                    f,
+                    "({}+{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
+            }
+            SimpleValue::Sub(Sub(a, b)) => {
+                write!(
+                    f,
+                    "({}-{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
+            }
+            SimpleValue::Or(Or(a, b)) => {
+                write!(
+                    f,
+                    "({}||{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
+            }
+            SimpleValue::Load(Load(a)) => write!(f, "Load({})", a.as_ref().display(info)),
+            SimpleValue::Top => write!(f, "⊤"),
+        }
     }
 }
