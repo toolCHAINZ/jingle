@@ -59,6 +59,23 @@ impl SimpleValue {
             _ => None,
         }
     }
+
+    /// Create a constant SimpleValue with the given value and size.
+    /// Size is currently not used in this representation, but kept for parity with the
+    /// previous implementation which used sizes when constructing sized constants.
+    fn make_const(value: i64, _size: usize) -> Self {
+        SimpleValue::Const(value)
+    }
+
+    /// Helper to pick a reasonable size for a new constant when folding results.
+    /// Prefer sizes found on Entry varnodes; fall back to 8 bytes (64-bit).
+    fn derive_size_from(val: &SimpleValue) -> usize {
+        match val {
+            SimpleValue::Entry(vn) => vn.0.as_ref().size,
+            _ => 8,
+        }
+    }
+
     /// Normalize commutative operands so that constants (if present) are on the right.
     /// Returns (left, right) possibly swapped.
     fn normalize_commutative(left: SimpleValue, right: SimpleValue) -> (SimpleValue, SimpleValue) {
@@ -162,24 +179,141 @@ impl Simplify for Add {
 
 impl Simplify for Sub {
     fn simplify(&self) -> SimpleValue {
-        todo!()
+        let a_intern = self.0;
+        let b_intern = self.1;
+
+        let a_s = a_intern.as_ref().simplify();
+        let b_s = b_intern.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        // both const -> fold
+        if let (SimpleValue::Const(left), SimpleValue::Const(right)) = (&a_s, &b_s) {
+            let res = left.wrapping_sub(*right);
+            return SimpleValue::Const(res);
+        }
+
+        // normalization: ensure constants are on the right
+        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+
+        // expr - 0 -> expr
+        // expr - (- |a|) -> expr + a
+        match right.as_const() {
+            Some(0) => {
+                return left;
+            }
+            Some(a) => {
+                if a < 0 {
+                    let add = Add(
+                        Intern::new(left.clone()),
+                        Intern::new(SimpleValue::Const(-a)),
+                    )
+                    .simplify();
+                    return add;
+                }
+            }
+            _ => {}
+        }
+
+        // x - x -> 0
+        if left == right {
+            let size = SimpleValue::derive_size_from(&left);
+            return SimpleValue::make_const(0, size);
+        }
+
+        // ((expr + #a) - #b) -> (expr + #(a - b))
+        if let SimpleValue::Add(Add(expr, a)) = &left {
+            if let SimpleValue::Const(a) = a.as_ref() {
+                if let SimpleValue::Const(b) = &right {
+                    let res = a.wrapping_sub(*b);
+                    let new_const = SimpleValue::Const(res);
+                    return Add(expr.clone(), Intern::new(new_const)).simplify();
+                }
+            }
+        }
+
+        // ((expr - #a) - #b) -> (expr - #(a + b))
+        if let SimpleValue::Sub(Sub(expr, a)) = &left {
+            if let SimpleValue::Const(a) = a.as_ref() {
+                if let SimpleValue::Const(b) = &right {
+                    let res = a.wrapping_add(*b);
+                    let new_const = SimpleValue::Const(res);
+                    return Sub(expr.clone(), Intern::new(new_const)).simplify();
+                }
+            }
+        }
+
+        SimpleValue::Sub(Sub(Intern::new(left), Intern::new(right)))
     }
 }
 
 impl Simplify for Mul {
     fn simplify(&self) -> SimpleValue {
-        todo!()
+        let a_intern = self.0;
+        let b_intern = self.1;
+
+        let a_s = a_intern.as_ref().simplify();
+        let b_s = b_intern.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        // normalization: prefer constant on the right
+        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+
+        // both const -> fold
+        if let (SimpleValue::Const(a_vn), SimpleValue::Const(b_vn)) = (&left, &right) {
+            let res = a_vn.wrapping_mul(*b_vn);
+            return SimpleValue::Const(res);
+        }
+
+        // expr * 1 -> expr
+        if right.as_const() == Some(1) {
+            return left;
+        }
+
+        // expr * 0 -> 0
+        if right.as_const() == Some(0) {
+            let size = SimpleValue::derive_size_from(&left);
+            return SimpleValue::make_const(0, size);
+        }
+
+        SimpleValue::Mul(Mul(Intern::new(left), Intern::new(right)))
     }
 }
 
 impl Simplify for Or {
     fn simplify(&self) -> SimpleValue {
-        todo!()
+        let a_intern = self.0;
+        let b_intern = self.1;
+
+        let a_s = a_intern.as_ref().simplify();
+        let b_s = b_intern.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if a_s == b_s {
+            return a_s;
+        }
+
+        SimpleValue::Or(Or(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for Load {
     fn simplify(&self) -> SimpleValue {
-        todo!()
+        let a_intern = self.0;
+        let a_s = a_intern.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        SimpleValue::Load(Load(Intern::new(a_s)))
     }
 }
