@@ -181,7 +181,7 @@ impl BasicLocationState {
         if let PcodeAddressLattice::Computed(indirect_var_node) = &self.inner {
             let ptr_value = v.get_value(&indirect_var_node.pointer_location);
             if let Some(value) = ptr_value {
-                if let Some(v) = value.as_const() {
+                if let Some(v) = value.as_const_value() {
                     self.inner = PcodeAddressLattice::Const(ConcretePcodeAddress::from(v as u64))
                 }
             }
