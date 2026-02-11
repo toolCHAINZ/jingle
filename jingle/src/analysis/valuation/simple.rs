@@ -35,6 +35,16 @@ pub struct SimpleValuation {
     pub indirect_writes: HashMap<SimpleValue, SimpleValue>,
 }
 
+pub enum SingleValuationLocation {
+    Direct(Intern<VarNode>),
+    Indirect(Intern<SimpleValue>),
+}
+
+pub struct SingleValuation {
+    location: SingleValuationLocation,
+    value: Intern<SimpleValue>,
+}
+
 impl SimpleValuation {
     pub fn new() -> Self {
         Self {
