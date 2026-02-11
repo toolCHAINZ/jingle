@@ -5,7 +5,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::valuation::simple::valuation::SimpleValuation;
+use crate::analysis::valuation::simple::valuation::{SimpleValuation, SingleValuation};
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
