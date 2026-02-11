@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.4...jingle-v0.5.5) - 2026-02-11
+
+### Changed
+
+- Refactor SimpleValue to store sizes and consts as VarNodes ([#160](https://github.com/toolCHAINZ/jingle/pull/160))
+
 ## [0.5.4](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.3...jingle-v0.5.4) - 2026-02-11
 
 ### Added
