@@ -29,6 +29,20 @@ impl SimpleValuation {
             indirect_writes: HashMap::new(),
         }
     }
+
+    /// Construct a `SimpleValuation` with the provided direct and indirect write maps.
+    ///
+    /// This allows callers to build a `SimpleValuation` with pre-populated contents
+    /// instead of creating an empty one and inserting entries afterwards.
+    pub fn with_contents(
+        direct_writes: VarNodeMap<SimpleValue>,
+        indirect_writes: HashMap<SimpleValue, SimpleValue>,
+    ) -> Self {
+        Self {
+            direct_writes,
+            indirect_writes,
+        }
+    }
 }
 
 pub enum SingleValuationLocation {
@@ -36,9 +50,32 @@ pub enum SingleValuationLocation {
     Indirect(Intern<SimpleValue>),
 }
 
+impl SingleValuationLocation {
+    /// Construct a `SingleValuationLocation` representing a direct location.
+    pub fn new_direct(vn: VarNode) -> Self {
+        SingleValuationLocation::Direct(Intern::new(vn))
+    }
+
+    /// Construct a `SingleValuationLocation` representing an indirect (pointer) location.
+    pub fn new_indirect(ptr: SimpleValue) -> Self {
+        SingleValuationLocation::Indirect(Intern::new(ptr))
+    }
+}
+
 pub struct SingleValuation {
     location: SingleValuationLocation,
     value: Intern<SimpleValue>,
+}
+
+impl SingleValuation {
+    /// Construct a `SingleValuation` from a location and a value.
+    /// The provided `value` will be interned.
+    pub fn new(location: SingleValuationLocation, value: SimpleValue) -> Self {
+        Self {
+            location,
+            value: Intern::new(value),
+        }
+    }
 }
 
 impl SingleValuation {
@@ -82,7 +119,7 @@ pub struct SimpleValuationIter<'a> {
 }
 
 impl<'a> SimpleValuationIter<'a> {
-    fn new(valuation: &'a SimpleValuation) -> Self {
+    pub fn new(valuation: &'a SimpleValuation) -> Self {
         // Collect direct entries (clone into interns so the iterator can be self-contained).
         let mut direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)> = Vec::new();
         for (vn, val) in valuation.direct_writes.items() {
