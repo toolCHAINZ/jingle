@@ -131,7 +131,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     pub fn get_op_at<T: Borrow<N>>(&self, addr: T) -> Option<&D> {
         let n = addr.borrow();
         // If the state has an associated concrete address, look up by that address.
-        n.location().and_then(|a| self.ops.get(&a))
+        n.concrete_location().and_then(|a| self.ops.get(&a))
     }
 
     pub fn get_op_at_address<C: Borrow<ConcretePcodeAddress>>(&self, addr: C) -> Option<&D> {
@@ -211,23 +211,23 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             // Update the ops map: prefer the op from new_weight if it exists, otherwise use old_weight's op
             // Prefer the op from `new_weight` (by its concrete address), otherwise fall back to `old_weight`.
             let op_to_keep = {
-                let new_loc = new_weight.borrow().location();
-                let old_loc = old_weight.borrow().location();
+                let new_loc = new_weight.borrow().concrete_location();
+                let old_loc = old_weight.borrow().concrete_location();
                 new_loc
                     .and_then(|a| self.ops.get(&a).cloned())
                     .or_else(|| old_loc.and_then(|a| self.ops.get(&a).cloned()))
             };
 
             // Remove any existing ops keyed by the concrete addresses of the old/new weights.
-            if let Some(loc) = old_weight.borrow().location() {
+            if let Some(loc) = old_weight.borrow().concrete_location() {
                 self.ops.remove(&loc);
             }
-            if let Some(loc) = new_weight.borrow().location() {
+            if let Some(loc) = new_weight.borrow().concrete_location() {
                 self.ops.remove(&loc);
             }
 
             if let Some(op) = op_to_keep {
-                if let Some(loc) = new_weight.borrow().location() {
+                if let Some(loc) = new_weight.borrow().concrete_location() {
                     self.ops.insert(loc, op);
                 } else {
                     // If the new_weight has no concrete location, we cannot re-insert under an address.
@@ -251,7 +251,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.add_node(from);
         self.add_node(to);
         // Insert op keyed by the concrete address of `from` (if available).
-        if let Some(loc) = from.location() {
+        if let Some(loc) = from.concrete_location() {
             self.ops.insert(loc, op.clone());
         }
         let from_idx = *self.indices.get(from).unwrap();
@@ -378,7 +378,7 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             let n = self.graph.node_weight(old_idx).unwrap().clone();
             let new_idx = new_graph.add_node(n.clone());
             new_indices.insert(n.clone(), new_idx);
-            if let Some(loc) = n.location() {
+            if let Some(loc) = n.concrete_location() {
                 if let Some(op) = self.ops.get(&loc) {
                     new_ops.insert(loc, op.clone());
                 }
@@ -450,7 +450,7 @@ where
         // Step 2: Wrap each op in a Vec and add nodes
         for node in self.graph.node_indices() {
             let n = self.graph.node_weight(node).unwrap().clone();
-            let op = if let Some(loc) = n.location() {
+            let op = if let Some(loc) = n.concrete_location() {
                 self.ops
                     .get(&loc)
                     .map(|opd| vec![opd.as_ref().clone()])
@@ -461,7 +461,7 @@ where
             let idx = graph.add_node(n.clone());
             graph.add_node(n.clone());
             indices.insert(n.clone(), idx);
-            if let Some(loc) = n.location() {
+            if let Some(loc) = n.concrete_location() {
                 ops.insert(loc, op);
             }
         }
@@ -495,13 +495,13 @@ where
                 let src_n = graph.node_weight(node).unwrap().clone();
                 let tgt_n = graph.node_weight(target).unwrap().clone();
                 // Fix borrow: collect target ops first (by concrete address)
-                let tgt_ops = if let Some(tgt_loc) = tgt_n.location() {
+                let tgt_ops = if let Some(tgt_loc) = tgt_n.concrete_location() {
                     ops.get(&tgt_loc).cloned().unwrap_or_default()
                 } else {
                     Vec::new()
                 };
                 if !tgt_ops.is_empty() {
-                    if let Some(src_loc) = src_n.location() {
+                    if let Some(src_loc) = src_n.concrete_location() {
                         ops.entry(src_loc).or_default().extend(tgt_ops);
                     }
                 }
@@ -515,7 +515,7 @@ where
                 }
                 // Remove target node and its ops
                 graph.remove_node(target);
-                if let Some(tgt_loc) = tgt_n.location() {
+                if let Some(tgt_loc) = tgt_n.concrete_location() {
                     ops.remove(&tgt_loc);
                 }
                 indices.remove(&tgt_n);
@@ -546,7 +546,7 @@ where
             let n = graph.node_weight(*node).unwrap().clone();
             let idx = new_graph.add_node(n.clone());
             new_indices.insert(n.clone(), idx);
-            if let Some(loc) = n.location() {
+            if let Some(loc) = n.concrete_location() {
                 if let Some(op) = ops.get(&loc) {
                     new_ops.insert(loc, op.clone());
                 }

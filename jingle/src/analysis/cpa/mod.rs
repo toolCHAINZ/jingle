@@ -93,7 +93,7 @@ where
             // Ask the state for the operation using the borrowed pcode_store.
             // The returned `op` will have lifetime `'op`.
             let op = state.get_operation(pcode_store);
-            tracing::trace!(
+            tracing::debug!(
                 "  Operation at state: {:?}",
                 op.as_ref().map(|p| format!("{:x}", p.as_ref()))
             );

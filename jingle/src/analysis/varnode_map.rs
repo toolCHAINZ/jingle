@@ -140,7 +140,7 @@ impl<T> VarNodeMap<T> {
     {
         // Collect keys to remove to avoid mutating while iterating
         let mut to_remove: Vec<VarNode> = Vec::new();
-        for (k, v) in self.iter() {
+        for (k, v) in self.items() {
             if !f(k, v) {
                 to_remove.push(k.clone());
             }
@@ -151,7 +151,7 @@ impl<T> VarNodeMap<T> {
     }
 
     /// Iterate over entries as (VarNode, &T).
-    pub fn iter(&self) -> impl Iterator<Item = (&VarNode, &T)> {
+    pub fn items(&self) -> impl Iterator<Item = (&VarNode, &T)> {
         self.vns.iter().map(|w| &w.0).zip(self.data.iter())
     }
 }
@@ -273,7 +273,7 @@ mod tests {
 
         // iteration should yield keys in sorted order defined by (space_index, offset, size)
         let keys: Vec<(usize, u64, usize)> = m
-            .iter()
+            .items()
             .map(|(k, _)| (k.space_index, k.offset, k.size))
             .collect();
 

@@ -1,3 +1,4 @@
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::LocationState;
 use crate::{
     analysis::{
@@ -133,7 +134,7 @@ macro_rules! named_tuple {
                 id
             }
 
-            fn location(&self) -> Option<ConcretePcodeAddress> {
+            fn location(&self) -> PcodeAddressLattice {
                 self.$first_field.location()
             }
         }

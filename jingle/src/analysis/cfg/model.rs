@@ -1,6 +1,7 @@
 use crate::JingleError;
 // use crate::analysis::compound::CompoundState;
-use crate::analysis::cpa::lattice::flat::FlatLattice;
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+use crate::analysis::cpa::state::LocationState;
 use crate::analysis::pcode_store::PcodeOpRef;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -55,8 +56,13 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
     /// Prefix used when producing SMT models of this state with `fresh`
     fn model_id(&self) -> String;
 
+    fn location(&self) -> PcodeAddressLattice;
     /// Each CFG state is optionally associated with a concrete p-code address
-    fn location(&self) -> Option<ConcretePcodeAddress>;
+    /// todo: Rename this to concrete_location. Require implementers to implement
+    /// location() -> PcodeAddressLattice and provide concrete_location() by default
+    fn concrete_location(&self) -> Option<ConcretePcodeAddress> {
+        self.location().get_location()
+    }
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -78,30 +84,8 @@ impl CfgState for ConcretePcodeAddress {
         format!("State_PC_{:x}_{:x}", self.machine, self.pcode)
     }
 
-    fn location(&self) -> Option<ConcretePcodeAddress> {
-        Some(*self)
-    }
-}
-
-impl CfgState for FlatLattice<ConcretePcodeAddress> {
-    type Model = MachineState;
-
-    fn new_const(&self, i: &SleighArchInfo) -> Self::Model {
-        match self {
-            FlatLattice::Value(addr) => MachineState::fresh_for_address(i, addr),
-            FlatLattice::Top => MachineState::fresh(i),
-        }
-    }
-
-    fn model_id(&self) -> String {
-        match self {
-            FlatLattice::Value(a) => a.model_id(),
-            FlatLattice::Top => "State_Top_".to_string(),
-        }
-    }
-
-    fn location(&self) -> Option<ConcretePcodeAddress> {
-        Option::from(*self)
+    fn location(&self) -> PcodeAddressLattice {
+        PcodeAddressLattice::Const(*self)
     }
 }
 

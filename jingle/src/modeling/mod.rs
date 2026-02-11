@@ -16,6 +16,7 @@ use z3::ast::{Ast, BV, Bool};
 mod block;
 mod branch;
 mod concretize;
+pub mod expression;
 mod instruction;
 pub mod machine;
 mod slice;

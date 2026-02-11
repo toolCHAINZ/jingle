@@ -10,7 +10,7 @@ use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::pcode_store::{self, PcodeOpRef};
 use jingle::analysis::valuation::{
-    MergeBehavior, SimpleValuation, SimpleValuationAnalysis, SimpleValuationState,
+    MergeBehavior, SimpleValuationAnalysis, SimpleValuationState, SimpleValue,
 };
 use jingle::display::JingleDisplay;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -30,7 +30,7 @@ const FUNC_GOTO: u64 = 0x100000610;
 fn main() {
     // Initialize tracing for debug output
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::TRACE)
         .with_target(false)
         .with_thread_ids(false)
         .with_line_number(true)
@@ -57,7 +57,7 @@ fn main() {
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
     let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
     let valuation_analysis =
-        SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Or);
+        SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Top);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer (factory)
     let mut compound_with_cfg = (location_analysis, valuation_analysis).with_residue(CFG);
@@ -68,7 +68,7 @@ fn main() {
     let cfg = compound_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     // We'll collect valuation info keyed by concrete addresses encountered in the CFG.
-    let mut stack_offsets: HashMap<ConcretePcodeAddress, SimpleValuation> = HashMap::new();
+    let mut stack_offsets: HashMap<ConcretePcodeAddress, SimpleValue> = HashMap::new();
     let mut direct_valuations: HashMap<ConcretePcodeAddress, SimpleValuationState> = HashMap::new();
 
     // `cfg.nodes()` yields `&N` where N = (DirectLocationState, DirectValuationState).
@@ -166,7 +166,7 @@ fn main() {
                 if count == 0 {
                     println!("      (no written locations)");
                 } else {
-                    for (vn, val) in state.written_locations().iter() {
+                    for (vn, val) in state.written_locations().items() {
                         println!(
                             "      {} = {}",
                             vn.display(loaded.arch_info()),
@@ -183,13 +183,14 @@ fn main() {
                 leaf.s1.inner().display(loaded.arch_info())
             );
             println!("      Valuations:");
-            for ele in leaf.s2.written_locations().iter() {
+            for ele in leaf.s2.written_locations().items() {
                 println!(
                     "        {} = {}",
                     ele.0.display(loaded.arch_info()),
                     ele.1.display(loaded.arch_info())
                 )
             }
+            println!("{}", leaf.s2.display(loaded.arch_info()));
         }
     }
 
@@ -199,7 +200,7 @@ fn main() {
 
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|v| !matches!(v, SimpleValuation::Top))
+        .filter(|v| !matches!(v, SimpleValue::Top))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);
