@@ -163,17 +163,13 @@ impl SimpleValuationState {
             // Store: record pointer -> value in indirect_writes
             PcodeOperation::Store { output, input } => {
                 let ptr = &output.pointer_location;
-                let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
-                    tracing::warn!("Constant address used in indirect store");
-                    SimpleValue::const_(ptr.offset as i64)
-                } else {
-                    SimpleValue::from_varnode_or_entry(self, ptr)
-                };
                 let val = if input.space_index == VarNode::CONST_SPACE_INDEX {
                     SimpleValue::const_(input.offset as i64)
                 } else {
                     SimpleValue::from_varnode_or_entry(self, input)
                 };
+
+                let pv = SimpleValue::from_varnode_or_entry(self, ptr);
                 new_state
                     .valuation
                     .indirect_writes
@@ -265,7 +261,7 @@ impl SimpleValuationState {
                 }
             }
 
-            PcodeOperation::Int2Comp { input, .. } => {
+            PcodeOperation::Int2Comp { .. } => {
                 // conservative
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
@@ -277,17 +273,22 @@ impl SimpleValuationState {
 
             PcodeOperation::Load { input, .. } => {
                 let ptr = &input.pointer_location;
-                let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
-                    tracing::warn!("Constant address used in indirect load");
-                    SimpleValue::const_(ptr.offset as i64)
-                } else {
-                    SimpleValue::from_varnode_or_entry(self, ptr)
-                };
+
+                // Non-constant pointer: if we have an indirect write recorded for this
+                // pointer expression, use that stored value directly; otherwise emit Load(...)
+                let pv = SimpleValue::from_varnode_or_entry(self, ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, SimpleValue::load(pv).simplify());
+                    if let Some(v) = self.valuation.indirect_writes.get(&pv.simplify()) {
+                        new_state
+                            .valuation
+                            .direct_writes
+                            .insert(output_vn, v.clone());
+                    } else {
+                        new_state
+                            .valuation
+                            .direct_writes
+                            .insert(output_vn, SimpleValue::load(pv).simplify());
+                    }
                 }
             }
 
