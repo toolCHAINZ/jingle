@@ -1,9 +1,11 @@
+pub mod valuation;
 pub mod value;
 
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
+use crate::analysis::valuation::simple::valuation::SimpleValuation;
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -26,36 +28,6 @@ pub enum MergeBehavior {
     Top,
 }
 
-/// A container holding both direct writes (varnode -> value) and indirect writes
-/// ([pointer expression] -> value) produced by stores.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SimpleValuation {
-    pub direct_writes: VarNodeMap<SimpleValue>,
-    /// Note: for now we are making the simplifying assumption
-    /// that all indirect writes happen in one space; this hashmap
-    /// can be keyed by both simpleValue and SpaceIndex to generalize this
-    pub indirect_writes: HashMap<SimpleValue, SimpleValue>,
-}
-
-pub enum SingleValuationLocation {
-    Direct(Intern<VarNode>),
-    Indirect(Intern<SimpleValue>),
-}
-
-pub struct SingleValuation {
-    location: SingleValuationLocation,
-    value: Intern<SimpleValue>,
-}
-
-impl SimpleValuation {
-    pub fn new() -> Self {
-        Self {
-            direct_writes: VarNodeMap::new(),
-            indirect_writes: HashMap::new(),
-        }
-    }
-}
-
 /// State for the valuation CPA. Stores a `SimpleValuation` which contains both
 /// direct and indirect write maps.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -64,20 +36,6 @@ pub struct SimpleValuationState {
     arch_info: SleighArchInfo,
     /// Merge behavior controlling how conflicting valuations are handled during `join`.
     merge_behavior: MergeBehavior,
-}
-
-impl SimpleValue {
-    /// Resolve a VarNode to an existing valuation in the state's direct writes,
-    /// to a Const if the VarNode is a constant, or to an Entry if unseen.
-    pub fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
-        if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            SimpleValue::const_(vn.offset as i64)
-        } else if let Some(v) = state.valuation.direct_writes.get(vn) {
-            v.clone()
-        } else {
-            SimpleValue::Entry(Entry(Intern::new(vn.clone())))
-        }
-    }
 }
 
 impl Hash for SimpleValuationState {
@@ -364,20 +322,6 @@ impl SimpleValuationState {
 
         new_state
     }
-}
-
-impl PartialOrd for SimpleValue {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self == other {
-            Some(Ordering::Equal)
-        } else {
-            None
-        }
-    }
-}
-
-impl JoinSemiLattice for SimpleValue {
-    fn join(&mut self, _other: &Self) {}
 }
 
 impl PartialOrd for SimpleValuationState {
