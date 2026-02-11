@@ -1,3 +1,9 @@
+// Refactored SimpleValue:
+//  - constants are now represented as `VarNode`s in the constant space (keeps offset+size)
+//  - every expression node carries a `size: usize` (derived from leaves / consts)
+// This file preserves the external API where possible (e.g. `const_(i64)` still exists)
+// but internally stores constants as `VarNode`s so sizes propagate through expressions.
+
 use crate::{
     analysis::{cpa::lattice::JoinSemiLattice, valuation::SimpleValuationState},
     display::JingleDisplay,
@@ -14,46 +20,73 @@ trait Simplify {
     fn simplify(&self) -> SimpleValue;
 }
 
+/// Wrap a varnode in an interned container for entry/const variants.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Entry(pub Intern<VarNode>);
 
+/// Binary expression nodes now carry an explicit `size` field so every node
+/// in the expression tree has an associated byte size.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Load(pub Intern<SimpleValue>);
+pub struct Load(pub Intern<SimpleValue>, pub usize);
 
-/// Symbolic valuation built from varnodes and constants.
+/// Symbolic valuation built from varnodes and constants (constants are VarNodes in const space).
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SimpleValue {
+    /// A direct entry referencing an existing non-const varnode
     Entry(Entry),
-    Const(i64),
 
-    // Binary operators now use interned children (via `internment`) rather than Arc'd tuples.
+    /// A constant represented as a `VarNode` in the constant space. This preserves
+    /// both the offset (value) and the size in bytes.
+    Const(Entry),
+
+    /// Binary operators now include an explicit size (in bytes)
     Mul(MulExpr),
     Add(AddExpr),
     Sub(SubExpr),
 
     Or(Or),
     Load(Load),
+
     Top,
 }
 
 impl SimpleValue {
-    /// Extract constant value if this is a Const variant
+    /// Extract constant value as i64 if this is a Const variant
     pub fn as_const(&self) -> Option<i64> {
         match self {
-            SimpleValue::Const(val) => Some(*val),
+            SimpleValue::Const(Entry(vn_intern)) => {
+                // Interpret offset as signed for callers that expect signed constants.
+                Some(vn_intern.as_ref().offset as i64)
+            }
             _ => None,
+        }
+    }
+
+    /// Get the size in bytes represented by this SimpleValue.
+    /// For `Entry` and `Const`, this returns the underlying VarNode's size.
+    /// For composite nodes, the stored size is returned.
+    pub fn size(&self) -> usize {
+        match self {
+            SimpleValue::Entry(Entry(vn)) => vn.as_ref().size,
+            SimpleValue::Const(Entry(vn)) => vn.as_ref().size,
+            SimpleValue::Mul(MulExpr(_, _, s))
+            | SimpleValue::Add(AddExpr(_, _, s))
+            | SimpleValue::Sub(SubExpr(_, _, s))
+            | SimpleValue::Or(Or(_, _, s)) => *s,
+            SimpleValue::Load(Load(_, s)) => *s,
+            SimpleValue::Top => 8, // conservative default
         }
     }
 
@@ -64,37 +97,56 @@ impl SimpleValue {
         SimpleValue::Entry(Entry(Intern::new(vn)))
     }
 
-    /// Construct a `Const(...)`.
+    /// Construct a `Const(...)` from a raw i64 value.
+    /// We create a `VarNode` in the constant space with a default size of 8 bytes
+    /// (64-bit) unless callers use `make_const` to specify a size explicitly.
     pub fn const_(v: i64) -> Self {
-        SimpleValue::Const(v)
+        // default to 8-byte sized constant
+        let vn = VarNode {
+            space_index: VarNode::CONST_SPACE_INDEX,
+            offset: v as u64,
+            size: 8,
+        };
+        SimpleValue::Const(Entry(Intern::new(vn)))
     }
 
-    /// Construct an `Or(...)` node from two children.
+    /// Construct a `Const(...)` directly from a `VarNode` (already contains size).
+    pub fn const_from_varnode(vn: VarNode) -> Self {
+        SimpleValue::Const(Entry(Intern::new(vn)))
+    }
+
+    /// Construct an `Or(...)` node from two children. Size is derived from children.
     pub fn or(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::Or(Or(Intern::new(left), Intern::new(right)))
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Or(Or(Intern::new(left), Intern::new(right), s))
     }
 
-    /// Construct a `Load(...)` node from a child.
+    /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
+    /// (In practice the output varnode size often dictates the load size; callers may
+    /// want to construct loads via `make_load_with_size` if available.)
     pub fn load(child: SimpleValue) -> Self {
-        SimpleValue::Load(Load(Intern::new(child)))
+        let s = child.size();
+        SimpleValue::Load(Load(Intern::new(child), s))
     }
 
     // Keep the older helpers (used by some simplifications) for parity:
 
-    /// Create a constant SimpleValue with the given value and size.
-    /// Size is currently not used in this representation, but kept for parity with the
-    /// previous implementation which used sizes when constructing sized constants.
-    fn make_const(value: i64, _size: usize) -> Self {
-        SimpleValue::Const(value)
+    /// Create a constant SimpleValue with the given value and size (in bytes).
+    fn make_const(value: i64, size: usize) -> Self {
+        let vn = VarNode {
+            space_index: VarNode::CONST_SPACE_INDEX,
+            offset: value as u64,
+            size,
+        };
+        SimpleValue::Const(Entry(Intern::new(vn)))
     }
 
     /// Helper to pick a reasonable size for a new constant when folding results.
-    /// Prefer sizes found on Entry varnodes; fall back to 8 bytes (64-bit).
+    /// Prefer sizes found on any child; fall back to 8 bytes (64-bit).
     fn derive_size_from(val: &SimpleValue) -> usize {
-        match val {
-            SimpleValue::Entry(vn) => vn.0.as_ref().size,
-            _ => 8,
-        }
+        // If we have an explicit size on this node or on a leaf varnode, return it.
+        let s = val.size();
+        if s == 0 { 8 } else { s }
     }
 
     /// Normalize commutative operands so that constants (if present) are on the right.
@@ -159,7 +211,8 @@ impl Mul for SimpleValue {
     type Output = SimpleValue;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        SimpleValue::Mul(MulExpr(Intern::new(self), Intern::new(rhs)))
+        let s = std::cmp::max(self.size(), rhs.size());
+        SimpleValue::Mul(MulExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
@@ -167,7 +220,8 @@ impl Add for SimpleValue {
     type Output = SimpleValue;
 
     fn add(self, rhs: Self) -> Self::Output {
-        SimpleValue::Add(AddExpr(Intern::new(self), Intern::new(rhs)))
+        let s = std::cmp::max(self.size(), rhs.size());
+        SimpleValue::Add(AddExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
@@ -175,7 +229,8 @@ impl Sub for SimpleValue {
     type Output = SimpleValue;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        SimpleValue::Sub(SubExpr(Intern::new(self), Intern::new(rhs)))
+        let s = std::cmp::max(self.size(), rhs.size());
+        SimpleValue::Sub(SubExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
@@ -202,10 +257,11 @@ impl Simplify for AddExpr {
             return SimpleValue::Top;
         }
 
-        // both const -> fold
-        if let (SimpleValue::Const(a), SimpleValue::Const(b)) = (&a_s, &b_s) {
-            let res = a.wrapping_add(*b);
-            return SimpleValue::Const(res);
+        // both const -> fold using signed wrapping arithmetic consistent with prior behavior
+        if let (Some(a), Some(b)) = (a_s.as_const(), b_s.as_const()) {
+            let res = a.wrapping_add(b);
+            let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
+            return SimpleValue::make_const(res, size);
         }
 
         // normalization: ensure constants are on the right
@@ -219,9 +275,12 @@ impl Simplify for AddExpr {
             }
             Some(a) => {
                 if a < 0 {
+                    let new_const =
+                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left));
                     let sub = SubExpr(
                         Intern::new(left.clone()),
-                        Intern::new(SimpleValue::Const(-a)),
+                        Intern::new(new_const),
+                        left.size(),
                     )
                     .simplify();
                     return sub;
@@ -230,34 +289,37 @@ impl Simplify for AddExpr {
             _ => {}
         }
 
-        if right.as_const() == Some(0) {
-            return left;
-        }
-
         // ((expr + #a) + #b) -> (expr + #(a + b))
-        if let SimpleValue::Add(AddExpr(left_inner_left, left_inner_right)) = &left {
-            if let SimpleValue::Const(inner_right_const) = left_inner_right.as_ref() {
-                if let SimpleValue::Const(right_const) = &right {
-                    let res = inner_right_const.wrapping_add(*right_const);
-                    let new_const = SimpleValue::Const(res);
-                    return AddExpr(*left_inner_left, Intern::new(new_const)).simplify();
+        if let SimpleValue::Add(AddExpr(left_inner_left, left_inner_right, _)) = &left {
+            if let Some(inner_right_const) = left_inner_right.as_ref().as_const() {
+                if let Some(right_const) = right.as_const() {
+                    let res = inner_right_const.wrapping_add(right_const);
+                    let size = std::cmp::max(
+                        left_inner_left.as_ref().size(),
+                        SimpleValue::derive_size_from(&SimpleValue::make_const(res, 8)),
+                    );
+                    let new_const = SimpleValue::make_const(res, size);
+                    return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }
             }
         }
 
         // ((expr - #a) + #b) -> (expr - #(a - b))
-        if let SimpleValue::Sub(SubExpr(expr, a)) = &left {
-            if let SimpleValue::Const(a_const) = a.as_ref() {
-                if let SimpleValue::Const(b) = &right {
+        if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
+            if let Some(a_const) = a.as_ref().as_const() {
+                if let Some(b) = &right.as_const() {
                     let res = a_const.wrapping_sub(*b);
-                    let new_const = SimpleValue::Const(res);
-                    return SubExpr(*expr, Intern::new(new_const)).simplify();
+                    let size =
+                        std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
+                    let new_const = SimpleValue::make_const(res, size);
+                    return SubExpr(*expr, Intern::new(new_const), size).simplify();
                 }
             }
         }
 
-        // default: rebuild with simplified children
-        SimpleValue::Add(AddExpr(Intern::new(left), Intern::new(right)))
+        // default: rebuild with simplified children; size is max of children
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Add(AddExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
@@ -274,9 +336,10 @@ impl Simplify for SubExpr {
         }
 
         // both const -> fold
-        if let (SimpleValue::Const(left), SimpleValue::Const(right)) = (&a_s, &b_s) {
-            let res = left.wrapping_sub(*right);
-            return SimpleValue::Const(res);
+        if let (Some(left), Some(right)) = (a_s.as_const(), b_s.as_const()) {
+            let res = left.wrapping_sub(right);
+            let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
+            return SimpleValue::make_const(res, size);
         }
 
         // normalization: ensure constants are on the right
@@ -290,9 +353,12 @@ impl Simplify for SubExpr {
             }
             Some(a) => {
                 if a < 0 {
+                    let new_const =
+                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left));
                     let add = AddExpr(
                         Intern::new(left.clone()),
-                        Intern::new(SimpleValue::Const(-a)),
+                        Intern::new(new_const),
+                        left.size(),
                     )
                     .simplify();
                     return add;
@@ -308,28 +374,33 @@ impl Simplify for SubExpr {
         }
 
         // ((expr + #a) - #b) -> (expr + #(a - b))
-        if let SimpleValue::Add(AddExpr(expr, a)) = &left {
-            if let SimpleValue::Const(a) = a.as_ref() {
-                if let SimpleValue::Const(b) = &right {
-                    let res = a.wrapping_sub(*b);
-                    let new_const = SimpleValue::Const(res);
-                    return AddExpr(*expr, Intern::new(new_const)).simplify();
+        if let SimpleValue::Add(AddExpr(expr, a, _)) = &left {
+            if let Some(a_val) = a.as_ref().as_const() {
+                if let Some(b_val) = right.as_const() {
+                    let res = a_val.wrapping_sub(b_val);
+                    let size =
+                        std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
+                    let new_const = SimpleValue::make_const(res, size);
+                    return AddExpr(*expr, Intern::new(new_const), size).simplify();
                 }
             }
         }
 
         // ((expr - #a) - #b) -> (expr - #(a + b))
-        if let SimpleValue::Sub(SubExpr(expr, a)) = &left {
-            if let SimpleValue::Const(a) = a.as_ref() {
-                if let SimpleValue::Const(b) = &right {
-                    let res = a.wrapping_add(*b);
-                    let new_const = SimpleValue::Const(res);
-                    return SubExpr(*expr, Intern::new(new_const)).simplify();
+        if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
+            if let Some(a_val) = a.as_ref().as_const() {
+                if let Some(b_val) = right.as_const() {
+                    let res = a_val.wrapping_add(b_val);
+                    let size =
+                        std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
+                    let new_const = SimpleValue::make_const(res, size);
+                    return SubExpr(*expr, Intern::new(new_const), size).simplify();
                 }
             }
         }
 
-        SimpleValue::Sub(SubExpr(Intern::new(left), Intern::new(right)))
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Sub(SubExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
@@ -349,9 +420,11 @@ impl Simplify for MulExpr {
         let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
 
         // both const -> fold
-        if let (SimpleValue::Const(a_vn), SimpleValue::Const(b_vn)) = (&left, &right) {
-            let res = a_vn.wrapping_mul(*b_vn);
-            return SimpleValue::Const(res);
+        if let (Some(a_v), Some(b_v)) = (left.as_const(), right.as_const()) {
+            let res = a_v.wrapping_mul(b_v);
+            let size =
+                SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
+            return SimpleValue::make_const(res, size);
         }
 
         // expr * 1 -> expr
@@ -365,7 +438,8 @@ impl Simplify for MulExpr {
             return SimpleValue::make_const(0, size);
         }
 
-        SimpleValue::Mul(MulExpr(Intern::new(left), Intern::new(right)))
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Mul(MulExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
@@ -401,43 +475,88 @@ impl Simplify for Or {
         }
 
         // Collapse nested duplicates: Or(a, Or(a, b)) -> Or(a, b)
-        if let SimpleValue::Or(Or(inner_a, inner_b)) = &right {
+        if let SimpleValue::Or(Or(inner_a, inner_b, _)) = &right {
             if inner_a.as_ref() == &left {
-                return SimpleValue::Or(Or(Intern::new(left.clone()), *inner_b)).simplify();
+                let inner = SimpleValue::Or(Or(Intern::new(left.clone()), *inner_b, right.size()))
+                    .simplify();
+                return inner;
             }
             if inner_b.as_ref() == &left {
-                return SimpleValue::Or(Or(Intern::new(left.clone()), *inner_a)).simplify();
+                let inner = SimpleValue::Or(Or(Intern::new(left.clone()), *inner_a, right.size()))
+                    .simplify();
+                return inner;
             }
         }
 
         // Factor common child between two Ors:
         // Or(Or(a,b), Or(a,c)) -> Or(a, Or(b,c)) and symmetric variants.
-        if let (SimpleValue::Or(Or(l1, l2)), SimpleValue::Or(Or(r1, r2))) = (&left, &right) {
+        if let (SimpleValue::Or(Or(l1, l2, _)), SimpleValue::Or(Or(r1, r2, _))) = (&left, &right) {
             // check all combinations for equal common child
             if l1.as_ref() == r1.as_ref() {
-                let inner = SimpleValue::Or(Or(*l2, *r2)).simplify();
-                return SimpleValue::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner)))
-                    .simplify();
+                let inner = SimpleValue::Or(Or(
+                    *l2,
+                    *r2,
+                    std::cmp::max(l2.as_ref().size(), r2.as_ref().size()),
+                ))
+                .simplify();
+                let s = std::cmp::max(l1.as_ref().size(), inner.size());
+                return SimpleValue::Or(Or(
+                    Intern::new(l1.as_ref().clone()),
+                    Intern::new(inner),
+                    s,
+                ))
+                .simplify();
             }
             if l1.as_ref() == r2.as_ref() {
-                let inner = SimpleValue::Or(Or(*l2, *r1)).simplify();
-                return SimpleValue::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner)))
-                    .simplify();
+                let inner = SimpleValue::Or(Or(
+                    *l2,
+                    *r1,
+                    std::cmp::max(l2.as_ref().size(), r1.as_ref().size()),
+                ))
+                .simplify();
+                let s = std::cmp::max(l1.as_ref().size(), inner.size());
+                return SimpleValue::Or(Or(
+                    Intern::new(l1.as_ref().clone()),
+                    Intern::new(inner),
+                    s,
+                ))
+                .simplify();
             }
             if l2.as_ref() == r1.as_ref() {
-                let inner = SimpleValue::Or(Or(*l1, *r2)).simplify();
-                return SimpleValue::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner)))
-                    .simplify();
+                let inner = SimpleValue::Or(Or(
+                    *l1,
+                    *r2,
+                    std::cmp::max(l1.as_ref().size(), r2.as_ref().size()),
+                ))
+                .simplify();
+                let s = std::cmp::max(l2.as_ref().size(), inner.size());
+                return SimpleValue::Or(Or(
+                    Intern::new(l2.as_ref().clone()),
+                    Intern::new(inner),
+                    s,
+                ))
+                .simplify();
             }
             if l2.as_ref() == r2.as_ref() {
-                let inner = SimpleValue::Or(Or(*l1, *r1)).simplify();
-                return SimpleValue::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner)))
-                    .simplify();
+                let inner = SimpleValue::Or(Or(
+                    *l1,
+                    *r1,
+                    std::cmp::max(l1.as_ref().size(), r1.as_ref().size()),
+                ))
+                .simplify();
+                let s = std::cmp::max(l2.as_ref().size(), inner.size());
+                return SimpleValue::Or(Or(
+                    Intern::new(l2.as_ref().clone()),
+                    Intern::new(inner),
+                    s,
+                ))
+                .simplify();
             }
         }
 
         // default: rebuild with simplified children
-        SimpleValue::Or(Or(Intern::new(left), Intern::new(right)))
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Or(Or(Intern::new(left), Intern::new(right), s))
     }
 }
 
@@ -450,7 +569,8 @@ impl Simplify for Load {
             return SimpleValue::Top;
         }
 
-        SimpleValue::Load(Load(Intern::new(a_s)))
+        // keep the same size as recorded on this Load node
+        SimpleValue::Load(Load(Intern::new(a_s), self.1))
     }
 }
 
@@ -458,8 +578,11 @@ impl JingleDisplay for SimpleValue {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
             SimpleValue::Entry(Entry(vn)) => write!(f, "{}", vn.as_ref().display(info)),
-            SimpleValue::Const(v) => write!(f, "{:#x}", v),
-            SimpleValue::Mul(MulExpr(a, b)) => {
+            SimpleValue::Const(Entry(vn)) => {
+                // print constant offset in hex (retain prior appearance)
+                write!(f, "{:#x}", vn.as_ref().offset)
+            }
+            SimpleValue::Mul(MulExpr(a, b, _)) => {
                 write!(
                     f,
                     "({}*{})",
@@ -467,7 +590,7 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValue::Add(AddExpr(a, b)) => {
+            SimpleValue::Add(AddExpr(a, b, _)) => {
                 write!(
                     f,
                     "({}+{})",
@@ -475,7 +598,7 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValue::Sub(SubExpr(a, b)) => {
+            SimpleValue::Sub(SubExpr(a, b, _)) => {
                 write!(
                     f,
                     "({}-{})",
@@ -483,7 +606,7 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValue::Or(Or(a, b)) => {
+            SimpleValue::Or(Or(a, b, _)) => {
                 write!(
                     f,
                     "({}||{})",
@@ -491,7 +614,7 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValue::Load(Load(a)) => write!(f, "Load({})", a.as_ref().display(info)),
+            SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
             SimpleValue::Top => write!(f, "⊤"),
         }
     }
@@ -502,7 +625,8 @@ impl SimpleValue {
     /// to a Const if the VarNode is a constant, or to an Entry if unseen.
     pub fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            SimpleValue::const_(vn.offset as i64)
+            // preserve the size of the incoming varnode
+            SimpleValue::Const(Entry(Intern::new(vn.clone())))
         } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
         } else {
