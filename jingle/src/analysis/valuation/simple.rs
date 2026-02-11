@@ -29,6 +29,9 @@ pub enum MergeBehavior {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SimpleValuation {
     pub direct_writes: VarNodeMap<SimpleValue>,
+    /// Note: for now we are making the simplifying assumption
+    /// that all indirect writes happen in one space; this hashmap
+    /// can be keyed by both simpleValue and SpaceIndex to generalize this
     pub indirect_writes: HashMap<SimpleValue, SimpleValue>,
 }
 
