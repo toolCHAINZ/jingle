@@ -16,6 +16,12 @@ pub struct SimpleValuation {
     pub indirect_writes: HashMap<SimpleValue, SimpleValue>,
 }
 
+impl Default for SimpleValuation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimpleValuation {
     pub fn new() -> Self {
         Self {
@@ -105,7 +111,7 @@ impl<'a> Iterator for SimpleValuationIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         // Yield all direct entries first, then indirect entries.
         if self.direct_idx < self.direct_entries.len() {
-            let (vn_intern, val_intern) = self.direct_entries[self.direct_idx].clone();
+            let (vn_intern, val_intern) = self.direct_entries[self.direct_idx];
             self.direct_idx += 1;
             return Some(SingleValuation {
                 location: SingleValuationLocation::Direct(vn_intern),
@@ -114,7 +120,7 @@ impl<'a> Iterator for SimpleValuationIter<'a> {
         }
 
         if self.indirect_idx < self.indirect_entries.len() {
-            let (ptr_intern, val_intern) = self.indirect_entries[self.indirect_idx].clone();
+            let (ptr_intern, val_intern) = self.indirect_entries[self.indirect_idx];
             self.indirect_idx += 1;
             return Some(SingleValuation {
                 location: SingleValuationLocation::Indirect(ptr_intern),

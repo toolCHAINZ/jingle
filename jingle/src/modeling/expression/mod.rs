@@ -17,7 +17,7 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
     let arg = |i: usize| -> Option<&BV> { vals.get(i) };
 
     match op {
-        PcodeOperation::Copy { .. } => arg(0).map(|v| v.clone()),
+        PcodeOperation::Copy { .. } => arg(0).cloned(),
         PcodeOperation::IntZExt { input, output } => {
             arg(0).map(|v| v.zero_ext(((output.size - input.size) as u32) * 8))
         }
@@ -73,7 +73,7 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             }
             Some(bv1.bvshl(&bv2))
         }
-        PcodeOperation::IntCarry { output, .. } => {
+        PcodeOperation::IntCarry { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let carry_bool = in0.bvadd_no_overflow(in1, false);
@@ -81,14 +81,14 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             // output is typically 1 byte; mirror memory semantics and return 8-bit BV
             Some(out_bv)
         }
-        PcodeOperation::IntSignedCarry { output, .. } => {
+        PcodeOperation::IntSignedCarry { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let carry_bool = in0.bvadd_no_overflow(in1, true);
             let out_bv = carry_bool.ite(&BV::from_i64(0, 8), &BV::from_i64(1, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntSignedBorrow { output, .. } => {
+        PcodeOperation::IntSignedBorrow { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let borrow_bool = in0.bvsub_no_underflow(in1, true);
@@ -97,31 +97,31 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
         }
         PcodeOperation::Int2Comp { .. } => {
             let in0 = arg(0)?;
-            let flipped = in0.bvneg().bvadd(&BV::from_u64(1, in0.get_size()));
+            let flipped = in0.bvneg().bvadd(BV::from_u64(1, in0.get_size()));
             Some(flipped)
         }
-        PcodeOperation::IntSignedLess { output, .. } => {
+        PcodeOperation::IntSignedLess { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvslt(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntSignedLessEqual { output, .. } => {
+        PcodeOperation::IntSignedLessEqual { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvsle(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntLess { output, .. } => {
+        PcodeOperation::IntLess { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvult(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntLessEqual { output, .. } => {
+        PcodeOperation::IntLessEqual { output: _, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvule(in1);
@@ -148,24 +148,24 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             // mirror memory: compute bitwise and and trim to 1 bit
-            let result = in0.bvand(in1).bvand(&BV::from_i64(1, 1));
+            let result = in0.bvand(in1).bvand(BV::from_i64(1, 1));
             Some(result)
         }
         PcodeOperation::BoolNegate { .. } => {
             let val = arg(0)?;
-            let negated = val.bvneg().bvand(&BV::from_i64(1, 1));
+            let negated = val.bvneg().bvand(BV::from_i64(1, 1));
             Some(negated)
         }
         PcodeOperation::BoolOr { .. } => {
             let i0 = arg(0)?;
             let i1 = arg(1)?;
-            let result = i0.bvor(i1).bvand(&BV::from_i64(1, 1));
+            let result = i0.bvor(i1).bvand(BV::from_i64(1, 1));
             Some(result)
         }
         PcodeOperation::BoolXor { .. } => {
             let i0 = arg(0)?;
             let i1 = arg(1)?;
-            let result = i0.bvxor(i1).bvand(&BV::from_i64(1, 1));
+            let result = i0.bvxor(i1).bvand(BV::from_i64(1, 1));
             Some(result)
         }
         PcodeOperation::PopCount { output, .. } => {
@@ -198,17 +198,9 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             };
             Some(res)
         }
-        PcodeOperation::CallOther { call_info, .. } => {
-            // function modeling has side-effects; no pure BV result here
-            if call_info.is_some() { None } else { None }
-        }
-        PcodeOperation::Call { call_info, .. } => {
-            if call_info.is_some() {
-                None
-            } else {
-                None
-            }
-        }
+        PcodeOperation::CallOther { .. } => None,
+
+        PcodeOperation::Call { .. } => None,
         // control-flow and memory-indirect operations don't have a single BV result
         PcodeOperation::Branch { .. }
         | PcodeOperation::CBranch { .. }

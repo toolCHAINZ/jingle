@@ -4,7 +4,11 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
-use std::{cmp::Ordering, fmt::Formatter};
+use std::{
+    cmp::Ordering,
+    fmt::Formatter,
+    ops::{Add, Mul, Sub},
+};
 
 trait Simplify {
     fn simplify(&self) -> SimpleValue;
@@ -14,13 +18,13 @@ trait Simplify {
 pub struct Entry(pub Intern<VarNode>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Mul(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Add(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Sub(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
@@ -35,9 +39,9 @@ pub enum SimpleValue {
     Const(i64),
 
     // Binary operators now use interned children (via `internment`) rather than Arc'd tuples.
-    Mul(Mul),
-    Add(Add),
-    Sub(Sub),
+    Mul(MulExpr),
+    Add(AddExpr),
+    Sub(SubExpr),
 
     Or(Or),
     Load(Load),
@@ -63,21 +67,6 @@ impl SimpleValue {
     /// Construct a `Const(...)`.
     pub fn const_(v: i64) -> Self {
         SimpleValue::Const(v)
-    }
-
-    /// Construct an `Add(...)` node from two children.
-    pub fn add(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::Add(Add(Intern::new(left), Intern::new(right)))
-    }
-
-    /// Construct a `Sub(...)` node from two children.
-    pub fn sub(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::Sub(Sub(Intern::new(left), Intern::new(right)))
-    }
-
-    /// Construct a `Mul(...)` node from two children.
-    pub fn mul(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::Mul(Mul(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `Or(...)` node from two children.
@@ -166,6 +155,30 @@ impl Simplify for SimpleValue {
     }
 }
 
+impl Mul for SimpleValue {
+    type Output = SimpleValue;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        SimpleValue::Mul(MulExpr(Intern::new(self), Intern::new(rhs)))
+    }
+}
+
+impl Add for SimpleValue {
+    type Output = SimpleValue;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        SimpleValue::Add(AddExpr(Intern::new(self), Intern::new(rhs)))
+    }
+}
+
+impl Sub for SimpleValue {
+    type Output = SimpleValue;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        SimpleValue::Sub(SubExpr(Intern::new(self), Intern::new(rhs)))
+    }
+}
+
 impl SimpleValue {
     /// Inherent simplify method so callers don't need the `Simplify` trait in scope.
     /// This delegates to the same per-variant simplifiers that the `Simplify`
@@ -175,7 +188,7 @@ impl SimpleValue {
     }
 }
 
-impl Simplify for Add {
+impl Simplify for AddExpr {
     fn simplify(&self) -> SimpleValue {
         let a_intern = self.0;
         let b_intern = self.1;
@@ -206,7 +219,7 @@ impl Simplify for Add {
             }
             Some(a) => {
                 if a < 0 {
-                    let sub = Sub(
+                    let sub = SubExpr(
                         Intern::new(left.clone()),
                         Intern::new(SimpleValue::Const(-a)),
                     )
@@ -222,33 +235,33 @@ impl Simplify for Add {
         }
 
         // ((expr + #a) + #b) -> (expr + #(a + b))
-        if let SimpleValue::Add(Add(left_inner_left, left_inner_right)) = &left {
+        if let SimpleValue::Add(AddExpr(left_inner_left, left_inner_right)) = &left {
             if let SimpleValue::Const(inner_right_const) = left_inner_right.as_ref() {
                 if let SimpleValue::Const(right_const) = &right {
                     let res = inner_right_const.wrapping_add(*right_const);
                     let new_const = SimpleValue::Const(res);
-                    return Add(left_inner_left.clone(), Intern::new(new_const)).simplify();
+                    return AddExpr(*left_inner_left, Intern::new(new_const)).simplify();
                 }
             }
         }
 
         // ((expr - #a) + #b) -> (expr - #(a - b))
-        if let SimpleValue::Sub(Sub(expr, a)) = &left {
+        if let SimpleValue::Sub(SubExpr(expr, a)) = &left {
             if let SimpleValue::Const(a_const) = a.as_ref() {
                 if let SimpleValue::Const(b) = &right {
                     let res = a_const.wrapping_sub(*b);
                     let new_const = SimpleValue::Const(res);
-                    return Sub(expr.clone(), Intern::new(new_const)).simplify();
+                    return SubExpr(*expr, Intern::new(new_const)).simplify();
                 }
             }
         }
 
         // default: rebuild with simplified children
-        SimpleValue::Add(Add(Intern::new(left), Intern::new(right)))
+        SimpleValue::Add(AddExpr(Intern::new(left), Intern::new(right)))
     }
 }
 
-impl Simplify for Sub {
+impl Simplify for SubExpr {
     fn simplify(&self) -> SimpleValue {
         let a_intern = self.0;
         let b_intern = self.1;
@@ -277,7 +290,7 @@ impl Simplify for Sub {
             }
             Some(a) => {
                 if a < 0 {
-                    let add = Add(
+                    let add = AddExpr(
                         Intern::new(left.clone()),
                         Intern::new(SimpleValue::Const(-a)),
                     )
@@ -295,32 +308,32 @@ impl Simplify for Sub {
         }
 
         // ((expr + #a) - #b) -> (expr + #(a - b))
-        if let SimpleValue::Add(Add(expr, a)) = &left {
+        if let SimpleValue::Add(AddExpr(expr, a)) = &left {
             if let SimpleValue::Const(a) = a.as_ref() {
                 if let SimpleValue::Const(b) = &right {
                     let res = a.wrapping_sub(*b);
                     let new_const = SimpleValue::Const(res);
-                    return Add(expr.clone(), Intern::new(new_const)).simplify();
+                    return AddExpr(*expr, Intern::new(new_const)).simplify();
                 }
             }
         }
 
         // ((expr - #a) - #b) -> (expr - #(a + b))
-        if let SimpleValue::Sub(Sub(expr, a)) = &left {
+        if let SimpleValue::Sub(SubExpr(expr, a)) = &left {
             if let SimpleValue::Const(a) = a.as_ref() {
                 if let SimpleValue::Const(b) = &right {
                     let res = a.wrapping_add(*b);
                     let new_const = SimpleValue::Const(res);
-                    return Sub(expr.clone(), Intern::new(new_const)).simplify();
+                    return SubExpr(*expr, Intern::new(new_const)).simplify();
                 }
             }
         }
 
-        SimpleValue::Sub(Sub(Intern::new(left), Intern::new(right)))
+        SimpleValue::Sub(SubExpr(Intern::new(left), Intern::new(right)))
     }
 }
 
-impl Simplify for Mul {
+impl Simplify for MulExpr {
     fn simplify(&self) -> SimpleValue {
         let a_intern = self.0;
         let b_intern = self.1;
@@ -352,7 +365,7 @@ impl Simplify for Mul {
             return SimpleValue::make_const(0, size);
         }
 
-        SimpleValue::Mul(Mul(Intern::new(left), Intern::new(right)))
+        SimpleValue::Mul(MulExpr(Intern::new(left), Intern::new(right)))
     }
 }
 
@@ -375,10 +388,11 @@ impl Simplify for Or {
         let (mut left, mut right) = SimpleValue::normalize_or(a_s, b_s);
 
         // If both sides are non-Or, enforce deterministic ordering by variant rank.
-        if !matches!(left, SimpleValue::Or(_)) && !matches!(right, SimpleValue::Or(_)) {
-            if SimpleValue::variant_rank(&left) > SimpleValue::variant_rank(&right) {
-                std::mem::swap(&mut left, &mut right);
-            }
+        if !matches!(left, SimpleValue::Or(_))
+            && !matches!(right, SimpleValue::Or(_))
+            && SimpleValue::variant_rank(&left) > SimpleValue::variant_rank(&right)
+        {
+            std::mem::swap(&mut left, &mut right);
         }
 
         // identical children => just return one
@@ -389,10 +403,10 @@ impl Simplify for Or {
         // Collapse nested duplicates: Or(a, Or(a, b)) -> Or(a, b)
         if let SimpleValue::Or(Or(inner_a, inner_b)) = &right {
             if inner_a.as_ref() == &left {
-                return SimpleValue::Or(Or(Intern::new(left.clone()), inner_b.clone())).simplify();
+                return SimpleValue::Or(Or(Intern::new(left.clone()), *inner_b)).simplify();
             }
             if inner_b.as_ref() == &left {
-                return SimpleValue::Or(Or(Intern::new(left.clone()), inner_a.clone())).simplify();
+                return SimpleValue::Or(Or(Intern::new(left.clone()), *inner_a)).simplify();
             }
         }
 
@@ -401,22 +415,22 @@ impl Simplify for Or {
         if let (SimpleValue::Or(Or(l1, l2)), SimpleValue::Or(Or(r1, r2))) = (&left, &right) {
             // check all combinations for equal common child
             if l1.as_ref() == r1.as_ref() {
-                let inner = SimpleValue::Or(Or(l2.clone(), r2.clone())).simplify();
+                let inner = SimpleValue::Or(Or(*l2, *r2)).simplify();
                 return SimpleValue::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner)))
                     .simplify();
             }
             if l1.as_ref() == r2.as_ref() {
-                let inner = SimpleValue::Or(Or(l2.clone(), r1.clone())).simplify();
+                let inner = SimpleValue::Or(Or(*l2, *r1)).simplify();
                 return SimpleValue::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner)))
                     .simplify();
             }
             if l2.as_ref() == r1.as_ref() {
-                let inner = SimpleValue::Or(Or(l1.clone(), r2.clone())).simplify();
+                let inner = SimpleValue::Or(Or(*l1, *r2)).simplify();
                 return SimpleValue::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner)))
                     .simplify();
             }
             if l2.as_ref() == r2.as_ref() {
-                let inner = SimpleValue::Or(Or(l1.clone(), r1.clone())).simplify();
+                let inner = SimpleValue::Or(Or(*l1, *r1)).simplify();
                 return SimpleValue::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner)))
                     .simplify();
             }
@@ -445,7 +459,7 @@ impl JingleDisplay for SimpleValue {
         match self {
             SimpleValue::Entry(Entry(vn)) => write!(f, "{}", vn.as_ref().display(info)),
             SimpleValue::Const(v) => write!(f, "{:#x}", v),
-            SimpleValue::Mul(Mul(a, b)) => {
+            SimpleValue::Mul(MulExpr(a, b)) => {
                 write!(
                     f,
                     "({}*{})",
@@ -453,7 +467,7 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValue::Add(Add(a, b)) => {
+            SimpleValue::Add(AddExpr(a, b)) => {
                 write!(
                     f,
                     "({}+{})",
@@ -461,7 +475,7 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
-            SimpleValue::Sub(Sub(a, b)) => {
+            SimpleValue::Sub(SubExpr(a, b)) => {
                 write!(
                     f,
                     "({}-{})",

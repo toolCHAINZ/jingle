@@ -5,19 +5,17 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::valuation::simple::valuation::{SimpleValuation, SingleValuation};
+use crate::analysis::valuation::simple::valuation::SimpleValuation;
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use internment::Intern;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 
-use crate::analysis::valuation::simple::value::{Entry, SimpleValue};
+use crate::analysis::valuation::simple::value::SimpleValue;
 
 /// How to merge conflicting valuations for a single varnode when joining states.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -171,7 +169,7 @@ impl SimpleValuationState {
                     new_state
                         .valuation
                         .direct_writes
-                        .insert(output_vn, SimpleValue::add(a, b).simplify());
+                        .insert(output_vn, (a + b).simplify());
                 }
             }
 
@@ -182,7 +180,7 @@ impl SimpleValuationState {
                     new_state
                         .valuation
                         .direct_writes
-                        .insert(output_vn, SimpleValue::sub(a, b).simplify());
+                        .insert(output_vn, (a - b).simplify());
                 }
             }
 
@@ -193,7 +191,7 @@ impl SimpleValuationState {
                     new_state
                         .valuation
                         .direct_writes
-                        .insert(output_vn, SimpleValue::mul(a, b).simplify());
+                        .insert(output_vn, (a * b).simplify());
                 }
             }
 
@@ -219,7 +217,7 @@ impl SimpleValuationState {
                     new_state
                         .valuation
                         .direct_writes
-                        .insert(output_vn, SimpleValue::add(a, b).simplify());
+                        .insert(output_vn, (a + b).simplify());
                 }
             }
 
@@ -230,7 +228,7 @@ impl SimpleValuationState {
                     new_state
                         .valuation
                         .direct_writes
-                        .insert(output_vn, SimpleValue::sub(a, b).simplify());
+                        .insert(output_vn, (a - b).simplify());
                 }
             }
 

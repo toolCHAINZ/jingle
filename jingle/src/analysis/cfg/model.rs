@@ -1,6 +1,5 @@
 use crate::JingleError;
 // use crate::analysis::compound::CompoundState;
-use crate::analysis::cpa::lattice::flat::FlatLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::LocationState;
 use crate::analysis::pcode_store::PcodeOpRef;
