@@ -1,3 +1,5 @@
+pub mod value;
+
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
@@ -13,7 +15,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 
-use crate::analysis::valuation::ast::{Entry, SimpleValue};
+use crate::analysis::valuation::simple::value::{Entry, SimpleValue};
 
 /// How to merge conflicting valuations for a single varnode when joining states.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
