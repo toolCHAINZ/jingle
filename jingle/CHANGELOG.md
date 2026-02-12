@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.6](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.5...jingle-v0.5.6) - 2026-02-12
+
+### Changed
+
+- Refactor SimpleValue to use interned VarNode directly ([#162](https://github.com/toolCHAINZ/jingle/pull/162))
+
+### Other
+
+- lazy iterator impl for VarNodeMap ([#168](https://github.com/toolCHAINZ/jingle/pull/168))
+- Add getter for internal valuation reference in SimpleValuationState ([#166](https://github.com/toolCHAINZ/jingle/pull/166))
+- Add constructors and new_with_contents for SimpleValuation types ([#165](https://github.com/toolCHAINZ/jingle/pull/165))
+- Simplify re-export of simple::value items ([#164](https://github.com/toolCHAINZ/jingle/pull/164))
+
+### Removed
+
+- unused assuming method from SimpleValuationState ([#167](https://github.com/toolCHAINZ/jingle/pull/167))
+
 ## [0.5.5](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.4...jingle-v0.5.5) - 2026-02-11
 
 ### Changed
