@@ -177,3 +177,73 @@ impl<'a> IntoIterator for &'a SimpleValuation {
         SimpleValuationIter::new(self)
     }
 }
+
+/// An owning iterator that consumes a `SimpleValuation` and yields `SingleValuation`
+/// items without borrowing the original `SimpleValuation`.
+pub struct SimpleValuationIntoIter {
+    direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)>,
+    direct_idx: usize,
+    indirect_entries: Vec<(Intern<SimpleValue>, Intern<SimpleValue>)>,
+    indirect_idx: usize,
+}
+
+impl Iterator for SimpleValuationIntoIter {
+    type Item = SingleValuation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.direct_idx < self.direct_entries.len() {
+            let (vn_intern, val_intern) = self.direct_entries[self.direct_idx];
+            self.direct_idx += 1;
+            return Some(SingleValuation {
+                location: SingleValuationLocation::Direct(vn_intern),
+                value: val_intern,
+            });
+        }
+
+        if self.indirect_idx < self.indirect_entries.len() {
+            let (ptr_intern, val_intern) = self.indirect_entries[self.indirect_idx];
+            self.indirect_idx += 1;
+            return Some(SingleValuation {
+                location: SingleValuationLocation::Indirect(ptr_intern),
+                value: val_intern,
+            });
+        }
+
+        None
+    }
+}
+
+impl<'a> IntoIterator for &'a mut SimpleValuation {
+    type Item = SingleValuation;
+    type IntoIter = SimpleValuationIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SimpleValuationIter::new(self)
+    }
+}
+
+impl IntoIterator for SimpleValuation {
+    type Item = SingleValuation;
+    type IntoIter = SimpleValuationIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        // Move direct entries, interning them as we go.
+        let mut direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)> = Vec::new();
+        for (vn, val) in self.direct_writes.into_iter() {
+            direct_entries.push((Intern::new(vn), Intern::new(val)));
+        }
+
+        // Move indirect entries (pointer expression -> value).
+        let mut indirect_entries: Vec<(Intern<SimpleValue>, Intern<SimpleValue>)> = Vec::new();
+        for (ptr, val) in self.indirect_writes.into_iter() {
+            indirect_entries.push((Intern::new(ptr), Intern::new(val)));
+        }
+
+        SimpleValuationIntoIter {
+            direct_entries,
+            direct_idx: 0,
+            indirect_entries,
+            indirect_idx: 0,
+        }
+    }
+}
