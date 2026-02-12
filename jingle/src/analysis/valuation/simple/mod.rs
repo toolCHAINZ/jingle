@@ -287,6 +287,23 @@ impl SimpleValuationState {
                     new_state.valuation.direct_writes.remove(&k);
                 }
             }
+            PcodeOperation::Call { call_info, .. } => {
+                if let Some(a) = call_info.iter().flat_map(|a| a.extrapop).next() {
+                    if let Some(stack) = self.arch_info.stack_pointer() {
+                        let stack_value = SimpleValue::from_varnode_or_entry(self, &stack);
+                        let shift_vn = VarNode {
+                            space_index: VarNode::CONST_SPACE_INDEX,
+                            offset: a as i64 as u64,
+                            size: stack.size,
+                        };
+                        
+                        new_state.valuation.add(
+                            stack,
+                            stack_value + SimpleValue::const_from_varnode(shift_vn),
+                        );
+                    }
+                }
+            }
             _ => {}
         }
 
