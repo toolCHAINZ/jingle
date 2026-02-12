@@ -145,10 +145,7 @@ impl SimpleValuationState {
                 };
 
                 let pv = SimpleValue::from_varnode_or_entry(self, ptr);
-                new_state
-                    .valuation
-                    .indirect_writes
-                    .insert(pv.simplify(), val.simplify());
+                new_state.valuation.add(pv.simplify(), val.simplify());
             }
 
             // Copy
@@ -159,10 +156,7 @@ impl SimpleValuationState {
                     SimpleValue::from_varnode_or_entry(self, input)
                 };
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, result.simplify());
+                    new_state.valuation.add(output_vn, result.simplify());
                 }
             }
 
@@ -170,10 +164,7 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, (a + b).simplify());
+                    new_state.valuation.add(output_vn, (a + b).simplify());
                 }
             }
 
@@ -181,10 +172,7 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, (a - b).simplify());
+                    new_state.valuation.add(output_vn, (a - b).simplify());
                 }
             }
 
@@ -192,10 +180,7 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, (a * b).simplify());
+                    new_state.valuation.add(output_vn, (a * b).simplify());
                 }
             }
 
@@ -206,8 +191,7 @@ impl SimpleValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
-                        .direct_writes
-                        .insert(output_vn, SimpleValue::or(a, b).simplify());
+                        .add(output_vn, SimpleValue::or(a, b).simplify());
                 }
             }
 
@@ -218,10 +202,7 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, (a + b).simplify());
+                    new_state.valuation.add(output_vn, (a + b).simplify());
                 }
             }
 
@@ -229,20 +210,14 @@ impl SimpleValuationState {
                 let a = SimpleValue::const_(0);
                 let b = SimpleValue::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, (a - b).simplify());
+                    new_state.valuation.add(output_vn, (a - b).simplify());
                 }
             }
 
             PcodeOperation::Int2Comp { .. } => {
                 // conservative
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, SimpleValue::Top);
+                    new_state.valuation.add(output_vn, SimpleValue::Top);
                 }
             }
 
@@ -254,15 +229,11 @@ impl SimpleValuationState {
                 let pv = SimpleValue::from_varnode_or_entry(self, ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     if let Some(v) = self.valuation.indirect_writes.get(&pv.simplify()) {
-                        new_state
-                            .valuation
-                            .direct_writes
-                            .insert(output_vn, v.clone());
+                        new_state.valuation.add(output_vn, v.clone());
                     } else {
                         new_state
                             .valuation
-                            .direct_writes
-                            .insert(output_vn, SimpleValue::load(pv).simplify());
+                            .add(output_vn, SimpleValue::load(pv).simplify());
                     }
                 }
             }
@@ -270,10 +241,7 @@ impl SimpleValuationState {
             PcodeOperation::IntSExt { input, .. } | PcodeOperation::IntZExt { input, .. } => {
                 let v = SimpleValue::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .direct_writes
-                        .insert(output_vn, v.simplify());
+                    new_state.valuation.add(output_vn, v.simplify());
                 }
             }
 
