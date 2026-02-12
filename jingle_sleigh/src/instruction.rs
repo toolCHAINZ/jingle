@@ -1,8 +1,8 @@
+use crate::JingleSleighError::EmptyInstruction;
 use crate::error::JingleSleighError;
 pub use crate::ffi::instruction::bridge::Disassembly;
 use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::pcode::PcodeOperation;
-use crate::JingleSleighError::EmptyInstruction;
 use crate::{OpCode, VarNode};
 use serde::{Deserialize, Serialize};
 
