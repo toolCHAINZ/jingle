@@ -352,9 +352,7 @@ impl JoinSemiLattice for SimpleValuationState {
                     }
                 }
                 None => {
-                    self.valuation
-                        .direct_writes
-                        .insert(key.clone(), other_val.clone());
+                    self.valuation.add(key.clone(), other_val.clone());
                 }
             }
         }
@@ -378,9 +376,7 @@ impl JoinSemiLattice for SimpleValuationState {
                     }
                 }
                 None => {
-                    self.valuation
-                        .indirect_writes
-                        .insert(key.clone(), other_val.clone());
+                    self.valuation.add(key.clone(), other_val.clone());
                 }
             }
         }
