@@ -128,6 +128,30 @@ impl SingleValuation {
     }
 }
 
+/// Add helper methods for mutating a `SimpleValuation`.
+impl SimpleValuation {
+    /// Add a single valuation into the appropriate map.
+    ///
+    /// - If `loc` is `Direct`, insert into `direct_writes` keyed by the `VarNode`.
+    /// - If `loc` is `Indirect`, insert into `indirect_writes` keyed by the pointer `SimpleValue`.
+    ///
+    /// Values are simplified before insertion to keep stored representations normalized.
+    pub fn add(&mut self, loc: SingleValuationLocation, value: SimpleValue) {
+        match loc {
+            SingleValuationLocation::Direct(vn_intern) => {
+                // VarNodeMap::insert expects an owned VarNode
+                let vn = vn_intern.as_ref().clone();
+                self.direct_writes.insert(vn, value.simplify());
+            }
+            SingleValuationLocation::Indirect(ptr_intern) => {
+                // indirect_writes keyed by SimpleValue
+                let ptr = ptr_intern.as_ref().clone();
+                self.indirect_writes.insert(ptr, value.simplify());
+            }
+        }
+    }
+}
+
 /// Iterator over the contents of a `SimpleValuation`.
 ///
 /// The iterator holds a reference to the originating `SimpleValuation` and
