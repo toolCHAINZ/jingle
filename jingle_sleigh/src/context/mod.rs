@@ -66,6 +66,10 @@ pub struct CallInfo {
     pub args: Vec<VarNode>,
     pub outputs: Option<Vec<VarNode>>,
     pub model_behavior: ModelingBehavior,
+    /// Optional extrapop value (stack purge) associated with this call site.
+    /// When present, this should override any default extrapop derived from
+    /// calling-convention prototypes for this specific call.
+    pub extrapop: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -85,6 +89,115 @@ impl ModelingMetadata {
 
 /// A sleigh context contains the parsed sleigh state as well as
 /// modeling metadata for analysis consumers.
+///
+/// Additional types used to capture calling-convention and compiler-spec
+/// metadata parsed from .cspec files.
+///
+/// We model a small subset of the compiler spec relevant to calling conventions:
+/// - `PrototypeInfo` represents a declared prototype and includes extracted
+///   `extrapop` and `stackshift` as well as the parsed argument entries
+///   (`pentries`) and lists of registers/varnodes that are `killedbycall` or
+///   listed as `unaffected`.
+/// - `PentryInfo` models `<pentry ...>` elements within a prototype.
+/// - `CompilerSpecInfo` records discovered .cspec files for the language.
+#[derive(Clone, Debug)]
+pub struct PentryInfo {
+    /// Optional minimum size (from `minsize` attribute)
+    pub minsize: Option<u32>,
+    /// Optional maximum size (from `maxsize` attribute)
+    pub maxsize: Option<u32>,
+    /// Optional alignment (from `align` attribute)
+    pub align: Option<u32>,
+    /// Optional storage string (e.g., "float", "hiddenret", "pointer", etc.)
+    pub storage: Option<String>,
+    /// Registers mentioned in this pentry (if any)
+    pub registers: Vec<String>,
+    /// If this pentry refers to a stack/address entry, captures the address space
+    /// string (e.g., "stack") and an optional offset
+    pub addr_space: Option<String>,
+    pub addr_offset: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PrototypeInfo {
+    /// The prototype name (e.g., "__stdcall", "MSABI", etc.)
+    pub name: String,
+    /// Optional extrapop value (amount popped by callee). Unknown is represented by None.
+    pub extrapop: Option<i32>,
+    /// Optional stackshift value (stack shift for this prototype). Unknown is represented by None.
+    pub stackshift: Option<i32>,
+    /// The parsed pentry list (arguments / stack entries). May be empty.
+    pub pentries: Vec<PentryInfo>,
+    /// Registers (by name) that are killed by the call.
+    pub killed_by_call: Vec<String>,
+    /// Registers / varnodes listed as unaffected by the call.
+    pub unaffected: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompilerSpecInfo {
+    /// Path (resolved) to the .cspec file used to derive this info
+    pub path: std::path::PathBuf,
+    /// Optional human-friendly name (if present in the file / language metadata)
+    pub name: Option<String>,
+    /// Whether this spec was designated as the default for the language
+    pub is_default: bool,
+}
+
+/// Ref-counted container for calling-convention-related metadata.
+///
+/// This mirrors the style used for `SleighArchInfo` and allows callers to cheaply
+/// clone a handle to all discovered compiler-spec and prototype information.
+#[derive(Clone, Debug)]
+pub(crate) struct CallingConventionInfoInner {
+    pub(crate) compiler_specs: Vec<CompilerSpecInfo>,
+    pub(crate) default_compiler_spec: Option<CompilerSpecInfo>,
+    pub(crate) call_conventions: Vec<PrototypeInfo>,
+    pub(crate) default_calling_convention: Option<PrototypeInfo>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CallingConventionInfo {
+    pub(crate) info: std::sync::Arc<CallingConventionInfoInner>,
+}
+
+impl Default for CallingConventionInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CallingConventionInfo {
+    pub fn new() -> Self {
+        Self {
+            info: std::sync::Arc::new(CallingConventionInfoInner {
+                compiler_specs: Vec::new(),
+                default_compiler_spec: None,
+                call_conventions: Vec::new(),
+                default_calling_convention: None,
+            }),
+        }
+    }
+
+    pub fn compiler_specs(&self) -> &Vec<CompilerSpecInfo> {
+        &self.info.compiler_specs
+    }
+
+    pub fn default_compiler_spec(&self) -> Option<&CompilerSpecInfo> {
+        self.info.default_compiler_spec.as_ref()
+    }
+
+    pub fn call_conventions(&self) -> &Vec<PrototypeInfo> {
+        &self.info.call_conventions
+    }
+
+    pub fn default_calling_convention(&self) -> Option<&PrototypeInfo> {
+        self.info.default_calling_convention.as_ref()
+    }
+}
+
+/// A sleigh context contains the parsed sleigh state as well as
+/// modeling metadata for analysis consumers.
 pub struct SleighContext {
     /// The FFI context handle wrapped in a Mutex for thread-safety.
     /// The underlying Sleigh C++ library is not thread-safe, so all access
@@ -93,6 +206,8 @@ pub struct SleighContext {
     language_id: String,
     arch_info: SleighArchInfo,
     pub(crate) metadata: ModelingMetadata,
+    /// Ref-counted container that holds compiler-spec and calling-convention info
+    pub(crate) calling_convention_info: CallingConventionInfo,
 }
 
 unsafe impl Send for SleighContext {}
@@ -144,6 +259,8 @@ impl SleighContext {
                             .getIndex() as usize,
                         spaces: spaces.clone(),
                         userops,
+                        stack_pointer: None,
+                        program_counter: None,
                     }),
                 };
 
@@ -152,6 +269,7 @@ impl SleighContext {
                     arch_info,
                     language_id: language_def.id.clone(),
                     metadata: Default::default(),
+                    calling_convention_info: CallingConventionInfo::new(),
                 })
             }
             Err(_) => Err(SleighCompilerMutexError),
@@ -196,6 +314,27 @@ impl SleighContext {
         self.metadata.add_callother_def(sig, info);
     }
 
+    /// Return a reference to the ref-counted calling-convention info.
+    pub fn calling_convention_info(&self) -> &CallingConventionInfo {
+        &self.calling_convention_info
+    }
+
+    /// Replace the calling-convention info for this Sleigh context.
+    pub fn set_calling_convention_info(&mut self, info: CallingConventionInfo) {
+        self.calling_convention_info = info;
+    }
+
+    /// Convenience accessor for default stack change derived from the default calling convention.
+    pub fn default_stack_change(&self) -> Option<i32> {
+        if let Some(proto) = self.calling_convention_info.default_calling_convention() {
+            if let Some(extrapop) = proto.extrapop {
+                let stackshift = proto.stackshift.unwrap_or(0);
+                return Some(extrapop - stackshift);
+            }
+        }
+        None
+    }
+
     pub fn parse_pcode_listing<T: AsRef<str>>(
         &self,
         s: T,
@@ -208,6 +347,19 @@ impl SleighContext {
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
         LoadedSleighContext::new(self, img)
+    }
+
+    /// Set the stack pointer varnode in the arch info.
+    /// This replaces or sets the stack_pointer entry in the cached arch info.
+    pub(crate) fn set_stack_pointer_varnode(&mut self, vn: VarNode) {
+        let inner = Arc::make_mut(&mut self.arch_info.info);
+        inner.stack_pointer = Some(vn);
+    }
+
+    /// Set the program counter varnode in the arch info.
+    pub(crate) fn set_program_counter_varnode(&mut self, vn: VarNode) {
+        let inner = Arc::make_mut(&mut self.arch_info.info);
+        inner.program_counter = Some(vn);
     }
 }
 
@@ -307,7 +459,7 @@ mod test {
         let sleigh = sleigh.initialize_with_image(img).unwrap();
         let instr = sleigh.instruction_at(0).unwrap();
         assert_eq!(instr.disassembly.mnemonic, "PUSH");
-        assert_eq!(instr.ops.len(), 3);
+        assert_eq!(instr.ops.len(), 4); // extra op because we emit "fallthrough" branches now
         // the stages of a push in pcode
         assert_eq!(instr.ops[0].opcode(), OpCode::CPUI_COPY);
         assert_eq!(instr.ops[1].opcode(), OpCode::CPUI_INT_SUB);

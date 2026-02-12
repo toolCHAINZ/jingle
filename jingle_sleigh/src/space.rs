@@ -112,6 +112,13 @@ pub(crate) struct SleighArchInfoInner {
     /// be used to index this map. This improves display of CALLOTHER as well
     /// as for parsing: users need not memorize CALLOTHER arguments.
     pub(crate) userops: Vec<String>,
+    /// Optional varnode representing the language's stack pointer, if known.
+    /// This will be set to a VarNode when the sleigh context initialization
+    /// determines the stack pointer register/space.
+    pub(crate) stack_pointer: Option<VarNode>,
+    /// Optional varnode representing the language's program counter, if known.
+    /// Likewise set during sleigh context initialization when a PC register is identified.
+    pub(crate) program_counter: Option<VarNode>,
 }
 
 impl Hash for SleighArchInfoInner {
@@ -171,6 +178,10 @@ impl SleighArchInfo {
                 spaces: spaces.collect(),
                 default_code_space,
                 userops,
+                // Default to None; these will be populated by the sleigh context
+                // initialization code (which has access to register/space info).
+                stack_pointer: None,
+                program_counter: None,
             }),
         }
     }
@@ -234,6 +245,22 @@ impl SleighArchInfo {
     pub fn userop_index<T: AsRef<str>>(&self, name: T) -> Option<usize> {
         let needle = name.as_ref();
         self.info.userops.iter().position(|s| s == needle)
+    }
+
+    /// Get the varnode for the stack pointer, if known.
+    ///
+    /// Returns a cloned `VarNode` if the stack pointer varnode is present in the
+    /// underlying arch info; otherwise returns `None`.
+    pub fn stack_pointer(&self) -> Option<VarNode> {
+        self.info.stack_pointer.clone()
+    }
+
+    /// Get the varnode for the program counter, if known.
+    ///
+    /// Returns a cloned `VarNode` if the program counter varnode is present in the
+    /// underlying arch info; otherwise returns `None`.
+    pub fn program_counter(&self) -> Option<VarNode> {
+        self.info.program_counter.clone()
     }
 }
 
