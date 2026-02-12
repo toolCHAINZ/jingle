@@ -687,6 +687,76 @@ impl JingleDisplay for SimpleValue {
     }
 }
 
+impl std::fmt::Display for SimpleValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SimpleValue::Entry(Entry(vn)) => {
+                // Delegate to VarNode's Display implementation
+                write!(f, "{}", vn.as_ref())
+            }
+            SimpleValue::Const(vn) => {
+                // Print constant offset in hex (consistent with jingle display)
+                write!(f, "{:#x}", vn.as_ref().offset)
+            }
+            SimpleValue::Mul(MulExpr(a, b, _)) => {
+                // Infix multiplication with parens
+                write!(f, "({}*{})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Add(AddExpr(a, b, _)) => {
+                // Infix addition with parens
+                write!(f, "({}+{})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Sub(SubExpr(a, b, _)) => {
+                // Infix subtraction with parens
+                write!(f, "({}-{})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Or(Or(a, b, _)) => {
+                // Logical-or style with double pipes
+                write!(f, "({}||{})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Load(Load(a, _)) => {
+                // Load(child)
+                write!(f, "Load({})", a.as_ref())
+            }
+            SimpleValue::Top => {
+                // Special top symbol
+                write!(f, "⊤")
+            }
+        }
+    }
+}
+
+impl std::fmt::LowerHex for SimpleValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SimpleValue::Entry(Entry(vn)) => {
+                // VarNode doesn't implement LowerHex; fall back to Display
+                write!(f, "{}", vn.as_ref())
+            }
+            SimpleValue::Const(vn) => {
+                // Lower-hex for constants: no 0x prefix, lowercase hex digits
+                write!(f, "{:x}", vn.as_ref().offset)
+            }
+            SimpleValue::Mul(MulExpr(a, b, _)) => {
+                write!(f, "({:x}*{:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Add(AddExpr(a, b, _)) => {
+                write!(f, "({:x}+{:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Sub(SubExpr(a, b, _)) => {
+                write!(f, "({:x}-{:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Or(Or(a, b, _)) => {
+                write!(f, "({:x}||{:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Load(Load(a, _)) => {
+                write!(f, "Load({:x})", a.as_ref())
+            }
+            SimpleValue::Top => write!(f, "⊤"),
+        }
+    }
+}
+
 impl SimpleValue {
     /// Resolve a VarNode to an existing valuation in the state's direct writes,
     /// to a Const if the VarNode is a constant, or to an Entry if unseen.

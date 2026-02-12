@@ -256,24 +256,30 @@ impl SmtValuationState {
         &self.written_locations
     }
 
+    /// Insert a valuation for a varnode into `written_locations`.
+    ///
+    /// The provided `vn` is taken by value (owned) and the `value` can be any type
+    /// convertible into `SmtVal`. The value will be simplified prior to insertion
+    /// to keep stored representations reduced.
+    pub fn add<V: Into<SmtVal>>(&mut self, vn: VarNode, value: V) {
+        let v = simplify_smtval(value.into());
+        self.written_locations.insert(vn, v);
+    }
+
     /// Transfer function: build SMT BV valuations for pcode operations.
     /// Loads are represented as `SmtVal::Load(pointer_expr)` rather than the loaded value.
     fn transfer_impl(&self, op: &PcodeOperation) -> Self {
         // Clone self to build a new state (functional update).
         let mut new_state = self.clone();
         if let Some(output) = op.output() {
-            let inputs = op.inputs().iter().flat_map(|vn| {
-                match vn{
-                    GeneralizedVarNode::Direct(vn) => {
-                        match self.get_valuation_or_entry(vn){
-                            SmtVal::Val(bv) => todo!(),
-                            SmtVal::Load(smt_val) => todo!(),
-                            SmtVal::Or(_) => todo!(),
-                            SmtVal::Top => todo!(),
-                        }
-                    },
-                    GeneralizedVarNode::Indirect(_) => None,
-                }
+            let inputs = op.inputs().iter().flat_map(|vn| match vn {
+                GeneralizedVarNode::Direct(vn) => match self.get_valuation_or_entry(vn) {
+                    SmtVal::Val(bv) => todo!(),
+                    SmtVal::Load(smt_val) => todo!(),
+                    SmtVal::Or(_) => todo!(),
+                    SmtVal::Top => todo!(),
+                },
+                GeneralizedVarNode::Indirect(_) => None,
             });
             apply_to_bvs(op, inputs)
         }
@@ -436,9 +442,7 @@ impl SmtValuationState {
                     // Insert the computed (or Top) value into written_locations;
                     // simplify the SMT AST first to keep expressions reduced.
                     let simplified = simplify_smtval(result_val);
-                    new_state
-                        .written_locations
-                        .insert(output_vn.clone(), simplified);
+                    new_state.add(output_vn.clone(), simplified);
                 }
 
                 GeneralizedVarNode::Indirect(_) => {
@@ -589,8 +593,7 @@ impl JoinSemiLattice for SmtValuationState {
                     }
                 }
                 None => {
-                    self.written_locations
-                        .insert(key.clone(), other_val.clone());
+                    self.add(key.clone(), other_val.clone());
                 }
             }
         }
