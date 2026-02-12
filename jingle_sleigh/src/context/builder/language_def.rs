@@ -54,6 +54,17 @@ pub struct Language {
     pub manual_index_file: Option<PathBuf>,
     #[serde(rename = "@id")]
     pub id: String,
+    /// Optional attribute to capture a language's declared stack pointer.
+    /// This is intended to represent a reference (e.g., register name) that may
+    /// be present in the language metadata and which will be used later to seed
+    /// the SleighArchInfo with an appropriate varnode.
+    #[serde(rename = "@stackpointer")]
+    pub stackpointer: Option<String>,
+    /// Optional attribute to capture a language's declared program counter.
+    /// This typically points to the register name used as the PC and will be
+    /// parsed from processor specs and represented in the arch info.
+    #[serde(rename = "@programcounter")]
+    pub programcounter: Option<String>,
     pub description: String,
     pub compiler: Vec<Compiler>,
     pub external_name: Option<Vec<ExternalName>>,

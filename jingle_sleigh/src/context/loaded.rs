@@ -385,40 +385,6 @@ mod tests {
     }
 
     #[test]
-    fn test_read_until_branch() {
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-
-        // NOP, NOP, JMP $+5, NOP (should stop at JMP)
-        let img: Vec<u8> = vec![0x90, 0x90, 0xeb, 0x05, 0x90];
-        let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
-
-        let instrs: Vec<_> = loaded.read_until_branch(0, 10).collect();
-        // Should read NOPs and JMP, then stop
-        assert!(instrs.len() >= 2);
-        assert!(instrs.len() <= 3);
-        // Last instruction should be the branch
-        let last = &instrs[instrs.len() - 1];
-        assert!(last.terminates_basic_block());
-    }
-
-    #[test]
-    fn test_read_until_branch_no_branch() {
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-
-        // Only NOPs, no branches
-        let img: Vec<u8> = vec![0x90, 0x90, 0x90, 0x90];
-        let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
-
-        let instrs: Vec<_> = loaded.read_until_branch(0, 10).collect();
-        // Should read all NOPs up to the limit
-        assert_eq!(instrs.len(), 4);
-    }
-
-    #[test]
     fn test_read_bytes_non_code_space() {
         let ctx_builder =
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();

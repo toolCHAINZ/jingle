@@ -144,6 +144,8 @@ impl SleighContext {
                             .getIndex() as usize,
                         spaces: spaces.clone(),
                         userops,
+                        stack_pointer: None,
+                        program_counter: None,
                     }),
                 };
 
@@ -208,6 +210,31 @@ impl SleighContext {
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
         LoadedSleighContext::new(self, img)
+    }
+
+    /// Set the stack pointer varnode in the arch info.
+    /// This replaces or sets the stack_pointer entry in the cached arch info.
+    pub fn set_stack_pointer_varnode(&mut self, vn: VarNode) {
+        let inner = Arc::make_mut(&mut self.arch_info.info);
+        inner.stack_pointer = Some(vn);
+    }
+
+    /// Clear the stack pointer varnode in the arch info.
+    pub fn clear_stack_pointer_varnode(&mut self) {
+        let inner = Arc::make_mut(&mut self.arch_info.info);
+        inner.stack_pointer = None;
+    }
+
+    /// Set the program counter varnode in the arch info.
+    pub fn set_program_counter_varnode(&mut self, vn: VarNode) {
+        let inner = Arc::make_mut(&mut self.arch_info.info);
+        inner.program_counter = Some(vn);
+    }
+
+    /// Clear the program counter varnode in the arch info.
+    pub fn clear_program_counter_varnode(&mut self) {
+        let inner = Arc::make_mut(&mut self.arch_info.info);
+        inner.program_counter = None;
     }
 }
 
@@ -307,7 +334,7 @@ mod test {
         let sleigh = sleigh.initialize_with_image(img).unwrap();
         let instr = sleigh.instruction_at(0).unwrap();
         assert_eq!(instr.disassembly.mnemonic, "PUSH");
-        assert_eq!(instr.ops.len(), 3);
+        assert_eq!(instr.ops.len(), 4); // extra op because we emit "fallthrough" branches now
         // the stages of a push in pcode
         assert_eq!(instr.ops[0].opcode(), OpCode::CPUI_COPY);
         assert_eq!(instr.ops[1].opcode(), OpCode::CPUI_INT_SUB);

@@ -30,10 +30,19 @@ pub struct ContextData {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ProgramCounter {
+    #[serde(rename = "@register")]
+    pub register: String,
+    #[serde(rename = "@space")]
+    pub space: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename = "processor_spec")]
 pub struct ProcessorSpec {
     // TODO: Properties
     // properties: Properties
+    pub programcounter: Option<ProgramCounter>,
     pub context_data: Option<ContextData>,
 }
 
