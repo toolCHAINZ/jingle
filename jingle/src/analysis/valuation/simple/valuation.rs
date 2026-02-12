@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::display::JingleDisplay;
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
-use std::fmt::Formatter;
+use std::fmt::{Display, Formatter};
 
 use crate::analysis::{valuation::SimpleValue, varnode_map::VarNodeMap};
 
@@ -186,6 +186,20 @@ impl JingleDisplay for SingleValuationLocation {
                 write!(f, "[")?;
                 ptr_intern.as_ref().fmt_jingle(f, info)?;
                 write!(f, "]")
+            }
+        }
+    }
+}
+
+impl Display for SingleValuationLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // For direct locations we can rely on `VarNode`'s `Display` implementation.
+            SingleValuationLocation::Direct(vn_intern) => write!(f, "{}", vn_intern.as_ref()),
+            // `SimpleValue` does not implement `std::fmt::Display`, so fall back to `Debug`
+            // (which is available) to provide a reasonable textual representation.
+            SingleValuationLocation::Indirect(ptr_intern) => {
+                write!(f, "[{}]", ptr_intern.as_ref())
             }
         }
     }
