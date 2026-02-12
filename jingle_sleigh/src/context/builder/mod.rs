@@ -61,9 +61,30 @@ impl SleighContextBuilder {
             }
         }
 
-        // Try to discover a stackpointer declared in compiler specs (.cspec).
-        // Iterate compilers listed in the language definition and look for a
-        // <stackpointer register="..." [space="..."]/> element.
+        // Discover compiler-spec (.cspec) metadata for this language.
+        // We will:
+        //  - collect a list of compiler spec descriptors (with resolved paths)
+        //  - parse calling convention prototypes (extrapop, stackshift)
+        //  - parse prototype pentries (input/output) and killedbycall/unaffected lists
+        //  - pick a default calling convention if a <default_proto> is specified
+        //  - still honor stackpointer entries if present (and seed arch_info)
+        //
+        // The deserialization structs below are intentionally minimal: they only
+        // model the small subset of the cspec XML we care about.
+        #[derive(Debug, Deserialize)]
+        struct CSpecRegister {
+            #[serde(rename = "@name")]
+            name: String,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct CSpecAddr {
+            #[serde(rename = "@offset")]
+            offset: Option<String>,
+            #[serde(rename = "@space")]
+            space: Option<String>,
+        }
+
         #[derive(Debug, Deserialize)]
         struct CSpecStackPointer {
             #[serde(rename = "@register")]
@@ -71,24 +92,194 @@ impl SleighContextBuilder {
             #[serde(rename = "@space")]
             space: Option<String>,
         }
+
+        #[derive(Debug, Deserialize)]
+        struct CSpecPentry {
+            #[serde(rename = "@minsize")]
+            minsize: Option<String>,
+            #[serde(rename = "@maxsize")]
+            maxsize: Option<String>,
+            #[serde(rename = "@align")]
+            align: Option<String>,
+            #[serde(rename = "@storage")]
+            storage: Option<String>,
+            #[serde(rename = "@metatype")]
+            metatype: Option<String>,
+            #[serde(rename = "register")]
+            register: Option<Vec<CSpecRegister>>,
+            #[serde(rename = "addr")]
+            addr: Option<Vec<CSpecAddr>>,
+            #[serde(rename = "@extension")]
+            extension: Option<String>,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct CSpecInputOutput {
+            #[serde(rename = "pentry")]
+            pentry: Option<Vec<CSpecPentry>>,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct CSpecKilledOrUnaffected {
+            #[serde(rename = "register")]
+            register: Option<Vec<CSpecRegister>>,
+            // some cspecs place varnode entries - we only capture register names here
+        }
+
+        #[derive(Debug, Deserialize)]
+        #[serde(rename = "prototype")]
+        struct CSpecPrototypeFull {
+            #[serde(rename = "@name")]
+            name: Option<String>,
+            #[serde(rename = "@extrapop")]
+            extrapop: Option<String>,
+            #[serde(rename = "@stackshift")]
+            stackshift: Option<String>,
+            #[serde(rename = "input")]
+            input: Option<CSpecInputOutput>,
+            #[serde(rename = "output")]
+            output: Option<CSpecInputOutput>,
+            #[serde(rename = "killedbycall")]
+            killedbycall: Option<CSpecKilledOrUnaffected>,
+            #[serde(rename = "unaffected")]
+            unaffected: Option<CSpecKilledOrUnaffected>,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct CSpecProtoContainer {
+            #[serde(rename = "prototype")]
+            prototype: Option<Vec<CSpecPrototypeFull>>,
+        }
+
         #[derive(Debug, Deserialize)]
         #[serde(rename = "compiler_spec")]
-        struct CSpecRoot {
+        struct CSpecRootFull {
             stackpointer: Option<CSpecStackPointer>,
+            #[serde(rename = "default_proto")]
+            default_proto: Option<CSpecProtoContainer>,
+            #[serde(rename = "prototype")]
+            prototype: Option<Vec<CSpecPrototypeFull>>,
         }
+
+        // accumulators
+        let mut compiler_specs_acc: Vec<crate::context::CompilerSpecInfo> = Vec::new();
+        let mut call_convs_acc: Vec<crate::context::PrototypeInfo> = Vec::new();
+        let mut default_proto_acc: Option<crate::context::PrototypeInfo> = None;
 
         for comp in &lang.compiler {
             let cspec_path = path.join(&comp.spec);
             if cspec_path.exists() {
-                if let Ok(file) = std::fs::File::open(&cspec_path) {
-                    // `from_reader` returns a Result; bind it first then pattern-match.
-                    let cspec_res: Result<CSpecRoot, _> = serde_xml_rs::from_reader(file);
-                    if let Ok(cspec) = cspec_res {
+                if let Ok(mut file) = std::fs::File::open(&cspec_path) {
+                    // Attempt to parse the cspec. If it fails for any reason, continue scanning others.
+                    // Read the opened file into a string and parse via from_str so we avoid
+                    // requiring the file to implement any extra traits for from_reader.
+                    let mut _cspec_contents = String::new();
+                    {
+                        use std::io::Read;
+                        let _ = file.read_to_string(&mut _cspec_contents);
+                    }
+                    if let Ok(cspec) = serde_xml_rs::from_str::<CSpecRootFull>(&_cspec_contents) {
+                        // Record compiler spec descriptor. Mark is_default true if this cspec contains a <default_proto>.
+                        let is_default = cspec.prototype.as_ref().map_or(false, |_| false);
+                        compiler_specs_acc.push(crate::context::CompilerSpecInfo {
+                            path: cspec_path.clone(),
+                            name: Some(comp.name.clone()),
+                            is_default,
+                        });
+
+                        // Parse prototypes (both top-level and those nested under default_proto)
+                        if let Some(protos) = cspec.prototype {
+                            for p in protos {
+                                // parse numeric attributes
+                                let extrapop = p.extrapop.and_then(|s| s.parse::<i32>().ok());
+                                let stackshift = p.stackshift.and_then(|s| s.parse::<i32>().ok());
+                                let proto_name = p.name.unwrap_or_else(|| "__unnamed".to_string());
+
+                                // parse input pentries
+                                let mut pentries: Vec<crate::context::PentryInfo> = Vec::new();
+                                if let Some(input) = p.input {
+                                    if let Some(entries) = input.pentry {
+                                        for pe in entries {
+                                            let minsize =
+                                                pe.minsize.and_then(|s| s.parse::<u32>().ok());
+                                            let maxsize =
+                                                pe.maxsize.and_then(|s| s.parse::<u32>().ok());
+                                            let align =
+                                                pe.align.and_then(|s| s.parse::<u32>().ok());
+                                            let storage = pe.storage.or(pe.metatype);
+                                            let mut regs: Vec<String> = Vec::new();
+                                            if let Some(rvec) = pe.register {
+                                                for r in rvec {
+                                                    regs.push(r.name);
+                                                }
+                                            }
+                                            let mut addr_space: Option<String> = None;
+                                            let mut addr_offset: Option<u64> = None;
+                                            if let Some(addrs) = pe.addr {
+                                                if let Some(a) = addrs.first() {
+                                                    addr_space = a.space.clone();
+                                                    if let Some(offstr) = &a.offset {
+                                                        if let Ok(off) = offstr.parse::<u64>() {
+                                                            addr_offset = Some(off);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            pentries.push(crate::context::PentryInfo {
+                                                minsize,
+                                                maxsize,
+                                                align,
+                                                storage,
+                                                registers: regs,
+                                                addr_space,
+                                                addr_offset,
+                                            });
+                                        }
+                                    }
+                                }
+
+                                // parse killedbycall
+                                let mut killed: Vec<String> = Vec::new();
+                                if let Some(k) = p.killedbycall {
+                                    if let Some(kregs) = k.register {
+                                        for r in kregs {
+                                            killed.push(r.name);
+                                        }
+                                    }
+                                }
+
+                                // parse unaffected
+                                let mut unaffected: Vec<String> = Vec::new();
+                                if let Some(u) = p.unaffected {
+                                    if let Some(uregs) = u.register {
+                                        for r in uregs {
+                                            unaffected.push(r.name);
+                                        }
+                                    }
+                                }
+
+                                let proto = crate::context::PrototypeInfo {
+                                    name: proto_name.clone(),
+                                    extrapop,
+                                    stackshift,
+                                    pentries,
+                                    killed_by_call: killed,
+                                    unaffected,
+                                };
+
+                                // set default prototype if none yet
+                                if default_proto_acc.is_none() {
+                                    default_proto_acc = Some(proto.clone());
+                                }
+                                call_convs_acc.push(proto);
+                            }
+                        }
+
+                        // If cspec declares a stackpointer, seed arch_info accordingly
                         if let Some(sp) = cspec.stackpointer {
                             if let Some(vn_ref) = context.arch_info().register(&sp.register) {
                                 context.set_stack_pointer_varnode(vn_ref.clone());
-                                // Found a stack pointer; stop searching further cspecs.
-                                break;
+                                // Do not break here: continue collecting cspecs and prototypes
                             }
                         }
                     }
@@ -96,15 +287,30 @@ impl SleighContextBuilder {
             }
         }
 
-        // If no stackpointer was found in cspecs, allow a fallback from the
+        // Fallback: if no stackpointer found in cspecs, allow a fallback from the
         // language definition's optional attributes (if present).
-        if context.arch_info().register("sp").is_none() {
+        if context.arch_info().stack_pointer().is_none() {
             if let Some(sp_name) = &lang.stackpointer {
                 if let Some(vn_ref) = context.arch_info().register(sp_name) {
                     context.set_stack_pointer_varnode(vn_ref.clone());
                 }
             }
         }
+
+        // If we've discovered compiler specs or prototypes, combine them into a
+        // ref-counted `CallingConventionInfo` and attach it to the context.
+        // Choose the first compiler_spec marked as default (if any)
+        let default_comp_spec = compiler_specs_acc.iter().find(|c| c.is_default).cloned();
+
+        let cc_info = crate::context::CallingConventionInfo {
+            info: std::sync::Arc::new(crate::context::CallingConventionInfoInner {
+                compiler_specs: compiler_specs_acc,
+                default_compiler_spec: default_comp_spec,
+                call_conventions: call_convs_acc,
+                default_calling_convention: default_proto_acc,
+            }),
+        };
+        context.set_calling_convention_info(cc_info);
 
         Ok(context)
     }
@@ -211,6 +417,44 @@ mod tests {
         .unwrap();
         assert!(langs.get_language("sdf").is_none());
         assert!(langs.get_language(SLEIGH_ARCH).is_some());
+    }
+
+    #[test]
+    fn test_parse_prototypes_x64() {
+        // Build a context for the canonical x86_64 language and validate
+        // that prototypes, pentries, killedbycall and unaffected lists are parsed.
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build(SLEIGH_ARCH).unwrap();
+
+        // Ensure we parsed at least one calling convention prototype
+        let convs = ctx.calling_convention_info().call_conventions();
+        assert!(!convs.is_empty(), "Expected at least one parsed prototype");
+
+        // Default calling convention should be present and have extrapop and stackshift for x86_64
+        let def = ctx
+            .calling_convention_info()
+            .default_calling_convention()
+            .expect("expected default calling convention");
+        // In the included x86-64 cspecs the default prototypes commonly specify extrapop=8 and stackshift=8.
+        assert_eq!(def.extrapop, Some(8));
+        assert_eq!(def.stackshift, Some(8));
+
+        // default stack change derived as extrapop - stackshift = 0
+        assert_eq!(ctx.default_stack_change(), Some(0));
+
+        // Ensure at least one prototype has parsed pentries and killed/unaffected info
+        assert!(
+            convs.iter().any(|p| !p.pentries.is_empty()),
+            "Expected at least one prototype to have pentries parsed"
+        );
+        assert!(
+            convs
+                .iter()
+                .any(|p| !p.killed_by_call.is_empty() || !p.unaffected.is_empty()),
+            "Expected at least one prototype to have killed_by_call or unaffected entries"
+        );
     }
 
     // New tests to verify stackpointer and programcounter detection logic.
