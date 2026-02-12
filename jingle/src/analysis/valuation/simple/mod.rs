@@ -296,7 +296,7 @@ impl SimpleValuationState {
                             offset: a as i64 as u64,
                             size: stack.size,
                         };
-                        
+
                         new_state.valuation.add(
                             stack,
                             stack_value + SimpleValue::const_from_varnode(shift_vn),
