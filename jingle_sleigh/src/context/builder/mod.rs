@@ -86,6 +86,7 @@ impl SleighContextBuilder {
         }
 
         #[derive(Debug, Deserialize)]
+        #[allow(unused)]
         struct CSpecStackPointer {
             #[serde(rename = "@register")]
             register: String,
@@ -94,6 +95,7 @@ impl SleighContextBuilder {
         }
 
         #[derive(Debug, Deserialize)]
+        #[allow(unused)]
         struct CSpecPentry {
             #[serde(rename = "@minsize")]
             minsize: Option<String>,
@@ -128,6 +130,7 @@ impl SleighContextBuilder {
 
         #[derive(Debug, Deserialize)]
         #[serde(rename = "prototype")]
+        #[allow(unused)]
         struct CSpecPrototypeFull {
             #[serde(rename = "@name")]
             name: Option<String>,
@@ -146,6 +149,7 @@ impl SleighContextBuilder {
         }
 
         #[derive(Debug, Deserialize)]
+        #[allow(unused)]
         struct CSpecProtoContainer {
             #[serde(rename = "prototype")]
             prototype: Option<Vec<CSpecPrototypeFull>>,
@@ -153,6 +157,7 @@ impl SleighContextBuilder {
 
         #[derive(Debug, Deserialize)]
         #[serde(rename = "compiler_spec")]
+        #[allow(unused)]
         struct CSpecRootFull {
             stackpointer: Option<CSpecStackPointer>,
             #[serde(rename = "default_proto")]
@@ -180,7 +185,7 @@ impl SleighContextBuilder {
                     }
                     if let Ok(cspec) = serde_xml_rs::from_str::<CSpecRootFull>(&_cspec_contents) {
                         // Record compiler spec descriptor. Mark is_default true if this cspec contains a <default_proto>.
-                        let is_default = cspec.prototype.as_ref().map_or(false, |_| false);
+                        let is_default = cspec.prototype.as_ref().is_some_and(|_| false);
                         compiler_specs_acc.push(crate::context::CompilerSpecInfo {
                             path: cspec_path.clone(),
                             name: Some(comp.name.clone()),

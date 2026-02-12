@@ -356,22 +356,10 @@ impl SleighContext {
         inner.stack_pointer = Some(vn);
     }
 
-    /// Clear the stack pointer varnode in the arch info.
-    pub(crate) fn clear_stack_pointer_varnode(&mut self) {
-        let inner = Arc::make_mut(&mut self.arch_info.info);
-        inner.stack_pointer = None;
-    }
-
     /// Set the program counter varnode in the arch info.
     pub(crate) fn set_program_counter_varnode(&mut self, vn: VarNode) {
         let inner = Arc::make_mut(&mut self.arch_info.info);
         inner.program_counter = Some(vn);
-    }
-
-    /// Clear the program counter varnode in the arch info.
-    pub(crate) fn clear_program_counter_varnode(&mut self) {
-        let inner = Arc::make_mut(&mut self.arch_info.info);
-        inner.program_counter = None;
     }
 }
 

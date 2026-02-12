@@ -30,6 +30,7 @@ pub struct ContextData {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(unused)]
 pub struct ProgramCounter {
     #[serde(rename = "@register")]
     pub register: String,
