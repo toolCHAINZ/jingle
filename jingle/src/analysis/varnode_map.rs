@@ -162,6 +162,44 @@ impl<T> Default for VarNodeMap<T> {
     }
 }
 
+impl<T> IntoIterator for VarNodeMap<T> {
+    type Item = (VarNode, T);
+    type IntoIter = std::vec::IntoIter<(VarNode, T)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        // consume internal vectors, pair keys and values into owned tuples, then
+        // return the vector's into_iter as the concrete iterator type.
+        let items: Vec<(VarNode, T)> = self.vns.into_iter().map(|w| w.0).zip(self.data).collect();
+        items.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a VarNodeMap<T> {
+    type Item = (&'a VarNode, &'a T);
+    // Use a boxed trait object here to avoid exposing the private `VnWrapper`
+    // type in the public associated type.
+    type IntoIter = Box<dyn Iterator<Item = (&'a VarNode, &'a T)> + 'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(self.vns.iter().map(|w| &w.0).zip(self.data.iter()))
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut VarNodeMap<T> {
+    type Item = (&'a mut VarNode, &'a mut T);
+    // Boxed iterator again to avoid leaking `VnWrapper`.
+    type IntoIter = Box<dyn Iterator<Item = (&'a mut VarNode, &'a mut T)> + 'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(
+            self.vns
+                .iter_mut()
+                .map(|w| &mut w.0)
+                .zip(self.data.iter_mut()),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::VarNodeMap;
