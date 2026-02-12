@@ -63,13 +63,20 @@ impl Default for ModelingBehavior {
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "pyo3", pyclass)]
 pub struct CallInfo {
+    /// Argument varnodes associated with this call (if known from signature metadata)
     pub args: Vec<VarNode>,
+    /// Optional output varnodes (for functions returning via memory or hidden return)
     pub outputs: Option<Vec<VarNode>>,
+    /// How to model the call's side-effects by default
     pub model_behavior: ModelingBehavior,
     /// Optional extrapop value (stack purge) associated with this call site.
     /// When present, this should override any default extrapop derived from
     /// calling-convention prototypes for this specific call.
     pub extrapop: Option<i32>,
+    /// Registers (as varnodes) clobbered by this call site. Empty when unknown.
+    /// This is populated from calling-convention prototype `killedbycall` lists
+    /// when available and enriched during instruction postprocessing.
+    pub killed_regs: Vec<VarNode>,
 }
 
 #[derive(Debug, Clone, Default)]

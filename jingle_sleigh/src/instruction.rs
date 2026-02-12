@@ -106,12 +106,43 @@ impl Instruction {
                                     outputs: None,
                                     model_behavior: crate::context::ModelingBehavior::default(),
                                     extrapop: Some(def_ep),
+                                    killed_regs: Vec::new(),
                                 };
                                 *call_info = Some(new_ci);
                             }
                         }
                     }
                     _ => {}
+                }
+            }
+        }
+
+        // Additionally, enrich call_info.killed_regs from calling-convention prototype lists
+        // if available. Prototype lists are register names; map them to varnodes using arch_info.
+        // Prefer prototype from default_calling_convention; fallback to the first parsed prototype.
+        let maybe_proto = cc_info
+            .default_calling_convention()
+            .or_else(|| cc_info.call_conventions().first());
+        if let Some(proto) = maybe_proto {
+            if !proto.killed_by_call.is_empty() {
+                let arch = ctx.arch_info();
+                for op in self.ops.iter_mut() {
+                    match op {
+                        PcodeOperation::Call { call_info, .. }
+                        | PcodeOperation::CallOther { call_info, .. } => {
+                            if let Some(ci) = call_info.as_mut() {
+                                // Only populate killed_regs if it's currently empty (do not overwrite overrides)
+                                if ci.killed_regs.is_empty() {
+                                    for regname in &proto.killed_by_call {
+                                        if let Some(vn) = arch.register(regname.as_str()) {
+                                            ci.killed_regs.push(vn.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
@@ -240,6 +271,7 @@ mod tests {
             outputs: None,
             model_behavior: crate::context::ModelingBehavior::default(),
             extrapop: Some(override_extrapop),
+            killed_regs: Vec::new(),
         };
         ctx.metadata.add_call_def(override_addr, call_info_override);
 
@@ -279,6 +311,77 @@ mod tests {
                     Some(override_extrapop),
                     "Expected per-site extrapop override to be preserved"
                 );
+            }
+            _ => panic!("Expected first op to be Call"),
+        }
+    }
+
+    // New test: ensure killed_regs populated from prototype killed_by_call list for x86_64
+    #[test]
+    fn test_killed_regs_populated_from_prototype() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build(SLEIGH_ARCH).unwrap();
+
+        // Find a prototype to use (prefer default, fallback to first)
+        let maybe_proto = ctx
+            .calling_convention_info()
+            .default_calling_convention()
+            .or_else(|| ctx.calling_convention_info().call_conventions().first());
+
+        // Ensure there is at least one prototype in this environment
+        let proto = maybe_proto.expect("Expected at least one prototype for test environment");
+
+        // If prototype has no killed_by_call entries, the test can't assert mapping; require at least one.
+        assert!(
+            !proto.killed_by_call.is_empty(),
+            "No killed_by_call entries found in prototype; cannot test killed_regs population"
+        );
+
+        // Build a Call instruction with no call_info so postprocess will attach defaults
+        let dest = VarNode {
+            space_index: ctx.arch_info().default_code_space_index(),
+            offset: 0x3000,
+            size: 8,
+        };
+        let mut instr = Instruction {
+            disassembly: Disassembly {
+                mnemonic: "CALL".to_string(),
+                args: "".to_string(),
+            },
+            ops: vec![PcodeOperation::Call {
+                dest,
+                args: Vec::new(),
+                call_info: None,
+            }],
+            length: 5,
+            address: 0x4000,
+        };
+
+        // Run postprocess to attach killed_regs from prototype names
+        instr.postprocess(&ctx);
+
+        // Verify the CALL now has call_info with killed_regs populated
+        match &instr.ops[0] {
+            PcodeOperation::Call { call_info, .. } => {
+                let ci = call_info
+                    .as_ref()
+                    .expect("Expected call_info after postprocess");
+                assert!(
+                    !ci.killed_regs.is_empty(),
+                    "Expected killed_regs to be populated from prototype"
+                );
+                // For each named killed register in prototype, ensure it maps to a varnode present in killed_regs
+                for regname in &proto.killed_by_call {
+                    if let Some(expected_vn) = ctx.arch_info().register(regname.as_str()) {
+                        assert!(
+                            ci.killed_regs.iter().any(|r| r == expected_vn),
+                            "Expected killed_regs to contain varnode for register {}",
+                            regname
+                        );
+                    }
+                }
             }
             _ => panic!("Expected first op to be Call"),
         }
