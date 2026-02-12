@@ -130,24 +130,13 @@ impl JingleDisplay for SingleValuationLocation {
 
 impl JingleDisplay for SingleValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
-        match &self.location {
-            SingleValuationLocation::Direct(vn_intern) => {
-                write!(
-                    f,
-                    "{} = {}",
-                    vn_intern.as_ref().display(info),
-                    self.value.as_ref().display(info)
-                )
-            }
-            SingleValuationLocation::Indirect(ptr_intern) => {
-                write!(
-                    f,
-                    "[{}] = {}",
-                    ptr_intern.as_ref().display(info),
-                    self.value.as_ref().display(info)
-                )
-            }
-        }
+        // Reuse component displays for consistent formatting.
+        write!(
+            f,
+            "{} = {}",
+            self.location.display(info),
+            self.value.as_ref().display(info)
+        )
     }
 }
 
