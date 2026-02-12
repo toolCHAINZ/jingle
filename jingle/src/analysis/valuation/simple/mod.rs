@@ -472,26 +472,3 @@ impl IntoState<SimpleValuationAnalysis> for ConcretePcodeAddress {
         }
     }
 }
-
-impl SimpleValuationState {
-    /// Produce a state that assumes `other` holds; this is a conservative operation that
-    /// can be used to strengthen the state using another state's facts.
-    /// For now, return a clone with any direct writes from `other` overriding our own when present.
-    pub fn assuming(&self, other: &Self) -> Self {
-        let mut new = self.clone();
-
-        // For each direct write in `other`, adopt it if present (this is a conservative "assume")
-        for (vn, val) in other.valuation.direct_writes.items() {
-            new.valuation.direct_writes.insert(vn.clone(), val.clone());
-        }
-
-        // For indirect writes, also adopt other's indirect writes conservatively.
-        for (ptr, val) in &other.valuation.indirect_writes {
-            new.valuation
-                .indirect_writes
-                .insert(ptr.clone(), val.clone());
-        }
-
-        new
-    }
-}
