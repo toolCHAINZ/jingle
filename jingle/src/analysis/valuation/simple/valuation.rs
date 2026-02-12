@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 use crate::display::JingleDisplay;
@@ -43,6 +44,23 @@ impl SimpleValuation {
         Self {
             direct_writes,
             indirect_writes,
+        }
+    }
+
+    /// Lookup a value by a `SingleValuationLocation`.
+    ///
+    /// Accepts any type that can borrow a `SingleValuationLocation` (e.g. `&SingleValuationLocation`
+    /// or `SingleValuationLocation`) and returns a reference to the stored `SimpleValue` if present.
+    pub fn get<B: Borrow<SingleValuationLocation>>(&self, loc: B) -> Option<&SimpleValue> {
+        match loc.borrow() {
+            SingleValuationLocation::Direct(vn_intern) => {
+                // VarNodeMap::get accepts anything that can borrow a VarNode
+                self.direct_writes.get(vn_intern.as_ref())
+            }
+            SingleValuationLocation::Indirect(ptr_intern) => {
+                // indirect_writes keyed by SimpleValue, lookup by reference to the SimpleValue
+                self.indirect_writes.get(ptr_intern.as_ref())
+            }
         }
     }
 
