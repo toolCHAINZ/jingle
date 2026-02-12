@@ -124,6 +124,10 @@ impl SimpleValuationState {
         &self.valuation.direct_writes
     }
 
+    pub fn valuation(&self) -> &SimpleValuation {
+        &self.valuation
+    }
+
     /// Transfer function: build symbolic valuations for pcode operations.
     /// This returns a new state (functional) instead of mutating in place.
     fn transfer_impl(&self, op: &PcodeOperation) -> Self {
