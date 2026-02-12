@@ -191,6 +191,17 @@ impl JingleDisplay for SingleValuationLocation {
     }
 }
 
+impl std::fmt::Display for SingleValuationLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // For direct locations, delegate to the VarNode's Display implementation.
+            SingleValuationLocation::Direct(vn_intern) => write!(f, "{}", vn_intern.as_ref()),
+            // For indirect locations, format as a bracketed pointer expression using SimpleValue's Display.
+            SingleValuationLocation::Indirect(ptr_intern) => write!(f, "[{}]", ptr_intern.as_ref()),
+        }
+    }
+}
+
 impl JingleDisplay for SingleValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         // Reuse component displays for consistent formatting.
