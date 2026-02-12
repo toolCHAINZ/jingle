@@ -3,7 +3,7 @@ use crate::context::image::{ImageSection, SleighArchImage, SleighImage};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::{SleighContext, SleighContextBuilder};
 use crate::ffi::context_ffi::ImageFFI;
-use crate::{Instruction, JingleSleighError, VarNode};
+use crate::{Instruction, JingleSleighError, SleighArchInfo, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -179,6 +179,12 @@ impl<'a> LoadedSleighContext<'a> {
         let ctx_builder = SleighContextBuilder::load_ghidra_installation(ghidra_path.as_ref())?;
         let sleigh = ctx_builder.build(img.architecture_id()?)?;
         Self::new(sleigh, img)
+    }
+}
+
+impl<'a> AsRef<SleighArchInfo> for LoadedSleighContext<'a> {
+    fn as_ref(&self) -> &SleighArchInfo {
+        self.sleigh.arch_info()
     }
 }
 
