@@ -43,6 +43,10 @@ impl SimpleValuation {
             indirect_writes,
         }
     }
+
+    pub fn iter(&self) -> SimpleValuationIter<'_> {
+        self.into_iter()
+    }
 }
 
 pub enum SingleValuationLocation {
