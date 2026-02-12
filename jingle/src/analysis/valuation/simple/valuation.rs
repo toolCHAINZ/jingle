@@ -87,6 +87,20 @@ impl SingleValuationLocation {
     }
 }
 
+// Allow converting a raw `VarNode` directly into a `SingleValuationLocation::Direct`.
+impl From<VarNode> for SingleValuationLocation {
+    fn from(vn: VarNode) -> Self {
+        SingleValuationLocation::Direct(Intern::new(vn))
+    }
+}
+
+// Allow converting a `SimpleValue` directly into a `SingleValuationLocation::Indirect`.
+impl From<SimpleValue> for SingleValuationLocation {
+    fn from(ptr: SimpleValue) -> Self {
+        SingleValuationLocation::Indirect(Intern::new(ptr))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SingleValuation {
     location: SingleValuationLocation,
@@ -129,6 +143,37 @@ impl SingleValuation {
     /// Access the value for this valuation.
     pub fn value(&self) -> &SimpleValue {
         self.value.as_ref()
+    }
+}
+
+/// Add helper methods for mutating a `SimpleValuation`.
+impl SimpleValuation {
+    /// Add a single valuation into the appropriate map.
+    ///
+    /// Accepts any `loc` that can be converted into a `SingleValuationLocation` (e.g. a
+    /// `VarNode` for direct locations or a `SimpleValue` for indirect locations) and any
+    /// `value` that can be converted into a `SimpleValue`.
+    ///
+    /// Values are simplified before insertion to keep stored representations normalized.
+    pub fn add<L, V>(&mut self, loc: L, value: V)
+    where
+        L: Into<SingleValuationLocation>,
+        V: Into<SimpleValue>,
+    {
+        let loc = loc.into();
+        let val = value.into().simplify();
+        match loc {
+            SingleValuationLocation::Direct(vn_intern) => {
+                // VarNodeMap::insert expects an owned VarNode
+                let vn = vn_intern.as_ref().clone();
+                self.direct_writes.insert(vn, val);
+            }
+            SingleValuationLocation::Indirect(ptr_intern) => {
+                // indirect_writes keyed by SimpleValue
+                let ptr = ptr_intern.as_ref().clone();
+                self.indirect_writes.insert(ptr, val);
+            }
+        }
     }
 }
 
