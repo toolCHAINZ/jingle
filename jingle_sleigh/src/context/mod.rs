@@ -66,6 +66,10 @@ pub struct CallInfo {
     pub args: Vec<VarNode>,
     pub outputs: Option<Vec<VarNode>>,
     pub model_behavior: ModelingBehavior,
+    /// Optional extrapop value (stack purge) associated with this call site.
+    /// When present, this should override any default extrapop derived from
+    /// calling-convention prototypes for this specific call.
+    pub extrapop: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]

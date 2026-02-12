@@ -78,7 +78,10 @@ impl<'a> LoadedSleighContext<'a> {
             .get_one_instruction(offset)
             .map(Instruction::from)
             .ok()?;
-        instr.postprocess(&self.metadata, &self.arch_info);
+        // Pass the full SleighContext so postprocess can consult calling-convention defaults
+        // (e.g., extrapop) and apply them to CALL / CALLOTHER operations when no per-site
+        // override is present in the ModelingMetadata.
+        instr.postprocess(&self.sleigh);
         let vn = VarNode {
             space_index: self.arch_info.default_code_space_index(),
             size: instr.length,
