@@ -169,12 +169,7 @@ impl<T> IntoIterator for VarNodeMap<T> {
     fn into_iter(self) -> Self::IntoIter {
         // consume internal vectors, pair keys and values into owned tuples, then
         // return the vector's into_iter as the concrete iterator type.
-        let items: Vec<(VarNode, T)> = self
-            .vns
-            .into_iter()
-            .map(|w| w.0)
-            .zip(self.data.into_iter())
-            .collect();
+        let items: Vec<(VarNode, T)> = self.vns.into_iter().map(|w| w.0).zip(self.data).collect();
         items.into_iter()
     }
 }
