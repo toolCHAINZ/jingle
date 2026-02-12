@@ -1,8 +1,10 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
+use crate::display::JingleDisplay;
 use internment::Intern;
-use jingle_sleigh::VarNode;
+use jingle_sleigh::{SleighArchInfo, VarNode};
+use std::fmt::Formatter;
 
 use crate::analysis::{valuation::SimpleValue, varnode_map::VarNodeMap};
 
@@ -67,6 +69,7 @@ impl SimpleValuation {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum SingleValuationLocation {
     Direct(Intern<VarNode>),
     Indirect(Intern<SimpleValue>),
@@ -98,6 +101,7 @@ impl From<SimpleValue> for SingleValuationLocation {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SingleValuation {
     location: SingleValuationLocation,
     value: Intern<SimpleValue>,
@@ -170,6 +174,32 @@ impl SimpleValuation {
                 self.indirect_writes.insert(ptr, val);
             }
         }
+    }
+}
+
+impl JingleDisplay for SingleValuationLocation {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        match self {
+            SingleValuationLocation::Direct(vn_intern) => vn_intern.as_ref().fmt_jingle(f, info),
+            SingleValuationLocation::Indirect(ptr_intern) => {
+                // Display indirect locations as a bracketed pointer expression.
+                write!(f, "[")?;
+                ptr_intern.as_ref().fmt_jingle(f, info)?;
+                write!(f, "]")
+            }
+        }
+    }
+}
+
+impl JingleDisplay for SingleValuation {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        // Reuse component displays for consistent formatting.
+        write!(
+            f,
+            "{} = {}",
+            self.location.display(info),
+            self.value.as_ref().display(info)
+        )
     }
 }
 
