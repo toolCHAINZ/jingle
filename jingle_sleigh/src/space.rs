@@ -133,6 +133,12 @@ pub struct SleighArchInfo {
     pub(crate) info: Arc<SleighArchInfoInner>,
 }
 
+impl AsRef<SleighArchInfo> for SleighArchInfo {
+    fn as_ref(&self) -> &SleighArchInfo {
+        self
+    }
+}
+
 impl std::fmt::Debug for SleighArchInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SleighArchInfo")

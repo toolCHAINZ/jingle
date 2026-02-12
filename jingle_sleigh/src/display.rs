@@ -12,9 +12,9 @@ use std::fmt::{Display, Formatter};
 pub trait JingleDisplay: Sized + Clone {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result;
 
-    fn display(&self, info: &SleighArchInfo) -> JingleDisplayWrapper<Self> {
+    fn display<T: AsRef<SleighArchInfo>>(&self, info: T) -> JingleDisplayWrapper<Self> {
         JingleDisplayWrapper {
-            info: info.clone(),
+            info: info.as_ref().clone(),
             inner: self.clone(),
         }
     }
