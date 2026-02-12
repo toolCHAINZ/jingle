@@ -161,6 +161,12 @@ pub struct CallingConventionInfo {
     pub(crate) info: std::sync::Arc<CallingConventionInfoInner>,
 }
 
+impl Default for CallingConventionInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CallingConventionInfo {
     pub fn new() -> Self {
         Self {

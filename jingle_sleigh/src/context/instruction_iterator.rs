@@ -46,7 +46,7 @@ impl Iterator for SleighContextInstructionIterator<'_> {
             .ok()?;
         // Pass the full SleighContext so Instruction::postprocess can consult
         // calling-convention defaults and other context-wide metadata.
-        instr.postprocess(&self.sleigh);
+        instr.postprocess(self.sleigh);
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;
