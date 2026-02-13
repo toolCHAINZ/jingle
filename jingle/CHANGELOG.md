@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.7](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.6...jingle-v0.5.7) - 2026-02-13
+
+### Fixed
+
+- track unknown outputs as Top ([#179](https://github.com/toolCHAINZ/jingle/pull/179))
+
+### Other
+
+- AsRef<SleighArchInfo> for SimpleValuationState ([#180](https://github.com/toolCHAINZ/jingle/pull/180))
+- Implement Display trait for SingleValuationLocation ([#178](https://github.com/toolCHAINZ/jingle/pull/178))
+- handle extrapop adjustment for Call operations in valuation state ([#177](https://github.com/toolCHAINZ/jingle/pull/177))
+- From<Vec<SingleValuation>> for SimpleValuation ([#175](https://github.com/toolCHAINZ/jingle/pull/175))
+- Display and LowerHex for SimpleValue ([#174](https://github.com/toolCHAINZ/jingle/pull/174))
+- SimpleValuation::add() ([#173](https://github.com/toolCHAINZ/jingle/pull/173))
+- Implement JingleDisplay for SingleValuation types ([#171](https://github.com/toolCHAINZ/jingle/pull/171))
+- Add generic get method to SimpleValuation ([#172](https://github.com/toolCHAINZ/jingle/pull/172))
+- iter method to SimpleValuation for iteration ([#169](https://github.com/toolCHAINZ/jingle/pull/169))
+
 ## [0.5.6](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.5...jingle-v0.5.6) - 2026-02-12
 
 ### Changed
