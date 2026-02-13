@@ -36,6 +36,12 @@ pub struct SimpleValuationState {
     merge_behavior: MergeBehavior,
 }
 
+impl AsRef<SleighArchInfo> for SimpleValuationState {
+    fn as_ref(&self) -> &SleighArchInfo {
+        &self.arch_info
+    }
+}
+
 impl Hash for SimpleValuationState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // Hash direct writes (VarNodeMap provides deterministic ordering).
