@@ -71,29 +71,8 @@ impl Display for SimpleValuationState {
 
 impl JingleDisplay for SimpleValuationState {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
-        write!(f, "SimpleValuationState {{")?;
-        let mut first = true;
-
-        // Direct writes (vn -> val)
-        for (vn, val) in self.valuation.direct_writes.items() {
-            if !first {
-                write!(f, ", ")?;
-            }
-            first = false;
-            write!(f, "{} = {}", vn.display(info), val.display(info))?;
-        }
-
-        // Indirect writes ([ptr_expr] -> val)
-        for (ptr, val) in &self.valuation.indirect_writes {
-            if !first {
-                write!(f, ", ")?;
-            }
-            first = false;
-            write!(f, "[{}] = {}", ptr.display(info), val.display(info))?;
-        }
-
-        write!(f, "}}")?;
-        Ok(())
+        // Delegate display to the inner SimpleValuation implementation to avoid duplication.
+        self.valuation.fmt_jingle(f, info)
     }
 }
 
@@ -184,16 +163,18 @@ impl SimpleValuationState {
                 }
             }
 
-            PcodeOperation::IntOr { input0, input1, .. }
-            | PcodeOperation::BoolOr { input0, input1, .. } => {
-                let a = SimpleValue::from_varnode_or_entry(self, input0);
-                let b = SimpleValue::from_varnode_or_entry(self, input1);
-                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, SimpleValue::or(a, b).simplify());
-                }
-            }
+            // This uses the wrong "Or". When we re-add bitor, use that
+            //
+            // PcodeOperation::IntOr { input0, input1, .. }
+            // | PcodeOperation::BoolOr { input0, input1, .. } => {
+            //     let a = SimpleValue::from_varnode_or_entry(self, input0);
+            //     let b = SimpleValue::from_varnode_or_entry(self, input1);
+            //     if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+            //         new_state
+            //             .valuation
+            //             .add(output_vn, SimpleValue::or(a, b).simplify());
+            //     }
+            // }
 
             // Approximate shifts as addition (conservative)
             PcodeOperation::IntLeftShift { input0, input1, .. }
@@ -239,14 +220,21 @@ impl SimpleValuationState {
             }
 
             PcodeOperation::IntSExt { input, .. } | PcodeOperation::IntZExt { input, .. } => {
+                // todo, just have a self.read that takes a gneral varnode and does
+                // either a direct or indirect read?
                 let v = SimpleValue::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, v.simplify());
                 }
             }
 
-            // Other operations we don't model produce no tracked writes here.
-            _ => {}
+            // Other operations we don't model produce writes of Top.
+            _ => {
+                if let Some(GeneralizedVarNode::Direct(vn)) = op.output() {
+                    // todo handle indirect
+                    new_state.valuation.add(vn, SimpleValue::Top);
+                }
+            }
         }
 
         // Clear internal-space varnodes on control-flow to non-const destinations (same policy as direct_valuation.rs)

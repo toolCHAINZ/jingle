@@ -380,3 +380,31 @@ impl From<Vec<SingleValuation>> for SimpleValuation {
         s
     }
 }
+
+impl JingleDisplay for SimpleValuation {
+    fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        write!(f, "SimpleValuation {{")?;
+        let mut first = true;
+
+        // Direct writes (vn -> val)
+        for (vn, val) in self.direct_writes.items() {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            write!(f, "{} = {}", vn.display(info), val.display(info))?;
+        }
+
+        // Indirect writes ([ptr_expr] -> val)
+        for (ptr, val) in &self.indirect_writes {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            write!(f, "[{}] = {}", ptr.display(info), val.display(info))?;
+        }
+
+        write!(f, "}}")?;
+        Ok(())
+    }
+}
