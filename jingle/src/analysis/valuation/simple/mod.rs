@@ -71,29 +71,8 @@ impl Display for SimpleValuationState {
 
 impl JingleDisplay for SimpleValuationState {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
-        write!(f, "SimpleValuationState {{")?;
-        let mut first = true;
-
-        // Direct writes (vn -> val)
-        for (vn, val) in self.valuation.direct_writes.items() {
-            if !first {
-                write!(f, ", ")?;
-            }
-            first = false;
-            write!(f, "{} = {}", vn.display(info), val.display(info))?;
-        }
-
-        // Indirect writes ([ptr_expr] -> val)
-        for (ptr, val) in &self.valuation.indirect_writes {
-            if !first {
-                write!(f, ", ")?;
-            }
-            first = false;
-            write!(f, "[{}] = {}", ptr.display(info), val.display(info))?;
-        }
-
-        write!(f, "}}")?;
-        Ok(())
+        // Delegate display to the inner SimpleValuation implementation to avoid duplication.
+        self.valuation.fmt_jingle(f, info)
     }
 }
 
