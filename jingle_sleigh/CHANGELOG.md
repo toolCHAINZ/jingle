@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.4...jingle_sleigh-v0.4.5) - 2026-02-13
+
+### Other
+
+- handle extrapop adjustment for Call operations in valuation state ([#177](https://github.com/toolCHAINZ/jingle/pull/177))
+- stack pointer and program counter support to Sleigh context ([#176](https://github.com/toolCHAINZ/jingle/pull/176))
+- Implement JingleDisplay for SingleValuation types ([#171](https://github.com/toolCHAINZ/jingle/pull/171))
+
 ## [0.4.4](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.3...jingle_sleigh-v0.4.4) - 2026-02-02
 
 ### Other
