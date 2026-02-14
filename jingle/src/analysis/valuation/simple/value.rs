@@ -112,7 +112,7 @@ impl SimpleValue {
             _ => None,
         }
     }
-    
+
     /// Accessor for `Entry` variant.
     pub fn as_offset(&self) -> Option<&Offset> {
         match self {
@@ -183,6 +183,11 @@ impl SimpleValue {
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn entry(vn: VarNode) -> Self {
         SimpleValue::Entry(Entry(Intern::new(vn)))
+    }
+
+    /// Construct an `Entry(...)` from a `VarNode`.
+    pub fn offset(vn: VarNode, offset: VarNode) -> Self {
+        SimpleValue::Offset(Offset(Entry(Intern::new(vn)), Const(Intern::new(offset))))
     }
 
     /// Construct a `Const(...)` from a raw i64 value.
