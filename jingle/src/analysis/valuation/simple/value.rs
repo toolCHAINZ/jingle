@@ -20,26 +20,51 @@ trait Simplify {
     fn simplify(&self) -> SimpleValue;
 }
 
-/// Wrap a varnode in an interned container for entry variant.
+/// An entry value of a direct location
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Entry(pub Intern<VarNode>);
 
-/// Binary expression nodes now carry an explicit `size` field so every node
-/// in the expression tree has an associated byte size.
+/// A constant value
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Const(pub Intern<VarNode>);
+
+/// A value representing a positive offset from a location pointed to by another value.
+/// This is similar to sleigh/ghidra's post-analysis stack offset space.
+///
+/// The const in here has some special semantics associated with it:
+/// Though a member of the CONST space, its size represents the number of bytes
+/// covered, not the size of the representation of constant itself.
+///
+/// For example, `Offset(r1, 4:8)` refers to the range of 8 bytes that begins
+/// 4 bytes after the address pointed to by r1.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Offset(pub Entry, pub Const);
+
+/// A multiplication expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// An addition expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// A subtraction expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// An expression representing two possible values
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
+
+impl AsRef<VarNode> for Const {
+    fn as_ref(&self) -> &VarNode {
+        self.0.as_ref()
+    }
+}
 
 /// Symbolic valuation built from varnodes and constants (constants are interned VarNodes).
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -49,8 +74,9 @@ pub enum SimpleValue {
 
     /// A constant represented as an interned `VarNode` in the constant space.
     /// This preserves both the offset (value) and the size in bytes.
-    Const(Intern<VarNode>),
+    Const(Const),
 
+    Offset(Offset),
     /// Binary operators now include an explicit size (in bytes)
     Mul(MulExpr),
     Add(AddExpr),
@@ -134,6 +160,7 @@ impl SimpleValue {
         match self {
             SimpleValue::Entry(Entry(vn)) => vn.as_ref().size,
             SimpleValue::Const(vn) => vn.as_ref().size,
+            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().size,
             SimpleValue::Mul(MulExpr(_, _, s))
             | SimpleValue::Add(AddExpr(_, _, s))
             | SimpleValue::Sub(SubExpr(_, _, s))
@@ -160,12 +187,12 @@ impl SimpleValue {
             offset: v as u64,
             size: 8,
         };
-        SimpleValue::Const(Intern::new(vn))
+        SimpleValue::Const(Const(Intern::new(vn)))
     }
 
     /// Construct a `Const(...)` directly from a `VarNode` (already contains size).
     pub fn const_from_varnode(vn: VarNode) -> Self {
-        SimpleValue::Const(Intern::new(vn))
+        SimpleValue::Const(Const(Intern::new(vn)))
     }
 
     /// Construct an `Or(...)` node from two children. Size is derived from children.
@@ -191,7 +218,7 @@ impl SimpleValue {
             offset: value as u64,
             size,
         };
-        SimpleValue::Const(Intern::new(vn))
+        SimpleValue::Const(Const(Intern::new(vn)))
     }
 
     /// Helper to pick a reasonable size for a new constant when folding results.
@@ -237,12 +264,13 @@ impl SimpleValue {
         match v {
             SimpleValue::Const(_) => 0,
             SimpleValue::Entry(_) => 1,
-            SimpleValue::Mul(_) => 2,
-            SimpleValue::Add(_) => 3,
-            SimpleValue::Sub(_) => 4,
-            SimpleValue::Or(_) => 5,
-            SimpleValue::Load(_) => 6,
-            SimpleValue::Top => 7,
+            SimpleValue::Offset(_) => 2,
+            SimpleValue::Mul(_) => 3,
+            SimpleValue::Add(_) => 4,
+            SimpleValue::Sub(_) => 5,
+            SimpleValue::Or(_) => 6,
+            SimpleValue::Load(_) => 7,
+            SimpleValue::Top => 8,
         }
     }
 }
@@ -255,7 +283,10 @@ impl Simplify for SimpleValue {
             SimpleValue::Sub(expr) => expr.simplify(),
             SimpleValue::Or(expr) => expr.simplify(),
             SimpleValue::Load(expr) => expr.simplify(),
-            SimpleValue::Entry(_) | SimpleValue::Const(_) | SimpleValue::Top => self.clone(),
+            SimpleValue::Entry(_)
+            | SimpleValue::Offset(_)
+            | SimpleValue::Const(_)
+            | SimpleValue::Top => self.clone(),
         }
     }
 }
@@ -649,6 +680,14 @@ impl JingleDisplay for SimpleValue {
                 // print constant offset in hex (retain prior appearance)
                 write!(f, "{:#x}", vn.as_ref().offset)
             }
+            SimpleValue::Offset(Offset(Entry(vn), con)) => {
+                write!(
+                    f,
+                    "offset({},{})",
+                    vn.as_ref().display(info),
+                    con.as_ref().display(info)
+                )
+            }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 write!(
                     f,
@@ -698,6 +737,9 @@ impl std::fmt::Display for SimpleValue {
                 // Print constant offset in hex (consistent with jingle display)
                 write!(f, "{:#x}", vn.as_ref().offset)
             }
+            SimpleValue::Offset(Offset(vn, off)) => {
+                write!(f, "offset({}, {})", vn.0.as_ref(), off.as_ref())
+            }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 // Infix multiplication with parens
                 write!(f, "({}*{})", a.as_ref(), b.as_ref())
@@ -737,6 +779,9 @@ impl std::fmt::LowerHex for SimpleValue {
                 // Lower-hex for constants: no 0x prefix, lowercase hex digits
                 write!(f, "{:x}", vn.as_ref().offset)
             }
+            SimpleValue::Offset(Offset(vn, off)) => {
+                write!(f, "offset({:x}, {:x})", vn.0.as_ref(), off.as_ref())
+            }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 write!(f, "({:x}*{:x})", a.as_ref(), b.as_ref())
             }
@@ -763,7 +808,7 @@ impl SimpleValue {
     pub fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
         if vn.space_index == VarNode::CONST_SPACE_INDEX {
             // preserve the size of the incoming varnode
-            SimpleValue::Const(Intern::new(vn.clone()))
+            SimpleValue::const_from_varnode(vn.clone())
         } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
         } else {
