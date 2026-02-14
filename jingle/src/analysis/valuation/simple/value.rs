@@ -112,6 +112,14 @@ impl SimpleValue {
             _ => None,
         }
     }
+    
+    /// Accessor for `Entry` variant.
+    pub fn as_offset(&self) -> Option<&Offset> {
+        match self {
+            SimpleValue::Offset(e) => Some(e),
+            _ => None,
+        }
+    }
 
     /// Accessor for `Mul` variant.
     pub fn as_mul(&self) -> Option<&MulExpr> {
