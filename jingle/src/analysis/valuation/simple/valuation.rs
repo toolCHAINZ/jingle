@@ -94,10 +94,24 @@ impl From<VarNode> for SingleValuationLocation {
     }
 }
 
+// Allow converting a raw `VarNode` directly into a `SingleValuationLocation::Direct`.
+impl From<&VarNode> for SingleValuationLocation {
+    fn from(vn: &VarNode) -> Self {
+        SingleValuationLocation::Direct(Intern::new(vn.clone()))
+    }
+}
+
 // Allow converting a `SimpleValue` directly into a `SingleValuationLocation::Indirect`.
 impl From<SimpleValue> for SingleValuationLocation {
     fn from(ptr: SimpleValue) -> Self {
         SingleValuationLocation::Indirect(Intern::new(ptr))
+    }
+}
+
+// Allow converting a `SimpleValue` directly into a `SingleValuationLocation::Indirect`.
+impl From<&SimpleValue> for SingleValuationLocation {
+    fn from(ptr: &SimpleValue) -> Self {
+        SingleValuationLocation::Indirect(Intern::new(ptr.clone()))
     }
 }
 
