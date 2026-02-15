@@ -43,7 +43,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           working-directory: jingle_python
-          manylinux: manylinux2_28
+          manylinux: manylinux2_29
           docker-options: "--env READ_ONLY_GITHUB_TOKEN"
           before-script-linux: |
             curl -LsSf https://astral.sh/uv/install.sh | sh
