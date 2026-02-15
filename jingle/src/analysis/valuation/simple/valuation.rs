@@ -395,6 +395,11 @@ impl From<Vec<SingleValuation>> for SimpleValuation {
     }
 }
 
+// todo: allow multiple valuations at the same location
+// requires a refactor to all the internal datastructures, but is likely necessary to
+// express multiple requirements
+// alternatively, add an And node to SimpleValue and use that? THen we can structurally search for
+// it...
 impl FromIterator<SingleValuation> for SimpleValuation {
     fn from_iter<T: IntoIterator<Item = SingleValuation>>(iter: T) -> Self {
         let mut s = SimpleValuation::new();
