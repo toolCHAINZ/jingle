@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::display::JingleDisplay;
 use internment::Intern;
@@ -10,13 +10,13 @@ use crate::analysis::{valuation::SimpleValue, varnode_map::VarNodeMap};
 
 /// A container holding both direct writes (varnode -> value) and indirect writes
 /// ([pointer expression] -> value) produced by stores.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SimpleValuation {
     pub direct_writes: VarNodeMap<SimpleValue>,
     /// Note: for now we are making the simplifying assumption
     /// that all indirect writes happen in one space; this hashmap
     /// can be keyed by both simpleValue and SpaceIndex to generalize this
-    pub indirect_writes: HashMap<SimpleValue, SimpleValue>,
+    pub indirect_writes: BTreeMap<SimpleValue, SimpleValue>,
 }
 
 impl Default for SimpleValuation {
@@ -29,7 +29,7 @@ impl SimpleValuation {
     pub fn new() -> Self {
         Self {
             direct_writes: VarNodeMap::new(),
-            indirect_writes: HashMap::new(),
+            indirect_writes: BTreeMap::new(),
         }
     }
 
@@ -39,7 +39,7 @@ impl SimpleValuation {
     /// instead of creating an empty one and inserting entries afterwards.
     pub fn with_contents(
         direct_writes: VarNodeMap<SimpleValue>,
-        indirect_writes: HashMap<SimpleValue, SimpleValue>,
+        indirect_writes: BTreeMap<SimpleValue, SimpleValue>,
     ) -> Self {
         Self {
             direct_writes,
@@ -69,7 +69,7 @@ impl SimpleValuation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SingleValuationLocation {
     Direct(Intern<VarNode>),
     Indirect(Intern<SimpleValue>),
@@ -115,7 +115,7 @@ impl From<&SimpleValue> for SingleValuationLocation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SingleValuation {
     location: SingleValuationLocation,
     value: Intern<SimpleValue>,

@@ -11,7 +11,6 @@ use crate::{
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use std::{
-    cmp::Ordering,
     fmt::Formatter,
     ops::{Add, Mul, Sub},
 };
@@ -21,11 +20,11 @@ trait Simplify {
 }
 
 /// An entry value of a direct location
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Entry(pub Intern<VarNode>);
 
 /// A constant value
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Const(pub Intern<VarNode>);
 
 /// A value representing a positive offset from a location pointed to by another value.
@@ -37,27 +36,27 @@ pub struct Const(pub Intern<VarNode>);
 ///
 /// For example, `Offset(r1, 4:8)` refers to the range of 8 bytes that begins
 /// 4 bytes after the address pointed to by r1.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Offset(pub Entry, pub Const);
 
 /// A multiplication expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// An addition expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// A subtraction expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// An expression representing two possible values
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// A load of a certain size from a pointer with a certain value
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
 
 impl AsRef<VarNode> for Const {
@@ -67,7 +66,7 @@ impl AsRef<VarNode> for Const {
 }
 
 /// Symbolic valuation built from varnodes and constants (constants are interned VarNodes).
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum SimpleValue {
     /// A direct entry referencing an existing non-const varnode
     Entry(Entry),
@@ -833,15 +832,6 @@ impl SimpleValue {
     }
 }
 
-impl PartialOrd for SimpleValue {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self == other {
-            Some(Ordering::Equal)
-        } else {
-            None
-        }
-    }
-}
 
 impl JoinSemiLattice for SimpleValue {
     fn join(&mut self, _other: &Self) {}
