@@ -372,19 +372,6 @@ impl Simplify for AddExpr {
             Some(0) => {
                 return left;
             }
-            Some(a) => {
-                if a < 0 {
-                    let new_const =
-                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left));
-                    let sub = SubExpr(
-                        Intern::new(left.clone()),
-                        Intern::new(new_const),
-                        left.size(),
-                    )
-                    .simplify();
-                    return sub;
-                }
-            }
             _ => {}
         }
 
@@ -405,7 +392,7 @@ impl Simplify for AddExpr {
             }
         }
 
-        // ((expr - #a) + #b) -> (expr - #(a - b))
+        // ((expr - #a) + #b) -> (expr - #(a - b)) or (expr + #(b - a))
         if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
@@ -414,8 +401,15 @@ impl Simplify for AddExpr {
                     let res = a_const.wrapping_sub(b);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size);
-                    return SubExpr(*expr, Intern::new(new_const), size).simplify();
+
+                    // If res is negative, create Add instead of Sub to avoid infinite loop
+                    if res < 0 {
+                        let new_const = SimpleValue::make_const(-res, size);
+                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                    } else {
+                        let new_const = SimpleValue::make_const(res, size);
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                    }
                 }
             }
         }
@@ -447,8 +441,10 @@ impl Simplify for SubExpr {
             return SimpleValue::make_const(res, size);
         }
 
-        // normalization: ensure constants are on the right
-        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+        // DO NOT normalize for subtraction - it is not commutative!
+        // Using the simplified children directly preserves the order.
+        let left = a_s;
+        let right = b_s;
 
         // expr - 0 -> expr
         // expr - (- |a|) -> expr + a
@@ -478,7 +474,7 @@ impl Simplify for SubExpr {
             return SimpleValue::make_const(0, size);
         }
 
-        // ((expr + #a) - #b) -> (expr + #(a - b))
+        // ((expr + #a) - #b) -> (expr + #(a - b)) or (expr - #(b - a))
         if let SimpleValue::Add(AddExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
@@ -487,8 +483,15 @@ impl Simplify for SubExpr {
                     let res = a_val.wrapping_sub(b_val);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size);
-                    return AddExpr(*expr, Intern::new(new_const), size).simplify();
+
+                    // If res is negative, create Sub instead of Add to avoid infinite loop
+                    if res < 0 {
+                        let new_const = SimpleValue::make_const(-res, size);
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                    } else {
+                        let new_const = SimpleValue::make_const(res, size);
+                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                    }
                 }
             }
         }
