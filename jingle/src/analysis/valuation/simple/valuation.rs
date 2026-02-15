@@ -69,7 +69,7 @@ impl SimpleValuation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SingleValuationLocation {
     Direct(Intern<VarNode>),
     Indirect(Intern<SimpleValue>),
@@ -377,6 +377,28 @@ impl From<Vec<SingleValuation>> for SimpleValuation {
     fn from(vs: Vec<SingleValuation>) -> Self {
         let mut s = SimpleValuation::new();
         for sv in vs.into_iter() {
+            // Obtain a cloned SimpleValue from the SingleValuation
+            let val = sv.value();
+            // Match on the location reference to insert into the appropriate map
+            match sv.location() {
+                SingleValuationLocation::Direct(vn_intern) => {
+                    s.direct_writes
+                        .insert(vn_intern.as_ref().clone(), val.clone());
+                }
+                SingleValuationLocation::Indirect(ptr_intern) => {
+                    s.indirect_writes
+                        .insert(ptr_intern.as_ref().clone(), val.clone());
+                }
+            }
+        }
+        s
+    }
+}
+
+impl FromIterator<SingleValuation> for SimpleValuation {
+    fn from_iter<T: IntoIterator<Item = SingleValuation>>(iter: T) -> Self {
+        let mut s = SimpleValuation::new();
+        for sv in iter {
             // Obtain a cloned SimpleValue from the SingleValuation
             let val = sv.value();
             // Match on the location reference to insert into the appropriate map
