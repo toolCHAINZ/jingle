@@ -11,7 +11,6 @@ use crate::{
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use std::{
-    cmp::Ordering,
     fmt::Formatter,
     ops::{Add, Mul, Sub},
 };
@@ -21,11 +20,11 @@ trait Simplify {
 }
 
 /// An entry value of a direct location
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Entry(pub Intern<VarNode>);
 
 /// A constant value
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Const(pub Intern<VarNode>);
 
 /// A value representing a positive offset from a location pointed to by another value.
@@ -37,27 +36,27 @@ pub struct Const(pub Intern<VarNode>);
 ///
 /// For example, `Offset(r1, 4:8)` refers to the range of 8 bytes that begins
 /// 4 bytes after the address pointed to by r1.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Offset(pub Entry, pub Const);
 
 /// A multiplication expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// An addition expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// A subtraction expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// An expression representing two possible values
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
 /// A load of a certain size from a pointer with a certain value
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
 
 impl AsRef<VarNode> for Const {
@@ -67,7 +66,7 @@ impl AsRef<VarNode> for Const {
 }
 
 /// Symbolic valuation built from varnodes and constants (constants are interned VarNodes).
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum SimpleValue {
     /// A direct entry referencing an existing non-const varnode
     Entry(Entry),
@@ -368,24 +367,8 @@ impl Simplify for AddExpr {
 
         // expr + 0 -> expr
         // expr + (- |a|) -> expr - a
-        match right.as_const().map(|vn| vn.offset as i64) {
-            Some(0) => {
-                return left;
-            }
-            Some(a) => {
-                if a < 0 {
-                    let new_const =
-                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left));
-                    let sub = SubExpr(
-                        Intern::new(left.clone()),
-                        Intern::new(new_const),
-                        left.size(),
-                    )
-                    .simplify();
-                    return sub;
-                }
-            }
-            _ => {}
+        if let Some(0) = right.as_const().map(|vn| vn.offset as i64) {
+            return left;
         }
 
         // ((expr + #a) + #b) -> (expr + #(a + b))
@@ -405,7 +388,7 @@ impl Simplify for AddExpr {
             }
         }
 
-        // ((expr - #a) + #b) -> (expr - #(a - b))
+        // ((expr - #a) + #b) -> (expr - #(a - b)) or (expr + #(b - a))
         if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
@@ -414,8 +397,15 @@ impl Simplify for AddExpr {
                     let res = a_const.wrapping_sub(b);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size);
-                    return SubExpr(*expr, Intern::new(new_const), size).simplify();
+
+                    // If res is negative, create Add instead of Sub to avoid infinite loop
+                    if res < 0 {
+                        let new_const = SimpleValue::make_const(-res, size);
+                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                    } else {
+                        let new_const = SimpleValue::make_const(res, size);
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                    }
                 }
             }
         }
@@ -447,8 +437,10 @@ impl Simplify for SubExpr {
             return SimpleValue::make_const(res, size);
         }
 
-        // normalization: ensure constants are on the right
-        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+        // DO NOT normalize for subtraction - it is not commutative!
+        // Using the simplified children directly preserves the order.
+        let left = a_s;
+        let right = b_s;
 
         // expr - 0 -> expr
         // expr - (- |a|) -> expr + a
@@ -478,7 +470,7 @@ impl Simplify for SubExpr {
             return SimpleValue::make_const(0, size);
         }
 
-        // ((expr + #a) - #b) -> (expr + #(a - b))
+        // ((expr + #a) - #b) -> (expr + #(a - b)) or (expr - #(b - a))
         if let SimpleValue::Add(AddExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
@@ -487,8 +479,15 @@ impl Simplify for SubExpr {
                     let res = a_val.wrapping_sub(b_val);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size);
-                    return AddExpr(*expr, Intern::new(new_const), size).simplify();
+
+                    // If res is negative, create Sub instead of Add to avoid infinite loop
+                    if res < 0 {
+                        let new_const = SimpleValue::make_const(-res, size);
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                    } else {
+                        let new_const = SimpleValue::make_const(res, size);
+                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                    }
                 }
             }
         }
@@ -826,16 +825,6 @@ impl SimpleValue {
             v.clone()
         } else {
             SimpleValue::Entry(Entry(Intern::new(vn.clone())))
-        }
-    }
-}
-
-impl PartialOrd for SimpleValue {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self == other {
-            Some(Ordering::Equal)
-        } else {
-            None
         }
     }
 }

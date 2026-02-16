@@ -28,7 +28,7 @@ pub enum MergeBehavior {
 
 /// State for the valuation CPA. Stores a `SimpleValuation` which contains both
 /// direct and indirect write maps.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct SimpleValuationState {
     valuation: SimpleValuation,
     arch_info: SleighArchInfo,
@@ -39,29 +39,6 @@ pub struct SimpleValuationState {
 impl AsRef<SleighArchInfo> for SimpleValuationState {
     fn as_ref(&self) -> &SleighArchInfo {
         &self.arch_info
-    }
-}
-
-impl Hash for SimpleValuationState {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // Hash direct writes (VarNodeMap provides deterministic ordering).
-        for (vn, val) in self.valuation.direct_writes.items() {
-            vn.hash(state);
-            val.hash(state);
-        }
-
-        // Hash indirect writes deterministically by sorting keys' debug representations.
-        // This keeps the hash stable across runs.
-        let mut kvs: Vec<_> = self.valuation.indirect_writes.iter().collect();
-        kvs.sort_by(|a, b| format!("{:?}", a.0).cmp(&format!("{:?}", b.0)));
-        for (k, v) in kvs {
-            k.hash(state);
-            v.hash(state);
-        }
-
-        // include merge behavior and arch info in the hash
-        self.merge_behavior.hash(state);
-        self.arch_info.hash(state);
     }
 }
 

@@ -21,7 +21,7 @@ use std::ops::Range;
 /// `<space>\[<offset>\]:<size>`. In the case of constants, we simplify this to `<offset>:<size>`.
 /// For registers, we will (soon! (TM)) perform a register lookup and instead show the pretty
 /// architecture-defined register name.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "pyo3", pyclass)]
 pub struct VarNode {
     /// The index at which the relevant space can be found in a [`SleighArchInfo`]
@@ -76,11 +76,11 @@ impl VarNode {
         left || right
     }
 
-    pub fn min(&self) -> u64 {
+    pub fn min_offset(&self) -> u64 {
         self.offset
     }
 
-    pub fn max(&self) -> u64 {
+    pub fn max_offset(&self) -> u64 {
         self.offset + self.size as u64
     }
 }
@@ -138,7 +138,7 @@ pub fn create_varnode<T: Borrow<SleighArchInfo>>(
 }
 
 #[cfg_attr(feature = "pyo3", pyclass)]
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IndirectVarNode {
     pub pointer_space_index: usize,
     pub pointer_location: VarNode,
@@ -165,7 +165,7 @@ impl LowerHex for IndirectVarNode {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum GeneralizedVarNode {
     Direct(VarNode),
     Indirect(IndirectVarNode),
@@ -388,8 +388,8 @@ mod tests {
             space_index: 0,
             size: 8,
         };
-        assert_eq!(vn.min(), 100);
-        assert_eq!(vn.max(), 108);
+        assert_eq!(vn.min_offset(), 100);
+        assert_eq!(vn.max_offset(), 108);
     }
 
     #[test]

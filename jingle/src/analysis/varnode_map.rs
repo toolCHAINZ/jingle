@@ -2,7 +2,7 @@ use std::{borrow::Borrow, cmp::Ordering};
 
 use jingle_sleigh::VarNode;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 struct VnWrapper(pub VarNode, pub usize);
 
 impl PartialOrd for VnWrapper {
@@ -30,7 +30,7 @@ impl Ord for VnWrapper {
 /// Internally maintains a sorted vector of varnodes (`vns`) and a parallel `data` vector.
 /// The two vectors are kept aligned: `data[i]` is the value for `vns[i].0`. The wrapper also
 /// stores the index for debugging/inspection but it is updated on structural changes.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct VarNodeMap<T> {
     vns: Vec<VnWrapper>,
     data: Vec<T>,
