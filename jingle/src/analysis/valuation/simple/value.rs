@@ -367,11 +367,8 @@ impl Simplify for AddExpr {
 
         // expr + 0 -> expr
         // expr + (- |a|) -> expr - a
-        match right.as_const().map(|vn| vn.offset as i64) {
-            Some(0) => {
-                return left;
-            }
-            _ => {}
+        if let Some(0) = right.as_const().map(|vn| vn.offset as i64) {
+            return left;
         }
 
         // ((expr + #a) + #b) -> (expr + #(a + b))
