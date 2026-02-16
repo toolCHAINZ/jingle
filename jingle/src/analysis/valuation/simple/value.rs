@@ -832,7 +832,6 @@ impl SimpleValue {
     }
 }
 
-
 impl JoinSemiLattice for SimpleValue {
     fn join(&mut self, _other: &Self) {}
 }
