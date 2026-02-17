@@ -57,50 +57,50 @@ pub trait ImageSections {
 
     /// Returns an iterator over all addresses in the image sections.
     /// Empty sections are excluded from iteration.
-    fn addresses(&self) -> impl Iterator<Item = usize> + '_
+    fn addresses(&self) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
         self.image_sections()
             .filter(|s| !s.data.is_empty())
-            .flat_map(|s| s.base_address..(s.base_address + s.data.len()))
+            .flat_map(|s|(s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 
     /// Returns an iterator over the address ranges of all sections.
     /// Empty sections are excluded from iteration.
-    fn ranges(&self) -> impl Iterator<Item = Range<usize>> + '_
+    fn ranges(&self) -> impl Iterator<Item = Range<u64>> + '_
     where
         Self: Sized,
     {
         self.image_sections()
             .filter(|s| !s.data.is_empty())
-            .map(|s| s.base_address..(s.base_address + s.data.len()))
+            .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 
     /// Returns an iterator over addresses in sections matching the required permissions.
     /// Only sections whose permissions satisfy the required permissions are included.
     /// Empty sections are excluded from iteration.
-    fn addresses_with_perms(&self, required: &Perms) -> impl Iterator<Item = usize> + '_
+    fn addresses_with_perms(&self, required: &Perms) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
         let required = required.clone();
         self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
-            .flat_map(|s| s.base_address..(s.base_address + s.data.len()))
+            .flat_map(|s|(s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 
     /// Returns an iterator over ranges in sections matching the required permissions.
     /// Only sections whose permissions satisfy the required permissions are included.
     /// Empty sections are excluded from iteration.
-    fn ranges_with_perms(&self, required: &Perms) -> impl Iterator<Item = Range<usize>> + '_
+    fn ranges_with_perms(&self, required: &Perms) -> impl Iterator<Item = Range<u64>> + '_
     where
         Self: Sized,
     {
         let required = required.clone();
         self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
-            .map(|s| s.base_address..(s.base_address + s.data.len()))
+            .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 }
 
@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn test_addresses_iteration() {
         let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
-        let addresses: Vec<usize> = data.addresses().collect();
+        let addresses: Vec<u64> = data.addresses().collect();
         assert_eq!(addresses, vec![0, 1, 2]);
     }
 
@@ -359,15 +359,15 @@ mod tests {
         let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
 
         // Should get addresses when permissions match
-        let addresses: Vec<usize> = data.addresses_with_perms(&Perms::R).collect();
+        let addresses: Vec<u64> = data.addresses_with_perms(&Perms::R).collect();
         assert_eq!(addresses, vec![0, 1, 2]);
 
         // Should get addresses when asking for subset of available perms
-        let addresses: Vec<usize> = data.addresses_with_perms(&Perms::RX).collect();
+        let addresses: Vec<u64> = data.addresses_with_perms(&Perms::RX).collect();
         assert_eq!(addresses, vec![0, 1, 2]);
 
         // Should get no addresses when asking for write permission (not available)
-        let addresses: Vec<usize> = data.addresses_with_perms(&Perms::RW).collect();
+        let addresses: Vec<u64> = data.addresses_with_perms(&Perms::RW).collect();
         assert_eq!(addresses.len(), 0);
     }
 
@@ -391,13 +391,13 @@ mod tests {
 
     impl ImageSections for MultiSectionImage {
         fn image_sections(&self) -> crate::context::image::ImageSectionIterator<'_> {
-            crate::context::image::ImageSectionIterator::new(
-                self.sections.iter().map(|(data, base, perms)| ImageSection {
+            crate::context::image::ImageSectionIterator::new(self.sections.iter().map(
+                |(data, base, perms)| ImageSection {
                     data: data.as_slice(),
                     base_address: *base,
                     perms: perms.clone(),
-                })
-            )
+                },
+            ))
         }
     }
 
@@ -411,7 +411,7 @@ mod tests {
             ],
         };
 
-        let addresses: Vec<usize> = img.addresses().collect();
+        let addresses: Vec<u64> = img.addresses().collect();
         assert_eq!(
             addresses,
             vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
@@ -429,10 +429,7 @@ mod tests {
         };
 
         let ranges: Vec<_> = img.ranges().collect();
-        assert_eq!(
-            ranges,
-            vec![0x1000..0x1002, 0x2000..0x2003, 0x3000..0x3001]
-        );
+        assert_eq!(ranges, vec![0x1000..0x1002, 0x2000..0x2003, 0x3000..0x3001]);
     }
 
     #[test]
@@ -446,18 +443,18 @@ mod tests {
         };
 
         // Only read-only sections
-        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::R).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::R).collect();
         assert_eq!(
             addresses,
             vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
         );
 
         // Only writable sections
-        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::RW).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::RW).collect();
         assert_eq!(addresses, vec![0x2000, 0x2001, 0x2002]);
 
         // Only executable sections
-        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::RX).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::RX).collect();
         assert_eq!(addresses, vec![0x3000]);
     }
 
@@ -491,7 +488,7 @@ mod tests {
         };
 
         // Empty section should be excluded from addresses
-        let addresses: Vec<usize> = img.addresses().collect();
+        let addresses: Vec<u64> = img.addresses().collect();
         assert_eq!(addresses, vec![0x1000, 0x1001, 0x3000]);
 
         // Empty section should be excluded from ranges
@@ -499,7 +496,7 @@ mod tests {
         assert_eq!(ranges, vec![0x1000..0x1002, 0x3000..0x3001]);
 
         // Empty section should be excluded even if permissions match
-        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::RW).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::RW).collect();
         assert_eq!(addresses.len(), 0);
     }
 }
