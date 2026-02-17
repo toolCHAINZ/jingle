@@ -53,7 +53,7 @@ impl<T: SleighImageCore> ImageBytes for T {}
 /// single contiguous region).
 pub trait ImageSections {
     /// Returns an iterator over the sections/segments in this image.
-    fn get_section_info(&self) -> ImageSectionIterator<'_>;
+    fn image_sections(&self) -> ImageSectionIterator<'_>;
 
     /// Returns an iterator over all addresses in the image sections.
     /// Empty sections are excluded from iteration.
@@ -61,7 +61,7 @@ pub trait ImageSections {
     where
         Self: Sized,
     {
-        self.get_section_info()
+        self.image_sections()
             .filter(|s| !s.data.is_empty())
             .flat_map(|s| s.base_address..(s.base_address + s.data.len()))
     }
@@ -72,7 +72,7 @@ pub trait ImageSections {
     where
         Self: Sized,
     {
-        self.get_section_info()
+        self.image_sections()
             .filter(|s| !s.data.is_empty())
             .map(|s| s.base_address..(s.base_address + s.data.len()))
     }
@@ -85,7 +85,7 @@ pub trait ImageSections {
         Self: Sized,
     {
         let required = required.clone();
-        self.get_section_info()
+        self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
             .flat_map(|s| s.base_address..(s.base_address + s.data.len()))
     }
@@ -98,7 +98,7 @@ pub trait ImageSections {
         Self: Sized,
     {
         let required = required.clone();
-        self.get_section_info()
+        self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
             .map(|s| s.base_address..(s.base_address + s.data.len()))
     }
@@ -183,7 +183,7 @@ impl SleighImageCore for &[u8] {
 }
 
 impl ImageSections for &[u8] {
-    fn get_section_info(&self) -> ImageSectionIterator<'_> {
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
             base_address: 0,
@@ -207,7 +207,7 @@ impl SleighImageCore for Vec<u8> {
 }
 
 impl ImageSections for Vec<u8> {
-    fn get_section_info(&self) -> ImageSectionIterator<'_> {
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
             base_address: 0,
@@ -231,8 +231,8 @@ impl<T: SleighImageCore> SleighImageCore for &T {
 }
 
 impl<T: ImageSections> ImageSections for &T {
-    fn get_section_info(&self) -> ImageSectionIterator<'_> {
-        (*self).get_section_info()
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
+        (*self).image_sections()
     }
 }
 
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn test_vec_sections() {
         let data: Vec<u8> = vec![1, 2, 3];
-        let sections: Vec<ImageSection> = data.get_section_info().collect();
+        let sections: Vec<ImageSection> = data.image_sections().collect();
         assert_ne!(sections, vec![])
     }
 
@@ -390,7 +390,7 @@ mod tests {
     }
 
     impl ImageSections for MultiSectionImage {
-        fn get_section_info(&self) -> crate::context::image::ImageSectionIterator<'_> {
+        fn image_sections(&self) -> crate::context::image::ImageSectionIterator<'_> {
             crate::context::image::ImageSectionIterator::new(
                 self.sections.iter().map(|(data, base, perms)| ImageSection {
                     data: data.as_slice(),

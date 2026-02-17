@@ -79,7 +79,7 @@ impl SleighImageCore for OwnedFile {
         output.fill(0);
         let output_start_addr = vn.offset as usize;
         let output_end_addr = output_start_addr + vn.size;
-        if let Some(x) = self.get_section_info().find(|s| {
+        if let Some(x) = self.image_sections().find(|s| {
             output_start_addr >= s.base_address
                 && output_start_addr < (s.base_address + s.data.len())
         }) {
@@ -102,7 +102,7 @@ impl SleighImageCore for OwnedFile {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
-        self.get_section_info().any(|s| {
+        self.image_sections().any(|s| {
             s.base_address <= vn.offset as usize
                 && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size)
         })
@@ -110,7 +110,7 @@ impl SleighImageCore for OwnedFile {
 }
 
 impl ImageSections for OwnedFile {
-    fn get_section_info(&self) -> ImageSectionIterator<'_> {
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections.iter().map(ImageSection::from))
     }
 }
@@ -159,7 +159,7 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
 }
 
 impl<'a> ImageSections for File<'a, &'a [u8]> {
-    fn get_section_info(&self) -> ImageSectionIterator<'_> {
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections().filter_map(|s| {
             if let Ok(data) = s.data() {
                 Some(ImageSection {
