@@ -138,6 +138,15 @@ impl SimpleValuationState {
                 }
             }
 
+            PcodeOperation::IntXor { input0, input1, .. }
+            | PcodeOperation::BoolXor { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state.valuation.add(output_vn, (a ^ b).simplify());
+                }
+            }
+
             PcodeOperation::IntMult { input0, input1, .. } => {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
