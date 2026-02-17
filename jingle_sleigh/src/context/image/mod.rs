@@ -54,6 +54,54 @@ impl<T: SleighImageCore> ImageBytes for T {}
 pub trait ImageSections {
     /// Returns an iterator over the sections/segments in this image.
     fn get_section_info(&self) -> ImageSectionIterator<'_>;
+
+    /// Returns an iterator over all addresses in the image sections.
+    /// Empty sections are excluded from iteration.
+    fn addresses(&self) -> impl Iterator<Item = usize> + '_
+    where
+        Self: Sized,
+    {
+        self.get_section_info()
+            .filter(|s| !s.data.is_empty())
+            .flat_map(|s| s.base_address..(s.base_address + s.data.len()))
+    }
+
+    /// Returns an iterator over the address ranges of all sections.
+    /// Empty sections are excluded from iteration.
+    fn ranges(&self) -> impl Iterator<Item = Range<usize>> + '_
+    where
+        Self: Sized,
+    {
+        self.get_section_info()
+            .filter(|s| !s.data.is_empty())
+            .map(|s| s.base_address..(s.base_address + s.data.len()))
+    }
+
+    /// Returns an iterator over addresses in sections matching the required permissions.
+    /// Only sections whose permissions satisfy the required permissions are included.
+    /// Empty sections are excluded from iteration.
+    fn addresses_with_perms(&self, required: &Perms) -> impl Iterator<Item = usize> + '_
+    where
+        Self: Sized,
+    {
+        let required = required.clone();
+        self.get_section_info()
+            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
+            .flat_map(|s| s.base_address..(s.base_address + s.data.len()))
+    }
+
+    /// Returns an iterator over ranges in sections matching the required permissions.
+    /// Only sections whose permissions satisfy the required permissions are included.
+    /// Empty sections are excluded from iteration.
+    fn ranges_with_perms(&self, required: &Perms) -> impl Iterator<Item = Range<usize>> + '_
+    where
+        Self: Sized,
+    {
+        let required = required.clone();
+        self.get_section_info()
+            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
+            .map(|s| s.base_address..(s.base_address + s.data.len()))
+    }
 }
 
 /// Trait for image types that support symbol resolution.
@@ -235,6 +283,14 @@ impl Perms {
         write: false,
         exec: false,
     };
+
+    /// Check if these permissions satisfy the required permissions.
+    /// Returns `true` if all required permissions are present in `self`.
+    pub fn satisfies(&self, required: &Perms) -> bool {
+        (!required.read || self.read)
+            && (!required.write || self.write)
+            && (!required.exec || self.exec)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -246,11 +302,204 @@ pub struct ImageSection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::context::image::{ImageSection, ImageSections};
+    use crate::context::image::{ImageSection, ImageSections, Perms};
+
     #[test]
     fn test_vec_sections() {
         let data: Vec<u8> = vec![1, 2, 3];
         let sections: Vec<ImageSection> = data.get_section_info().collect();
         assert_ne!(sections, vec![])
+    }
+
+    #[test]
+    fn test_perms_satisfies() {
+        // Test exact match
+        assert!(Perms::R.satisfies(&Perms::R));
+        assert!(Perms::RW.satisfies(&Perms::RW));
+        assert!(Perms::RX.satisfies(&Perms::RX));
+        assert!(Perms::RWX.satisfies(&Perms::RWX));
+
+        // Test superset satisfies subset
+        assert!(Perms::RWX.satisfies(&Perms::R));
+        assert!(Perms::RWX.satisfies(&Perms::RW));
+        assert!(Perms::RWX.satisfies(&Perms::RX));
+        assert!(Perms::RW.satisfies(&Perms::R));
+        assert!(Perms::RX.satisfies(&Perms::R));
+
+        // Test subset does not satisfy superset
+        assert!(!Perms::R.satisfies(&Perms::RW));
+        assert!(!Perms::R.satisfies(&Perms::RX));
+        assert!(!Perms::R.satisfies(&Perms::RWX));
+        assert!(!Perms::RW.satisfies(&Perms::RWX));
+        assert!(!Perms::RX.satisfies(&Perms::RWX));
+
+        // Test NONE
+        assert!(Perms::NONE.satisfies(&Perms::NONE));
+        assert!(Perms::R.satisfies(&Perms::NONE));
+        assert!(Perms::RWX.satisfies(&Perms::NONE));
+        assert!(!Perms::NONE.satisfies(&Perms::R));
+    }
+
+    #[test]
+    fn test_addresses_iteration() {
+        let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
+        let addresses: Vec<usize> = data.addresses().collect();
+        assert_eq!(addresses, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_ranges_iteration() {
+        let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
+        let ranges: Vec<_> = data.ranges().collect();
+        assert_eq!(ranges, vec![0..3]);
+    }
+
+    #[test]
+    fn test_addresses_with_perms() {
+        let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
+
+        // Should get addresses when permissions match
+        let addresses: Vec<usize> = data.addresses_with_perms(&Perms::R).collect();
+        assert_eq!(addresses, vec![0, 1, 2]);
+
+        // Should get addresses when asking for subset of available perms
+        let addresses: Vec<usize> = data.addresses_with_perms(&Perms::RX).collect();
+        assert_eq!(addresses, vec![0, 1, 2]);
+
+        // Should get no addresses when asking for write permission (not available)
+        let addresses: Vec<usize> = data.addresses_with_perms(&Perms::RW).collect();
+        assert_eq!(addresses.len(), 0);
+    }
+
+    #[test]
+    fn test_ranges_with_perms() {
+        let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
+
+        // Should get range when permissions match
+        let ranges: Vec<_> = data.ranges_with_perms(&Perms::R).collect();
+        assert_eq!(ranges, vec![0..3]);
+
+        // Should get no ranges when asking for write permission
+        let ranges: Vec<_> = data.ranges_with_perms(&Perms::RW).collect();
+        assert_eq!(ranges.len(), 0);
+    }
+
+    // Test with a custom multi-section image
+    struct MultiSectionImage {
+        sections: Vec<(Vec<u8>, usize, Perms)>,
+    }
+
+    impl ImageSections for MultiSectionImage {
+        fn get_section_info(&self) -> crate::context::image::ImageSectionIterator<'_> {
+            crate::context::image::ImageSectionIterator::new(
+                self.sections.iter().map(|(data, base, perms)| ImageSection {
+                    data: data.as_slice(),
+                    base_address: *base,
+                    perms: perms.clone(),
+                })
+            )
+        }
+    }
+
+    #[test]
+    fn test_multi_section_addresses() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![0x03, 0x04, 0x05], 0x2000, Perms::RW),
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        let addresses: Vec<usize> = img.addresses().collect();
+        assert_eq!(
+            addresses,
+            vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
+        );
+    }
+
+    #[test]
+    fn test_multi_section_ranges() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![0x03, 0x04, 0x05], 0x2000, Perms::RW),
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        let ranges: Vec<_> = img.ranges().collect();
+        assert_eq!(
+            ranges,
+            vec![0x1000..0x1002, 0x2000..0x2003, 0x3000..0x3001]
+        );
+    }
+
+    #[test]
+    fn test_multi_section_addresses_with_perms() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![0x03, 0x04, 0x05], 0x2000, Perms::RW),
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        // Only read-only sections
+        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::R).collect();
+        assert_eq!(
+            addresses,
+            vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
+        );
+
+        // Only writable sections
+        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::RW).collect();
+        assert_eq!(addresses, vec![0x2000, 0x2001, 0x2002]);
+
+        // Only executable sections
+        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::RX).collect();
+        assert_eq!(addresses, vec![0x3000]);
+    }
+
+    #[test]
+    fn test_multi_section_ranges_with_perms() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![0x03, 0x04, 0x05], 0x2000, Perms::RW),
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        // Only writable sections
+        let ranges: Vec<_> = img.ranges_with_perms(&Perms::RW).collect();
+        assert_eq!(ranges, vec![0x2000..0x2003]);
+
+        // Only executable sections
+        let ranges: Vec<_> = img.ranges_with_perms(&Perms::RX).collect();
+        assert_eq!(ranges, vec![0x3000..0x3001]);
+    }
+
+    #[test]
+    fn test_empty_sections_excluded() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![], 0x2000, Perms::RW), // Empty section
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        // Empty section should be excluded from addresses
+        let addresses: Vec<usize> = img.addresses().collect();
+        assert_eq!(addresses, vec![0x1000, 0x1001, 0x3000]);
+
+        // Empty section should be excluded from ranges
+        let ranges: Vec<_> = img.ranges().collect();
+        assert_eq!(ranges, vec![0x1000..0x1002, 0x3000..0x3001]);
+
+        // Empty section should be excluded even if permissions match
+        let addresses: Vec<usize> = img.addresses_with_perms(&Perms::RW).collect();
+        assert_eq!(addresses.len(), 0);
     }
 }
