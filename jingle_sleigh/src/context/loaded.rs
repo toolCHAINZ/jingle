@@ -152,13 +152,13 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
-        (&mut self.sleigh, &mut self.img)
+        (&mut self.sleigh, self.img.as_mut().get_mut())
     }
 
     /// Rebase the loaded image to `offset`
     /// Rebase the loaded image to `offset`
     pub fn set_base_address(&mut self, offset: u64) {
-        self.img.set_base_address(offset);
+        self.img.as_mut().get_mut().set_base_address(offset);
     }
 
     /// Get the current base address

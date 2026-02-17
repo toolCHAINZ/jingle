@@ -1,6 +1,7 @@
 use crate::context::SleighContextBuilder;
 use crate::context::image::{
-    ImageSection, ImageSectionIterator, Perms, SleighArchImage, SleighImage, SymbolInfo,
+    ImageSection, ImageSectionIterator, Perms, SleighArchImage, SleighImageCore,
+    ImageSections, SymbolResolver, SymbolInfo,
 };
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
@@ -72,7 +73,7 @@ impl OwnedFile {
     }
 }
 
-impl SleighImage for OwnedFile {
+impl SleighImageCore for OwnedFile {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);
@@ -106,17 +107,21 @@ impl SleighImage for OwnedFile {
                 && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size)
         })
     }
+}
 
+impl ImageSections for OwnedFile {
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections.iter().map(ImageSection::from))
     }
+}
 
+impl SymbolResolver for OwnedFile {
     fn resolve(&self, t: &str) -> Option<SymbolInfo> {
         self.exports.get(t).cloned()
     }
 }
 
-impl<'a> SleighImage for File<'a, &'a [u8]> {
+impl<'a> SleighImageCore for File<'a, &'a [u8]> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         let mut written = 0;
         output.fill(0);
@@ -151,7 +156,9 @@ impl<'a> SleighImage for File<'a, &'a [u8]> {
             s.address() <= vn.offset && (s.address() + s.size()) >= (vn.offset + vn.size as u64)
         })
     }
+}
 
+impl<'a> ImageSections for File<'a, &'a [u8]> {
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections().filter_map(|s| {
             if let Ok(data) = s.data() {
@@ -165,7 +172,9 @@ impl<'a> SleighImage for File<'a, &'a [u8]> {
             }
         }))
     }
+}
 
+impl<'a> SymbolResolver for File<'a, &'a [u8]> {
     fn resolve(&self, t: &str) -> Option<SymbolInfo> {
         let exp = self.exports().ok()?;
         let needle = t.as_bytes();

@@ -13,29 +13,78 @@ pub struct SymbolInfo {
     pub location: SymbolLocation, // todo: maybe other info goes in here later
 }
 
-/// A trait for types to talk to sleigh over FFI, allowing them to expose bytes
-/// for analysis
-pub trait SleighImage {
+/// Core trait for types to communicate with Sleigh over FFI.
+///
+/// This trait contains only the essential methods required for the FFI boundary:
+/// - `load`: Read bytes from a varnode location into a buffer
+/// - `has_full_range`: Check if a varnode range is fully available
+///
+/// These methods are required for all image types that interact with Sleigh.
+pub trait SleighImageCore {
+    /// Load bytes from the given varnode location into the output buffer.
+    /// Returns the number of bytes successfully written.
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize;
 
+    /// Check if the full range specified by the varnode is available in this image.
     fn has_full_range(&self, vn: &VarNode) -> bool;
-    fn get_section_info(&self) -> ImageSectionIterator<'_>;
+}
 
+/// Extension trait providing convenient byte-reading functionality.
+///
+/// This trait is automatically implemented for all types implementing `SleighImageCore`,
+/// providing a higher-level `get_bytes` method that allocates and returns a `Vec<u8>`.
+pub trait ImageBytes: SleighImageCore {
+    /// Read the byte range specified by the varnode, returning a vector.
+    /// Returns `None` if the full range is not available.
     fn get_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
         let mut vec = vec![0u8; vn.size];
         let size = self.load(vn, &mut vec);
         if size < vn.size { None } else { Some(vec) }
     }
-
-    fn resolve(&self, _: &str) -> Option<SymbolInfo> {
-        None
-    }
 }
 
-/// An image that can also inform sleigh about its architecture
+// Blanket implementation: all SleighImageCore types automatically get ImageBytes
+impl<T: SleighImageCore> ImageBytes for T {}
+
+/// Trait for image types that can provide section/segment information.
+///
+/// This trait is separate from `SleighImageCore` because not all image sources
+/// have meaningful section boundaries (e.g., raw byte slices may represent a
+/// single contiguous region).
+pub trait ImageSections {
+    /// Returns an iterator over the sections/segments in this image.
+    fn get_section_info(&self) -> ImageSectionIterator<'_>;
+}
+
+/// Trait for image types that support symbol resolution.
+///
+/// **Note**: This trait is currently experimental and not widely used in the codebase.
+/// It is provided for future extensibility and integration with symbol tables or
+/// debugging information.
+pub trait SymbolResolver {
+    /// Resolve a symbol name to its location information.
+    /// Returns `None` if the symbol is not found.
+    fn resolve(&self, name: &str) -> Option<SymbolInfo>;
+}
+
+/// An image that can also inform sleigh about its architecture.
+///
+/// This trait extends `SleighImage` (which includes core FFI, sections, and byte reading)
+/// and adds architecture identification capability.
 pub trait SleighArchImage: SleighImage {
+    /// Returns the Sleigh architecture identifier string (e.g., "x86:LE:64:default").
     fn architecture_id(&self) -> Result<&str, JingleSleighError>;
 }
+
+/// Combined trait for complete image support including core FFI, sections, and byte reading.
+///
+/// This trait is used as a convenience bound for APIs that need full image functionality.
+/// It combines `SleighImageCore` (FFI essentials), `ImageSections` (section information),
+/// and `ImageBytes` (convenient byte reading via blanket impl).
+pub trait SleighImage: SleighImageCore + ImageSections + ImageBytes {}
+
+// Blanket implementation: any type implementing core traits gets SleighImage
+impl<T: SleighImageCore + ImageSections> SleighImage for T {}
 
 pub struct ImageSectionIterator<'a> {
     iter: Box<dyn Iterator<Item = ImageSection<'a>> + 'a>,
@@ -56,7 +105,7 @@ impl<'a> Iterator for ImageSectionIterator<'a> {
         self.iter.next()
     }
 }
-impl SleighImage for &[u8] {
+impl SleighImageCore for &[u8] {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         //todo: check the space. Ignoring for now
         let vn_range: Range<usize> = Range::from(vn);
@@ -83,7 +132,9 @@ impl SleighImage for &[u8] {
         let vn_range: Range<usize> = Range::from(vn);
         vn_range.start < self.len() && vn_range.end <= self.len()
     }
+}
 
+impl ImageSections for &[u8] {
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
@@ -97,7 +148,7 @@ impl SleighImage for &[u8] {
     }
 }
 
-impl SleighImage for Vec<u8> {
+impl SleighImageCore for Vec<u8> {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         self.as_slice().load(vn, output)
     }
@@ -105,7 +156,9 @@ impl SleighImage for Vec<u8> {
     fn has_full_range(&self, vn: &VarNode) -> bool {
         self.as_slice().has_full_range(vn)
     }
+}
 
+impl ImageSections for Vec<u8> {
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
@@ -119,7 +172,7 @@ impl SleighImage for Vec<u8> {
     }
 }
 
-impl<T: SleighImage> SleighImage for &T {
+impl<T: SleighImageCore> SleighImageCore for &T {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         (*self).load(vn, output)
     }
@@ -127,11 +180,15 @@ impl<T: SleighImage> SleighImage for &T {
     fn has_full_range(&self, vn: &VarNode) -> bool {
         (*self).has_full_range(vn)
     }
+}
 
+impl<T: ImageSections> ImageSections for &T {
     fn get_section_info(&self) -> ImageSectionIterator<'_> {
         (*self).get_section_info()
     }
+}
 
+impl<T: SymbolResolver> SymbolResolver for &T {
     fn resolve(&self, t: &str) -> Option<SymbolInfo> {
         (*self).resolve(t)
     }
@@ -189,7 +246,7 @@ pub struct ImageSection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::context::image::{ImageSection, SleighImage};
+    use crate::context::image::{ImageSection, ImageSections};
     #[test]
     fn test_vec_sections() {
         let data: Vec<u8> = vec![1, 2, 3];
