@@ -55,6 +55,10 @@ pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// A bitwise XOR expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct XorExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+
 /// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
@@ -82,6 +86,7 @@ pub enum SimpleValue {
     Sub(SubExpr),
 
     Or(Or),
+    Xor(XorExpr),
     Load(Load),
 
     Top,
@@ -152,6 +157,14 @@ impl SimpleValue {
         }
     }
 
+    /// Accessor for `Xor` variant.
+    pub fn as_xor(&self) -> Option<&XorExpr> {
+        match self {
+            SimpleValue::Xor(x) => Some(x),
+            _ => None,
+        }
+    }
+
     /// Accessor for `Load` variant.
     pub fn as_load(&self) -> Option<&Load> {
         match self {
@@ -171,7 +184,8 @@ impl SimpleValue {
             SimpleValue::Mul(MulExpr(_, _, s))
             | SimpleValue::Add(AddExpr(_, _, s))
             | SimpleValue::Sub(SubExpr(_, _, s))
-            | SimpleValue::Or(Or(_, _, s)) => *s,
+            | SimpleValue::Or(Or(_, _, s))
+            | SimpleValue::Xor(XorExpr(_, _, s)) => *s,
             SimpleValue::Load(Load(_, s)) => *s,
             SimpleValue::Top => 8, // conservative default
         }
@@ -211,6 +225,12 @@ impl SimpleValue {
     pub fn or(left: SimpleValue, right: SimpleValue) -> Self {
         let s = std::cmp::max(left.size(), right.size());
         SimpleValue::Or(Or(Intern::new(left), Intern::new(right), s))
+    }
+
+    /// Construct a `Xor(...)` node from two children. Size is derived from children.
+    pub fn xor(left: SimpleValue, right: SimpleValue) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
     }
 
     /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
@@ -281,8 +301,9 @@ impl SimpleValue {
             SimpleValue::Add(_) => 4,
             SimpleValue::Sub(_) => 5,
             SimpleValue::Or(_) => 6,
-            SimpleValue::Load(_) => 7,
-            SimpleValue::Top => 8,
+            SimpleValue::Xor(_) => 7,
+            SimpleValue::Load(_) => 8,
+            SimpleValue::Top => 9,
         }
     }
 }
@@ -294,6 +315,7 @@ impl Simplify for SimpleValue {
             SimpleValue::Add(expr) => expr.simplify(),
             SimpleValue::Sub(expr) => expr.simplify(),
             SimpleValue::Or(expr) => expr.simplify(),
+            SimpleValue::Xor(expr) => expr.simplify(),
             SimpleValue::Load(expr) => expr.simplify(),
             SimpleValue::Entry(_)
             | SimpleValue::Offset(_)
@@ -670,6 +692,49 @@ impl Simplify for Or {
     }
 }
 
+impl Simplify for XorExpr {
+    fn simplify(&self) -> SimpleValue {
+        let a_intern = self.0;
+        let b_intern = self.1;
+
+        // simplify children first
+        let a_s = a_intern.as_ref().simplify();
+        let b_s = b_intern.as_ref().simplify();
+
+        // if either child is Top, the result is Top
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        // normalize: prefer constant on the right
+        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+
+        // both const -> fold
+        if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
+            let left_val = left_vn.offset;
+            let right_val = right_vn.offset;
+            let res = (left_val ^ right_val) as i64;
+            let size = SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
+            return SimpleValue::make_const(res, size);
+        }
+
+        // identical children => 0 (x XOR x = 0)
+        if left == right {
+            let size = SimpleValue::derive_size_from(&left);
+            return SimpleValue::make_const(0, size);
+        }
+
+        // expr XOR 0 -> expr
+        if right.as_const().map(|vn| vn.offset) == Some(0) {
+            return left;
+        }
+
+        // default: rebuild with simplified children
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
+    }
+}
+
 impl Simplify for Load {
     fn simplify(&self) -> SimpleValue {
         let a_intern = self.0;
@@ -732,6 +797,14 @@ impl JingleDisplay for SimpleValue {
                     b.as_ref().display(info)
                 )
             }
+            SimpleValue::Xor(XorExpr(a, b, _)) => {
+                write!(
+                    f,
+                    "({}^{})",
+                    a.as_ref().display(info),
+                    b.as_ref().display(info)
+                )
+            }
             SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
             SimpleValue::Top => write!(f, "⊤"),
         }
@@ -767,6 +840,10 @@ impl std::fmt::Display for SimpleValue {
             SimpleValue::Or(Or(a, b, _)) => {
                 // Logical-or style with double pipes
                 write!(f, "({}||{})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Xor(XorExpr(a, b, _)) => {
+                // XOR with caret
+                write!(f, "({}^{})", a.as_ref(), b.as_ref())
             }
             SimpleValue::Load(Load(a, _)) => {
                 // Load(child)
@@ -805,6 +882,9 @@ impl std::fmt::LowerHex for SimpleValue {
             }
             SimpleValue::Or(Or(a, b, _)) => {
                 write!(f, "({:x}||{:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::Xor(XorExpr(a, b, _)) => {
+                write!(f, "({:x}^{:x})", a.as_ref(), b.as_ref())
             }
             SimpleValue::Load(Load(a, _)) => {
                 write!(f, "Load({:x})", a.as_ref())
