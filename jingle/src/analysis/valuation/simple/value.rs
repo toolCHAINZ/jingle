@@ -10,6 +10,7 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
+use std::ops::BitXor;
 use std::{
     fmt::Formatter,
     ops::{Add, Mul, Sub},
@@ -340,6 +341,15 @@ impl Add for SimpleValue {
     fn add(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
         SimpleValue::Add(AddExpr(Intern::new(self), Intern::new(rhs), s))
+    }
+}
+
+impl BitXor for SimpleValue {
+    type Output = SimpleValue;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let s = std::cmp::max(self.size(), rhs.size());
+        SimpleValue::Xor(XorExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
@@ -714,7 +724,8 @@ impl Simplify for XorExpr {
             let left_val = left_vn.offset;
             let right_val = right_vn.offset;
             let res = (left_val ^ right_val) as i64;
-            let size = SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
+            let size =
+                SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
             return SimpleValue::make_const(res, size);
         }
 
