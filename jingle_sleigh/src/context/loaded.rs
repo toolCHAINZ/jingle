@@ -1,5 +1,7 @@
 use crate::JingleSleighError::ImageLoadError;
-use crate::context::image::{ImageSection, SleighArchImage, SleighImage};
+use crate::context::image::{
+    ImageSection, ImageSectionIterator, ImageSections, SleighArchImage, SleighImage,
+};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::{SleighContext, SleighContextBuilder};
 use crate::ffi::context_ffi::ImageFFI;
@@ -145,20 +147,20 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Returns an iterator of entries describing the sections of the configured image provider.
     pub fn get_sections(&self) -> impl Iterator<Item = ImageSection<'_>> {
-        self.img.provider.get_section_info().map(|mut s| {
+        self.img.provider.image_sections().map(|mut s| {
             s.base_address += self.get_base_address() as usize;
             s
         })
     }
 
     fn borrow_parts<'b>(&'b mut self) -> (&'b mut SleighContext, &'b mut ImageFFI<'a>) {
-        (&mut self.sleigh, &mut self.img)
+        (&mut self.sleigh, self.img.as_mut().get_mut())
     }
 
     /// Rebase the loaded image to `offset`
     /// Rebase the loaded image to `offset`
     pub fn set_base_address(&mut self, offset: u64) {
-        self.img.set_base_address(offset);
+        self.img.as_mut().get_mut().set_base_address(offset);
     }
 
     /// Get the current base address
@@ -188,6 +190,16 @@ impl<'a> LoadedSleighContext<'a> {
 impl<'a> AsRef<SleighArchInfo> for LoadedSleighContext<'a> {
     fn as_ref(&self) -> &SleighArchInfo {
         self.sleigh.arch_info()
+    }
+}
+impl<'a> ImageSections for LoadedSleighContext<'a> {
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
+        // Get sections from the underlying provider and adjust their base addresses
+        let base_offset = self.get_base_address() as usize;
+        ImageSectionIterator::new(self.img.provider.image_sections().map(move |mut section| {
+            section.base_address = section.base_address.wrapping_add(base_offset);
+            section
+        }))
     }
 }
 

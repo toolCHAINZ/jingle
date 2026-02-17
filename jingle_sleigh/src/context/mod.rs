@@ -15,11 +15,11 @@ use std::collections::HashMap;
 
 use crate::JingleSleighError::{ImageLoadError, SleighCompilerMutexError};
 use crate::context::builder::language_def::Language;
-use crate::context::image::SleighImage;
 use crate::context::loaded::LoadedSleighContext;
 use crate::ffi::context_ffi::CTX_BUILD_MUTEX;
 use crate::{PcodeOperation, VarNode};
 use cxx::{SharedPtr, UniquePtr};
+use image::SleighImage;
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 use std::fmt::{Debug, Formatter};
