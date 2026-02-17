@@ -451,7 +451,7 @@ mod tests {
                 |(data, base, perms)| ImageSection {
                     data: data.as_slice(),
                     base_address: *base,
-                    perms: perms.clone(),
+                    perms: *perms,
                 },
             ))
         }
