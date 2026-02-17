@@ -80,26 +80,81 @@ pub trait ImageSections {
     /// Returns an iterator over addresses in sections matching the required permissions.
     /// Only sections whose permissions satisfy the required permissions are included.
     /// Empty sections are excluded from iteration.
-    fn addresses_with_perms(&self, required: &Perms) -> impl Iterator<Item = u64> + '_
+    fn addresses_with_perms(&self, required: Perms) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
         let required = required.clone();
         self.image_sections()
-            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
+            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
             .flat_map(|s|(s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+    }
+
+    /// Returns an iterator over all addresses in the image sections starting from the given address.
+    /// Empty sections are excluded from iteration.
+    /// Sections that end before the start address are skipped entirely for efficiency.
+    fn addresses_from(&self, start: u64) -> impl Iterator<Item = u64> + '_
+    where
+        Self: Sized,
+    {
+        self.image_sections()
+            .filter(|s| !s.data.is_empty())
+            .filter_map(move |s| {
+                let section_start = s.base_address as u64;
+                let section_end = (s.base_address + s.data.len()) as u64;
+
+                // Skip sections that end before start address
+                if section_end <= start {
+                    return None;
+                }
+
+                // Start from either the section start or the requested start address,
+                // whichever is later
+                let range_start = section_start.max(start);
+                Some(range_start..section_end)
+            })
+            .flat_map(|range| range)
+    }
+
+    /// Returns an iterator over addresses in sections matching the required permissions,
+    /// starting from the given address.
+    /// Only sections whose permissions satisfy the required permissions are included.
+    /// Empty sections are excluded from iteration.
+    /// Sections that end before the start address are skipped entirely for efficiency.
+    fn addresses_with_perms_from(&self, required: Perms, start: u64) -> impl Iterator<Item = u64> + '_
+    where
+        Self: Sized,
+    {
+        let required = required.clone();
+        self.image_sections()
+            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
+            .filter_map(move |s| {
+                let section_start = s.base_address as u64;
+                let section_end = (s.base_address + s.data.len()) as u64;
+
+                // Skip sections that end before start address
+                if section_end <= start {
+                    return None;
+                }
+
+                // Start from either the section start or the requested start address,
+                // whichever is later
+                let range_start = section_start.max(start);
+                Some(range_start..section_end)
+            })
+            .flat_map(|range| range)
     }
 
     /// Returns an iterator over ranges in sections matching the required permissions.
     /// Only sections whose permissions satisfy the required permissions are included.
     /// Empty sections are excluded from iteration.
-    fn ranges_with_perms(&self, required: &Perms) -> impl Iterator<Item = Range<u64>> + '_
+    fn ranges_with_perms(&self, required: Perms) -> impl Iterator<Item = Range<u64>> + '_
     where
         Self: Sized,
     {
         let required = required.clone();
         self.image_sections()
-            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(&required))
+            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
             .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 }
@@ -248,7 +303,7 @@ impl<T: SleighArchImage> SleighArchImage for &T {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Perms {
     pub read: bool,
     pub write: bool,
@@ -286,7 +341,7 @@ impl Perms {
 
     /// Check if these permissions satisfy the required permissions.
     /// Returns `true` if all required permissions are present in `self`.
-    pub fn satisfies(&self, required: &Perms) -> bool {
+    pub fn satisfies(&self, required: Perms) -> bool {
         (!required.read || self.read)
             && (!required.write || self.write)
             && (!required.exec || self.exec)
@@ -314,30 +369,30 @@ mod tests {
     #[test]
     fn test_perms_satisfies() {
         // Test exact match
-        assert!(Perms::R.satisfies(&Perms::R));
-        assert!(Perms::RW.satisfies(&Perms::RW));
-        assert!(Perms::RX.satisfies(&Perms::RX));
-        assert!(Perms::RWX.satisfies(&Perms::RWX));
+        assert!(Perms::R.satisfies(Perms::R));
+        assert!(Perms::RW.satisfies(Perms::RW));
+        assert!(Perms::RX.satisfies(Perms::RX));
+        assert!(Perms::RWX.satisfies(Perms::RWX));
 
         // Test superset satisfies subset
-        assert!(Perms::RWX.satisfies(&Perms::R));
-        assert!(Perms::RWX.satisfies(&Perms::RW));
-        assert!(Perms::RWX.satisfies(&Perms::RX));
-        assert!(Perms::RW.satisfies(&Perms::R));
-        assert!(Perms::RX.satisfies(&Perms::R));
+        assert!(Perms::RWX.satisfies(Perms::R));
+        assert!(Perms::RWX.satisfies(Perms::RW));
+        assert!(Perms::RWX.satisfies(Perms::RX));
+        assert!(Perms::RW.satisfies(Perms::R));
+        assert!(Perms::RX.satisfies(Perms::R));
 
         // Test subset does not satisfy superset
-        assert!(!Perms::R.satisfies(&Perms::RW));
-        assert!(!Perms::R.satisfies(&Perms::RX));
-        assert!(!Perms::R.satisfies(&Perms::RWX));
-        assert!(!Perms::RW.satisfies(&Perms::RWX));
-        assert!(!Perms::RX.satisfies(&Perms::RWX));
+        assert!(!Perms::R.satisfies(Perms::RW));
+        assert!(!Perms::R.satisfies(Perms::RX));
+        assert!(!Perms::R.satisfies(Perms::RWX));
+        assert!(!Perms::RW.satisfies(Perms::RWX));
+        assert!(!Perms::RX.satisfies(Perms::RWX));
 
         // Test NONE
-        assert!(Perms::NONE.satisfies(&Perms::NONE));
-        assert!(Perms::R.satisfies(&Perms::NONE));
-        assert!(Perms::RWX.satisfies(&Perms::NONE));
-        assert!(!Perms::NONE.satisfies(&Perms::R));
+        assert!(Perms::NONE.satisfies(Perms::NONE));
+        assert!(Perms::R.satisfies(Perms::NONE));
+        assert!(Perms::RWX.satisfies(Perms::NONE));
+        assert!(!Perms::NONE.satisfies(Perms::R));
     }
 
     #[test]
@@ -359,15 +414,15 @@ mod tests {
         let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
 
         // Should get addresses when permissions match
-        let addresses: Vec<u64> = data.addresses_with_perms(&Perms::R).collect();
+        let addresses: Vec<u64> = data.addresses_with_perms(Perms::R).collect();
         assert_eq!(addresses, vec![0, 1, 2]);
 
         // Should get addresses when asking for subset of available perms
-        let addresses: Vec<u64> = data.addresses_with_perms(&Perms::RX).collect();
+        let addresses: Vec<u64> = data.addresses_with_perms(Perms::RX).collect();
         assert_eq!(addresses, vec![0, 1, 2]);
 
         // Should get no addresses when asking for write permission (not available)
-        let addresses: Vec<u64> = data.addresses_with_perms(&Perms::RW).collect();
+        let addresses: Vec<u64> = data.addresses_with_perms(Perms::RW).collect();
         assert_eq!(addresses.len(), 0);
     }
 
@@ -376,11 +431,11 @@ mod tests {
         let data: Vec<u8> = vec![0xAA, 0xBB, 0xCC];
 
         // Should get range when permissions match
-        let ranges: Vec<_> = data.ranges_with_perms(&Perms::R).collect();
+        let ranges: Vec<_> = data.ranges_with_perms(Perms::R).collect();
         assert_eq!(ranges, vec![0..3]);
 
         // Should get no ranges when asking for write permission
-        let ranges: Vec<_> = data.ranges_with_perms(&Perms::RW).collect();
+        let ranges: Vec<_> = data.ranges_with_perms(Perms::RW).collect();
         assert_eq!(ranges.len(), 0);
     }
 
@@ -443,18 +498,18 @@ mod tests {
         };
 
         // Only read-only sections
-        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::R).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(Perms::R).collect();
         assert_eq!(
             addresses,
             vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
         );
 
         // Only writable sections
-        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::RW).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(Perms::RW).collect();
         assert_eq!(addresses, vec![0x2000, 0x2001, 0x2002]);
 
         // Only executable sections
-        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::RX).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(Perms::RX).collect();
         assert_eq!(addresses, vec![0x3000]);
     }
 
@@ -469,11 +524,11 @@ mod tests {
         };
 
         // Only writable sections
-        let ranges: Vec<_> = img.ranges_with_perms(&Perms::RW).collect();
+        let ranges: Vec<_> = img.ranges_with_perms(Perms::RW).collect();
         assert_eq!(ranges, vec![0x2000..0x2003]);
 
         // Only executable sections
-        let ranges: Vec<_> = img.ranges_with_perms(&Perms::RX).collect();
+        let ranges: Vec<_> = img.ranges_with_perms(Perms::RX).collect();
         assert_eq!(ranges, vec![0x3000..0x3001]);
     }
 
@@ -496,7 +551,81 @@ mod tests {
         assert_eq!(ranges, vec![0x1000..0x1002, 0x3000..0x3001]);
 
         // Empty section should be excluded even if permissions match
-        let addresses: Vec<u64> = img.addresses_with_perms(&Perms::RW).collect();
+        let addresses: Vec<u64> = img.addresses_with_perms(Perms::RW).collect();
         assert_eq!(addresses.len(), 0);
+    }
+
+    #[test]
+    fn test_addresses_from() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![0x03, 0x04, 0x05], 0x2000, Perms::RW),
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        // Start from beginning
+        let addresses: Vec<u64> = img.addresses_from(0).collect();
+        assert_eq!(addresses, vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]);
+
+        // Start from middle of first section
+        let addresses: Vec<u64> = img.addresses_from(0x1001).collect();
+        assert_eq!(addresses, vec![0x1001, 0x2000, 0x2001, 0x2002, 0x3000]);
+
+        // Start from second section
+        let addresses: Vec<u64> = img.addresses_from(0x2000).collect();
+        assert_eq!(addresses, vec![0x2000, 0x2001, 0x2002, 0x3000]);
+
+        // Start from middle of second section
+        let addresses: Vec<u64> = img.addresses_from(0x2001).collect();
+        assert_eq!(addresses, vec![0x2001, 0x2002, 0x3000]);
+
+        // Start from last section
+        let addresses: Vec<u64> = img.addresses_from(0x3000).collect();
+        assert_eq!(addresses, vec![0x3000]);
+
+        // Start after all sections
+        let addresses: Vec<u64> = img.addresses_from(0x4000).collect();
+        assert_eq!(addresses.len(), 0);
+    }
+
+    #[test]
+    fn test_addresses_with_perms_from() {
+        let img = MultiSectionImage {
+            sections: vec![
+                (vec![0x01, 0x02], 0x1000, Perms::R),
+                (vec![0x03, 0x04, 0x05], 0x2000, Perms::RW),
+                (vec![0x06], 0x3000, Perms::RX),
+            ],
+        };
+
+        // All readable from beginning
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::R, 0).collect();
+        assert_eq!(addresses, vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]);
+
+        // All readable from middle
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::R, 0x2001).collect();
+        assert_eq!(addresses, vec![0x2001, 0x2002, 0x3000]);
+
+        // Only writable from beginning
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::RW, 0).collect();
+        assert_eq!(addresses, vec![0x2000, 0x2001, 0x2002]);
+
+        // Only writable from middle of writable section
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::RW, 0x2001).collect();
+        assert_eq!(addresses, vec![0x2001, 0x2002]);
+
+        // Only writable starting after writable section
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::RW, 0x3000).collect();
+        assert_eq!(addresses.len(), 0);
+
+        // Only executable from beginning
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::RX, 0).collect();
+        assert_eq!(addresses, vec![0x3000]);
+
+        // Executable from before executable section
+        let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::RX, 0x2500).collect();
+        assert_eq!(addresses, vec![0x3000]);
     }
 }
