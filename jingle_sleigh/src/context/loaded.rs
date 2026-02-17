@@ -1,5 +1,5 @@
 use crate::JingleSleighError::ImageLoadError;
-use crate::context::image::{ImageSection, SleighArchImage, SleighImage};
+use crate::context::image::{ImageSection, ImageSections, ImageSectionIterator, SleighArchImage, SleighImage, SleighImageCore, SymbolInfo, SymbolResolver};
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
 use crate::context::{SleighContext, SleighContextBuilder};
 use crate::ffi::context_ffi::ImageFFI;
@@ -188,6 +188,18 @@ impl<'a> LoadedSleighContext<'a> {
 impl<'a> AsRef<SleighArchInfo> for LoadedSleighContext<'a> {
     fn as_ref(&self) -> &SleighArchInfo {
         self.sleigh.arch_info()
+    }
+}
+impl<'a> ImageSections for LoadedSleighContext<'a> {
+    fn image_sections(&self) -> ImageSectionIterator<'_> {
+        // Get sections from the underlying provider and adjust their base addresses
+        let base_offset = self.get_base_address() as usize;
+        ImageSectionIterator::new(
+            self.img.provider.image_sections().map(move |mut section| {
+                section.base_address = section.base_address.wrapping_add(base_offset);
+                section
+            })
+        )
     }
 }
 
