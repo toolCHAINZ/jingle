@@ -1,7 +1,7 @@
 use crate::context::SleighContextBuilder;
 use crate::context::image::{
-    ImageSection, ImageSectionIterator, Perms, SleighArchImage, SleighImageCore,
-    ImageSections, SymbolResolver, SymbolInfo,
+    ImageSection, ImageSectionIterator, ImageSections, Perms, SleighArchImage, SleighImageCore,
+    SymbolInfo, SymbolResolver,
 };
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
@@ -25,7 +25,7 @@ impl<'a> From<&'a OwnedSection> for ImageSection<'a> {
     fn from(value: &'a OwnedSection) -> Self {
         ImageSection {
             data: value.data.as_slice(),
-            perms: value.perms.clone(),
+            perms: value.perms,
             base_address: value.base_address,
         }
     }

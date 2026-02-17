@@ -63,7 +63,7 @@ pub trait ImageSections {
     {
         self.image_sections()
             .filter(|s| !s.data.is_empty())
-            .flat_map(|s|(s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 
     /// Returns an iterator over the address ranges of all sections.
@@ -84,10 +84,9 @@ pub trait ImageSections {
     where
         Self: Sized,
     {
-        let required = required.clone();
         self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
-            .flat_map(|s|(s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 
     /// Returns an iterator over all addresses in the image sections starting from the given address.
@@ -113,7 +112,7 @@ pub trait ImageSections {
                 let range_start = section_start.max(start);
                 Some(range_start..section_end)
             })
-            .flat_map(|range| range)
+            .flatten()
     }
 
     /// Returns an iterator over addresses in sections matching the required permissions,
@@ -121,11 +120,14 @@ pub trait ImageSections {
     /// Only sections whose permissions satisfy the required permissions are included.
     /// Empty sections are excluded from iteration.
     /// Sections that end before the start address are skipped entirely for efficiency.
-    fn addresses_with_perms_from(&self, required: Perms, start: u64) -> impl Iterator<Item = u64> + '_
+    fn addresses_with_perms_from(
+        &self,
+        required: Perms,
+        start: u64,
+    ) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
-        let required = required.clone();
         self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
             .filter_map(move |s| {
@@ -142,7 +144,7 @@ pub trait ImageSections {
                 let range_start = section_start.max(start);
                 Some(range_start..section_end)
             })
-            .flat_map(|range| range)
+            .flatten()
     }
 
     /// Returns an iterator over ranges in sections matching the required permissions.
@@ -152,7 +154,6 @@ pub trait ImageSections {
     where
         Self: Sized,
     {
-        let required = required.clone();
         self.image_sections()
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
             .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
@@ -567,7 +568,10 @@ mod tests {
 
         // Start from beginning
         let addresses: Vec<u64> = img.addresses_from(0).collect();
-        assert_eq!(addresses, vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]);
+        assert_eq!(
+            addresses,
+            vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
+        );
 
         // Start from middle of first section
         let addresses: Vec<u64> = img.addresses_from(0x1001).collect();
@@ -602,7 +606,10 @@ mod tests {
 
         // All readable from beginning
         let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::R, 0).collect();
-        assert_eq!(addresses, vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]);
+        assert_eq!(
+            addresses,
+            vec![0x1000, 0x1001, 0x2000, 0x2001, 0x2002, 0x3000]
+        );
 
         // All readable from middle
         let addresses: Vec<u64> = img.addresses_with_perms_from(Perms::R, 0x2001).collect();
