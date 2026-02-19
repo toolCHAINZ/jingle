@@ -126,6 +126,19 @@ impl SimpleValue {
         }
     }
 
+    /// Returns `true` if this value is a binary expression that needs parentheses
+    /// when used as an operand inside another binary expression.
+    fn is_compound(&self) -> bool {
+        matches!(
+            self,
+            SimpleValue::Mul(_)
+                | SimpleValue::Add(_)
+                | SimpleValue::Sub(_)
+                | SimpleValue::Or(_)
+                | SimpleValue::Xor(_)
+        )
+    }
+
     /// Accessor for `Mul` variant.
     pub fn as_mul(&self) -> Option<&MulExpr> {
         match self {
@@ -760,6 +773,35 @@ impl Simplify for Load {
     }
 }
 
+fn fmt_operand_jingle(
+    f: &mut Formatter<'_>,
+    v: &SimpleValue,
+    info: &SleighArchInfo,
+) -> std::fmt::Result {
+    if v.is_compound() {
+        write!(f, "({}", v.display(info))?;
+        write!(f, ")")
+    } else {
+        write!(f, "{}", v.display(info))
+    }
+}
+
+fn fmt_operand(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt::Result {
+    if v.is_compound() {
+        write!(f, "({v})")
+    } else {
+        write!(f, "{v}")
+    }
+}
+
+fn fmt_operand_hex(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt::Result {
+    if v.is_compound() {
+        write!(f, "({v:x})")
+    } else {
+        write!(f, "{v:x}")
+    }
+}
+
 impl JingleDisplay for SimpleValue {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
@@ -777,44 +819,29 @@ impl JingleDisplay for SimpleValue {
                 )
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
-                write!(
-                    f,
-                    "({}*{})",
-                    a.as_ref().display(info),
-                    b.as_ref().display(info)
-                )
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "*")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Add(AddExpr(a, b, _)) => {
-                write!(
-                    f,
-                    "({}+{})",
-                    a.as_ref().display(info),
-                    b.as_ref().display(info)
-                )
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "+")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Sub(SubExpr(a, b, _)) => {
-                write!(
-                    f,
-                    "({}-{})",
-                    a.as_ref().display(info),
-                    b.as_ref().display(info)
-                )
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "-")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Or(Or(a, b, _)) => {
-                write!(
-                    f,
-                    "({}||{})",
-                    a.as_ref().display(info),
-                    b.as_ref().display(info)
-                )
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "||")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Xor(XorExpr(a, b, _)) => {
-                write!(
-                    f,
-                    "({}^{})",
-                    a.as_ref().display(info),
-                    b.as_ref().display(info)
-                )
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "^")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
             SimpleValue::Top => write!(f, "⊤"),
@@ -837,24 +864,29 @@ impl std::fmt::Display for SimpleValue {
                 write!(f, "offset({}, {})", vn.0.as_ref(), off.as_ref())
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
-                // Infix multiplication with parens
-                write!(f, "({}*{})", a.as_ref(), b.as_ref())
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "*")?;
+                fmt_operand(f, b.as_ref())
             }
             SimpleValue::Add(AddExpr(a, b, _)) => {
-                // Infix addition with parens
-                write!(f, "({}+{})", a.as_ref(), b.as_ref())
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "+")?;
+                fmt_operand(f, b.as_ref())
             }
             SimpleValue::Sub(SubExpr(a, b, _)) => {
-                // Infix subtraction with parens
-                write!(f, "({}-{})", a.as_ref(), b.as_ref())
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "-")?;
+                fmt_operand(f, b.as_ref())
             }
             SimpleValue::Or(Or(a, b, _)) => {
-                // Logical-or style with double pipes
-                write!(f, "({}||{})", a.as_ref(), b.as_ref())
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "||")?;
+                fmt_operand(f, b.as_ref())
             }
             SimpleValue::Xor(XorExpr(a, b, _)) => {
-                // XOR with caret
-                write!(f, "({}^{})", a.as_ref(), b.as_ref())
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "^")?;
+                fmt_operand(f, b.as_ref())
             }
             SimpleValue::Load(Load(a, _)) => {
                 // Load(child)
@@ -883,19 +915,29 @@ impl std::fmt::LowerHex for SimpleValue {
                 write!(f, "offset({:x}, {:x})", vn.0.as_ref(), off.as_ref())
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
-                write!(f, "({:x}*{:x})", a.as_ref(), b.as_ref())
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "*")?;
+                fmt_operand_hex(f, b.as_ref())
             }
             SimpleValue::Add(AddExpr(a, b, _)) => {
-                write!(f, "({:x}+{:x})", a.as_ref(), b.as_ref())
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "+")?;
+                fmt_operand_hex(f, b.as_ref())
             }
             SimpleValue::Sub(SubExpr(a, b, _)) => {
-                write!(f, "({:x}-{:x})", a.as_ref(), b.as_ref())
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "-")?;
+                fmt_operand_hex(f, b.as_ref())
             }
             SimpleValue::Or(Or(a, b, _)) => {
-                write!(f, "({:x}||{:x})", a.as_ref(), b.as_ref())
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "||")?;
+                fmt_operand_hex(f, b.as_ref())
             }
             SimpleValue::Xor(XorExpr(a, b, _)) => {
-                write!(f, "({:x}^{:x})", a.as_ref(), b.as_ref())
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "^")?;
+                fmt_operand_hex(f, b.as_ref())
             }
             SimpleValue::Load(Load(a, _)) => {
                 write!(f, "Load({:x})", a.as_ref())
