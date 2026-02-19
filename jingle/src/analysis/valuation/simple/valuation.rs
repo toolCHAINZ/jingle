@@ -67,6 +67,17 @@ impl SimpleValuation {
     pub fn iter(&self) -> SimpleValuationIter<'_> {
         self.into_iter()
     }
+
+    pub fn remove_value_from(&mut self, loc: &SingleValuationLocation) {
+        match loc {
+            SingleValuationLocation::Direct(vn_intern) => {
+                self.direct_writes.remove(vn_intern.as_ref());
+            }
+            SingleValuationLocation::Indirect(ptr_intern) => {
+                self.indirect_writes.remove(ptr_intern.as_ref());
+            }
+        };
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
