@@ -150,9 +150,25 @@ impl<T> VarNodeMap<T> {
         }
     }
 
+    /// Iterate over entries as (&VarNode, &T).
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter {
+            vns_iter: self.vns.iter(),
+            data_iter: self.data.iter(),
+        }
+    }
+
+    /// Iterate over entries as (&mut VarNode, &mut T).
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
+        IterMut {
+            vns_iter: self.vns.iter_mut(),
+            data_iter: self.data.iter_mut(),
+        }
+    }
+
     /// Iterate over entries as (VarNode, &T).
-    pub fn items(&self) -> impl Iterator<Item = (&VarNode, &T)> {
-        self.vns.iter().map(|w| &w.0).zip(self.data.iter())
+    pub fn items(&self) -> Iter<'_, T> {
+        self.iter()
     }
 }
 
@@ -162,41 +178,141 @@ impl<T> Default for VarNodeMap<T> {
     }
 }
 
+/// An iterator over the entries of a `VarNodeMap`.
+///
+/// This struct is created by the `iter` method on `VarNodeMap`.
+pub struct Iter<'a, T> {
+    vns_iter: std::slice::Iter<'a, VnWrapper>,
+    data_iter: std::slice::Iter<'a, T>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = (&'a VarNode, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.vns_iter.next(), self.data_iter.next()) {
+            (Some(wrapper), Some(data)) => Some((&wrapper.0, data)),
+            _ => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.data_iter.size_hint()
+    }
+}
+
+impl<'a, T> ExactSizeIterator for Iter<'a, T> {
+    fn len(&self) -> usize {
+        self.data_iter.len()
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match (self.vns_iter.next_back(), self.data_iter.next_back()) {
+            (Some(wrapper), Some(data)) => Some((&wrapper.0, data)),
+            _ => None,
+        }
+    }
+}
+
+/// A mutable iterator over the entries of a `VarNodeMap`.
+///
+/// This struct is created by the `iter_mut` method on `VarNodeMap`.
+pub struct IterMut<'a, T> {
+    vns_iter: std::slice::IterMut<'a, VnWrapper>,
+    data_iter: std::slice::IterMut<'a, T>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = (&'a mut VarNode, &'a mut T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.vns_iter.next(), self.data_iter.next()) {
+            (Some(wrapper), Some(data)) => Some((&mut wrapper.0, data)),
+            _ => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.data_iter.size_hint()
+    }
+}
+
+impl<'a, T> ExactSizeIterator for IterMut<'a, T> {
+    fn len(&self) -> usize {
+        self.data_iter.len()
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match (self.vns_iter.next_back(), self.data_iter.next_back()) {
+            (Some(wrapper), Some(data)) => Some((&mut wrapper.0, data)),
+            _ => None,
+        }
+    }
+}
+
+/// An owning iterator over the entries of a `VarNodeMap`.
+///
+/// This struct is created by the `into_iter` method on `VarNodeMap`.
+pub struct IntoIter<T> {
+    inner: std::vec::IntoIter<(VarNode, T)>,
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = (VarNode, T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<T> ExactSizeIterator for IntoIter<T> {
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back()
+    }
+}
+
 impl<T> IntoIterator for VarNodeMap<T> {
     type Item = (VarNode, T);
-    type IntoIter = std::vec::IntoIter<(VarNode, T)>;
+    type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        // consume internal vectors, pair keys and values into owned tuples, then
-        // return the vector's into_iter as the concrete iterator type.
+        // Consume internal vectors, pair keys and values into owned tuples
         let items: Vec<(VarNode, T)> = self.vns.into_iter().map(|w| w.0).zip(self.data).collect();
-        items.into_iter()
+        IntoIter {
+            inner: items.into_iter(),
+        }
     }
 }
 
 impl<'a, T> IntoIterator for &'a VarNodeMap<T> {
     type Item = (&'a VarNode, &'a T);
-    // Use a boxed trait object here to avoid exposing the private `VnWrapper`
-    // type in the public associated type.
-    type IntoIter = Box<dyn Iterator<Item = (&'a VarNode, &'a T)> + 'a>;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Box::new(self.vns.iter().map(|w| &w.0).zip(self.data.iter()))
+        self.iter()
     }
 }
 
 impl<'a, T> IntoIterator for &'a mut VarNodeMap<T> {
     type Item = (&'a mut VarNode, &'a mut T);
-    // Boxed iterator again to avoid leaking `VnWrapper`.
-    type IntoIter = Box<dyn Iterator<Item = (&'a mut VarNode, &'a mut T)> + 'a>;
+    type IntoIter = IterMut<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Box::new(
-            self.vns
-                .iter_mut()
-                .map(|w| &mut w.0)
-                .zip(self.data.iter_mut()),
-        )
+        self.iter_mut()
     }
 }
 
@@ -323,5 +439,53 @@ mod tests {
                 (1, 0x20, 4)  // v1
             ]
         );
+    }
+
+    #[test]
+    fn test_iter_mut() {
+        let mut m = VarNodeMap::new();
+        let v1 = VarNode {
+            space_index: 0,
+            offset: 0x10,
+            size: 4,
+        };
+        let v2 = VarNode {
+            space_index: 0,
+            offset: 0x20,
+            size: 4,
+        };
+
+        m.insert(v1.clone(), 100);
+        m.insert(v2.clone(), 200);
+
+        // Mutate all values using iter_mut
+        for (_, value) in m.iter_mut() {
+            *value *= 2;
+        }
+
+        assert_eq!(m.get(&v1), Some(&200));
+        assert_eq!(m.get(&v2), Some(&400));
+    }
+
+    #[test]
+    fn test_into_iter_consumes() {
+        let mut m = VarNodeMap::new();
+        let v1 = VarNode {
+            space_index: 0,
+            offset: 0x10,
+            size: 4,
+        };
+        let v2 = VarNode {
+            space_index: 0,
+            offset: 0x20,
+            size: 4,
+        };
+
+        m.insert(v1.clone(), "foo");
+        m.insert(v2.clone(), "bar");
+
+        let items: Vec<(VarNode, &str)> = m.into_iter().collect();
+        assert_eq!(items.len(), 2);
+        // Map was consumed, can't use it anymore
     }
 }
