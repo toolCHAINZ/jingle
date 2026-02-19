@@ -3,20 +3,21 @@ use jingle_sleigh::{Instruction, SleighArchInfo};
 
 use crate::modeling::ModeledInstruction;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
+use jingle_sleigh::context::image::SleighImage;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 
 /// This type wraps z3 and a sleigh context and allows for both modeling instructions that
 /// sleigh context has already produced, or reading new instructions directly out of sleigh and
 /// modeling them in one go
 #[derive(Debug, Clone)]
-pub struct SleighTranslator<'a> {
+pub struct SleighTranslator<'a, T: SleighImage> {
     info: SleighArchInfo,
-    sleigh: &'a LoadedSleighContext<'a>,
+    sleigh: &'a LoadedSleighContext<'a, T>,
 }
 
-impl<'a> SleighTranslator<'a> {
+impl<'a, T: SleighImage> SleighTranslator<'a, T> {
     /// Make a new sleigh translator
-    pub fn new(sleigh: &'a LoadedSleighContext) -> Self {
+    pub fn new(sleigh: &'a LoadedSleighContext<'a, T>) -> Self {
         Self {
             info: sleigh.arch_info().clone(),
             sleigh,

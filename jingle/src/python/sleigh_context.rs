@@ -3,7 +3,7 @@ use crate::python::modeled_block::PythonModeledBlock;
 use crate::python::modeled_instruction::PythonModeledInstruction;
 use jingle_sleigh::JingleSleighError::InstructionDecode;
 use jingle_sleigh::SleighArchInfo;
-use jingle_sleigh::context::image::gimli::load_with_gimli;
+use jingle_sleigh::context::image::gimli::{OwnedFile, load_with_gimli};
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::{PyResult, pyclass, pymethods};
@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 #[pyclass(unsendable, name = "SleighContext")]
 pub struct PythonLoadedSleighContext {
-    context: Rc<LoadedSleighContext<'static>>,
+    context: Rc<LoadedSleighContext<'static, OwnedFile>>,
 }
 
 impl PythonLoadedSleighContext {

@@ -1,3 +1,4 @@
+use crate::sleigh::context::image::SleighImage;
 use crate::sleigh::context::loaded::LoadedSleighContext;
 use crate::sleigh::{Instruction, PcodeOperation};
 use jingle_sleigh::SleighArchInfo;
@@ -20,7 +21,7 @@ impl PythonInstruction {
             info: ctx.borrow().clone(),
         }
     }
-    pub fn read_from_ctx(ctx: &LoadedSleighContext, offset: u64) -> Option<Self> {
+    pub fn read_from_ctx<T: SleighImage>(ctx: &LoadedSleighContext<'_, T>, offset: u64) -> Option<Self> {
         ctx.instruction_at(offset).map(|i| PythonInstruction {
             instruction: i,
             info: ctx.arch_info().clone(),

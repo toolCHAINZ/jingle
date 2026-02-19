@@ -1,10 +1,13 @@
 use crate::{JingleSleighError, VarNode};
 use std::cmp::min;
-use std::iter::once;
+use std::iter::Once;
 use std::ops::Range;
 
 #[cfg(feature = "gimli")]
 pub mod gimli;
+
+#[cfg(feature = "rayon")]
+pub mod par;
 
 pub type SymbolLocation = u64;
 
@@ -52,8 +55,13 @@ impl<T: SleighImageCore> ImageBytes for T {}
 /// have meaningful section boundaries (e.g., raw byte slices may represent a
 /// single contiguous region).
 pub trait ImageSections {
+    /// The concrete iterator type returned by [`image_sections`].
+    type SectionIter<'a>: Iterator<Item = ImageSection<'a>> + ExactSizeIterator
+    where
+        Self: 'a;
+
     /// Returns an iterator over the sections/segments in this image.
-    fn image_sections(&self) -> ImageSectionIterator<'_>;
+    fn image_sections(&self) -> Self::SectionIter<'_>;
 
     /// Returns an iterator over all addresses in the image sections.
     /// Empty sections are excluded from iteration.
@@ -229,25 +237,6 @@ pub trait SleighImage: SleighImageCore + ImageSections + ImageBytes {}
 // Blanket implementation: any type implementing core traits gets SleighImage
 impl<T: SleighImageCore + ImageSections> SleighImage for T {}
 
-pub struct ImageSectionIterator<'a> {
-    iter: Box<dyn Iterator<Item = ImageSection<'a>> + 'a>,
-}
-
-impl<'a> ImageSectionIterator<'a> {
-    pub fn new<T: Iterator<Item = ImageSection<'a>> + 'a>(iter: T) -> Self {
-        Self {
-            iter: Box::new(iter),
-        }
-    }
-}
-
-impl<'a> Iterator for ImageSectionIterator<'a> {
-    type Item = ImageSection<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
 impl SleighImageCore for &[u8] {
     fn load(&self, vn: &VarNode, output: &mut [u8]) -> usize {
         //todo: check the space. Ignoring for now
@@ -278,8 +267,13 @@ impl SleighImageCore for &[u8] {
 }
 
 impl ImageSections for &[u8] {
-    fn image_sections(&self) -> ImageSectionIterator<'_> {
-        ImageSectionIterator::new(once(ImageSection {
+    type SectionIter<'a>
+        = Once<ImageSection<'a>>
+    where
+        Self: 'a;
+
+    fn image_sections(&self) -> Self::SectionIter<'_> {
+        std::iter::once(ImageSection {
             data: self,
             base_address: 0,
             perms: Perms {
@@ -287,7 +281,7 @@ impl ImageSections for &[u8] {
                 write: false,
                 exec: true,
             },
-        }))
+        })
     }
 }
 
@@ -302,8 +296,13 @@ impl SleighImageCore for Vec<u8> {
 }
 
 impl ImageSections for Vec<u8> {
-    fn image_sections(&self) -> ImageSectionIterator<'_> {
-        ImageSectionIterator::new(once(ImageSection {
+    type SectionIter<'a>
+        = Once<ImageSection<'a>>
+    where
+        Self: 'a;
+
+    fn image_sections(&self) -> Self::SectionIter<'_> {
+        std::iter::once(ImageSection {
             data: self,
             base_address: 0,
             perms: Perms {
@@ -311,7 +310,7 @@ impl ImageSections for Vec<u8> {
                 write: false,
                 exec: true,
             },
-        }))
+        })
     }
 }
 
@@ -326,7 +325,12 @@ impl<T: SleighImageCore> SleighImageCore for &T {
 }
 
 impl<T: ImageSections> ImageSections for &T {
-    fn image_sections(&self) -> ImageSectionIterator<'_> {
+    type SectionIter<'a>
+        = T::SectionIter<'a>
+    where
+        Self: 'a;
+
+    fn image_sections(&self) -> Self::SectionIter<'_> {
         (*self).image_sections()
     }
 }
@@ -485,14 +489,20 @@ mod tests {
     }
 
     impl ImageSections for MultiSectionImage {
-        fn image_sections(&self) -> crate::context::image::ImageSectionIterator<'_> {
-            crate::context::image::ImageSectionIterator::new(self.sections.iter().map(
-                |(data, base, perms)| ImageSection {
-                    data: data.as_slice(),
-                    base_address: *base,
-                    perms: *perms,
-                },
-            ))
+        type SectionIter<'a>
+            = std::iter::Map<
+            std::slice::Iter<'a, (Vec<u8>, usize, Perms)>,
+            fn(&'a (Vec<u8>, usize, Perms)) -> ImageSection<'a>,
+        >
+        where
+            Self: 'a;
+
+        fn image_sections(&self) -> Self::SectionIter<'_> {
+            self.sections.iter().map(|(data, base, perms)| ImageSection {
+                data: data.as_slice(),
+                base_address: *base,
+                perms: *perms,
+            })
         }
     }
 

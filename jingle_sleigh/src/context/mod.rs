@@ -352,7 +352,7 @@ impl SleighContext {
     pub fn initialize_with_image<'b, T: SleighImage + 'b>(
         self,
         img: T,
-    ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {
+    ) -> Result<LoadedSleighContext<'b, T>, JingleSleighError> {
         LoadedSleighContext::new(self, img)
     }
 

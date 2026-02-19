@@ -39,7 +39,12 @@ pest_derive = "2.8.4"
 [build-dependencies]
 cxx-build = "1.0"
 
+[dependencies.rayon]
+version = "1.10"
+optional = true
+
 [features]
 gimli = ["dep:object"]
 default = ["gimli"]
 pyo3 = ["dep:pyo3"]
+rayon = ["dep:rayon"]

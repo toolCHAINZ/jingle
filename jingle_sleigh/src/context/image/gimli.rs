@@ -1,7 +1,7 @@
 use crate::context::SleighContextBuilder;
 use crate::context::image::{
-    ImageSection, ImageSectionIterator, ImageSections, Perms, SleighArchImage, SleighImageCore,
-    SymbolInfo, SymbolResolver,
+    ImageSection, ImageSections, Perms, SleighArchImage, SleighImageCore, SymbolInfo,
+    SymbolResolver,
 };
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
@@ -110,8 +110,13 @@ impl SleighImageCore for OwnedFile {
 }
 
 impl ImageSections for OwnedFile {
-    fn image_sections(&self) -> ImageSectionIterator<'_> {
-        ImageSectionIterator::new(self.sections.iter().map(ImageSection::from))
+    type SectionIter<'a>
+        = std::iter::Map<std::slice::Iter<'a, OwnedSection>, fn(&'a OwnedSection) -> ImageSection<'a>>
+    where
+        Self: 'a;
+
+    fn image_sections(&self) -> Self::SectionIter<'_> {
+        self.sections.iter().map(ImageSection::from)
     }
 }
 
@@ -159,18 +164,23 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
 }
 
 impl<'a> ImageSections for File<'a, &'a [u8]> {
-    fn image_sections(&self) -> ImageSectionIterator<'_> {
-        ImageSectionIterator::new(self.sections().filter_map(|s| {
-            if let Ok(data) = s.data() {
+    type SectionIter<'s>
+        = std::vec::IntoIter<ImageSection<'s>>
+    where
+        Self: 's;
+
+    fn image_sections(&self) -> Self::SectionIter<'_> {
+        self.sections()
+            .filter_map(|s| {
+                let data = s.data().ok()?;
                 Some(ImageSection {
                     data,
                     base_address: s.address() as usize,
                     perms: map_sec_kind(&s.kind()),
                 })
-            } else {
-                None
-            }
-        }))
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
@@ -242,7 +252,7 @@ fn map_sec_kind(kind: &SectionKind) -> Perms {
 pub fn load_with_gimli<'a, P: AsRef<Path>, P2: AsRef<Path> + Debug>(
     p: P,
     ghidra_path: P2,
-) -> Result<LoadedSleighContext<'a>, JingleSleighError> {
+) -> Result<LoadedSleighContext<'a, OwnedFile>, JingleSleighError> {
     let data = fs::read(p.as_ref()).map_err(|_| JingleSleighError::ImageLoadError)?;
     let f = object::File::parse(data.as_slice()).map_err(|_| JingleSleighError::ImageLoadError)?;
     let owned = OwnedFile::new(&f)?;

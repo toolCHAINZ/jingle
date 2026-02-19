@@ -1,5 +1,5 @@
 use crate::VarNode;
-use crate::context::image::SleighImage;
+use crate::context::image::SleighImageCore;
 use crate::ffi::context_ffi::bridge::makeContext;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
 use bridge::ContextFFI;
@@ -58,9 +58,13 @@ pub(crate) mod bridge {
     impl Vec<RegisterInfoFFI> {}
 }
 
+/// Thin FFI shim passed to C++ for byte-loading. Holds a raw pointer into the
+/// typed provider owned by [`LoadedSleighContext`]. Only `SleighImageCore`
+/// (dyn-compatible) is needed here; section information is accessed through the
+/// typed `T` stored directly in `LoadedSleighContext`.
 pub(crate) struct ImageFFI<'a> {
-    /// A thing that has bytes at addresses
-    pub(crate) provider: Box<dyn SleighImage + 'a>,
+    /// Non-owning pointer into the `Box<T>` stored in `LoadedSleighContext`.
+    pub(crate) provider: *const (dyn SleighImageCore + 'a),
     /// The current virtual base address for the image loaded by this context.
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
@@ -69,27 +73,38 @@ pub(crate) struct ImageFFI<'a> {
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: usize) -> Self {
+    /// Construct from a stable reference to a provider. The caller must ensure
+    /// that the referent outlives this `ImageFFI`.
+    pub(crate) fn from_ref(provider: &'a dyn SleighImageCore, idx: usize) -> Self {
         Self {
-            provider: Box::new(provider),
+            provider: provider as *const dyn SleighImageCore,
             base_offset: 0,
             space_index: idx,
         }
     }
+
+    /// Update the provider pointer (used by `set_image`).
+    pub(crate) fn set_provider(&mut self, provider: &'a dyn SleighImageCore) {
+        self.provider = provider as *const dyn SleighImageCore;
+    }
+
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {
         let addr = VarNode::from(vn);
         if addr.space_index != self.space_index {
             return 0;
         }
         let adjusted = self.adjust_varnode_vma(&addr);
-        self.provider.load(&adjusted, out)
+        // SAFETY: `provider` points into a `Box<T>` owned by `LoadedSleighContext`,
+        // which outlives this `ImageFFI` (both are fields of the same struct).
+        unsafe { (*self.provider).load(&adjusted, out) }
     }
 
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
         if vn.space_index != self.space_index {
             return false;
         }
-        self.provider.has_full_range(&self.adjust_varnode_vma(vn))
+        // SAFETY: same as `load`.
+        unsafe { (*self.provider).has_full_range(&self.adjust_varnode_vma(vn)) }
     }
 
     pub(crate) fn get_base_address(&self) -> u64 {
@@ -99,6 +114,7 @@ impl<'a> ImageFFI<'a> {
     pub(crate) fn set_base_address(&mut self, offset: u64) {
         self.base_offset = offset
     }
+
     // todo: properly account for spaces with non-byte-based indexing
     fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
         VarNode {

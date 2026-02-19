@@ -1,4 +1,5 @@
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::context::image::SleighImage;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
 use std::borrow::Borrow;
 
@@ -23,7 +24,7 @@ pub trait EntryPoint {
     fn get_entry(&self) -> ConcretePcodeAddress;
 }
 
-impl<'a> PcodeStore<'a> for LoadedSleighContext<'a> {
+impl<'a, I: SleighImage + 'a> PcodeStore<'a> for LoadedSleighContext<'a, I> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
         &'a self,
         addr: T,

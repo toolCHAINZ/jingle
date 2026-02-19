@@ -1,17 +1,18 @@
 use crate::Instruction;
+use crate::context::image::SleighImage;
 use crate::context::loaded::LoadedSleighContext;
 
-pub struct SleighContextInstructionIterator<'a> {
-    sleigh: &'a LoadedSleighContext<'a>,
+pub struct SleighContextInstructionIterator<'a, T: SleighImage> {
+    sleigh: &'a LoadedSleighContext<'a, T>,
     remaining: usize,
     offset: u64,
     terminate_branch: bool,
     already_hit_branch: bool,
 }
 
-impl<'a> SleighContextInstructionIterator<'a> {
+impl<'a, T: SleighImage> SleighContextInstructionIterator<'a, T> {
     pub(crate) fn new(
-        sleigh: &'a LoadedSleighContext,
+        sleigh: &'a LoadedSleighContext<'a, T>,
         offset: u64,
         remaining: usize,
         terminate_branch: bool,
@@ -26,7 +27,7 @@ impl<'a> SleighContextInstructionIterator<'a> {
     }
 }
 
-impl Iterator for SleighContextInstructionIterator<'_> {
+impl<T: SleighImage> Iterator for SleighContextInstructionIterator<'_, T> {
     type Item = Instruction;
 
     fn next(&mut self) -> Option<Self::Item> {
