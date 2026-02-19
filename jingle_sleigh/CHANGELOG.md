@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.5...jingle_sleigh-v0.4.6) - 2026-02-19
+
+### Added
+
+- add readability, writability, and executability check helpers ([#188](https://github.com/toolCHAINZ/jingle/pull/188))
+- trait refactor ([#187](https://github.com/toolCHAINZ/jingle/pull/187))
+
+### Fixed
+
+- Various bug fixes and features ([#185](https://github.com/toolCHAINZ/jingle/pull/185))
+
 ## [0.4.5](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.4...jingle_sleigh-v0.4.5) - 2026-02-13
 
 ### Other
