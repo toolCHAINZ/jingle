@@ -609,6 +609,34 @@ impl FromIterator<SingleValuation> for SimpleValuation {
     }
 }
 
+impl Display for SimpleValuation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SimpleValuation {{")?;
+        let mut first = true;
+
+        // Direct writes (vn -> val)
+        for (vn, val) in self.direct_writes.items() {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            write!(f, "{} = {}", vn, val)?;
+        }
+
+        // Indirect writes ([ptr_expr] -> val)
+        for (ptr, val) in &self.indirect_writes {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            write!(f, "[{}] = {}", ptr, val)?;
+        }
+
+        write!(f, "}}")?;
+        Ok(())
+    }
+}
+
 impl JingleDisplay for SimpleValuation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         write!(f, "SimpleValuation {{")?;
@@ -816,5 +844,23 @@ mod tests {
             valuation.direct_writes.get(&vn),
             Some(&SimpleValue::const_(1000))
         );
+    }
+
+    #[test]
+    fn test_display() {
+        let mut valuation = SimpleValuation::new();
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        valuation
+            .direct_writes
+            .insert(vn.clone(), SimpleValue::const_(42));
+
+        let display_str = format!("{}", valuation);
+        assert!(display_str.starts_with("SimpleValuation {"));
+        assert!(display_str.contains("="));
+        assert!(display_str.ends_with("}"));
     }
 }
