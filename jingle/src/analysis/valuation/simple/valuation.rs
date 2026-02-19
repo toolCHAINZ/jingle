@@ -64,6 +64,36 @@ impl SimpleValuation {
         }
     }
 
+    /// Returns the number of entries (both direct and indirect) in this valuation.
+    pub fn len(&self) -> usize {
+        self.direct_writes.len() + self.indirect_writes.len()
+    }
+
+    /// Returns `true` if this valuation contains no entries.
+    pub fn is_empty(&self) -> bool {
+        self.direct_writes.is_empty() && self.indirect_writes.is_empty()
+    }
+
+    /// Returns an iterator over all locations (keys) in this valuation.
+    pub fn keys(&self) -> Keys<'_> {
+        Keys::new(self)
+    }
+
+    /// Alias for `keys()` to provide a more intuitive API for accessing valuation locations.
+    pub fn locations(&self) -> Keys<'_> {
+        self.keys()
+    }
+
+    /// Returns an iterator over all values in this valuation.
+    pub fn values(&self) -> Values<'_> {
+        Values::new(self)
+    }
+
+    /// Returns a mutable iterator over all values in this valuation.
+    pub fn values_mut(&mut self) -> ValuesMut<'_> {
+        ValuesMut::new(self)
+    }
+
     pub fn iter(&self) -> SimpleValuationIter<'_> {
         self.into_iter()
     }
@@ -248,61 +278,41 @@ impl JingleDisplay for SingleValuation {
 
 /// Iterator over the contents of a `SimpleValuation`.
 ///
-/// The iterator holds a reference to the originating `SimpleValuation` and
-/// yields `SingleValuation` items for each direct and indirect write.
+/// Yields tuples of `(SingleValuationLocation, &SimpleValue)` for each entry,
+/// matching the API of `iter_mut()` and following standard library conventions.
 pub struct SimpleValuationIter<'a> {
-    _valuation: &'a SimpleValuation,
-    direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)>,
-    direct_idx: usize,
-    indirect_entries: Vec<(Intern<SimpleValue>, Intern<SimpleValue>)>,
-    indirect_idx: usize,
+    direct_iter: crate::analysis::varnode_map::Iter<'a, SimpleValue>,
+    indirect_iter: std::collections::btree_map::Iter<'a, SimpleValue, SimpleValue>,
+    direct_done: bool,
 }
 
 impl<'a> SimpleValuationIter<'a> {
     pub fn new(valuation: &'a SimpleValuation) -> Self {
-        // Collect direct entries (clone into interns so the iterator can be self-contained).
-        let mut direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)> = Vec::new();
-        for (vn, val) in valuation.direct_writes.items() {
-            direct_entries.push((Intern::new(vn.clone()), Intern::new(val.clone())));
-        }
-
-        // Collect indirect entries (pointer expression -> value).
-        let mut indirect_entries: Vec<(Intern<SimpleValue>, Intern<SimpleValue>)> = Vec::new();
-        for (ptr, val) in &valuation.indirect_writes {
-            indirect_entries.push((Intern::new(ptr.clone()), Intern::new(val.clone())));
-        }
-
         Self {
-            _valuation: valuation,
-            direct_entries,
-            direct_idx: 0,
-            indirect_entries,
-            indirect_idx: 0,
+            direct_iter: valuation.direct_writes.iter(),
+            indirect_iter: valuation.indirect_writes.iter(),
+            direct_done: false,
         }
     }
 }
 
 impl<'a> Iterator for SimpleValuationIter<'a> {
-    type Item = SingleValuation;
+    type Item = (SingleValuationLocation, &'a SimpleValue);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Yield all direct entries first, then indirect entries.
-        if self.direct_idx < self.direct_entries.len() {
-            let (vn_intern, val_intern) = self.direct_entries[self.direct_idx];
-            self.direct_idx += 1;
-            return Some(SingleValuation {
-                location: SingleValuationLocation::Direct(vn_intern),
-                value: val_intern,
-            });
+        // First, iterate through all direct entries
+        if !self.direct_done {
+            if let Some((vn, val)) = self.direct_iter.next() {
+                let location = SingleValuationLocation::Direct(Intern::new(vn.clone()));
+                return Some((location, val));
+            }
+            self.direct_done = true;
         }
 
-        if self.indirect_idx < self.indirect_entries.len() {
-            let (ptr_intern, val_intern) = self.indirect_entries[self.indirect_idx];
-            self.indirect_idx += 1;
-            return Some(SingleValuation {
-                location: SingleValuationLocation::Indirect(ptr_intern),
-                value: val_intern,
-            });
+        // Then iterate through indirect entries
+        if let Some((ptr, val)) = self.indirect_iter.next() {
+            let location = SingleValuationLocation::Indirect(Intern::new(ptr.clone()));
+            return Some((location, val));
         }
 
         None
@@ -310,7 +320,7 @@ impl<'a> Iterator for SimpleValuationIter<'a> {
 }
 
 impl<'a> IntoIterator for &'a SimpleValuation {
-    type Item = SingleValuation;
+    type Item = (SingleValuationLocation, &'a SimpleValue);
     type IntoIter = SimpleValuationIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -360,6 +370,126 @@ impl<'a> Iterator for SimpleValuationIterMut<'a> {
     }
 }
 
+/// An iterator over the keys (locations) of a `SimpleValuation`.
+///
+/// This struct is created by the `keys` method on `SimpleValuation`.
+pub struct Keys<'a> {
+    direct_iter: crate::analysis::varnode_map::Iter<'a, SimpleValue>,
+    indirect_iter: std::collections::btree_map::Iter<'a, SimpleValue, SimpleValue>,
+    direct_done: bool,
+}
+
+impl<'a> Keys<'a> {
+    pub fn new(valuation: &'a SimpleValuation) -> Self {
+        Self {
+            direct_iter: valuation.direct_writes.iter(),
+            indirect_iter: valuation.indirect_writes.iter(),
+            direct_done: false,
+        }
+    }
+}
+
+impl<'a> Iterator for Keys<'a> {
+    type Item = SingleValuationLocation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // First, iterate through all direct entries
+        if !self.direct_done {
+            if let Some((vn, _)) = self.direct_iter.next() {
+                return Some(SingleValuationLocation::Direct(Intern::new(vn.clone())));
+            }
+            self.direct_done = true;
+        }
+
+        // Then iterate through indirect entries
+        if let Some((ptr, _)) = self.indirect_iter.next() {
+            return Some(SingleValuationLocation::Indirect(Intern::new(ptr.clone())));
+        }
+
+        None
+    }
+}
+
+/// An iterator over the values of a `SimpleValuation`.
+///
+/// This struct is created by the `values` method on `SimpleValuation`.
+pub struct Values<'a> {
+    direct_iter: crate::analysis::varnode_map::Iter<'a, SimpleValue>,
+    indirect_iter: std::collections::btree_map::Iter<'a, SimpleValue, SimpleValue>,
+    direct_done: bool,
+}
+
+impl<'a> Values<'a> {
+    pub fn new(valuation: &'a SimpleValuation) -> Self {
+        Self {
+            direct_iter: valuation.direct_writes.iter(),
+            indirect_iter: valuation.indirect_writes.iter(),
+            direct_done: false,
+        }
+    }
+}
+
+impl<'a> Iterator for Values<'a> {
+    type Item = &'a SimpleValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // First, iterate through all direct entries
+        if !self.direct_done {
+            if let Some((_, val)) = self.direct_iter.next() {
+                return Some(val);
+            }
+            self.direct_done = true;
+        }
+
+        // Then iterate through indirect entries
+        if let Some((_, val)) = self.indirect_iter.next() {
+            return Some(val);
+        }
+
+        None
+    }
+}
+
+/// A mutable iterator over the values of a `SimpleValuation`.
+///
+/// This struct is created by the `values_mut` method on `SimpleValuation`.
+pub struct ValuesMut<'a> {
+    direct_iter: crate::analysis::varnode_map::IterMut<'a, SimpleValue>,
+    indirect_iter: std::collections::btree_map::IterMut<'a, SimpleValue, SimpleValue>,
+    direct_done: bool,
+}
+
+impl<'a> ValuesMut<'a> {
+    pub fn new(valuation: &'a mut SimpleValuation) -> Self {
+        Self {
+            direct_iter: valuation.direct_writes.iter_mut(),
+            indirect_iter: valuation.indirect_writes.iter_mut(),
+            direct_done: false,
+        }
+    }
+}
+
+impl<'a> Iterator for ValuesMut<'a> {
+    type Item = &'a mut SimpleValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // First, iterate through all direct entries
+        if !self.direct_done {
+            if let Some((_, val)) = self.direct_iter.next() {
+                return Some(val);
+            }
+            self.direct_done = true;
+        }
+
+        // Then iterate through indirect entries
+        if let Some((_, val)) = self.indirect_iter.next() {
+            return Some(val);
+        }
+
+        None
+    }
+}
+
 /// An owning iterator that consumes a `SimpleValuation` and yields `SingleValuation`
 /// items without borrowing the original `SimpleValuation`.
 pub struct SimpleValuationIntoIter {
@@ -396,11 +526,11 @@ impl Iterator for SimpleValuationIntoIter {
 }
 
 impl<'a> IntoIterator for &'a mut SimpleValuation {
-    type Item = SingleValuation;
-    type IntoIter = SimpleValuationIter<'a>;
+    type Item = (SingleValuationLocation, &'a mut SimpleValue);
+    type IntoIter = SimpleValuationIterMut<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        SimpleValuationIter::new(self)
+        SimpleValuationIterMut::new(self)
     }
 }
 
@@ -504,5 +634,187 @@ impl JingleDisplay for SimpleValuation {
 
         write!(f, "}}")?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jingle_sleigh::VarNode;
+
+    #[test]
+    fn test_iter_yields_tuples() {
+        let mut valuation = SimpleValuation::new();
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        valuation
+            .direct_writes
+            .insert(vn.clone(), SimpleValue::const_(42));
+
+        // iter() should yield (location, &value) tuples
+        let mut count = 0;
+        for (loc, val) in valuation.iter() {
+            count += 1;
+            assert!(matches!(loc, SingleValuationLocation::Direct(_)));
+            assert_eq!(*val, SimpleValue::const_(42));
+        }
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_iter_mut_yields_tuples() {
+        let mut valuation = SimpleValuation::new();
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        valuation
+            .direct_writes
+            .insert(vn.clone(), SimpleValue::const_(42));
+
+        // iter_mut() should yield (location, &mut value) tuples
+        for (loc, val) in valuation.iter_mut() {
+            assert!(matches!(loc, SingleValuationLocation::Direct(_)));
+            *val = SimpleValue::const_(100);
+        }
+
+        // Verify mutation worked
+        assert_eq!(
+            valuation.direct_writes.get(&vn),
+            Some(&SimpleValue::const_(100))
+        );
+    }
+
+    #[test]
+    fn test_into_iter_yields_entries() {
+        let mut valuation = SimpleValuation::new();
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        valuation
+            .direct_writes
+            .insert(vn.clone(), SimpleValue::const_(42));
+
+        // into_iter() should yield owned SingleValuation entries
+        let mut count = 0;
+        for entry in valuation {
+            count += 1;
+            assert!(matches!(entry.location, SingleValuationLocation::Direct(_)));
+            assert_eq!(*entry.value.as_ref(), SimpleValue::const_(42));
+        }
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_len_and_is_empty() {
+        let mut valuation = SimpleValuation::new();
+        assert_eq!(valuation.len(), 0);
+        assert!(valuation.is_empty());
+
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        valuation
+            .direct_writes
+            .insert(vn.clone(), SimpleValue::const_(42));
+
+        assert_eq!(valuation.len(), 1);
+        assert!(!valuation.is_empty());
+
+        // Add an indirect write
+        valuation
+            .indirect_writes
+            .insert(SimpleValue::const_(100), SimpleValue::const_(200));
+
+        assert_eq!(valuation.len(), 2);
+        assert!(!valuation.is_empty());
+    }
+
+    #[test]
+    fn test_keys_iterator() {
+        let mut valuation = SimpleValuation::new();
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 0x2000,
+            size: 8,
+        };
+
+        valuation
+            .direct_writes
+            .insert(vn1.clone(), SimpleValue::const_(42));
+        valuation
+            .direct_writes
+            .insert(vn2.clone(), SimpleValue::const_(99));
+
+        let keys: Vec<_> = valuation.keys().collect();
+        assert_eq!(keys.len(), 2);
+        for key in keys {
+            assert!(matches!(key, SingleValuationLocation::Direct(_)));
+        }
+    }
+
+    #[test]
+    fn test_values_iterator() {
+        let mut valuation = SimpleValuation::new();
+        let vn1 = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+        let vn2 = VarNode {
+            space_index: 0,
+            offset: 0x2000,
+            size: 8,
+        };
+
+        valuation
+            .direct_writes
+            .insert(vn1.clone(), SimpleValue::const_(42));
+        valuation
+            .direct_writes
+            .insert(vn2.clone(), SimpleValue::const_(99));
+
+        let values: Vec<_> = valuation.values().collect();
+        assert_eq!(values.len(), 2);
+        assert!(values.contains(&&SimpleValue::const_(42)));
+        assert!(values.contains(&&SimpleValue::const_(99)));
+    }
+
+    #[test]
+    fn test_values_mut_iterator() {
+        let mut valuation = SimpleValuation::new();
+        let vn = VarNode {
+            space_index: 0,
+            offset: 0x1000,
+            size: 8,
+        };
+
+        valuation
+            .direct_writes
+            .insert(vn.clone(), SimpleValue::const_(42));
+
+        // Mutate all values
+        for val in valuation.values_mut() {
+            *val = SimpleValue::const_(1000);
+        }
+
+        // Verify mutation worked
+        assert_eq!(
+            valuation.direct_writes.get(&vn),
+            Some(&SimpleValue::const_(1000))
+        );
     }
 }
