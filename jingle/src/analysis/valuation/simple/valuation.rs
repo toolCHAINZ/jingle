@@ -68,6 +68,10 @@ impl SimpleValuation {
         self.into_iter()
     }
 
+    pub fn iter_mut(&mut self) -> SimpleValuationIterMut<'_> {
+        SimpleValuationIterMut::new(self)
+    }
+
     pub fn remove_value_from(&mut self, loc: &SingleValuationLocation) {
         match loc {
             SingleValuationLocation::Direct(vn_intern) => {
@@ -311,6 +315,48 @@ impl<'a> IntoIterator for &'a SimpleValuation {
 
     fn into_iter(self) -> Self::IntoIter {
         SimpleValuationIter::new(self)
+    }
+}
+
+/// A mutable iterator over the contents of a `SimpleValuation`.
+///
+/// Yields mutable references to both the location and value of each entry.
+pub struct SimpleValuationIterMut<'a> {
+    direct_iter: crate::analysis::varnode_map::IterMut<'a, SimpleValue>,
+    indirect_iter: std::collections::btree_map::IterMut<'a, SimpleValue, SimpleValue>,
+    direct_done: bool,
+}
+
+impl<'a> SimpleValuationIterMut<'a> {
+    pub fn new(valuation: &'a mut SimpleValuation) -> Self {
+        Self {
+            direct_iter: valuation.direct_writes.iter_mut(),
+            indirect_iter: valuation.indirect_writes.iter_mut(),
+            direct_done: false,
+        }
+    }
+}
+
+impl<'a> Iterator for SimpleValuationIterMut<'a> {
+    type Item = (SingleValuationLocation, &'a mut SimpleValue);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // First, iterate through all direct entries
+        if !self.direct_done {
+            if let Some((vn, val)) = self.direct_iter.next() {
+                let location = SingleValuationLocation::Direct(Intern::new(vn.clone()));
+                return Some((location, val));
+            }
+            self.direct_done = true;
+        }
+
+        // Then iterate through indirect entries
+        if let Some((ptr, val)) = self.indirect_iter.next() {
+            let location = SingleValuationLocation::Indirect(Intern::new(ptr.clone()));
+            return Some((location, val));
+        }
+
+        None
     }
 }
 
