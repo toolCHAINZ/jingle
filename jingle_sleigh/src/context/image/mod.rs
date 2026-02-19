@@ -158,6 +158,45 @@ pub trait ImageSections {
             .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
             .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
+
+    /// Check if the given address is within a readable section.
+    fn is_readable(&self, addr: u64) -> bool
+    where
+        Self: Sized,
+    {
+        self.image_sections().any(|s| {
+            s.perms.read
+                && !s.data.is_empty()
+                && addr >= s.base_address as u64
+                && addr < (s.base_address + s.data.len()) as u64
+        })
+    }
+
+    /// Check if the given address is within a writable section.
+    fn is_writable(&self, addr: u64) -> bool
+    where
+        Self: Sized,
+    {
+        self.image_sections().any(|s| {
+            s.perms.write
+                && !s.data.is_empty()
+                && addr >= s.base_address as u64
+                && addr < (s.base_address + s.data.len()) as u64
+        })
+    }
+
+    /// Check if the given address is within an executable section.
+    fn is_executable(&self, addr: u64) -> bool
+    where
+        Self: Sized,
+    {
+        self.image_sections().any(|s| {
+            s.perms.exec
+                && !s.data.is_empty()
+                && addr >= s.base_address as u64
+                && addr < (s.base_address + s.data.len()) as u64
+        })
+    }
 }
 
 /// Trait for image types that support symbol resolution.
