@@ -22,6 +22,7 @@ impl PcodeOperation {
     pub fn branch_destination(&self) -> Option<PcodeBranchDestination> {
         match self {
             PcodeOperation::Branch { input } => Some(Branch(input.clone())),
+            PcodeOperation::Fallthrough { input } => Some(Branch(input.clone())),
             PcodeOperation::Call { dest: input, .. } => Some(Call(input.clone())),
             PcodeOperation::CBranch { input0, .. } => Some(Conditional(input0.clone())),
             PcodeOperation::BranchInd { input } => Some(IndirectBranch(input.clone())),

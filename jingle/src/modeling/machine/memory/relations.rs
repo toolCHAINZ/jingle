@@ -391,6 +391,7 @@ impl MemoryState {
                 }
             }
             PcodeOperation::Branch { .. } => {}
+            PcodeOperation::Fallthrough { .. } => {}
             PcodeOperation::CBranch { .. } => {}
             PcodeOperation::BranchInd { .. }
             | PcodeOperation::CallInd { .. }

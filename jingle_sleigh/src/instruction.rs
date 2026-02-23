@@ -149,7 +149,7 @@ impl Instruction {
 
         // Push fall-through branch using the SleighContext's arch_info
         let arch_info = ctx.arch_info();
-        self.ops.push(PcodeOperation::Branch {
+        self.ops.push(PcodeOperation::Fallthrough {
             input: VarNode {
                 space_index: arch_info.default_code_space_index(),
                 offset: self.address + self.length as u64,

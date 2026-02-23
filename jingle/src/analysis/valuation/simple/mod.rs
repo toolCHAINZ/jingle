@@ -231,7 +231,9 @@ impl SimpleValuationState {
 
         // Clear internal-space varnodes on control-flow to non-const destinations (same policy as direct_valuation.rs)
         match op {
-            PcodeOperation::Branch { input } | PcodeOperation::CBranch { input0: input, .. } => {
+            PcodeOperation::Branch { input }
+            | PcodeOperation::CBranch { input0: input, .. }
+            | PcodeOperation::Fallthrough { input } => {
                 if input.space_index != VarNode::CONST_SPACE_INDEX {
                     // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
                     let mut to_remove: Vec<VarNode> = Vec::new();

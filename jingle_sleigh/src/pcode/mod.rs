@@ -6,8 +6,8 @@ pub use op_ref::PcodeOpRef;
 use crate::context::CallInfo;
 use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,
-    CallOther, Cast, Copy, Extract, Float2Float, FloatAbs, FloatAdd, FloatCeil, FloatDiv,
-    FloatEqual, FloatFloor, FloatLess, FloatLessEqual, FloatMult, FloatNaN, FloatNeg,
+    CallOther, Cast, Copy, Extract, Fallthrough, Float2Float, FloatAbs, FloatAdd, FloatCeil,
+    FloatDiv, FloatEqual, FloatFloor, FloatLess, FloatLessEqual, FloatMult, FloatNaN, FloatNeg,
     FloatNotEqual, FloatRound, FloatSqrt, FloatSub, FloatTrunc, Indirect, Insert, Int2Comp,
     Int2Float, IntAdd, IntAnd, IntCarry, IntDiv, IntEqual, IntLeftShift, IntLess, IntLessEqual,
     IntMult, IntNegate, IntNotEqual, IntOr, IntRem, IntRightShift, IntSExt, IntSignedBorrow,
@@ -41,6 +41,11 @@ pub enum PcodeOperation {
         input: VarNode,
     },
     Branch {
+        input: VarNode,
+    },
+    /// An alias for [PcodeOperation::Branch] indicating
+    /// instruction fall-through
+    Fallthrough {
         input: VarNode,
     },
     CBranch {
@@ -412,6 +417,9 @@ impl PcodeOperation {
             Branch { input, .. } => {
                 vec![input.into()]
             }
+            Fallthrough { input, .. } => {
+                vec![input.into()]
+            }
             CBranch { input0, input1, .. } => {
                 vec![input0.into(), input1.into()]
             }
@@ -633,6 +641,7 @@ impl PcodeOperation {
             Load { output, .. } => Some(GeneralizedVarNode::from(output)),
             Store { output, .. } => Some(GeneralizedVarNode::from(output)),
             Branch { .. } => None,
+            Fallthrough { .. } => None,
             CBranch { .. } => None,
             BranchInd { .. } => None,
             Call { .. } => None,
@@ -928,6 +937,11 @@ impl From<&PcodeOperation> for OpCode {
             Load { .. } => OpCode::CPUI_LOAD,
             Store { .. } => OpCode::CPUI_STORE,
             Branch { .. } => OpCode::CPUI_BRANCH,
+            // Fallthrough is not a "true" pcode operation
+            // it is our own pseudo operation used to flag
+            // certain extra branch instructions we emit
+            // as instruction fallthrough
+            Fallthrough { .. } => OpCode::CPUI_BRANCH,
             CBranch { .. } => OpCode::CPUI_CBRANCH,
             BranchInd { .. } => OpCode::CPUI_BRANCHIND,
             Call { .. } => OpCode::CPUI_CALL,
