@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.6...jingle_sleigh-v0.4.7) - 2026-02-22
+
+### Other
+
+- has_address method to ImageSections ([#192](https://github.com/toolCHAINZ/jingle/pull/192))
+
 ## [0.4.6](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.5...jingle_sleigh-v0.4.6) - 2026-02-19
 
 ### Added

@@ -159,6 +159,18 @@ pub trait ImageSections {
             .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
     }
 
+    /// Check if the given address is present in any (non-empty) section.
+    fn has_address(&self, addr: u64) -> bool
+    where
+        Self: Sized,
+    {
+        self.image_sections().any(|s| {
+            !s.data.is_empty()
+                && addr >= s.base_address as u64
+                && addr < (s.base_address + s.data.len()) as u64
+        })
+    }
+
     /// Check if the given address is within a readable section.
     fn is_readable(&self, addr: u64) -> bool
     where

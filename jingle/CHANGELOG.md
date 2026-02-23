@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.9](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.8...jingle-v0.5.9) - 2026-02-22
+
+### Other
+
+- updated the following local packages: jingle_sleigh
+
 ## [0.5.8](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.7...jingle-v0.5.8) - 2026-02-19
 
 ### Added
