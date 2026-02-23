@@ -242,7 +242,7 @@ impl JingleDisplay for SingleValuationLocation {
             SingleValuationLocation::Direct(vn_intern) => vn_intern.as_ref().fmt_jingle(f, info),
             SingleValuationLocation::Indirect(ptr_intern) => {
                 // Display indirect locations as a bracketed pointer expression.
-                write!(f, "[")?;
+                write!(f, "*[")?;
                 ptr_intern.as_ref().fmt_jingle(f, info)?;
                 write!(f, "]")
             }
@@ -258,7 +258,7 @@ impl Display for SingleValuationLocation {
             // `SimpleValue` does not implement `std::fmt::Display`, so fall back to `Debug`
             // (which is available) to provide a reasonable textual representation.
             SingleValuationLocation::Indirect(ptr_intern) => {
-                write!(f, "[{}]", ptr_intern.as_ref())
+                write!(f, "*[{}]", ptr_intern.as_ref())
             }
         }
     }
