@@ -1,5 +1,6 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
+use crate::analysis::location::bound::FallthroughCounting;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
@@ -15,13 +16,16 @@ use std::iter::{empty, once};
 pub struct BoundedBranchState {
     pub branch_count: usize,
     max_count: usize,
+    /// How to treat Fallthrough pcode operations when counting branches.
+    pub fallthrough_counting: FallthroughCounting,
 }
 
 impl BoundedBranchState {
-    pub fn new(max_count: usize) -> Self {
+    pub fn new(max_count: usize, fallthrough_counting: FallthroughCounting) -> Self {
         Self {
             max_count,
             branch_count: 0,
+            fallthrough_counting,
         }
     }
 }
@@ -54,16 +58,25 @@ impl AbstractState for BoundedBranchState {
         if self.branch_count == self.max_count {
             empty().into()
         } else {
-            let cur = if opcode.branch_destination().is_some() {
+            // Determine whether this opcode should be counted as a branch.
+            let is_branch = opcode.branch_destination().is_some();
+            let is_fallthrough = matches!(opcode, PcodeOperation::Fallthrough { .. });
+            let should_count = is_branch
+                && !(matches!(self.fallthrough_counting, FallthroughCounting::Ignore)
+                    && is_fallthrough);
+
+            let cur = if should_count {
                 self.branch_count + 1
             } else {
                 self.branch_count
             };
             let max_count = self.max_count;
             let branch_count = cur;
+            let fallthrough_counting = self.fallthrough_counting;
             once(Self {
                 max_count,
                 branch_count,
+                fallthrough_counting,
             })
             .into()
         }
