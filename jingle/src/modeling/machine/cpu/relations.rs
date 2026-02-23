@@ -10,7 +10,9 @@ impl SymbolicPcodeAddress {
         op: &PcodeOperation,
     ) -> Result<Self, JingleError> {
         match op {
-            PcodeOperation::Branch { input } | PcodeOperation::Call { dest: input, .. } => {
+            PcodeOperation::Branch { input }
+            | PcodeOperation::Call { dest: input, .. }
+            | PcodeOperation::Fallthrough { input } => {
                 Ok(self.interpret_branch_dest_varnode(input))
             }
             PcodeOperation::CBranch { input0, input1 } => {

@@ -98,7 +98,7 @@ impl From<&PcodeMachineAddress> for ConcretePcodeAddress {
 impl ConcretePcodeAddress {
     pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
         match op {
-            PcodeOperation::Branch { input } => {
+            PcodeOperation::Branch { input } | PcodeOperation::Fallthrough { input } => {
                 once(ConcretePcodeAddress::from(input.offset)).into()
             }
             PcodeOperation::CBranch { input0, .. } => {
