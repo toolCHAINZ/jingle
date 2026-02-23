@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.9...jingle-v0.6.0) - 2026-02-23
+
+### Changed
+
+- Add dereference symbol for indirect valuation display ([#194](https://github.com/toolCHAINZ/jingle/pull/194))
+
+### Other
+
+- [**breaking**] explicitly annotate instruction fallthrough with ([#195](https://github.com/toolCHAINZ/jingle/pull/195))
+
 ## [0.5.9](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.5.8...jingle-v0.5.9) - 2026-02-22
 
 ### Other
