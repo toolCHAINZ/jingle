@@ -71,7 +71,7 @@ pub(crate) fn parse_pcode(
             // pairs[0] = output varnode, pairs[1] = reference
             let output = helpers::parse_varnode(pairs[0].clone(), info)?;
             let mut input = helpers::parse_reference_pair(pairs[1].clone(), info)?;
-            input.access_size_bytes = output.size;
+            input.access_size_bytes = output.size();
             Ok(PcodeOperation::Load { input, output })
         }
         Rule::STORE => {
@@ -79,7 +79,7 @@ pub(crate) fn parse_pcode(
             // pairs[0] = reference, pairs[1] = varnode to store
             let mut output = helpers::parse_reference_pair(pairs[0].clone(), info)?;
             let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            output.access_size_bytes = input.size;
+            output.access_size_bytes = input.size();
             Ok(PcodeOperation::Store { output, input })
         }
         Rule::BRANCH => {
@@ -112,11 +112,7 @@ pub(crate) fn parse_pcode(
         Rule::BRANCHIND => {
             let pairs: Vec<_> = pair.into_inner().collect();
             let vn = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = IndirectVarNode {
-                pointer_space_index: vn.space_index,
-                pointer_location: vn.clone(),
-                access_size_bytes: vn.size,
-            };
+            let input = IndirectVarNode::new(vn.clone(), vn.size(), vn.space_index());
             Ok(PcodeOperation::BranchInd { input })
         }
         Rule::CALL => {

@@ -105,7 +105,7 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Read the byte range specified by the given [`VarNode`] from the configured image provider.
     pub fn read_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
-        if vn.space_index == self.arch_info.default_code_space_index() as u32 {
+        if vn.space_index() == self.arch_info.default_code_space_index() {
             self.img.provider.get_bytes(&self.adjust_varnode_vma(vn))
         } else {
             None

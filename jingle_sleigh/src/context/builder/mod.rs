@@ -528,7 +528,7 @@ mod tests {
         let pc = pc.unwrap();
 
         // Sanity-check: sizes should be > 0; x86_64 registers will typically be 8 bytes.
-        assert!(sp.size > 0);
-        assert!(pc.size > 0);
+        assert!(sp.size() > 0);
+        assert!(pc.size() > 0);
     }
 }

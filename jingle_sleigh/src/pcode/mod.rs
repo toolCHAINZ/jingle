@@ -727,11 +727,11 @@ impl From<RawPcodeOp> for PcodeOperation {
         macro_rules! one_in_indirect {
             ($op:tt) => {
                 $op {
-                    input: IndirectVarNode {
-                        pointer_location: VarNode::from(&value.inputs[0]),
-                        access_size_bytes: value.space.getAddrSize() as u32,
-                        pointer_space_index: value.space.getIndex() as u32,
-                    },
+                    input: IndirectVarNode::new(
+                        VarNode::from(&value.inputs[0]),
+                        value.space.getAddrSize(),
+                        value.space.getIndex(),
+                    ),
                 }
             };
         }
@@ -771,11 +771,11 @@ impl From<RawPcodeOp> for PcodeOperation {
                     .getSpaceFromPointer(space_id);
                 let output = VarNode::from(&value.output);
                 Load {
-                    input: IndirectVarNode {
-                        pointer_space_index: space.getIndex() as u32,
-                        pointer_location: VarNode::from(&value.inputs[1]),
-                        access_size_bytes: output.size,
-                    },
+                    input: IndirectVarNode::new(
+                        VarNode::from(&value.inputs[1]),
+                        output.size(),
+                        space.getIndex(),
+                    ),
                     output: value.output.into(),
                 }
             }
@@ -787,11 +787,11 @@ impl From<RawPcodeOp> for PcodeOperation {
                     .getSpaceFromPointer(space_id);
                 let input = VarNode::from(&value.inputs[2]);
                 Store {
-                    output: IndirectVarNode {
-                        pointer_space_index: space.getIndex() as u32,
-                        pointer_location: VarNode::from(&value.inputs[1]),
-                        access_size_bytes: input.size,
-                    },
+                    output: IndirectVarNode::new(
+                        VarNode::from(&value.inputs[1]),
+                        input.size(),
+                        space.getIndex(),
+                    ),
                     input,
                 }
             }

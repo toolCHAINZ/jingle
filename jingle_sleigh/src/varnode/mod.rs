@@ -1,7 +1,6 @@
 use crate::error::JingleSleighError;
 use std::borrow::Borrow;
 use std::ops::Add;
-use std::ops::Deref;
 
 use crate::SleighArchInfo;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
@@ -78,6 +77,7 @@ macro_rules! into_vn_types {
 into_vn_types!(u8);
 into_vn_types!(u16);
 into_vn_types!(u32);
+into_vn_types!(i32);
 into_vn_types!(u64);
 into_vn_types!(usize);
 
@@ -236,9 +236,35 @@ pub fn create_varnode<T: Borrow<SleighArchInfo>>(
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IndirectVarNode {
-    pub pointer_space_index: u32,
-    pub pointer_location: VarNode,
-    pub access_size_bytes: u32,
+    pointer_space_index: VarNodeSpaceIndex,
+    pointer_location: VarNode,
+    access_size_bytes: VarNodeSize,
+}
+
+impl IndirectVarNode {
+    pub fn new(
+        pointer: impl Borrow<VarNode>,
+        size: impl Into<VarNodeSize>,
+        space: impl Into<VarNodeSpaceIndex>,
+    ) -> Self {
+        Self {
+            pointer_location: pointer.borrow().clone(),
+            access_size_bytes: size.into(),
+            pointer_space_index: space.into(),
+        }
+    }
+
+    pub fn access_size_bytes(&self) -> usize {
+        self.access_size_bytes.0 as usize
+    }
+
+    pub fn pointer_location(&self) -> &VarNode {
+        &self.pointer_location
+    }
+
+    pub fn pointer_space_index(&self) -> usize {
+        self.pointer_space_index.0 as usize
+    }
 }
 
 impl Display for IndirectVarNode {
