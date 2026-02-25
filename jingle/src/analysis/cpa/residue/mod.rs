@@ -31,17 +31,13 @@ pub trait Residue<'a, S> {
     fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOpRef<'a>>) {}
 
     /// Called when two abstract states are merged. `curr_state` is the state
-    /// that produced the transition, `original_merged_state` is the pre-merge
-    /// destination, and `merged_state` is the state after merging. `op` is the
-    /// optional p-code operation for the transition.
-    fn merged_state(
-        &mut self,
-        _curr_state: &S,
-        _original_merged_state: &S,
-        _merged_state: &S,
-        _op: &Option<PcodeOpRef<'a>>,
-    ) {
-    }
+    /// that produced the transition, and `merged_state` is the state after merging.
+    ///
+    /// The reducer can identify affected states using the monotonicity guarantee:
+    /// any state `s` where `s <= merged_state` was potentially subsumed by this merge.
+    ///
+    /// `op` is the optional p-code operation for the transition.
+    fn merged_state(&mut self, _curr_state: &S, _merged_state: &S, _op: &Option<PcodeOpRef<'a>>) {}
 
     /// Construct a new instance of the residue collector.
     fn new() -> Self;

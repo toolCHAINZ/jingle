@@ -145,7 +145,7 @@ impl JoinSemiLattice for PcodeAddressLattice {
 }
 
 impl AbstractState for PcodeAddressLattice {
-    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
         // Preserve separate-merge default semantics (no merging by default).
         // Use `merge_sep` so analyses that rely on separate states continue to work.
         self.merge_sep(other)

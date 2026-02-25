@@ -379,7 +379,7 @@ impl JoinSemiLattice for SimpleValuationState {
 }
 
 impl AbstractState for SimpleValuationState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.merge_join(other)
     }
 

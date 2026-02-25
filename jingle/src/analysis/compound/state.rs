@@ -76,12 +76,15 @@ macro_rules! named_tuple {
         impl<$F: ComponentStrengthen + AbstractState, $( $T: ComponentStrengthen + AbstractState ),+> AbstractState
             for $name<$F, $( $T ),+>
         {
-            fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+            fn merge(&mut self, other: &Self) -> MergeOutcome {
                 if self == other {
                     return MergeOutcome::NoOp;
                 }
-                // todo: can probably avoid extra clones here still
-                let old = self.clone();
+
+                // OPTIMIZATION: No cloning at all!
+                // Components merge in-place and just return a flag.
+                // The CPA algorithm clones before calling merge if it needs the old value.
+
                 let mut any_merged = false;
 
                 let eq = self.$first_field == other.$first_field;
@@ -101,7 +104,7 @@ macro_rules! named_tuple {
                 )+
 
                 if any_merged {
-                    MergeOutcome::Merged { old }
+                    MergeOutcome::Merged
                 } else {
                     MergeOutcome::NoOp
                 }

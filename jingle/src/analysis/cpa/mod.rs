@@ -9,7 +9,7 @@ pub use crate::analysis::cpa::residue::{CFG, TerminatingReducer, VEC};
 use tracing::{Level, span};
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome};
+use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -110,14 +110,13 @@ where
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
-                    if let MergeOutcome::Merged { old: old_reached } =
-                        reached_state.merge(&dest_state)
-                    {
+                    if reached_state.merge(&dest_state).is_merged() {
                         tracing::debug!("    Merged dest_state into existing reached_state");
                         tracing::debug!("      Merged state: {}", reached_state);
-                        // Call the reducer's merged_state with the operation reference `op`
-                        // that has lifetime `'op`.
-                        reducer.merged_state(&state, &old_reached, reached_state, &op);
+                        // Call the reducer's merged_state with the merged state
+                        // The reducer can use the partial order to identify which states
+                        // were subsumed by this merge
+                        reducer.merged_state(&state, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;

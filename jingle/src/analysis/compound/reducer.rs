@@ -32,14 +32,11 @@ impl<'op, A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
     fn merged_state(
         &mut self,
         curr_state: &CompoundState2<A::State, B::State>,
-        dest_state: &CompoundState2<A::State, B::State>,
         merged_state: &CompoundState2<A::State, B::State>,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a
-            .merged_state(&curr_state.s1, &dest_state.s1, &merged_state.s1, op);
-        self.b
-            .merged_state(&curr_state.s2, &dest_state.s2, &merged_state.s2, op);
+        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
+        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
     }
 
     fn new_state(
@@ -82,14 +79,11 @@ impl<'op, A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
     fn merged_state(
         &mut self,
         curr_state: &CompoundState2<A::State, B::State>,
-        dest_state: &CompoundState2<A::State, B::State>,
         merged_state: &CompoundState2<A::State, B::State>,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a
-            .merged_state(&curr_state.s1, &dest_state.s1, &merged_state.s1, op);
-        self.b
-            .merged_state(&curr_state.s2, &dest_state.s2, &merged_state.s2, op);
+        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
+        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
     }
 
     fn new_state(
@@ -144,16 +138,12 @@ impl<
     fn merged_state(
         &mut self,
         curr_state: &CompoundState3<A::State, B::State, C::State>,
-        dest_state: &CompoundState3<A::State, B::State, C::State>,
         merged_state: &CompoundState3<A::State, B::State, C::State>,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a
-            .merged_state(&curr_state.s1, &dest_state.s1, &merged_state.s1, op);
-        self.b
-            .merged_state(&curr_state.s2, &dest_state.s2, &merged_state.s2, op);
-        self.c
-            .merged_state(&curr_state.s3, &dest_state.s3, &merged_state.s3, op);
+        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
+        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
+        self.c.merged_state(&curr_state.s3, &merged_state.s3, op);
     }
 
     fn new_state(
@@ -215,18 +205,13 @@ impl<
     fn merged_state(
         &mut self,
         curr_state: &CompoundState4<A::State, B::State, C::State, D::State>,
-        dest_state: &CompoundState4<A::State, B::State, C::State, D::State>,
         merged_state: &CompoundState4<A::State, B::State, C::State, D::State>,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a
-            .merged_state(&curr_state.s1, &dest_state.s1, &merged_state.s1, op);
-        self.b
-            .merged_state(&curr_state.s2, &dest_state.s2, &merged_state.s2, op);
-        self.c
-            .merged_state(&curr_state.s3, &dest_state.s3, &merged_state.s3, op);
-        self.d
-            .merged_state(&curr_state.s4, &dest_state.s4, &merged_state.s4, op);
+        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
+        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
+        self.c.merged_state(&curr_state.s3, &merged_state.s3, op);
+        self.d.merged_state(&curr_state.s4, &merged_state.s4, op);
     }
 
     fn new_state(

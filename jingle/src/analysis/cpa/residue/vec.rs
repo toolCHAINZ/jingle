@@ -65,17 +65,17 @@ where
         self.visited.push(dest_state.clone());
     }
 
-    /// When two abstract states are merged, replace earlier occurrences of
-    /// `dest_state` in the recorded `visited` list with clones of `merged_state`.
+    /// When two abstract states are merged, replace earlier occurrences in the
+    /// recorded `visited` list that are <= merged_state with clones of `merged_state`.
     fn merged_state(
         &mut self,
         _curr_state: &S,
-        dest_state: &S,
         merged_state: &S,
         _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
+        // Replace any visited state that is <= merged_state (subsumed by the merge)
         for entry in &mut self.visited {
-            if entry == dest_state {
+            if &*entry < merged_state {
                 *entry = merged_state.clone();
             }
         }
