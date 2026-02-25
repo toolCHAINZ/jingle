@@ -111,11 +111,7 @@ pub struct VarNode {
 impl VarNode {
     #[new]
     pub fn new_py(space_index: u32, offset: u64, size: u32) -> Self {
-        Self {
-            space_index,
-            offset,
-            size,
-        }
+        Self::new(offset, size, space_index)
     }
 }
 
