@@ -87,11 +87,19 @@ macro_rules! named_tuple {
 
                 let mut any_merged = false;
 
+                let eq = self.$first_field == other.$first_field;
                 let field_merged = self.$first_field.merge(&other.$first_field).is_merged();
+                if !eq && !field_merged && !any_merged {
+                    return MergeOutcome::NoOp;
+                }
                 any_merged |= field_merged;
 
                 $(
+                    let eq = self.$field == other.$field;
                     let field_merged = self.$field.merge(&other.$field).is_merged();
+                    if !eq && !field_merged && !any_merged {
+                        return MergeOutcome::NoOp;
+                    }
                     any_merged |= field_merged;
                 )+
 
