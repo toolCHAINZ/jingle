@@ -78,7 +78,7 @@ impl<'a> ImageFFI<'a> {
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {
         let addr = VarNode::from(vn);
-        if addr.space_index != self.space_index {
+        if addr.space_index() != self.space_index as usize {
             return 0;
         }
         let adjusted = self.adjust_varnode_vma(&addr);
@@ -86,7 +86,7 @@ impl<'a> ImageFFI<'a> {
     }
 
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
-        if vn.space_index != self.space_index {
+        if vn.space_index() != self.space_index as usize {
             return false;
         }
         self.provider.has_full_range(&self.adjust_varnode_vma(vn))

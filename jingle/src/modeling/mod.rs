@@ -78,7 +78,7 @@ pub trait ModelingContext: Debug + Sized {
             Direct(d) => self
                 .get_final_state()
                 .arch_info()
-                .get_space(d.space_index as usize)
+                .get_space(d.space_index() as usize)
                 .map(|o| o._type == SpaceType::IPTR_PROCESSOR)
                 .unwrap_or(false),
             Indirect(_) => true,
@@ -192,16 +192,16 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.get_final_state().read_varnode(&d)
             }
             GeneralizedVarNode::Indirect(indirect) => {
-                self.track_input(&Direct(indirect.pointer_location.clone()));
+                self.track_input(&Direct(indirect.pointer_location().clone()));
                 let pointer = self
                     .get_final_state()
-                    .read_varnode(&indirect.pointer_location)?
+                    .read_varnode(&indirect.pointer_location())?
                     .clone();
                 self.track_input(&Indirect(ResolvedIndirectVarNode {
                     pointer,
-                    pointer_location: indirect.pointer_location.clone(),
-                    access_size_bytes: indirect.access_size_bytes as usize,
-                    pointer_space_idx: indirect.pointer_space_index as usize,
+                    pointer_location: indirect.pointer_location().clone(),
+                    access_size_bytes: indirect.access_size_bytes(),
+                    pointer_space_idx: indirect.pointer_space_index(),
                 }));
                 self.get_final_state().read_varnode_indirect(&indirect)
             }
@@ -215,12 +215,12 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.get_final_state_mut().write_varnode(d, val)?;
             }
             GeneralizedVarNode::Indirect(indirect) => {
-                let pointer = self.read_and_track(indirect.pointer_location.clone().into())?;
+                let pointer = self.read_and_track(indirect.pointer_location().clone().into())?;
                 self.track_output(&Indirect(ResolvedIndirectVarNode {
                     pointer,
-                    pointer_location: indirect.pointer_location.clone(),
-                    access_size_bytes: indirect.access_size_bytes as usize,
-                    pointer_space_idx: indirect.pointer_space_index as usize,
+                    pointer_location: indirect.pointer_location().clone(),
+                    access_size_bytes: indirect.access_size_bytes(),
+                    pointer_space_idx: indirect.pointer_space_index(),
                 }));
                 self.get_final_state_mut()
                     .write_varnode_indirect(indirect, val)?;
@@ -244,13 +244,13 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.write(&output.into(), val)
             }
             PcodeOperation::IntZExt { input, output } => {
-                let diff = (output.size - input.size) as u32;
+                let diff = (output.size() - input.size()) as u32;
                 let val = self.read_and_track(input.into())?;
                 let zext = val.zero_ext(diff * 8);
                 self.write(&output.into(), zext)
             }
             PcodeOperation::IntSExt { input, output } => {
-                let diff = (output.size - input.size) as u32;
+                let diff = (output.size() - input.size()) as u32;
                 let val = self.read_and_track(input.into())?;
                 let zext = val.sign_ext(diff * 8);
                 self.write(&output.into(), zext)
@@ -511,7 +511,7 @@ pub(crate) trait TranslationContext: ModelingContext {
             } => {
                 let in0 = self.read_and_track(input0.into())?;
                 let in1 = self.read_and_track(input1.into())?;
-                let outsize = output.size as u32;
+                let outsize = output.size() as u32;
                 let out_bool = in0.eq(&in1);
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
@@ -524,7 +524,7 @@ pub(crate) trait TranslationContext: ModelingContext {
             } => {
                 let in0 = self.read_and_track(input0.into())?;
                 let in1 = self.read_and_track(input1.into())?;
-                let outsize = output.size as u32;
+                let outsize = output.size() as u32;
                 let out_bool = in0.eq(&in1).not();
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
@@ -566,9 +566,9 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.write(&output.into(), result)
             }
             PcodeOperation::PopCount { input, output } => {
-                let size = output.size as u32;
+                let size = output.size() as u32;
                 let in0 = self.read_and_track(input.into())?;
-                let mut outbv = BV::from_i64(0, output.size as u32 * 8);
+                let mut outbv = BV::from_i64(0, output.size() as u32 * 8);
                 for i in 0..size * 8 {
                     let extract = in0.extract(i, i);
                     let extend = extract.zero_ext((size * 8) - 1);
@@ -586,7 +586,7 @@ pub(crate) trait TranslationContext: ModelingContext {
             PcodeOperation::BranchInd { input } => {
                 self.get_branch_builder()
                     .set_last(&GeneralizedVarNode::from(input));
-                self.read_and_track(GeneralizedVarNode::from(&input.pointer_location))?;
+                self.read_and_track(GeneralizedVarNode::from(input.pointer_location()))?;
                 Ok(())
             }
             PcodeOperation::Call { dest, .. } => {
@@ -611,9 +611,9 @@ pub(crate) trait TranslationContext: ModelingContext {
             } => {
                 let bv0 = self.read_and_track(input0.into())?;
                 // sleigh asserts that input1 is a constant
-                let input_low_byte = input1.offset as u32;
-                let input_size = (input0.size as u32) - input_low_byte;
-                let output_size = output.size as u32;
+                let input_low_byte = input1.offset() as u32;
+                let input_size = (input0.size() as u32) - input_low_byte;
+                let output_size = output.size() as u32;
                 let size = min(input_size, output_size);
                 let input = bv0.extract((input_low_byte + size) * 8 - 1, input_low_byte * 8);
                 match size.cmp(&output_size) {
@@ -642,16 +642,16 @@ pub(crate) trait TranslationContext: ModelingContext {
                 let hash_vn = create_varnode(self.get_arch_info(), "const", hash, size)?;
                 let metadata = self
                     .get_final_state()
-                    .immediate_metadata_array(true, hash_vn.size as usize);
+                    .immediate_metadata_array(true, hash_vn.size());
                 self.get_final_state_mut()
                     .write_varnode_metadata(&hash_vn, metadata)?;
                 self.get_branch_builder().set_last(&hash_vn.into());
                 if let Some(out) = output {
-                    let size = out.size * 8;
+                    let size = out.size() * 8;
                     let hash_bv = BV::from_u64(hash, size as u32);
                     let metadata = self
                         .get_final_state()
-                        .immediate_metadata_array(true, out.size as usize);
+                        .immediate_metadata_array(true, out.size());
                     self.get_final_state_mut()
                         .write_varnode_metadata(out, metadata)?;
                     self.write(&out.into(), hash_bv)?;
@@ -661,13 +661,13 @@ pub(crate) trait TranslationContext: ModelingContext {
             PcodeOperation::CallInd { input } => {
                 self.get_branch_builder()
                     .set_last(&GeneralizedVarNode::from(input));
-                self.read_and_track(GeneralizedVarNode::from(&input.pointer_location))?;
+                self.read_and_track(GeneralizedVarNode::from(input.pointer_location()))?;
                 Ok(())
             }
             PcodeOperation::Return { input } => {
                 self.get_branch_builder()
                     .set_last(&GeneralizedVarNode::from(input));
-                self.read_and_track(GeneralizedVarNode::from(&input.pointer_location))?;
+                self.read_and_track(GeneralizedVarNode::from(input.pointer_location()))?;
                 Ok(())
             }
             v => Err(JingleError::UnmodeledInstruction(Box::new(v.clone()))),

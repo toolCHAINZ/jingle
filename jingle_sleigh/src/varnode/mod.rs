@@ -265,6 +265,10 @@ impl IndirectVarNode {
     pub fn pointer_space_index(&self) -> usize {
         self.pointer_space_index.0 as usize
     }
+
+    pub fn set_access_size_bytes(&mut self, val: impl Into<VarNodeSize>) {
+        self.access_size_bytes = val.into()
+    }
 }
 
 impl Display for IndirectVarNode {

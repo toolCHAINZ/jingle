@@ -416,8 +416,8 @@ impl Simplify for AddExpr {
         if let SimpleValue::Add(AddExpr(left_inner_left, left_inner_right, _)) = &left {
             if let Some(inner_right_vn) = left_inner_right.as_ref().as_const() {
                 if let Some(right_vn) = right.as_const() {
-                    let inner_right_const = inner_right_vn.offset as i64;
-                    let right_const = right_vn.offset as i64;
+                    let inner_right_const = inner_right_vn.offset() as i64;
+                    let right_const = right_vn.offset() as i64;
                     let res = inner_right_const.wrapping_add(right_const);
                     let size = std::cmp::max(
                         left_inner_left.as_ref().size(),
@@ -426,6 +426,8 @@ impl Simplify for AddExpr {
                     let new_const = SimpleValue::make_const(res, size as u32);
                     return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }
+            }
+        }
 
         // ((expr - #a) + #b) -> (expr - #(a - b)) or (expr + #(b - a))
         if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {

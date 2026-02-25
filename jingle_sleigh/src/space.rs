@@ -47,11 +47,7 @@ pub struct SpaceInfo {
 impl SpaceInfo {
     /// Create a varnode of the given offset and size residing in this space.
     pub fn make_varnode(&self, offset: u64, size: usize) -> VarNode {
-        VarNode {
-            space_index: self.index as u32,
-            offset,
-            size: size as u32,
-        }
+        VarNode::new(offset, size, self.index)
     }
 }
 
@@ -223,11 +219,7 @@ impl SleighArchInfo {
 
     pub fn varnode(&self, name: &str, offset: u64, size: usize) -> Option<VarNode> {
         let space_index = self.spaces().iter().position(|s| s.name == name)?;
-        Some(VarNode {
-            space_index: space_index as u32,
-            offset,
-            size: size as u32,
-        })
+        Some(VarNode::new(offset, size, space_index))
     }
 
     /// Return the list of known userop names (by reference). Order is the
@@ -285,9 +277,9 @@ mod tests {
         let space = create_test_space_info("ram", 3, SleighEndianness::Little);
         let vn = space.make_varnode(0x1000, 4);
 
-        assert_eq!(vn.space_index, 3u32);
-        assert_eq!(vn.offset, 0x1000);
-        assert_eq!(vn.size, 4u32);
+        assert_eq!(vn.space_index(), 3);
+        assert_eq!(vn.offset(), 0x1000);
+        assert_eq!(vn.size(), 4);
     }
 
     #[test]
@@ -358,22 +350,8 @@ mod tests {
     #[test]
     fn test_sleigh_arch_info_registers() {
         let registers = vec![
-            (
-                VarNode {
-                    space_index: 1,
-                    offset: 0,
-                    size: 8,
-                },
-                "rax".to_string(),
-            ),
-            (
-                VarNode {
-                    space_index: 1,
-                    offset: 8,
-                    size: 8,
-                },
-                "rbx".to_string(),
-            ),
+            (VarNode::new(0, 8, 1), "rax".to_string()),
+            (VarNode::new(8, 8, 1), "rbx".to_string()),
         ];
 
         let arch_info = SleighArchInfo::new(
@@ -390,11 +368,7 @@ mod tests {
 
     #[test]
     fn test_sleigh_arch_info_register_name() {
-        let rax_vn = VarNode {
-            space_index: 1,
-            offset: 0,
-            size: 8,
-        };
+        let rax_vn = VarNode::new(0, 8, 1);
         let registers = vec![(rax_vn.clone(), "rax".to_string())];
 
         let arch_info = SleighArchInfo::new(
@@ -407,21 +381,13 @@ mod tests {
 
         assert_eq!(arch_info.register_name(&rax_vn), Some("rax"));
 
-        let unknown_vn = VarNode {
-            space_index: 1,
-            offset: 100,
-            size: 8,
-        };
+        let unknown_vn = VarNode::new(100, 8, 1);
         assert_eq!(arch_info.register_name(&unknown_vn), None);
     }
 
     #[test]
     fn test_sleigh_arch_info_register() {
-        let rax_vn = VarNode {
-            space_index: 1,
-            offset: 0,
-            size: 8,
-        };
+        let rax_vn = VarNode::new(0, 8, 1);
         let registers = vec![(rax_vn.clone(), "rax".to_string())];
 
         let arch_info = SleighArchInfo::new(
@@ -452,9 +418,9 @@ mod tests {
         );
 
         let vn = arch_info.varnode("ram", 0x1000, 4).unwrap();
-        assert_eq!(vn.space_index, 0u32);
-        assert_eq!(vn.offset, 0x1000);
-        assert_eq!(vn.size, 4u32);
+        assert_eq!(vn.space_index(), 0);
+        assert_eq!(vn.offset(), 0x1000);
+        assert_eq!(vn.size(), 4);
 
         assert!(arch_info.varnode("nonexistent", 0, 4).is_none());
     }

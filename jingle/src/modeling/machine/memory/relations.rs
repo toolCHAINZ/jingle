@@ -15,13 +15,13 @@ impl MemoryState {
                 final_state.write(output, val)?;
             }
             PcodeOperation::IntZExt { input, output } => {
-                let diff = (output.size - input.size) as u32;
+                let diff = (output.size() - input.size()) as u32;
                 let val = self.read(input)?;
                 let zext = val.zero_ext(diff * 8);
                 final_state.write(output, zext)?;
             }
             PcodeOperation::IntSExt { input, output } => {
-                let diff = (output.size - input.size) as u32;
+                let diff = (output.size() - input.size()) as u32;
                 let val = self.read(input)?;
                 let zext = val.sign_ext(diff * 8);
                 final_state.write(output, zext)?;
@@ -288,7 +288,7 @@ impl MemoryState {
                 let in0 = self.read(input0)?;
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
-                let outsize = output.size as u32;
+                let outsize = output.size() as u32;
                 let out_bool = in0.eq(&in1);
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
@@ -302,7 +302,7 @@ impl MemoryState {
                 let in0 = self.read(input0)?;
                 let in1 = self.read(input1)?;
                 // bool arg seems to be for whether this check is signed
-                let outsize = output.size as u32;
+                let outsize = output.size() as u32;
                 let out_bool = in0.eq(&in1).not();
                 let out_bv =
                     out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
@@ -347,9 +347,9 @@ impl MemoryState {
                 final_state.write(output, result)?;
             }
             PcodeOperation::PopCount { input, output } => {
-                let size = output.size as u32;
+                let size = output.size() as u32;
                 let in0 = self.read(input)?;
-                let mut outbv = BV::from_i64(0, output.size as u32 * 8);
+                let mut outbv = BV::from_i64(0, output.size() as u32 * 8);
                 for i in 0..size * 8 {
                     let extract = in0.extract(i, i);
                     let extend = extract.zero_ext((size * 8) - 1);
@@ -365,9 +365,9 @@ impl MemoryState {
             } => {
                 let bv0 = self.read(input0)?;
                 // sleigh asserts that input1 is a constant
-                let input_low_byte = input1.offset as u32;
-                let input_size = (input0.size as u32) - input_low_byte;
-                let output_size = output.size as u32;
+                let input_low_byte = input1.offset() as u32;
+                let input_size = (input0.size() as u32) - input_low_byte;
+                let output_size = output.size() as u32;
                 let size = min(input_size, output_size);
                 let input = bv0.extract((input_low_byte + size) * 8 - 1, input_low_byte * 8);
                 match size.cmp(&output_size) {

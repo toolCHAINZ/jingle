@@ -73,10 +73,10 @@ impl JingleDisplay for IndirectVarNode {
         write!(
             f,
             "{}({})",
-            ctx.get_space(self.pointer_space_index as usize)
+            ctx.get_space(self.pointer_space_index())
                 .ok_or(std::fmt::Error)?
                 .name,
-            self.pointer_location.display(ctx)
+            self.pointer_location().display(ctx)
         )
     }
 }

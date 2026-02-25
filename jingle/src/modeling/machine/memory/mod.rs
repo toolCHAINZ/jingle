@@ -91,18 +91,18 @@ impl MemoryState {
     fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV, JingleError> {
         let pointer_space_info = self
             .info
-            .get_space(indirect.pointer_space_index as usize)
+            .get_space(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location)?;
+        let ptr = self.read_varnode(&indirect.pointer_location())?;
 
         let space = self
             .spaces
-            .get(indirect.pointer_space_index as usize)
+            .get(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
-        space.read(&ptr, indirect.access_size_bytes as usize)
+        space.read(&ptr, indirect.access_size_bytes())
     }
 
     #[expect(unused)]
@@ -112,18 +112,18 @@ impl MemoryState {
     ) -> Result<BV, JingleError> {
         let pointer_space_info = self
             .info
-            .get_space(indirect.pointer_space_index as usize)
+            .get_space(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location)?;
+        let ptr = self.read_varnode(&indirect.pointer_location())?;
 
         let space = self
             .spaces
-            .get(indirect.pointer_space_index as usize)
+            .get(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
-        space.read(&ptr, indirect.access_size_bytes as usize)
+        space.read(&ptr, indirect.access_size_bytes())
     }
 
     pub fn read<T: Into<GeneralizedVarNode>>(&self, vn: T) -> Result<BV, JingleError> {
@@ -178,15 +178,15 @@ impl MemoryState {
     ) -> Result<(), JingleError> {
         if self
             .info
-            .get_space(dest.pointer_space_index as usize)
+            .get_space(dest.pointer_space_index())
             .unwrap()
             ._type
             == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
-        let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index as usize].write(&val, &ptr)?;
+        let ptr = self.read_varnode(&dest.pointer_location())?;
+        self.spaces[dest.pointer_space_index()].write(&val, &ptr)?;
         Ok(())
     }
 
@@ -198,15 +198,15 @@ impl MemoryState {
     ) -> Result<(), JingleError> {
         if self
             .info
-            .get_space(dest.pointer_space_index as usize)
+            .get_space(dest.pointer_space_index())
             .unwrap()
             ._type
             == SpaceType::IPTR_CONSTANT
         {
             return Err(ConstantWrite);
         }
-        let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index as usize].write(&val, &ptr)?;
+        let ptr = self.read_varnode(&dest.pointer_location())?;
+        self.spaces[dest.pointer_space_index()].write(&val, &ptr)?;
         Ok(())
     }
 

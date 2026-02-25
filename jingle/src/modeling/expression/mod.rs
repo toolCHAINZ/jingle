@@ -19,10 +19,10 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
     match op {
         PcodeOperation::Copy { .. } => arg(0).cloned(),
         PcodeOperation::IntZExt { input, output } => {
-            arg(0).map(|v| v.zero_ext(((output.size - input.size) as u32) * 8))
+            arg(0).map(|v| v.zero_ext(((output.size() - input.size()) as u32) * 8))
         }
         PcodeOperation::IntSExt { input, output } => {
-            arg(0).map(|v| v.sign_ext(((output.size - input.size) as u32) * 8))
+            arg(0).map(|v| v.sign_ext(((output.size() - input.size()) as u32) * 8))
         }
         PcodeOperation::Store { .. } => {
             // store has no BV output
@@ -131,7 +131,7 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
         PcodeOperation::IntEqual { output, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
-            let outsize = output.size as u32;
+            let outsize = output.size() as u32;
             let out_bool = in0.eq(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
             Some(out_bv)
@@ -139,7 +139,7 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
         PcodeOperation::IntNotEqual { output, .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
-            let outsize = output.size as u32;
+            let outsize = output.size() as u32;
             let out_bool = in0.eq(in1).not();
             let out_bv = out_bool.ite(&BV::from_i64(1, outsize * 8), &BV::from_i64(0, outsize * 8));
             Some(out_bv)
@@ -169,9 +169,9 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             Some(result)
         }
         PcodeOperation::PopCount { output, .. } => {
-            let size = output.size as u32;
+            let size = output.size() as u32;
             let in0 = arg(0)?;
-            let mut outbv = BV::from_i64(0, output.size as u32 * 8);
+            let mut outbv = BV::from_i64(0, output.size() as u32 * 8);
             for i in 0..size * 8 {
                 let extract = in0.extract(i, i);
                 let extend = extract.zero_ext((size * 8) - 1);
@@ -186,9 +186,9 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
         } => {
             let bv0 = arg(0)?;
             // sleigh asserts that input1 is a constant
-            let input_low_byte = input1.offset as u32;
-            let input_size = (input0.size as u32).saturating_sub(input_low_byte);
-            let output_size = output.size as u32;
+            let input_low_byte = input1.offset() as u32;
+            let input_size = (input0.size() as u32).saturating_sub(input_low_byte);
+            let output_size = output.size() as u32;
             let size = min(input_size, output_size);
             let input = bv0.extract((input_low_byte + size) * 8 - 1, input_low_byte * 8);
             let res = match size.cmp(&output_size) {

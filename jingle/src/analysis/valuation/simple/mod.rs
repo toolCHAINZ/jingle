@@ -99,7 +99,7 @@ impl SimpleValuationState {
         match op {
             // Store: record pointer -> value in indirect_writes
             PcodeOperation::Store { output, input } => {
-                let ptr = &output.pointer_location;
+                let ptr = &output.pointer_location();
                 let val = if input.is_const() {
                     SimpleValue::const_(input.offset() as i64)
                 } else {
@@ -195,7 +195,7 @@ impl SimpleValuationState {
             }
 
             PcodeOperation::Load { input, .. } => {
-                let ptr = &input.pointer_location;
+                let ptr = &input.pointer_location();
 
                 // Non-constant pointer: if we have an indirect write recorded for this
                 // pointer expression, use that stored value directly; otherwise emit Load(...)
@@ -241,10 +241,7 @@ impl SimpleValuationState {
                         let keep = self
                             .arch_info
                             .get_space(vn.space_index())
-                            .map(|s| {
-                                s._type
-                                    != crate::modeling::machine::memory::SpaceType::IPTR_CONSTANT
-                            })
+                            .map(|s| s._type != SpaceType::IPTR_CONSTANT)
                             .unwrap_or(false);
                         if !keep {
                             to_remove.push(vn.clone());
@@ -261,7 +258,7 @@ impl SimpleValuationState {
                 for (vn, _) in new_state.valuation.direct_writes.items() {
                     let keep = self
                         .arch_info
-                        .get_space(vn.space_index as usize)
+                        .get_space(vn.space_index())
                         .map(|space| space._type != SpaceType::IPTR_INTERNAL)
                         .unwrap_or(true);
                     if !keep {

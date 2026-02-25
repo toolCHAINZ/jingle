@@ -58,11 +58,11 @@ impl ConcretePcodeAddress {
     pub fn resolve_from_varnode(vn: &VarNode, loc: ConcretePcodeAddress) -> Self {
         if vn.is_const() {
             // relative jump
-            loc.add_pcode_offset(vn.offset as u8)
+            loc.add_pcode_offset(vn.offset() as u8)
         } else {
             // absolute jump
             ConcretePcodeAddress {
-                machine: vn.offset,
+                machine: vn.offset(),
                 pcode: 0,
             }
         }
@@ -99,7 +99,7 @@ impl ConcretePcodeAddress {
     pub fn transfer<'a>(&'a self, op: &PcodeOperation) -> Successor<'a, Self> {
         match op {
             PcodeOperation::Branch { input } | PcodeOperation::Fallthrough { input } => {
-                once(ConcretePcodeAddress::from(input.offset)).into()
+                once(ConcretePcodeAddress::from(input.offset())).into()
             }
             PcodeOperation::CBranch { input0, .. } => {
                 let dest = ConcretePcodeAddress::resolve_from_varnode(input0, *self);

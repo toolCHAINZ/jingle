@@ -470,41 +470,19 @@ mod tests {
     #[test]
     fn test_insert_and_subtract_adjacent() {
         let mut set = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 4,
-        };
+        let vn1 = VarNode::new_const(0, 4);
+        let vn2 = VarNode::new_const(4, 4);
+
         set.insert(&vn1);
         set.insert(&vn2);
         let mut set2 = VarNodeSet::default();
-        let vn3 = VarNode {
-            space_index: 0,
-            offset: 2,
-            size: 4,
-        };
+        let vn3 = VarNode::new_const(2, 4);
         set2.insert(&vn3);
         set.subtract(&set2);
         let items = set.varnodes().collect::<Vec<_>>();
         assert_eq!(
             items,
-            vec![
-                VarNode {
-                    space_index: 0,
-                    offset: 0,
-                    size: 2
-                },
-                VarNode {
-                    space_index: 0,
-                    offset: 6,
-                    size: 2
-                }
-            ]
+            vec![VarNode::new_const(0, 2), VarNode::new_const(6, 2)]
         );
     }
 
@@ -512,11 +490,7 @@ mod tests {
     fn test_union_with_empty() {
         let mut set1 = VarNodeSet::default();
         let set2 = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
+        let vn = VarNode::new_const(0, 4);
         set1.insert(&vn);
         set1.union(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();

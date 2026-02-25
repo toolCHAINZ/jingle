@@ -52,20 +52,20 @@ impl State {
     pub fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
             .arch_info()
-            .get_space(varnode.space_index as usize)
+            .get_space(varnode.space_index())
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
-                varnode.offset as i64,
-                (varnode.size * 8) as u32,
+                varnode.offset() as i64,
+                (varnode.size() * 8) as u32,
             )),
             _ => {
-                let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
+                let offset = BV::from_i64(varnode.offset() as i64, space.index_size_bytes * 8);
                 let arr = self
                     .spaces
-                    .get(varnode.space_index as usize)
+                    .get(varnode.space_index())
                     .ok_or(UnmodeledSpace)?;
-                arr.read_data(&offset, varnode.size as usize)
+                arr.read_data(&offset, varnode.size())
             }
         }
     }
@@ -73,32 +73,32 @@ impl State {
     pub fn read_varnode_metadata(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
             .arch_info()
-            .get_space(varnode.space_index as usize)
+            .get_space(varnode.space_index())
             .ok_or(UnmodeledSpace)?;
 
-        let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
+        let offset = BV::from_i64(varnode.offset() as i64, space.index_size_bytes * 8);
         let arr = self
             .spaces
-            .get(varnode.space_index as usize)
+            .get(varnode.space_index())
             .ok_or(UnmodeledSpace)?;
-        arr.read_metadata(&offset, varnode.size as usize)
+        arr.read_metadata(&offset, varnode.size())
     }
 
     pub fn read_varnode_indirect(&self, indirect: &IndirectVarNode) -> Result<BV, JingleError> {
         let pointer_space_info = self
             .arch_info()
-            .get_space(indirect.pointer_space_index as usize)
+            .get_space(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location)?;
+        let ptr = self.read_varnode(&indirect.pointer_location())?;
 
         let space = self
             .spaces
-            .get(indirect.pointer_space_index as usize)
+            .get(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
-        space.read_data(&ptr, indirect.access_size_bytes as usize)
+        space.read_data(&ptr, indirect.access_size_bytes())
     }
 
     pub fn read_varnode_metadata_indirect(
@@ -107,18 +107,18 @@ impl State {
     ) -> Result<BV, JingleError> {
         let pointer_space_info = self
             .arch_info()
-            .get_space(indirect.pointer_space_index as usize)
+            .get_space(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location)?;
+        let ptr = self.read_varnode(&indirect.pointer_location())?;
 
         let space = self
             .spaces
-            .get(indirect.pointer_space_index as usize)
+            .get(indirect.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
-        space.read_metadata(&ptr, indirect.access_size_bytes as usize)
+        space.read_metadata(&ptr, indirect.access_size_bytes())
     }
 
     pub fn read(&self, vn: GeneralizedVarNode) -> Result<BV, JingleError> {
@@ -137,43 +137,49 @@ impl State {
 
     /// Model a write to a [VarNode] on top of the current context.
     pub fn write_varnode(&mut self, dest: &VarNode, val: BV) -> Result<(), JingleError> {
-        if dest.size as usize * 8 != val.get_size() as usize {
+        if dest.size() * 8 != val.get_size() as usize {
             return Err(MismatchedWordSize);
         }
 
         let info = self
             .info
-            .get_space(dest.space_index as usize)
+            .get_space(dest.space_index())
             .ok_or(UnmodeledSpace)?;
         match info._type {
             SpaceType::IPTR_CONSTANT => Err(ConstantWrite),
             _ => {
                 let space = self
                     .spaces
-                    .get_mut(dest.space_index as usize)
+                    .get_mut(dest.space_index())
                     .ok_or(UnmodeledSpace)?;
-                space.write_data(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
+                space.write_data(
+                    &val,
+                    &BV::from_u64(dest.offset(), info.index_size_bytes * 8),
+                )?;
                 Ok(())
             }
         }
     }
 
     pub fn write_varnode_metadata(&mut self, dest: &VarNode, val: BV) -> Result<(), JingleError> {
-        if dest.size as usize != val.get_size() as usize {
+        if dest.size() != val.get_size() as usize {
             return Err(MismatchedWordSize);
         }
         // We are allowing writes to the constant space for metadata
         // to allow flagging userop values for syscalls
         let space = self
             .spaces
-            .get_mut(dest.space_index as usize)
+            .get_mut(dest.space_index())
             .ok_or(UnmodeledSpace)?;
         let info = self
             .info
-            .get_space(dest.space_index as usize)
+            .get_space(dest.space_index())
             .ok_or(UnmodeledSpace)?;
 
-        space.write_metadata(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
+        space.write_metadata(
+            &val,
+            &BV::from_u64(dest.offset(), info.index_size_bytes * 8),
+        )?;
         Ok(())
     }
 
@@ -185,14 +191,14 @@ impl State {
     ) -> Result<(), JingleError> {
         let info = self
             .info
-            .get_space(dest.pointer_space_index as usize)
+            .get_space(dest.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(ConstantWrite);
         }
-        let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index as usize].write_data(&val, &ptr)?;
+        let ptr = self.read_varnode(&dest.pointer_location())?;
+        self.spaces[dest.pointer_space_index()].write_data(&val, &ptr)?;
         Ok(())
     }
 
@@ -203,14 +209,14 @@ impl State {
     ) -> Result<(), JingleError> {
         let info = self
             .info
-            .get_space(dest.pointer_space_index as usize)
+            .get_space(dest.pointer_space_index())
             .ok_or(UnmodeledSpace)?;
 
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&dest.pointer_location)?;
-        self.spaces[dest.pointer_space_index as usize].write_metadata(&val, &ptr)?;
+        let ptr = self.read_varnode(&dest.pointer_location())?;
+        self.spaces[dest.pointer_space_index()].write_metadata(&val, &ptr)?;
         Ok(())
     }
 
