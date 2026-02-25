@@ -80,6 +80,7 @@ macro_rules! named_tuple {
                 if self == other {
                     return MergeOutcome::NoOp;
                 }
+                // todo: can probably avoid extra clones here still
                 let old = self.clone();
                 let mut any_merged = false;
 
@@ -100,7 +101,7 @@ macro_rules! named_tuple {
                 )+
 
                 if any_merged {
-                    MergeOutcome::Merged { old, new: self.clone() }
+                    MergeOutcome::Merged { old }
                 } else {
                     MergeOutcome::NoOp
                 }

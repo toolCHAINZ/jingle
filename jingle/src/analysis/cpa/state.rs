@@ -9,7 +9,7 @@ use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MergeOutcome<T> {
     NoOp,
-    Merged { old: T, new: T },
+    Merged { old: T },
 }
 
 impl<T> MergeOutcome<T> {
@@ -152,8 +152,7 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
         } else {
             let old = self.clone();
             self.join(new_state);
-            let new = self.clone();
-            MergeOutcome::Merged { old, new }
+            MergeOutcome::Merged { old }
         }
     }
 

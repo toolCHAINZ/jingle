@@ -110,15 +110,15 @@ where
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
-                    if let MergeOutcome::Merged { old: old_reached, new: new_reached } =
+                    if let MergeOutcome::Merged { old: old_reached } =
                         reached_state.merge(&dest_state)
                     {
                         tracing::debug!("    Merged dest_state into existing reached_state");
-                        tracing::debug!("      Merged state: {}", new_reached);
+                        tracing::debug!("      Merged state: {}", reached_state);
                         // Call the reducer's merged_state with the operation reference `op`
                         // that has lifetime `'op`.
-                        reducer.merged_state(&state, &old_reached, &new_reached, &op);
-                        waitlist.push_back(new_reached);
+                        reducer.merged_state(&state, &old_reached, &reached_state, &op);
+                        waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;
                     }
