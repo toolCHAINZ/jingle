@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.0...jingle_sleigh-v0.5.1) - 2026-02-25
+
+### Other
+
+- optimize CPA and clean up varnode APIs ([#199](https://github.com/toolCHAINZ/jingle/pull/199))
+
 ## [0.5.0](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.4.7...jingle_sleigh-v0.5.0) - 2026-02-23
 
 ### Other
