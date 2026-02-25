@@ -76,22 +76,34 @@ macro_rules! named_tuple {
         impl<$F: ComponentStrengthen + AbstractState, $( $T: ComponentStrengthen + AbstractState ),+> AbstractState
             for $name<$F, $( $T ),+>
         {
-            fn merge(&mut self, other: &Self) -> MergeOutcome {
-                let mut res = MergeOutcome::NoOp;
-                let eq = self.$first_field == other.$first_field;
-                res += self.$first_field.merge(&other.$first_field);
-                if !eq && res == MergeOutcome::NoOp{
-                    return res;
+            fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+                if self == other {
+                    return MergeOutcome::NoOp;
                 }
+                let old = self.clone();
+                let mut any_merged = false;
+
+                let eq = self.$first_field == other.$first_field;
+                let field_merged = self.$first_field.merge(&other.$first_field).is_merged();
+                if !eq && !field_merged && !any_merged {
+                    return MergeOutcome::NoOp;
+                }
+                any_merged |= field_merged;
 
                 $(
                     let eq = self.$field == other.$field;
-                    res += self.$field.merge(&other.$field);
-                    if !eq && res == MergeOutcome::NoOp{
-                        return res;
+                    let field_merged = self.$field.merge(&other.$field).is_merged();
+                    if !eq && !field_merged && !any_merged {
+                        return MergeOutcome::NoOp;
                     }
+                    any_merged |= field_merged;
                 )+
-                res
+
+                if any_merged {
+                    MergeOutcome::Merged { old, new: self.clone() }
+                } else {
+                    MergeOutcome::NoOp
+                }
             }
 
             fn stop<'a, I: Iterator<Item = &'a Self>>(&'a self, states: I) -> bool {

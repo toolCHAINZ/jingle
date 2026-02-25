@@ -115,12 +115,14 @@ impl JoinSemiLattice for BasicLocationState {
 }
 
 impl AbstractState for BasicLocationState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome {
-        self.inner.merge(&other.inner)
-    }
-
-    fn would_merge(&self, _other: &Self) -> bool {
-        false
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+        match self.inner.merge(&other.inner) {
+            MergeOutcome::Merged { old, new } => MergeOutcome::Merged {
+                old: BasicLocationState { inner: old, call_behavior: self.call_behavior },
+                new: BasicLocationState { inner: new, call_behavior: self.call_behavior },
+            },
+            MergeOutcome::NoOp => MergeOutcome::NoOp,
+        }
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {

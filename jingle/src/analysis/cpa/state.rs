@@ -5,34 +5,20 @@ use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
-use std::ops::{Add, AddAssign};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum MergeOutcome {
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum MergeOutcome<T> {
     NoOp,
-    Merged,
+    Merged { old: T, new: T },
 }
 
-impl MergeOutcome {
-    pub fn merged(&self) -> bool {
-        matches!(self, MergeOutcome::Merged)
+impl<T> MergeOutcome<T> {
+    pub fn is_merged(&self) -> bool {
+        matches!(self, MergeOutcome::Merged { .. })
     }
-}
 
-impl Add for MergeOutcome {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Self::NoOp, Self::NoOp) => Self::NoOp,
-            _ => Self::Merged,
-        }
-    }
-}
-
-impl AddAssign for MergeOutcome {
-    fn add_assign(&mut self, rhs: Self) {
-        (*self) = *self + rhs
+    pub fn is_noop(&self) -> bool {
+        matches!(self, MergeOutcome::NoOp)
     }
 }
 
@@ -155,30 +141,25 @@ where
 
 /// Core trait for abstract states used by the CPA.
 pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
-    /// Merge `other` into `self`. Mutate `self` and return whether merging occurred.
+    /// Merge `other` into `self`. Mutate `self` and return old and new clones on change.
     /// The mutated `self` MUST be >= than it was before.
-    fn merge(&mut self, other: &Self) -> MergeOutcome;
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self>;
 
     /// Default cartesian merge using `join`.
-    fn merge_join(&mut self, new_state: &Self) -> MergeOutcome {
+    fn merge_join(&mut self, new_state: &Self) -> MergeOutcome<Self> {
         if self == new_state {
             MergeOutcome::NoOp
         } else {
+            let old = self.clone();
             self.join(new_state);
-            MergeOutcome::Merged
+            let new = self.clone();
+            MergeOutcome::Merged { old, new }
         }
     }
 
     /// Default separate merge (no-op).
-    fn merge_sep(&mut self, _: &Self) -> MergeOutcome {
+    fn merge_sep(&mut self, _: &Self) -> MergeOutcome<Self> {
         MergeOutcome::NoOp
-    }
-
-    /// Returns `false` only if `merge(other)` is guaranteed to return `NoOp`.
-    /// Conservative default of `true` preserves existing behaviour for all types
-    /// that do not override this.
-    fn would_merge(&self, _other: &Self) -> bool {
-        true
     }
 
     /// Stop predicate: is `self` covered by any of `states`?

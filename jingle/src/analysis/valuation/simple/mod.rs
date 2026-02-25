@@ -383,11 +383,7 @@ impl JoinSemiLattice for SimpleValuationState {
 }
 
 impl AbstractState for SimpleValuationState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome {
-        // Reuse the lattice join helper if available; otherwise, perform join and return a conservative outcome.
-        // Many CPAs provide `merge_join` via a helper trait in this codebase; call it if present.
-        // Fallback: perform a join (mutating self) and report that we merged.
-        // We'll try to call `merge_join` as in the original design.
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
         self.merge_join(other)
     }
 
