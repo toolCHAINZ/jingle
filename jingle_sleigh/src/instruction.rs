@@ -62,7 +62,7 @@ impl Instruction {
                     args,
                 } => {
                     // Apply per-address function signature metadata if available
-                    if let Some(a) = m.func_info.get(&input.offset) {
+                    if let Some(a) = m.func_info.get(&input.offset()) {
                         *call_info = Some(a.clone());
                         for ele in &a.args {
                             args.push(ele.clone());
@@ -150,11 +150,11 @@ impl Instruction {
         // Push fall-through branch using the SleighContext's arch_info
         let arch_info = ctx.arch_info();
         self.ops.push(PcodeOperation::Fallthrough {
-            input: VarNode {
-                space_index: arch_info.default_code_space_index(),
-                offset: self.address + self.length as u64,
-                size: 1,
-            },
+            input: VarNode::new(
+                self.address + self.length as u64,
+                1,
+                arch_info.default_code_space_index(),
+            ),
         });
     }
 }
@@ -215,11 +215,7 @@ mod tests {
         let ctx = builder.build(SLEIGH_ARCH).unwrap();
 
         // Create a Call instruction with no per-site CallInfo
-        let dest = VarNode {
-            space_index: ctx.arch_info().default_code_space_index(),
-            offset: 0x1000,
-            size: 8,
-        };
+        let dest = VarNode::new(0x1000, 0x8, ctx.arch_info().default_code_space_index());
         let mut instr = Instruction {
             disassembly: Disassembly {
                 mnemonic: "CALL".to_string(),
@@ -276,11 +272,7 @@ mod tests {
         ctx.metadata.add_call_def(override_addr, call_info_override);
 
         // Build a Call instruction that targets the address we overrode
-        let dest = VarNode {
-            space_index: ctx.arch_info().default_code_space_index(),
-            offset: override_addr,
-            size: 8,
-        };
+        let dest = VarNode::new(override_addr, 8, ctx.arch_info().default_code_space_index());
         let mut instr = Instruction {
             disassembly: Disassembly {
                 mnemonic: "CALL".to_string(),
@@ -340,11 +332,7 @@ mod tests {
         );
 
         // Build a Call instruction with no call_info so postprocess will attach defaults
-        let dest = VarNode {
-            space_index: ctx.arch_info().default_code_space_index(),
-            offset: 0x3000,
-            size: 8,
-        };
+        let dest = VarNode::new(0x3000, 8, ctx.arch_info().default_code_space_index());
         let mut instr = Instruction {
             disassembly: Disassembly {
                 mnemonic: "CALL".to_string(),

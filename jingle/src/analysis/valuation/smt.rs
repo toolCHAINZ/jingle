@@ -174,9 +174,9 @@ impl SmtValuationState {
     /// otherwise create/reuse a named entry `BV`.
     fn get_valuation_or_entry(&mut self, vn: &VarNode) -> SmtVal {
         // Constant literal -> concrete BV
-        if vn.space_index == VarNode::CONST_SPACE_INDEX {
-            let bits = (vn.size * 8) as u32;
-            return SmtVal::Val(BV::from_u64(vn.offset, bits));
+        if vn.is_const() {
+            let bits = (vn.size() * 8) as u32;
+            return SmtVal::Val(BV::from_u64(vn.offset(), bits));
         }
 
         // If we've written to this location, return stored valuation
@@ -289,8 +289,8 @@ impl SmtValuationState {
                     let result_val = match op {
                         // Copy
                         PcodeOperation::Copy { input, .. } => {
-                            if input.space_index == VarNode::CONST_SPACE_INDEX {
-                                SmtVal::Val(BV::from_u64(input.offset, (input.size * 8) as u32))
+                            if input.is_const() {
+                                SmtVal::Val(BV::from_u64(input.offset(), (input.size() * 8) as u32))
                             } else {
                                 new_state.get_valuation_or_entry(input)
                             }
@@ -403,8 +403,8 @@ impl SmtValuationState {
                         // Load - store the pointer expression (do NOT load the value here)
                         PcodeOperation::Load { input, .. } => {
                             let ptr = &input.pointer_location;
-                            let pv = if ptr.space_index == VarNode::CONST_SPACE_INDEX {
-                                SmtVal::Val(BV::from_u64(ptr.offset, (ptr.size * 8) as u32))
+                            let pv = if ptr.is_const() {
+                                SmtVal::Val(BV::from_u64(ptr.offset(), (ptr.size() * 8) as u32))
                             } else {
                                 new_state.get_valuation_or_entry(ptr)
                             };
@@ -418,7 +418,7 @@ impl SmtValuationState {
                             match a {
                                 SmtVal::Val(a) => {
                                     let in_bits = a.get_size();
-                                    let out_bits = (output_vn.size * 8) as u32;
+                                    let out_bits = (output_vn.size() * 8) as u32;
                                     if out_bits >= in_bits {
                                         let ext = out_bits - in_bits;
                                         if matches!(op, PcodeOperation::IntSExt { .. }) {
@@ -456,13 +456,13 @@ impl SmtValuationState {
             PcodeOperation::Branch { input }
             | PcodeOperation::CBranch { input0: input, .. }
             | PcodeOperation::Fallthrough { input } => {
-                if input.space_index != VarNode::CONST_SPACE_INDEX {
+                if !input.is_const() {
                     // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
                     let mut to_remove: Vec<VarNode> = Vec::new();
                     for (vn, _) in new_state.written_locations.iter() {
                         let keep = self
                             .arch_info
-                            .get_space(vn.space_index)
+                            .get_space(vn.space_index())
                             .map(|space| space._type != SpaceType::IPTR_INTERNAL)
                             .unwrap_or(true);
                         if !keep {
@@ -480,7 +480,7 @@ impl SmtValuationState {
                 for (vn, _) in new_state.written_locations.iter() {
                     let keep = self
                         .arch_info
-                        .get_space(vn.space_index)
+                        .get_space(vn.space_index())
                         .map(|space| space._type != SpaceType::IPTR_INTERNAL)
                         .unwrap_or(true);
                     if !keep {
@@ -603,7 +603,7 @@ impl JoinSemiLattice for SmtValuationState {
 }
 
 impl AbstractState for SmtValuationState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome {
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
         self.merge_join(other)
     }
 

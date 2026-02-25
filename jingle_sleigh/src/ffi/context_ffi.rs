@@ -65,11 +65,11 @@ pub(crate) struct ImageFFI<'a> {
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
     /// default code space.
-    pub(crate) space_index: usize,
+    pub(crate) space_index: u32,
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: usize) -> Self {
+    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: u32) -> Self {
         Self {
             provider: Box::new(provider),
             base_offset: 0,
@@ -78,7 +78,7 @@ impl<'a> ImageFFI<'a> {
     }
     pub(crate) fn load(&self, vn: &VarnodeInfoFFI, out: &mut [u8]) -> usize {
         let addr = VarNode::from(vn);
-        if addr.space_index != self.space_index {
+        if addr.space_index() != self.space_index as usize {
             return 0;
         }
         let adjusted = self.adjust_varnode_vma(&addr);
@@ -86,7 +86,7 @@ impl<'a> ImageFFI<'a> {
     }
 
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
-        if vn.space_index != self.space_index {
+        if vn.space_index() != self.space_index as usize {
             return false;
         }
         self.provider.has_full_range(&self.adjust_varnode_vma(vn))
@@ -101,11 +101,11 @@ impl<'a> ImageFFI<'a> {
     }
     // todo: properly account for spaces with non-byte-based indexing
     fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
-        VarNode {
-            space_index: vn.space_index,
-            size: vn.size,
-            offset: vn.offset.wrapping_sub(self.base_offset),
-        }
+        VarNode::new(
+            vn.offset().wrapping_sub(self.get_base_address()),
+            vn.size(),
+            vn.space_index(),
+        )
     }
 }
 

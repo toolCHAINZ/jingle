@@ -22,11 +22,11 @@ trait Simplify {
 
 /// An entry value of a direct location
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Entry(pub Intern<VarNode>);
+pub struct Entry(VarNode);
 
 /// A constant value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Const(pub Intern<VarNode>);
+pub struct Const(VarNode);
 
 /// A value representing a positive offset from a location pointed to by another value.
 /// This is similar to sleigh/ghidra's post-analysis stack offset space.
@@ -66,7 +66,13 @@ pub struct Load(pub Intern<SimpleValue>, pub usize);
 
 impl AsRef<VarNode> for Const {
     fn as_ref(&self) -> &VarNode {
-        self.0.as_ref()
+        &self.0
+    }
+}
+
+impl AsRef<VarNode> for Entry {
+    fn as_ref(&self) -> &VarNode {
+        &self.0
     }
 }
 
@@ -107,7 +113,7 @@ impl SimpleValue {
     /// This preserves the previous numeric-as-`as_const()` behavior for callers
     /// that want the value directly.
     pub fn as_const_value(&self) -> Option<i64> {
-        self.as_const().map(|vn| vn.offset as i64)
+        self.as_const().map(|vn| vn.offset() as i64)
     }
 
     /// Accessor for `Entry` variant.
@@ -190,9 +196,9 @@ impl SimpleValue {
     /// For composite nodes, the stored size is returned.
     pub fn size(&self) -> usize {
         match self {
-            SimpleValue::Entry(Entry(vn)) => vn.as_ref().size,
-            SimpleValue::Const(vn) => vn.as_ref().size,
-            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().size,
+            SimpleValue::Entry(Entry(vn)) => vn.size(),
+            SimpleValue::Const(vn) => vn.as_ref().size(),
+            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().size(),
             SimpleValue::Mul(MulExpr(_, _, s))
             | SimpleValue::Add(AddExpr(_, _, s))
             | SimpleValue::Sub(SubExpr(_, _, s))
@@ -207,12 +213,12 @@ impl SimpleValue {
 
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn entry(vn: VarNode) -> Self {
-        SimpleValue::Entry(Entry(Intern::new(vn)))
+        SimpleValue::Entry(Entry(vn))
     }
 
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn offset(vn: VarNode, offset: VarNode) -> Self {
-        SimpleValue::Offset(Offset(Entry(Intern::new(vn)), Const(Intern::new(offset))))
+        SimpleValue::Offset(Offset(Entry(vn), Const(offset)))
     }
 
     /// Construct a `Const(...)` from a raw i64 value.
@@ -220,17 +226,13 @@ impl SimpleValue {
     /// (64-bit) unless callers use `make_const` to specify a size explicitly.
     pub fn const_(v: i64) -> Self {
         // default to 8-byte sized constant
-        let vn = VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: v as u64,
-            size: 8,
-        };
-        SimpleValue::Const(Const(Intern::new(vn)))
+        let vn = VarNode::new_const(v as u64, 8u32);
+        SimpleValue::Const(Const(vn))
     }
 
     /// Construct a `Const(...)` directly from a `VarNode` (already contains size).
     pub fn const_from_varnode(vn: VarNode) -> Self {
-        SimpleValue::Const(Const(Intern::new(vn)))
+        SimpleValue::Const(Const(vn))
     }
 
     /// Construct an `Or(...)` node from two children. Size is derived from children.
@@ -256,13 +258,9 @@ impl SimpleValue {
     // Keep the older helpers (used by some simplifications) for parity:
 
     /// Create a constant SimpleValue with the given value and size (in bytes).
-    fn make_const(value: i64, size: usize) -> Self {
-        let vn = VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: value as u64,
-            size,
-        };
-        SimpleValue::Const(Const(Intern::new(vn)))
+    fn make_const(value: i64, size: u32) -> Self {
+        let vn = VarNode::new_const(value as u64, size);
+        SimpleValue::Const(Const(vn))
     }
 
     /// Helper to pick a reasonable size for a new constant when folding results.
@@ -398,11 +396,11 @@ impl Simplify for AddExpr {
 
         // both const -> fold using signed wrapping arithmetic consistent with prior behavior
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let a = a_vn.offset as i64;
-            let b = b_vn.offset as i64;
+            let a = a_vn.offset() as i64;
+            let b = b_vn.offset() as i64;
             let res = a.wrapping_add(b);
             let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // normalization: ensure constants are on the right
@@ -410,7 +408,7 @@ impl Simplify for AddExpr {
 
         // expr + 0 -> expr
         // expr + (- |a|) -> expr - a
-        if let Some(0) = right.as_const().map(|vn| vn.offset as i64) {
+        if let Some(0) = right.as_const().map(|vn| vn.offset() as i64) {
             return left;
         }
 
@@ -418,14 +416,14 @@ impl Simplify for AddExpr {
         if let SimpleValue::Add(AddExpr(left_inner_left, left_inner_right, _)) = &left {
             if let Some(inner_right_vn) = left_inner_right.as_ref().as_const() {
                 if let Some(right_vn) = right.as_const() {
-                    let inner_right_const = inner_right_vn.offset as i64;
-                    let right_const = right_vn.offset as i64;
+                    let inner_right_const = inner_right_vn.offset() as i64;
+                    let right_const = right_vn.offset() as i64;
                     let res = inner_right_const.wrapping_add(right_const);
                     let size = std::cmp::max(
                         left_inner_left.as_ref().size(),
-                        SimpleValue::derive_size_from(&SimpleValue::make_const(res, 8)),
+                        SimpleValue::derive_size_from(&SimpleValue::make_const(res, 8u32)),
                     );
-                    let new_const = SimpleValue::make_const(res, size);
+                    let new_const = SimpleValue::make_const(res, size as u32);
                     return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }
             }
@@ -435,18 +433,18 @@ impl Simplify for AddExpr {
         if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
-                    let a_const = a_vn.offset as i64;
-                    let b = b_vn.offset as i64;
+                    let a_const = a_vn.offset() as i64;
+                    let b = b_vn.offset() as i64;
                     let res = a_const.wrapping_sub(b);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
 
                     // If res is negative, create Add instead of Sub to avoid infinite loop
                     if res < 0 {
-                        let new_const = SimpleValue::make_const(-res, size);
+                        let new_const = SimpleValue::make_const(-res, size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
-                        let new_const = SimpleValue::make_const(res, size);
+                        let new_const = SimpleValue::make_const(res, size as u32);
                         return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
@@ -473,11 +471,11 @@ impl Simplify for SubExpr {
 
         // both const -> fold
         if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let left = left_vn.offset as i64;
-            let right = right_vn.offset as i64;
+            let left = left_vn.offset() as i64;
+            let right = right_vn.offset() as i64;
             let res = left.wrapping_sub(right);
             let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // DO NOT normalize for subtraction - it is not commutative!
@@ -487,14 +485,14 @@ impl Simplify for SubExpr {
 
         // expr - 0 -> expr
         // expr - (- |a|) -> expr + a
-        match right.as_const().map(|vn| vn.offset as i64) {
+        match right.as_const().map(|vn| vn.offset() as i64) {
             Some(0) => {
                 return left;
             }
             Some(a) => {
                 if a < 0 {
                     let new_const =
-                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left));
+                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left) as u32);
                     let add = AddExpr(
                         Intern::new(left.clone()),
                         Intern::new(new_const),
@@ -510,26 +508,26 @@ impl Simplify for SubExpr {
         // x - x -> 0
         if left == right {
             let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size);
+            return SimpleValue::make_const(0, size as u32);
         }
 
         // ((expr + #a) - #b) -> (expr + #(a - b)) or (expr - #(b - a))
         if let SimpleValue::Add(AddExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
-                    let a_val = a_vn.offset as i64;
-                    let b_val = b_vn.offset as i64;
+                    let a_val = a_vn.offset() as i64;
+                    let b_val = b_vn.offset() as i64;
                     let res = a_val.wrapping_sub(b_val);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
 
                     // If res is negative, create Sub instead of Add to avoid infinite loop
                     if res < 0 {
-                        let new_const = SimpleValue::make_const(-res, size);
-                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
-                    } else {
-                        let new_const = SimpleValue::make_const(res, size);
+                        let new_const = SimpleValue::make_const(-res, size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                    } else {
+                        let new_const = SimpleValue::make_const(res, size as u32);
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
             }
@@ -539,12 +537,12 @@ impl Simplify for SubExpr {
         if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
-                    let a_val = a_vn.offset as i64;
-                    let b_val = b_vn.offset as i64;
+                    let a_val = a_vn.offset() as i64;
+                    let b_val = b_vn.offset() as i64;
                     let res = a_val.wrapping_add(b_val);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size);
+                    let new_const = SimpleValue::make_const(res, size as u32);
                     return SubExpr(*expr, Intern::new(new_const), size).simplify();
                 }
             }
@@ -572,23 +570,23 @@ impl Simplify for MulExpr {
 
         // both const -> fold
         if let (Some(a_vn), Some(b_vn)) = (left.as_const(), right.as_const()) {
-            let a_v = a_vn.offset as i64;
-            let b_v = b_vn.offset as i64;
+            let a_v = a_vn.offset() as i64;
+            let b_v = b_vn.offset() as i64;
             let res = a_v.wrapping_mul(b_v);
             let size =
                 SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // expr * 1 -> expr
-        if right.as_const().map(|vn| vn.offset as i64) == Some(1) {
+        if right.as_const().map(|vn| vn.offset() as i64) == Some(1) {
             return left;
         }
 
         // expr * 0 -> 0
-        if right.as_const().map(|vn| vn.offset as i64) == Some(0) {
+        if right.as_const().map(|vn| vn.offset() as i64) == Some(0) {
             let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size);
+            return SimpleValue::make_const(0, size as u32);
         }
 
         let s = std::cmp::max(left.size(), right.size());
@@ -732,22 +730,22 @@ impl Simplify for XorExpr {
 
         // both const -> fold
         if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
-            let left_val = left_vn.offset;
-            let right_val = right_vn.offset;
+            let left_val = left_vn.offset();
+            let right_val = right_vn.offset();
             let res = (left_val ^ right_val) as i64;
             let size =
                 SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // identical children => 0 (x XOR x = 0)
         if left == right {
             let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size);
+            return SimpleValue::make_const(0, size as u32);
         }
 
         // expr XOR 0 -> expr
-        if right.as_const().map(|vn| vn.offset) == Some(0) {
+        if right.as_const().map(|vn| vn.offset()) == Some(0) {
             return left;
         }
 
@@ -804,16 +802,16 @@ fn fmt_operand_hex(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt
 impl JingleDisplay for SimpleValue {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            SimpleValue::Entry(Entry(vn)) => write!(f, "{}", vn.as_ref().display(info)),
+            SimpleValue::Entry(Entry(vn)) => write!(f, "{}", vn.display(info)),
             SimpleValue::Const(vn) => {
                 // print constant offset in hex (retain prior appearance)
-                write!(f, "{:#x}", vn.as_ref().offset)
+                write!(f, "{:#x}", vn.as_ref().offset())
             }
             SimpleValue::Offset(Offset(Entry(vn), con)) => {
                 write!(
                     f,
                     "offset({},{})",
-                    vn.as_ref().display(info),
+                    vn.display(info),
                     con.as_ref().display(info)
                 )
             }
@@ -853,14 +851,14 @@ impl std::fmt::Display for SimpleValue {
         match self {
             SimpleValue::Entry(Entry(vn)) => {
                 // Delegate to VarNode's Display implementation
-                write!(f, "{}", vn.as_ref())
+                write!(f, "{}", vn)
             }
             SimpleValue::Const(vn) => {
                 // Print constant offset in hex (consistent with jingle display)
-                write!(f, "{:#x}", vn.as_ref().offset)
+                write!(f, "{:#x}", vn.as_ref().offset())
             }
             SimpleValue::Offset(Offset(vn, off)) => {
-                write!(f, "offset({}, {})", vn.0.as_ref(), off.as_ref())
+                write!(f, "offset({}, {})", vn.0, off.as_ref())
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
@@ -904,14 +902,14 @@ impl std::fmt::LowerHex for SimpleValue {
         match self {
             SimpleValue::Entry(Entry(vn)) => {
                 // VarNode doesn't implement LowerHex; fall back to Display
-                write!(f, "{}", vn.as_ref())
+                write!(f, "{}", vn)
             }
             SimpleValue::Const(vn) => {
                 // Lower-hex for constants: no 0x prefix, lowercase hex digits
-                write!(f, "{:x}", vn.as_ref().offset)
+                write!(f, "{:x}", vn.as_ref().offset())
             }
             SimpleValue::Offset(Offset(vn, off)) => {
-                write!(f, "offset({:x}, {:x})", vn.0.as_ref(), off.as_ref())
+                write!(f, "offset({:x}, {:x})", vn.0, off.as_ref())
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
@@ -950,13 +948,13 @@ impl SimpleValue {
     /// Resolve a VarNode to an existing valuation in the state's direct writes,
     /// to a Const if the VarNode is a constant, or to an Entry if unseen.
     pub fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
-        if vn.space_index == VarNode::CONST_SPACE_INDEX {
+        if vn.is_const() {
             // preserve the size of the incoming varnode
             SimpleValue::const_from_varnode(vn.clone())
         } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
         } else {
-            SimpleValue::Entry(Entry(Intern::new(vn.clone())))
+            SimpleValue::Entry(Entry(vn.clone()))
         }
     }
 }

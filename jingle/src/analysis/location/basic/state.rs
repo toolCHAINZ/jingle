@@ -115,8 +115,16 @@ impl JoinSemiLattice for BasicLocationState {
 }
 
 impl AbstractState for BasicLocationState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome {
-        self.inner.merge(&other.inner)
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+        match self.inner.merge(&other.inner) {
+            MergeOutcome::Merged { old } => MergeOutcome::Merged {
+                old: BasicLocationState {
+                    inner: old,
+                    call_behavior: self.call_behavior,
+                },
+            },
+            MergeOutcome::NoOp => MergeOutcome::NoOp,
+        }
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
@@ -132,7 +140,7 @@ impl AbstractState for BasicLocationState {
                 CallBehavior::Branch => {
                     // Follow the call like a branch
                     if let PcodeAddressLattice::Const(_addr) = &self.inner {
-                        let call_target = ConcretePcodeAddress::from(dest.offset);
+                        let call_target = ConcretePcodeAddress::from(dest.offset());
                         return once(BasicLocationState::location(
                             call_target,
                             self.call_behavior,
@@ -179,7 +187,7 @@ impl LocationState for BasicLocationState {
 impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &SimpleValuationState) {
         if let PcodeAddressLattice::Computed(indirect_var_node) = &self.inner {
-            let ptr_value = v.get_value(&indirect_var_node.pointer_location);
+            let ptr_value = v.get_value(indirect_var_node.pointer_location());
             if let Some(value) = ptr_value {
                 if let Some(v) = value.as_const_value() {
                     self.inner = PcodeAddressLattice::Const(ConcretePcodeAddress::from(v as u64))

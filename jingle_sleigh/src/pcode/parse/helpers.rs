@@ -39,11 +39,7 @@ pub fn parse_reference_pair(
                 "Invalid space: {}",
                 space_name
             )))?;
-    Ok(IndirectVarNode {
-        pointer_space_index: space.index,
-        pointer_location,
-        access_size_bytes: 0,
-    })
+    Ok(IndirectVarNode::new(pointer_location, 0, space.index))
 }
 
 pub fn parse_varnode(
@@ -74,11 +70,7 @@ pub fn parse_varnode(
                     "Invalid space: {}",
                     loc.0
                 )))?;
-        Ok(VarNode {
-            offset: loc.1,
-            space_index: space.index,
-            size,
-        })
+        Ok(VarNode::new(loc.1, size, space.index))
     } else {
         let reg = reg.unwrap();
         info.register(&reg)
@@ -145,11 +137,7 @@ pub fn parse_callother_operation(
                 let name = s.trim_matches('\"');
                 if let Some(idx) = info.userop_index(name) {
                     // represent the op index as a const varnode
-                    return Ok(VarNode {
-                        space_index: VarNode::CONST_SPACE_INDEX,
-                        offset: idx as u64,
-                        size: 4,
-                    });
+                    return Ok(VarNode::new_const(idx as u64, 4));
                 } else {
                     return Err(JingleSleighError::PcodeParseValidation(format!(
                         "Unknown CALLOTHER operator: {}",

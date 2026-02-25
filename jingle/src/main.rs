@@ -183,11 +183,7 @@ fn model(config: &JingleConfig, architecture: String, hex_bytes: String) -> anyh
             mnemonic: "".to_string(),
         },
         ops: vec![PcodeOperation::Branch {
-            input: VarNode {
-                space_index: 1,
-                offset: 0,
-                size: 1,
-            },
+            input: VarNode::new(0, 1, 1),
         }],
         length: 1,
     });

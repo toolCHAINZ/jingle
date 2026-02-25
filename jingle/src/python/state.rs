@@ -75,11 +75,8 @@ impl PythonState {
                 .ok_or(PyRuntimeError::new_err(format!(
                     "Invalid space name: {space}"
                 )))?;
-            let indirect = IndirectVarNode {
-                access_size_bytes,
-                pointer_location: pointer_location.clone(),
-                pointer_space_index,
-            };
+            let indirect =
+                IndirectVarNode::new(pointer_location, access_size_bytes, pointer_space_index);
             let pointer = self.state.read_varnode_indirect(&indirect)?;
             let resolved = ResolvedIndirectVarNode {
                 pointer,
@@ -138,11 +135,11 @@ impl PythonState {
     pub fn read_ram(&self, offset: u64, length: usize) -> PyResult<Py<PyAny>> {
         Python::attach(|py| {
             self.state
-                .read_varnode(&VarNode {
+                .read_varnode(&VarNode::new(
                     offset,
-                    size: length,
-                    space_index: self.state.get_default_code_space_info().index,
-                })?
+                    length,
+                    self.state.get_default_code_space_info().index,
+                ))?
                 .try_into_python(py)
         })
     }

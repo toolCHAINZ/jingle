@@ -66,8 +66,8 @@ impl SymbolicPcodeAddress {
 
     pub fn interpret_branch_dest_varnode(&self, vn: &VarNode) -> Self {
         match vn.is_const() {
-            true => self.add_pcode_offset(vn.offset),
-            false => ConcretePcodeAddress::from(vn.offset).symbolize(),
+            true => self.add_pcode_offset(vn.offset()),
+            false => ConcretePcodeAddress::from(vn.offset()).symbolize(),
         }
     }
     pub fn increment_pcode(&self) -> SymbolicPcodeAddress {

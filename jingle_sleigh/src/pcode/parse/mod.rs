@@ -71,7 +71,7 @@ pub(crate) fn parse_pcode(
             // pairs[0] = output varnode, pairs[1] = reference
             let output = helpers::parse_varnode(pairs[0].clone(), info)?;
             let mut input = helpers::parse_reference_pair(pairs[1].clone(), info)?;
-            input.access_size_bytes = output.size;
+            input.set_access_size_bytes(output.size());
             Ok(PcodeOperation::Load { input, output })
         }
         Rule::STORE => {
@@ -79,7 +79,7 @@ pub(crate) fn parse_pcode(
             // pairs[0] = reference, pairs[1] = varnode to store
             let mut output = helpers::parse_reference_pair(pairs[0].clone(), info)?;
             let input = helpers::parse_varnode(pairs[1].clone(), info)?;
-            output.access_size_bytes = input.size;
+            output.set_access_size_bytes(input.size());
             Ok(PcodeOperation::Store { output, input })
         }
         Rule::BRANCH => {
@@ -112,11 +112,7 @@ pub(crate) fn parse_pcode(
         Rule::BRANCHIND => {
             let pairs: Vec<_> = pair.into_inner().collect();
             let vn = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = IndirectVarNode {
-                pointer_space_index: vn.space_index,
-                pointer_location: vn.clone(),
-                access_size_bytes: vn.size,
-            };
+            let input = IndirectVarNode::new(vn.clone(), vn.size(), vn.space_index());
             Ok(PcodeOperation::BranchInd { input })
         }
         Rule::CALL => {
@@ -133,11 +129,7 @@ pub(crate) fn parse_pcode(
             let mut inner = pair.into_inner();
             let p = inner.next().unwrap();
             let vn = helpers::parse_varnode(p, info)?;
-            let input = IndirectVarNode {
-                pointer_space_index: info.default_code_space_index(),
-                pointer_location: vn,
-                access_size_bytes: 0,
-            };
+            let input = IndirectVarNode::new(vn, 0, info.default_code_space_index());
             Ok(PcodeOperation::CallInd { input })
         }
         Rule::CALLOTHER => {
@@ -200,11 +192,7 @@ pub(crate) fn parse_pcode(
             let mut inner = pair.into_inner();
             let p = inner.next().unwrap();
             let vn = helpers::parse_varnode(p, info)?;
-            let input = IndirectVarNode {
-                pointer_space_index: info.default_code_space_index(),
-                pointer_location: vn,
-                access_size_bytes: 0,
-            };
+            let input = IndirectVarNode::new(vn, 0, info.default_code_space_index());
             Ok(PcodeOperation::Return { input })
         }
         Rule::PIECE => parse_binop!(Piece),
@@ -304,18 +292,7 @@ mod tests {
                 // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
                 input: "CALLOTHER \"syscall\", 1:1\n",
                 expected: vec![PcodeOperation::CallOther {
-                    inputs: vec![
-                        VarNode {
-                            space_index: 0,
-                            offset: 0x5,
-                            size: 4,
-                        },
-                        VarNode {
-                            space_index: 0,
-                            offset: 0x1,
-                            size: 1,
-                        },
-                    ],
+                    inputs: vec![VarNode::new_const(5, 4), VarNode::new_const(1, 1)],
                     output: None,
                     call_info: None,
                 }],
@@ -324,16 +301,8 @@ mod tests {
                 // temporary style varnode (hex) - parser should accept temporaries like $U1 as well
                 input: "\n\n    $U8000:8 = COPY RAX\n",
                 expected: vec![PcodeOperation::Copy {
-                    input: VarNode {
-                        space_index: 4,
-                        offset: 0x0,
-                        size: 8,
-                    },
-                    output: VarNode {
-                        space_index: 2,
-                        offset: 0x8000, // NOTE: depending on parser semantics this may map differently; adjust when implementing
-                        size: 8,
-                    },
+                    input: VarNode::new(0, 8, 4),
+                    output: VarNode::new(0, 0x8000, 8),
                 }],
             },
         ];
