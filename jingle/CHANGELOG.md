@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.2...jingle-v0.6.3) - 2026-02-25
+
+### Added
+
+- further cpa optimizations ([#201](https://github.com/toolCHAINZ/jingle/pull/201))
+
 ## [0.6.2](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.1...jingle-v0.6.2) - 2026-02-25
 
 ### Other
