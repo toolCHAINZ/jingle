@@ -54,15 +54,9 @@ impl<C: PartialJoinSemiLattice> JoinSemiLattice for SimpleLattice<C> {
 }
 
 impl<S: AbstractState + PartialJoinSemiLattice> AbstractState for SimpleLattice<S> {
-    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
         match (self, other) {
-            (Self::Value(a), Self::Value(b)) => match a.merge(b) {
-                MergeOutcome::Merged { old, new } => MergeOutcome::Merged {
-                    old: Self::Value(old),
-                    new: Self::Value(new),
-                },
-                MergeOutcome::NoOp => MergeOutcome::NoOp,
-            },
+            (Self::Value(a), Self::Value(b)) => a.merge(b),
             _ => MergeOutcome::NoOp,
         }
     }

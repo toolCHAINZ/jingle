@@ -93,12 +93,11 @@ where
     /// Handle state merging by updating our tracking data.
     ///
     /// When states are merged, the current state is also a non-terminating state since
-    /// it produced successors. We update references to the original destination
-    /// state to point to the merged state.
+    /// it produced successors. We update references to states <= merged_state to point
+    /// to the merged state (using the partial order guarantee).
     fn merged_state(
         &mut self,
         curr_state: &S,
-        original_merged_state: &S,
         merged_state: &S,
         _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
@@ -107,15 +106,15 @@ where
             self.non_terminating_states.push(curr_state.clone());
         }
 
-        // Replace the original merged state with the new merged state in our tracking
+        // Replace any state that is <= merged_state (subsumed by the merge)
         for state in &mut self.all_states {
-            if state == original_merged_state {
+            if &*state < merged_state {
                 *state = merged_state.clone();
             }
         }
 
         for state in &mut self.non_terminating_states {
-            if state == original_merged_state {
+            if &*state < merged_state {
                 *state = merged_state.clone();
             }
         }

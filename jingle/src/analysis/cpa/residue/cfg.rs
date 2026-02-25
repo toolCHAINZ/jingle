@@ -62,15 +62,25 @@ where
     }
 
     /// Handle merges by updating nodes/edges in the internal CFG.
-    fn merged_state(
-        &mut self,
-        state: &N,
-        dest_state: &N,
-        merged_state: &N,
-        op: &Option<PcodeOpRef<'a>>,
-    ) {
-        // Replace occurrences of `dest_state` with `merged_state` in the CFG
-        self.cfg.replace_and_combine_nodes(dest_state, merged_state);
+    ///
+    /// Uses the partial order to find all nodes that were subsumed by the merge:
+    /// any node `n` where `n <= merged_state` should be replaced with `merged_state`.
+    fn merged_state(&mut self, state: &N, merged_state: &N, op: &Option<PcodeOpRef<'a>>) {
+        // Find all nodes in the CFG that are <= merged_state (subsumed by the merge)
+        // These need to be replaced/combined with merged_state
+        let subsumed_nodes: Vec<N> = self
+            .cfg
+            .nodes()
+            .filter(|node| node < &merged_state)
+            .cloned()
+            .collect();
+
+        // Replace each subsumed node with the merged state
+        for old_node in subsumed_nodes {
+            if &old_node != merged_state {
+                self.cfg.replace_and_combine_nodes(&old_node, merged_state);
+            }
+        }
 
         if let Some(op_ref) = op {
             let owned = op_ref.clone();

@@ -45,7 +45,7 @@ impl JoinSemiLattice for BoundedBranchState {
 }
 
 impl AbstractState for BoundedBranchState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
         self.merge_join(other)
     }
 
