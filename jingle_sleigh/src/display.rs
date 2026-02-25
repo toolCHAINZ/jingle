@@ -46,23 +46,23 @@ impl<T: JingleDisplay> Display for JingleDisplayWrapper<T> {
 
 impl JingleDisplay for VarNode {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, ctx: &SleighArchInfo) -> std::fmt::Result {
-        if self.space_index == VarNode::CONST_SPACE_INDEX {
-            write!(f, "{:#x}:{}", self.offset, self.size)
+        if self.is_const() {
+            write!(f, "{:#x}:{}", self.offset(), self.size())
         } else if let Some(name) = ctx.register_name(self) {
             write!(f, "{name}")
         } else if let Some(SpaceType::IPTR_INTERNAL) =
-            ctx.get_space(self.space_index as usize).map(|s| s._type)
+            ctx.get_space(self.space_index()).map(|s| s._type)
         {
-            write!(f, "$U{:x}:{}", self.offset, self.size)
+            write!(f, "$U{:x}:{}", self.offset(), self.size())
         } else {
             write!(
                 f,
                 "[{}]{:#x}:{}",
-                ctx.get_space(self.space_index as usize)
+                ctx.get_space(self.space_index())
                     .ok_or(std::fmt::Error)?
                     .name,
-                self.offset,
-                self.size
+                self.offset(),
+                self.size()
             )
         }
     }
@@ -139,11 +139,7 @@ mod tests {
         let info = sleigh.arch_info().clone();
 
         // const varnode should display as "<hex_offset>:<size>"
-        let const_vn = VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: 0x42,
-            size: 1,
-        };
+        let const_vn = VarNode::new(0x42, 1u32, VarNode::CONST_SPACE_INDEX);
         assert_eq!(format!("{}", const_vn.display(&info)), "0x42:1");
 
         // registers: if registers exist, pretty display should equal the register name
@@ -154,11 +150,7 @@ mod tests {
         }
 
         // other space: we expect a bracketed form like "[<space>]offset:size" or internal $U...
-        let other = VarNode {
-            space_index: 1,
-            offset: 0x10,
-            size: 4,
-        };
+        let other = VarNode::new(0x10, 4u32, 1u32);
         let s = format!("{}", other.display(&info));
         // be permissive: ensure it contains the size and either bracket or unique prefix
         assert!(s.contains(":4"));
@@ -169,16 +161,8 @@ mod tests {
         let sleigh = make_sleigh();
         let info = sleigh.arch_info().clone();
 
-        let output = VarNode {
-            space_index: 4,
-            offset: 0x20,
-            size: 4,
-        };
-        let input = VarNode {
-            space_index: VarNode::CONST_SPACE_INDEX,
-            offset: 0x1,
-            size: 4,
-        };
+        let output = VarNode::new(0x20, 4u32, 4u32);
+        let input = VarNode::new(0x1, 4u32, VarNode::CONST_SPACE_INDEX);
 
         let op = PcodeOperation::Copy {
             input: input.clone(),

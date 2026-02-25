@@ -417,11 +417,9 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.arch_info().register_name(&VarNode {
-                space_index: 4,
-                offset: 512,
-                size: 1
-            }),
+            sleigh
+                .arch_info()
+                .register_name(&VarNode::new(512u64, 1u32, 4u32)),
             Some("CF")
         );
     }
@@ -433,11 +431,9 @@ mod test {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
-            sleigh.arch_info().register_name(&VarNode {
-                space_index: 40,
-                offset: 5122,
-                size: 1
-            }),
+            sleigh
+                .arch_info()
+                .register_name(&VarNode::new(5122u64, 1u32, 40u32)),
             None
         );
     }

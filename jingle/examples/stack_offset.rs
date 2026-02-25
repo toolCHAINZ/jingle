@@ -47,11 +47,7 @@ fn main() {
     tracing::info!("Binary loaded successfully");
 
     // Create the stack pointer varnode (RSP on x86-64)
-    let stack_pointer = VarNode {
-        space_index: 4u32, // Register space index for registers (depends on sleigh description)
-        offset: 8,         // RSP offset in the register space for this target
-        size: 8u32,        // 8 bytes for 64-bit
-    };
+    let stack_pointer = VarNode::new(8u64, 8u32, 4u32);
 
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.

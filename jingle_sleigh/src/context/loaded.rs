@@ -84,11 +84,11 @@ impl<'a> LoadedSleighContext<'a> {
         // (e.g., extrapop) and apply them to CALL / CALLOTHER operations when no per-site
         // override is present in the ModelingMetadata.
         instr.postprocess(&self.sleigh);
-        let vn = VarNode {
-            space_index: self.arch_info.default_code_space_index() as u32,
-            size: instr.length as u32,
+        let vn = VarNode::new(
             offset,
-        };
+            instr.length as u32,
+            self.arch_info.default_code_space_index() as u32,
+        );
         if self.img.has_range(&vn) {
             Some(instr)
         } else {
@@ -170,11 +170,11 @@ impl<'a> LoadedSleighContext<'a> {
 
     // todo: properly account for spaces with non-byte-based indexing
     fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
-        VarNode {
-            space_index: vn.space_index,
-            size: vn.size,
-            offset: vn.offset.wrapping_sub(self.get_base_address()),
-        }
+        VarNode::new(
+            vn.offset().wrapping_sub(self.get_base_address()),
+            vn.size(),
+            vn.space_index(),
+        )
     }
 
     pub fn load<I: SleighArchImage + 'a, P: AsRef<str>>(
@@ -218,32 +218,15 @@ mod tests {
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: [u8; 5] = [0x55, 1, 2, 3, 4];
         let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
-        let first = loaded
-            .read_bytes(&VarNode {
-                space_index: 3,
-                size: 5,
-                offset: 0,
-            })
-            .unwrap();
+        let first = loaded.read_bytes(&VarNode::new(0u64, 5u32, 3u32)).unwrap();
         assert_eq!(first.as_slice(), img.as_slice());
         let instr1 = loaded.instruction_at(0).unwrap();
         assert_eq!(instr1.disassembly.mnemonic, "PUSH");
         loaded.set_base_address(100);
         assert!(loaded.instruction_at(0).is_none());
-        assert_eq!(
-            loaded.read_bytes(&VarNode {
-                space_index: 3,
-                size: 5,
-                offset: 0
-            }),
-            None
-        );
+        assert_eq!(loaded.read_bytes(&VarNode::new(0u64, 5u32, 3u32)), None);
         let second = loaded
-            .read_bytes(&VarNode {
-                space_index: 3,
-                size: 5,
-                offset: 100,
-            })
+            .read_bytes(&VarNode::new(100u64, 5u32, 3u32))
             .unwrap();
         assert_eq!(second.as_slice(), img.as_slice());
         let instr2 = loaded.instruction_at(100).unwrap();
@@ -265,11 +248,7 @@ mod tests {
         assert_eq!(
             instr.ops[0],
             Branch {
-                input: VarNode {
-                    space_index: 3,
-                    size: 8,
-                    offset: 7
-                }
+                input: VarNode::new(7u64, 8u32, 3u32)
             }
         );
         loaded.set_base_address(0x100);
@@ -277,11 +256,7 @@ mod tests {
         assert_eq!(
             instr2.ops[0],
             Branch {
-                input: VarNode {
-                    space_index: 3,
-                    size: 8,
-                    offset: 0x107
-                }
+                input: VarNode::new(0x107u64, 8u32, 3u32)
             }
         );
     }
@@ -321,11 +296,7 @@ mod tests {
 
                         // Read bytes from multiple offsets
                         let bytes = loaded_ref
-                            .read_bytes(&VarNode {
-                                space_index: 3,
-                                size: 6,
-                                offset: 0,
-                            })
+                            .read_bytes(&VarNode::new(0u64, 6u32, 3u32))
                             .unwrap();
                         assert_eq!(bytes.len(), 6);
                         assert_eq!(bytes[0], 0x55);
@@ -409,11 +380,7 @@ mod tests {
 
         // Try to read from a non-code space (should return None)
         let non_code_space_index = 1; // Typically not the code space
-        let result = loaded.read_bytes(&VarNode {
-            space_index: non_code_space_index,
-            size: 4,
-            offset: 0,
-        });
+        let result = loaded.read_bytes(&VarNode::new(0u64, 4u32, non_code_space_index as usize));
         assert_eq!(result, None);
     }
 

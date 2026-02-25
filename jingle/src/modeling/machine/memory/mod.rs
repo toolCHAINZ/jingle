@@ -70,20 +70,20 @@ impl MemoryState {
     fn read_varnode(&self, varnode: &VarNode) -> Result<BV, JingleError> {
         let space = self
             .info
-            .get_space(varnode.space_index as usize)
+            .get_space(varnode.space_index())
             .ok_or(UnmodeledSpace)?;
         match space._type {
             SpaceType::IPTR_CONSTANT => Ok(BV::from_i64(
-                varnode.offset as i64,
-                (varnode.size * 8) as u32,
+                varnode.offset() as i64,
+                (varnode.size() * 8) as u32,
             )),
             _ => {
-                let offset = BV::from_i64(varnode.offset as i64, space.index_size_bytes * 8);
+                let offset = BV::from_i64(varnode.offset() as i64, space.index_size_bytes * 8);
                 let arr = self
                     .spaces
-                    .get(varnode.space_index as usize)
+                    .get(varnode.space_index())
                     .ok_or(UnmodeledSpace)?;
-                arr.read(&offset, varnode.size as usize)
+                arr.read(&offset, varnode.size())
             }
         }
     }
@@ -148,10 +148,10 @@ impl MemoryState {
 
     /// Model a write to a [VarNode] on top of the current context.
     fn write_varnode(&mut self, dest: &VarNode, val: BV) -> Result<(), JingleError> {
-        if dest.size as u32 * 8 != val.get_size() {
+        if dest.size() as u32 * 8 != val.get_size() {
             return Err(MismatchedWordSize);
         }
-        match self.info.get_space(dest.space_index as usize).unwrap() {
+        match self.info.get_space(dest.space_index()).unwrap() {
             SpaceInfo {
                 _type: SpaceType::IPTR_CONSTANT,
                 ..
@@ -159,9 +159,12 @@ impl MemoryState {
             info => {
                 let space = self
                     .spaces
-                    .get_mut(dest.space_index as usize)
+                    .get_mut(dest.space_index())
                     .ok_or(UnmodeledSpace)?;
-                space.write(&val, &BV::from_u64(dest.offset, info.index_size_bytes * 8))?;
+                space.write(
+                    &val,
+                    &BV::from_u64(dest.offset(), info.index_size_bytes * 8),
+                )?;
                 Ok(())
             }
         }

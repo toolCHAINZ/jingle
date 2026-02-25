@@ -15,11 +15,7 @@ fn test_call_behavior_branch() {
         BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
 
     let call_op = PcodeOperation::Call {
-        dest: VarNode {
-            space_index: 0u32,
-            offset: 0x2000,
-            size: 8u32,
-        },
+        dest: VarNode::new(0x2000, 8u32, 0u32),
         args: vec![],
         call_info: None,
     };
@@ -38,11 +34,7 @@ fn test_call_behavior_step_over() {
         BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::StepOver);
 
     let call_op = PcodeOperation::Call {
-        dest: VarNode {
-            space_index: 0u32,
-            offset: 0x2000,
-            size: 8u32,
-        },
+        dest: VarNode::new(0x2000, 8u32, 0u32),
         args: vec![],
         call_info: None,
     };
@@ -60,11 +52,7 @@ fn test_call_behavior_terminate() {
         BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Terminate);
 
     let call_op = PcodeOperation::Call {
-        dest: VarNode {
-            space_index: 0u32,
-            offset: 0x2000,
-            size: 8u32,
-        },
+        dest: VarNode::new(0x2000, 8u32, 0u32),
         args: vec![],
         call_info: None,
     };

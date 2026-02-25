@@ -15,9 +15,9 @@ impl Ord for VnWrapper {
     fn cmp(&self, other: &Self) -> Ordering {
         let s_vn = &self.0;
         let o_vn = &other.0;
-        match s_vn.space_index.cmp(&o_vn.space_index) {
-            Ordering::Equal => match s_vn.offset.cmp(&o_vn.offset) {
-                Ordering::Equal => s_vn.size.cmp(&o_vn.size),
+        match s_vn.space_index().cmp(&o_vn.space_index()) {
+            Ordering::Equal => match s_vn.offset().cmp(&o_vn.offset()) {
+                Ordering::Equal => s_vn.size().cmp(&o_vn.size()),
                 a => a,
             },
             a => a,
@@ -57,9 +57,9 @@ impl<T> VarNodeMap<T> {
 
     /// Helper to compare two varnodes with the same ordering used by `VnWrapper`.
     fn cmp_vn(a: &VarNode, b: &VarNode) -> Ordering {
-        match a.space_index.cmp(&b.space_index) {
-            Ordering::Equal => match a.offset.cmp(&b.offset) {
-                Ordering::Equal => a.size.cmp(&b.size),
+        match a.space_index().cmp(&b.space_index()) {
+            Ordering::Equal => match a.offset().cmp(&b.offset()) {
+                Ordering::Equal => a.size().cmp(&b.size()),
                 a => a,
             },
             a => a,
@@ -325,16 +325,8 @@ mod tests {
     fn test_insert_get_contains() {
         let mut m = VarNodeMap::new();
 
-        let vn1 = VarNode {
-            space_index: 1,
-            offset: 0x10,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 1,
-            offset: 0x08,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0x10, 4u32, 1u32);
+        let vn2 = VarNode::new(0x08, 4u32, 1u32);
 
         assert!(!m.contains(&vn1));
         assert!(m.insert(vn1.clone(), 100).is_none());
@@ -352,11 +344,7 @@ mod tests {
     #[test]
     fn test_replace_returns_old() {
         let mut m = VarNodeMap::new();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0x0,
-            size: 8,
-        };
+        let vn = VarNode::new(0x0, 8u32, 0u32);
         assert!(m.insert(vn.clone(), 1).is_none());
         let old = m.insert(vn.clone(), 2);
         assert_eq!(old, Some(1));
@@ -366,21 +354,9 @@ mod tests {
     #[test]
     fn test_remove_and_indices() {
         let mut m = VarNodeMap::new();
-        let a = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let b = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 4,
-        };
-        let c = VarNode {
-            space_index: 0,
-            offset: 8,
-            size: 4,
-        };
+        let a = VarNode::new(0, 4u32, 0u32);
+        let b = VarNode::new(4, 4u32, 0u32);
+        let c = VarNode::new(8, 4u32, 0u32);
 
         m.insert(b.clone(), "b");
         m.insert(a.clone(), "a");
@@ -405,21 +381,9 @@ mod tests {
     #[test]
     fn test_iteration_order_is_sorted() {
         let mut m = VarNodeMap::new();
-        let v1 = VarNode {
-            space_index: 1,
-            offset: 0x20,
-            size: 4,
-        };
-        let v2 = VarNode {
-            space_index: 0,
-            offset: 0x10,
-            size: 4,
-        };
-        let v3 = VarNode {
-            space_index: 1,
-            offset: 0x10,
-            size: 4,
-        };
+        let v1 = VarNode::new(0x20, 4u32, 1u32);
+        let v2 = VarNode::new(0x10, 4u32, 0u32);
+        let v3 = VarNode::new(0x10, 4u32, 1u32);
 
         m.insert(v1.clone(), 1);
         m.insert(v2.clone(), 2);
@@ -428,7 +392,7 @@ mod tests {
         // iteration should yield keys in sorted order defined by (space_index, offset, size)
         let keys: Vec<(usize, u64, usize)> = m
             .items()
-            .map(|(k, _)| (k.space_index, k.offset, k.size))
+            .map(|(k, _)| (k.space_index(), k.offset(), k.size()))
             .collect();
 
         assert_eq!(
@@ -444,16 +408,8 @@ mod tests {
     #[test]
     fn test_iter_mut() {
         let mut m = VarNodeMap::new();
-        let v1 = VarNode {
-            space_index: 0,
-            offset: 0x10,
-            size: 4,
-        };
-        let v2 = VarNode {
-            space_index: 0,
-            offset: 0x20,
-            size: 4,
-        };
+        let v1 = VarNode::new(0x10, 4u32, 0u32);
+        let v2 = VarNode::new(0x20, 4u32, 0u32);
 
         m.insert(v1.clone(), 100);
         m.insert(v2.clone(), 200);
@@ -470,16 +426,8 @@ mod tests {
     #[test]
     fn test_into_iter_consumes() {
         let mut m = VarNodeMap::new();
-        let v1 = VarNode {
-            space_index: 0,
-            offset: 0x10,
-            size: 4,
-        };
-        let v2 = VarNode {
-            space_index: 0,
-            offset: 0x20,
-            size: 4,
-        };
+        let v1 = VarNode::new(0x10, 4u32, 0u32);
+        let v2 = VarNode::new(0x20, 4u32, 0u32);
 
         m.insert(v1.clone(), "foo");
         m.insert(v2.clone(), "bar");

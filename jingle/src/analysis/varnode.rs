@@ -129,7 +129,7 @@ pub struct VarNodeSet {
 
 impl VarNodeSet {
     pub fn insert(&mut self, vn: &VarNode) {
-        self.get_map_mut(vn.space_index as usize).insert(vn.into())
+        self.get_map_mut(vn.space_index()).insert(vn.into())
     }
 
     pub fn intersect(&self, other: &Self) -> Self {
@@ -157,7 +157,7 @@ impl VarNodeSet {
     }
 
     pub fn covers(&self, vn: &VarNode) -> bool {
-        if let Some(map) = self.space_map.get(&(vn.space_index as usize)) {
+        if let Some(map) = self.space_map.get(&vn.space_index()) {
             map.covers(&vn.into())
         } else {
             false
@@ -166,10 +166,8 @@ impl VarNodeSet {
 
     pub fn varnodes(&self) -> impl Iterator<Item = VarNode> {
         self.space_map.iter().flat_map(|(space, map)| {
-            map.ranges().map(|range| VarNode {
-                space_index: *space as u32,
-                offset: range.start,
-                size: (range.end - range.start) as u32,
+            map.ranges().map(move |range| {
+                VarNode::new(range.start, (range.end - range.start) as u32, *space as u32)
             })
         })
     }
@@ -231,11 +229,7 @@ mod tests {
     #[test]
     fn test_single_insert() {
         let mut set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0u32,
-            offset: 4,
-            size: 4u32,
-        };
+        let vn = VarNode::new(4, 4u32, 0u32);
         set.insert(&vn);
         let items = set.varnodes().collect::<Vec<_>>();
         assert_eq!(items, vec![vn]);
@@ -244,93 +238,46 @@ mod tests {
     #[test]
     fn test_covers() {
         let mut set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0u32,
-            offset: 4,
-            size: 4u32,
-        };
+        let vn = VarNode::new(4, 4u32, 0u32);
         set.insert(&vn);
         assert!(set.covers(&vn));
-        assert!(!set.covers(&VarNode {
-            space_index: 0u32,
-            offset: 4,
-            size: 43u32,
-        }));
+        assert!(!set.covers(&VarNode::new(4, 43u32, 0u32)));
     }
 
     #[test]
     fn test_ord() {
         let mut set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0u32,
-            offset: 4,
-            size: 4u32,
-        };
+        let vn = VarNode::new(4, 4u32, 0u32);
         set.insert(&vn);
         assert!(set.covers(&vn));
         let mut set2 = VarNodeSet::default();
-        let vn2 = VarNode {
-            space_index: 0u32,
-            offset: 4,
-            size: 1u32,
-        };
+        let vn2 = VarNode::new(4, 1u32, 0u32);
         set2.insert(&vn2);
         assert!(set > set2);
         set2.insert(&vn);
         assert!(set == set2);
-        set2.insert(&VarNode {
-            space_index: 0u32,
-            offset: 80,
-            size: 4u32,
-        });
+        set2.insert(&VarNode::new(80, 4u32, 0u32));
         assert!(set < set2);
-        set.insert(&VarNode {
-            space_index: 1u32,
-            offset: 80,
-            size: 4u32,
-        });
+        set.insert(&VarNode::new(80, 4u32, 1u32));
         assert_eq!(set.partial_cmp(&set2), None);
     }
 
     #[test]
     fn test_overlapping_insert() {
         let mut set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 6,
-            size: 4,
-        };
+        let vn = VarNode::new(4, 4u32, 0u32);
+        let vn2 = VarNode::new(6, 4u32, 0u32);
         set.insert(&vn);
         set.insert(&vn2);
         let items = set.varnodes().collect::<Vec<_>>();
-        assert_eq!(
-            items,
-            vec![VarNode {
-                space_index: 0u32,
-                offset: 4,
-                size: 6u32
-            }]
-        );
+        assert_eq!(items, vec![VarNode::new(4, 6u32, 0u32)]);
     }
 
     #[test]
     fn test_nonoverlapping_insert() {
         let mut set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0u32,
-            offset: 4,
-            size: 4u32,
-        };
-        let vn2 = VarNode {
-            space_index: 0u32,
-            offset: 9,
-            size: 4u32,
-        };
+        let vn = VarNode::new(4, 4u32, 0u32);
+        let vn2 = VarNode::new(9, 4u32, 0u32);
         set.insert(&vn);
         set.insert(&vn2);
         let got: Vec<_> = set.varnodes().collect();
@@ -341,21 +288,9 @@ mod tests {
     fn test_intersection_partial() {
         let mut set = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 9,
-            size: 4,
-        };
-        let vn3 = VarNode {
-            space_index: 0,
-            offset: 5,
-            size: 6,
-        };
+        let vn = VarNode::new(4, 4u32, 0u32);
+        let vn2 = VarNode::new(9, 4u32, 0u32);
+        let vn3 = VarNode::new(5, 6u32, 0u32);
         set.insert(&vn);
         set.insert(&vn2);
         set2.insert(&vn3);
@@ -365,29 +300,14 @@ mod tests {
         let items = intersect.varnodes().collect::<Vec<_>>();
         assert_eq!(
             items,
-            vec![
-                VarNode {
-                    space_index: 0,
-                    offset: 5,
-                    size: 3
-                },
-                VarNode {
-                    space_index: 0,
-                    offset: 9,
-                    size: 2
-                }
-            ]
+            vec![VarNode::new(5, 3u32, 0u32), VarNode::new(9, 2u32, 0u32),]
         );
     }
 
     #[test]
     fn test_empty_set_behavior() {
         let set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
+        let vn = VarNode::new(0, 4u32, 0u32);
         assert!(!set.covers(&vn));
         assert_eq!(set.varnodes().count(), 0);
         let set2 = VarNodeSet::default();
@@ -398,16 +318,8 @@ mod tests {
     fn test_multi_space_insert_and_cmp() {
         let mut set = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 1,
-            offset: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(0, 4u32, 1u32);
         set.insert(&vn1);
         set2.insert(&vn2);
         assert_eq!(set.partial_cmp(&set2), None);
@@ -419,16 +331,8 @@ mod tests {
     #[test]
     fn test_full_overlap_insert() {
         let mut set = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 8,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 2,
-            size: 2,
-        };
+        let vn1 = VarNode::new(0, 8u32, 0u32);
+        let vn2 = VarNode::new(2, 2u32, 0u32);
         set.insert(&vn1);
         set.insert(&vn2);
         let items = set.varnodes().collect::<Vec<_>>();
@@ -438,48 +342,21 @@ mod tests {
     #[test]
     fn test_adjacent_insert_merging() {
         let mut set = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(4, 4u32, 0u32);
         set.insert(&vn1);
         set.insert(&vn2);
         let items = set.varnodes().collect::<Vec<_>>();
-        assert_eq!(
-            items,
-            vec![VarNode {
-                space_index: 0,
-                offset: 0,
-                size: 8
-            }]
-        );
+        assert_eq!(items, vec![VarNode::new(0, 8u32, 0u32)]);
     }
 
     #[test]
     fn test_covers_partial_and_full() {
         let mut set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 8,
-        };
+        let vn = VarNode::new(0, 8u32, 0u32);
         set.insert(&vn);
-        let partial = VarNode {
-            space_index: 0,
-            offset: 2,
-            size: 2,
-        };
-        let outside = VarNode {
-            space_index: 0,
-            offset: 8,
-            size: 2,
-        };
+        let partial = VarNode::new(2, 2u32, 0u32);
+        let outside = VarNode::new(8, 2u32, 0u32);
         assert!(set.covers(&vn));
         assert!(set.covers(&partial));
         assert!(!set.covers(&outside));
@@ -489,16 +366,8 @@ mod tests {
     fn test_intersect_disjoint() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 8,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(8, 4u32, 0u32);
         set1.insert(&vn1);
         set2.insert(&vn2);
         let intersect = set1.intersect(&set2);
@@ -509,11 +378,7 @@ mod tests {
     fn test_intersect_full_overlap() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 8,
-        };
+        let vn = VarNode::new(0, 8u32, 0u32);
         set1.insert(&vn);
         set2.insert(&vn);
         let intersect = set1.intersect(&set2);
@@ -525,49 +390,26 @@ mod tests {
     fn test_union_basic() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(4, 4u32, 0u32);
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.union(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
-        assert_eq!(
-            items,
-            vec![VarNode {
-                space_index: 0,
-                offset: 0,
-                size: 8
-            }]
-        );
+        assert_eq!(items, vec![VarNode::new(0, 8u32, 0u32)]);
     }
 
     #[test]
     fn test_union_disjoint_spaces() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 1,
-            offset: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(0, 4u32, 1u32);
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.union(&set2);
         let mut items = set1.varnodes().collect::<Vec<_>>();
-        items.sort_by_key(|vn| vn.space_index);
+        items.sort_by_key(|vn| vn.space_index());
         assert_eq!(items, vec![vn1, vn2]);
     }
 
@@ -575,34 +417,15 @@ mod tests {
     fn test_subtract_partial_overlap() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 8,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 2,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 8u32, 0u32);
+        let vn2 = VarNode::new(2, 4u32, 0u32);
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.subtract(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
         assert_eq!(
             items,
-            vec![
-                VarNode {
-                    space_index: 0,
-                    offset: 0,
-                    size: 2
-                },
-                VarNode {
-                    space_index: 0,
-                    offset: 6,
-                    size: 2
-                }
-            ]
+            vec![VarNode::new(0, 2u32, 0u32), VarNode::new(6, 2u32, 0u32),]
         );
     }
 
@@ -610,16 +433,8 @@ mod tests {
     fn test_subtract_full_overlap() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(0, 4u32, 0u32);
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.subtract(&set2);
@@ -630,16 +445,8 @@ mod tests {
     fn test_subtract_disjoint() {
         let mut set1 = VarNodeSet::default();
         let mut set2 = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 8,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(8, 4u32, 0u32);
         set1.insert(&vn1);
         set2.insert(&vn2);
         set1.subtract(&set2);
@@ -650,11 +457,7 @@ mod tests {
     #[test]
     fn test_covers_empty_set() {
         let set = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
+        let vn = VarNode::new(0, 4u32, 0u32);
         assert!(!set.covers(&vn));
     }
 
@@ -724,11 +527,7 @@ mod tests {
     fn test_subtract_empty() {
         let mut set1 = VarNodeSet::default();
         let set2 = VarNodeSet::default();
-        let vn = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 4,
-        };
+        let vn = VarNode::new(0, 4u32, 0u32);
         set1.insert(&vn);
         set1.subtract(&set2);
         let items = set1.varnodes().collect::<Vec<_>>();
@@ -738,26 +537,14 @@ mod tests {
     #[test]
     fn test_insert_multiple_nonoverlapping() {
         let mut set = VarNodeSet::default();
-        let vn1 = VarNode {
-            space_index: 0,
-            offset: 0,
-            size: 2,
-        };
-        let vn2 = VarNode {
-            space_index: 0,
-            offset: 4,
-            size: 2,
-        };
-        let vn3 = VarNode {
-            space_index: 0,
-            offset: 8,
-            size: 2,
-        };
+        let vn1 = VarNode::new(0, 2u32, 0u32);
+        let vn2 = VarNode::new(4, 2u32, 0u32);
+        let vn3 = VarNode::new(8, 2u32, 0u32);
         set.insert(&vn1);
         set.insert(&vn2);
         set.insert(&vn3);
         let mut items = set.varnodes().collect::<Vec<_>>();
-        items.sort_by_key(|vn| vn.offset);
+        items.sort_by_key(|vn| vn.offset());
         assert_eq!(items, vec![vn1, vn2, vn3]);
     }
 }

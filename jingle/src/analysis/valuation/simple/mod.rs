@@ -100,8 +100,8 @@ impl SimpleValuationState {
             // Store: record pointer -> value in indirect_writes
             PcodeOperation::Store { output, input } => {
                 let ptr = &output.pointer_location;
-                let val = if input.space_index == VarNode::CONST_SPACE_INDEX {
-                    SimpleValue::const_(input.offset as i64)
+                let val = if input.is_const() {
+                    SimpleValue::const_(input.offset() as i64)
                 } else {
                     SimpleValue::from_varnode_or_entry(self, input)
                 };
@@ -112,8 +112,8 @@ impl SimpleValuationState {
 
             // Copy
             PcodeOperation::Copy { input, .. } => {
-                let result = if input.space_index == VarNode::CONST_SPACE_INDEX {
-                    SimpleValue::const_(input.offset as i64)
+                let result = if input.is_const() {
+                    SimpleValue::const_(input.offset() as i64)
                 } else {
                     SimpleValue::from_varnode_or_entry(self, input)
                 };
@@ -234,15 +234,18 @@ impl SimpleValuationState {
             PcodeOperation::Branch { input }
             | PcodeOperation::CBranch { input0: input, .. }
             | PcodeOperation::Fallthrough { input } => {
-                if input.space_index != VarNode::CONST_SPACE_INDEX {
+                if !input.is_const() {
                     // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
                     let mut to_remove: Vec<VarNode> = Vec::new();
                     for (vn, _) in new_state.valuation.direct_writes.items() {
                         let keep = self
                             .arch_info
-                            .get_space(vn.space_index as usize)
-                            .map(|space| space._type != SpaceType::IPTR_INTERNAL)
-                            .unwrap_or(true);
+                            .get_space(vn.space_index())
+                            .map(|s| {
+                                s._type
+                                    != crate::modeling::machine::memory::SpaceType::IPTR_CONSTANT
+                            })
+                            .unwrap_or(false);
                         if !keep {
                             to_remove.push(vn.clone());
                         }
@@ -273,11 +276,7 @@ impl SimpleValuationState {
                 if let Some(a) = call_info.iter().flat_map(|a| a.extrapop).next() {
                     if let Some(stack) = self.arch_info.stack_pointer() {
                         let stack_value = SimpleValue::from_varnode_or_entry(self, &stack);
-                        let shift_vn = VarNode {
-                            space_index: VarNode::CONST_SPACE_INDEX,
-                            offset: a as i64 as u64,
-                            size: stack.size,
-                        };
+                        let shift_vn = VarNode::new_const(a as u64, stack.size());
 
                         new_state.valuation.add(
                             stack,

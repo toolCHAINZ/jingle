@@ -342,159 +342,75 @@ mod tests {
 
     #[test]
     fn test_overlap() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
         let tests = [
-            VarNode {
-                offset: 0,
-                space_index: 0,
-                size: 4,
-            },
-            VarNode {
-                offset: 0,
-                space_index: 0,
-                size: 3,
-            },
-            VarNode {
-                offset: 0,
-                space_index: 0,
-                size: 2,
-            },
-            VarNode {
-                offset: 2,
-                space_index: 0,
-                size: 1,
-            },
-            VarNode {
-                offset: 2,
-                space_index: 0,
-                size: 2,
-            },
-            VarNode {
-                offset: 2,
-                space_index: 0,
-                size: 1,
-            },
+            VarNode::new(0u64, 4u32, 0u32),
+            VarNode::new(0u64, 3u32, 0u32),
+            VarNode::new(0u64, 2u32, 0u32),
+            VarNode::new(2u64, 1u32, 0u32),
+            VarNode::new(2u64, 2u32, 0u32),
+            VarNode::new(2u64, 1u32, 0u32),
         ];
         assert!(tests.iter().all(|v| vn1.covers(v)))
     }
 
     #[test]
     fn test_overlaps_true() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            offset: 2,
-            space_index: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
+        let vn2 = VarNode::new(2u64, 4u32, 0u32);
         assert!(vn1.overlaps(&vn2));
         assert!(vn2.overlaps(&vn1));
     }
 
     #[test]
     fn test_overlaps_false_different_space() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            offset: 0,
-            space_index: 1,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
+        let vn2 = VarNode::new(0u64, 4u32, 1u32);
         assert!(!vn1.overlaps(&vn2));
         assert!(!vn2.overlaps(&vn1));
     }
 
     #[test]
     fn test_overlaps_false_no_overlap() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            offset: 10,
-            space_index: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
+        let vn2 = VarNode::new(10u64, 4u32, 0u32);
         assert!(!vn1.overlaps(&vn2));
         assert!(!vn2.overlaps(&vn1));
     }
 
     #[test]
     fn test_covers_false_different_space() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            offset: 0,
-            space_index: 1,
-            size: 2,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
+        let vn2 = VarNode::new(0u64, 2u32, 1u32);
         assert!(!vn1.covers(&vn2));
     }
 
     #[test]
     fn test_covers_false_extends_beyond() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            offset: 2,
-            space_index: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
+        let vn2 = VarNode::new(2u64, 4u32, 0u32);
         assert!(!vn1.covers(&vn2));
     }
 
     #[test]
     fn test_is_const() {
-        let const_vn = VarNode {
-            offset: 100,
-            space_index: VarNode::CONST_SPACE_INDEX,
-            size: 4,
-        };
+        let const_vn = VarNode::new_const(100u64, 4u32);
         assert!(const_vn.is_const());
 
-        let non_const_vn = VarNode {
-            offset: 100,
-            space_index: 3,
-            size: 4,
-        };
+        let non_const_vn = VarNode::new(100u64, 4u32, 3u32);
         assert!(!non_const_vn.is_const());
     }
 
     #[test]
     fn test_min_max() {
-        let vn = VarNode {
-            offset: 100,
-            space_index: 0,
-            size: 8,
-        };
+        let vn = VarNode::new(100u64, 8u32, 0u32);
         assert_eq!(vn.min_offset(), 100);
         assert_eq!(vn.max_offset(), 108);
     }
 
     #[test]
     fn test_range_conversion_u64() {
-        let vn = VarNode {
-            offset: 100,
-            space_index: 0,
-            size: 8,
-        };
+        let vn = VarNode::new(100u64, 8u32, 0u32);
         let range: std::ops::Range<u64> = (&vn).into();
         assert_eq!(range.start, 100);
         assert_eq!(range.end, 108);
@@ -502,11 +418,7 @@ mod tests {
 
     #[test]
     fn test_range_conversion_usize() {
-        let vn = VarNode {
-            offset: 100,
-            space_index: 0,
-            size: 8,
-        };
+        let vn = VarNode::new(100u64, 8u32, 0u32);
         let range: std::ops::Range<usize> = (&vn).into();
         assert_eq!(range.start, 100);
         assert_eq!(range.end, 108);
@@ -514,16 +426,8 @@ mod tests {
 
     #[test]
     fn test_overlaps_adjacent_ranges() {
-        let vn1 = VarNode {
-            offset: 0,
-            space_index: 0,
-            size: 4,
-        };
-        let vn2 = VarNode {
-            offset: 4,
-            space_index: 0,
-            size: 4,
-        };
+        let vn1 = VarNode::new(0u64, 4u32, 0u32);
+        let vn2 = VarNode::new(4u64, 4u32, 0u32);
         // Adjacent ranges should not overlap
         assert!(!vn1.overlaps(&vn2));
     }

@@ -101,11 +101,11 @@ impl<'a> ImageFFI<'a> {
     }
     // todo: properly account for spaces with non-byte-based indexing
     fn adjust_varnode_vma(&self, vn: &VarNode) -> VarNode {
-        VarNode {
-            space_index: vn.space_index,
-            size: vn.size,
-            offset: vn.offset.wrapping_sub(self.base_offset),
-        }
+        VarNode::new(
+            vn.offset().wrapping_sub(self.get_base_address()),
+            vn.size(),
+            vn.space_index(),
+        )
     }
 }
 
