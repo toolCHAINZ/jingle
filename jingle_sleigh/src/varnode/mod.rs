@@ -1,5 +1,7 @@
 use crate::error::JingleSleighError;
 use std::borrow::Borrow;
+use std::ops::Add;
+use std::ops::Deref;
 
 use crate::SleighArchInfo;
 use crate::ffi::instruction::bridge::VarnodeInfoFFI;
@@ -10,6 +12,74 @@ use pyo3::pymethods;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter, LowerHex};
 use std::ops::Range;
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct VarNodeSize(u32);
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct VarNodeSpaceIndex(u32);
+
+impl Display for VarNodeSize {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl Display for VarNodeSpaceIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl LowerHex for VarNodeSize {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        LowerHex::fmt(&self.0, f)
+    }
+}
+
+impl LowerHex for VarNodeSpaceIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        LowerHex::fmt(&self.0, f)
+    }
+}
+
+macro_rules! into_vn_types {
+    ($t:ident) => {
+        impl From<$t> for VarNodeSize {
+            fn from(value: $t) -> Self {
+                Self(value as u32)
+            }
+        }
+
+        impl From<$t> for VarNodeSpaceIndex {
+            fn from(value: $t) -> Self {
+                Self(value as u32)
+            }
+        }
+
+        impl Add<$t> for VarNodeSize {
+            type Output = $t;
+
+            fn add(self, rhs: $t) -> Self::Output {
+                (self.0 as $t) + rhs
+            }
+        }
+
+        impl Add<VarNodeSize> for $t {
+            type Output = $t;
+
+            fn add(self, rhs: VarNodeSize) -> Self::Output {
+                self + (rhs.0 as $t)
+            }
+        }
+    };
+}
+
+into_vn_types!(u8);
+into_vn_types!(u16);
+into_vn_types!(u32);
+into_vn_types!(u64);
+into_vn_types!(usize);
 
 /// A [`VarNode`] is `SLEIGH`'s generalization of an address. It describes a sized-location in
 /// a given memory space.
@@ -27,20 +97,20 @@ pub struct VarNode {
     /// The index at which the relevant space can be found in a [`SleighArchInfo`]
     ///
     /// Use a compact integer because the number of spaces is small in practice.
-    pub space_index: u32,
+    space_index: VarNodeSpaceIndex,
     /// The offset into the given space
-    pub offset: u64,
+    offset: u64,
     /// The size in bytes of the given [`VarNode`]
     ///
     /// todo: double-check the sleigh spec and see whether this is always bytes or if it is space word size
-    pub size: u32,
+    size: VarNodeSize,
 }
 
 #[cfg(feature = "pyo3")]
 #[pymethods]
 impl VarNode {
     #[new]
-    pub fn new(space_index: u32, offset: u64, size: u32) -> Self {
+    pub fn new_py(space_index: u32, offset: u64, size: u32) -> Self {
         Self {
             space_index,
             offset,
@@ -54,16 +124,32 @@ impl VarNode {
     /// todo: It would be best if this was checked with a static assert from cxx
     pub const CONST_SPACE_INDEX: u32 = 0;
 
+    pub fn new<I: Into<VarNodeSize>, J: Into<VarNodeSpaceIndex>>(
+        offset: u64,
+        size: I,
+        space: J,
+    ) -> Self {
+        Self {
+            offset,
+            size: size.into(),
+            space_index: space.into(),
+        }
+    }
+
+    pub fn new_const<I: Into<VarNodeSize>>(offset: u64, size: I) -> Self {
+        Self::new(offset, size, Self::CONST_SPACE_INDEX)
+    }
+
     pub fn is_const(&self) -> bool {
-        self.space_index == Self::CONST_SPACE_INDEX
+        self.space_index == Self::CONST_SPACE_INDEX.into()
     }
 
     pub fn covers(&self, other: &VarNode) -> bool {
         if self.space_index != other.space_index {
             return false;
         }
-        let self_range = self.offset..(self.offset + self.size as u64);
-        let other = other.offset..(other.offset + other.size as u64);
+        let self_range = self.offset..(self.offset + self.size);
+        let other = other.offset..(other.offset + other.size);
         self_range.start <= other.start && self_range.end >= other.end
     }
 
@@ -71,8 +157,8 @@ impl VarNode {
         if self.space_index != other.space_index {
             return false;
         }
-        let self_range = self.offset..(self.offset + self.size as u64);
-        let other = other.offset..(other.offset + other.size as u64);
+        let self_range = self.offset..(self.offset + self.size);
+        let other = other.offset..(other.offset + other.size);
         let left = self_range.start <= other.start && self_range.end > other.start;
         let right = other.start <= self_range.start && other.end > self_range.start;
         left || right
@@ -83,7 +169,19 @@ impl VarNode {
     }
 
     pub fn max_offset(&self) -> u64 {
-        self.offset + self.size as u64
+        self.offset + self.size
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.offset
+    }
+
+    pub fn space_index(&self) -> usize {
+        self.space_index.0 as usize
+    }
+
+    pub fn size(&self) -> usize {
+        self.size.0 as usize
     }
 }
 
@@ -91,7 +189,7 @@ impl From<&VarNode> for Range<u64> {
     fn from(value: &VarNode) -> Self {
         Range {
             start: value.offset,
-            end: value.offset + value.size as u64,
+            end: value.offset + value.size,
         }
     }
 }
@@ -100,7 +198,7 @@ impl From<&VarNode> for Range<usize> {
     fn from(value: &VarNode) -> Self {
         Range {
             start: value.offset as usize,
-            end: value.offset as usize + value.size as usize,
+            end: value.offset as usize + value.size,
         }
     }
 }
@@ -129,11 +227,7 @@ pub fn create_varnode<T: Borrow<SleighArchInfo>>(
 ) -> Result<VarNode, JingleSleighError> {
     for (space_index, space) in ctx.borrow().spaces().iter().enumerate() {
         if space.name.eq(name) {
-            return Ok(VarNode {
-                space_index: space_index as u32,
-                size,
-                offset,
-            });
+            return Ok(VarNode::new(offset, size, space_index));
         }
     }
     Err(JingleSleighError::InvalidSpaceName)
@@ -200,8 +294,8 @@ impl From<IndirectVarNode> for GeneralizedVarNode {
 impl From<VarnodeInfoFFI> for VarNode {
     fn from(value: VarnodeInfoFFI) -> Self {
         Self {
-            size: value.size as u32,
-            space_index: value.space.getIndex() as u32,
+            size: value.size.into(),
+            space_index: (value.space.getIndex() as u32).into(),
             offset: value.offset,
         }
     }
@@ -210,8 +304,8 @@ impl From<VarnodeInfoFFI> for VarNode {
 impl From<&VarnodeInfoFFI> for VarNode {
     fn from(value: &VarnodeInfoFFI) -> Self {
         Self {
-            size: value.size as u32,
-            space_index: value.space.getIndex() as u32,
+            size: value.size.into(),
+            space_index: (value.space.getIndex() as u32).into(),
             offset: value.offset,
         }
     }
