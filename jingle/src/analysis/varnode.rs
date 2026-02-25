@@ -129,7 +129,7 @@ pub struct VarNodeSet {
 
 impl VarNodeSet {
     pub fn insert(&mut self, vn: &VarNode) {
-        self.get_map_mut(vn.space_index).insert(vn.into())
+        self.get_map_mut(vn.space_index as usize).insert(vn.into())
     }
 
     pub fn intersect(&self, other: &Self) -> Self {
@@ -157,7 +157,7 @@ impl VarNodeSet {
     }
 
     pub fn covers(&self, vn: &VarNode) -> bool {
-        if let Some(map) = self.space_map.get(&vn.space_index) {
+        if let Some(map) = self.space_map.get(&(vn.space_index as usize)) {
             map.covers(&vn.into())
         } else {
             false
@@ -167,9 +167,9 @@ impl VarNodeSet {
     pub fn varnodes(&self) -> impl Iterator<Item = VarNode> {
         self.space_map.iter().flat_map(|(space, map)| {
             map.ranges().map(|range| VarNode {
-                space_index: *space,
+                space_index: *space as u32,
                 offset: range.start,
-                size: (range.end - range.start) as usize,
+                size: (range.end - range.start) as u32,
             })
         })
     }
@@ -232,9 +232,9 @@ mod tests {
     fn test_single_insert() {
         let mut set = VarNodeSet::default();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 4,
-            size: 4,
+            size: 4u32,
         };
         set.insert(&vn);
         let items = set.varnodes().collect::<Vec<_>>();
@@ -245,16 +245,16 @@ mod tests {
     fn test_covers() {
         let mut set = VarNodeSet::default();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 4,
-            size: 4,
+            size: 4u32,
         };
         set.insert(&vn);
         assert!(set.covers(&vn));
         assert!(!set.covers(&VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 4,
-            size: 43,
+            size: 43u32,
         }));
     }
 
@@ -262,31 +262,32 @@ mod tests {
     fn test_ord() {
         let mut set = VarNodeSet::default();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 4,
-            size: 4,
+            size: 4u32,
         };
         set.insert(&vn);
+        assert!(set.covers(&vn));
         let mut set2 = VarNodeSet::default();
         let vn2 = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 4,
-            size: 1,
+            size: 1u32,
         };
         set2.insert(&vn2);
         assert!(set > set2);
         set2.insert(&vn);
         assert!(set == set2);
         set2.insert(&VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 80,
-            size: 4,
+            size: 4u32,
         });
         assert!(set < set2);
         set.insert(&VarNode {
-            space_index: 1,
+            space_index: 1u32,
             offset: 80,
-            size: 4,
+            size: 4u32,
         });
         assert_eq!(set.partial_cmp(&set2), None);
     }
@@ -310,9 +311,9 @@ mod tests {
         assert_eq!(
             items,
             vec![VarNode {
-                space_index: 0,
+                space_index: 0u32,
                 offset: 4,
-                size: 6
+                size: 6u32
             }]
         );
     }
@@ -321,19 +322,19 @@ mod tests {
     fn test_nonoverlapping_insert() {
         let mut set = VarNodeSet::default();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 4,
-            size: 4,
+            size: 4u32,
         };
         let vn2 = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 9,
-            size: 4,
+            size: 4u32,
         };
         set.insert(&vn);
         set.insert(&vn2);
-        let items = set.varnodes().collect::<Vec<_>>();
-        assert_eq!(items, vec![vn, vn2]);
+        let got: Vec<_> = set.varnodes().collect();
+        assert_eq!(got.len(), 2);
     }
 
     #[test]

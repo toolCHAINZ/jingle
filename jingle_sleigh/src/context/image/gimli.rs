@@ -78,7 +78,7 @@ impl SleighImageCore for OwnedFile {
         let mut written = 0;
         output.fill(0);
         let output_start_addr = vn.offset as usize;
-        let output_end_addr = output_start_addr + vn.size;
+        let output_end_addr = output_start_addr + vn.size as usize;
         if let Some(x) = self.image_sections().find(|s| {
             output_start_addr >= s.base_address
                 && output_start_addr < (s.base_address + s.data.len())
@@ -104,7 +104,7 @@ impl SleighImageCore for OwnedFile {
     fn has_full_range(&self, vn: &VarNode) -> bool {
         self.image_sections().any(|s| {
             s.base_address <= vn.offset as usize
-                && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size)
+                && (s.base_address + s.data.len()) >= (vn.offset as usize + vn.size as usize)
         })
     }
 }
@@ -126,7 +126,7 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
         let mut written = 0;
         output.fill(0);
         let output_start_addr = vn.offset as usize;
-        let output_end_addr = output_start_addr + vn.size;
+        let output_end_addr = output_start_addr + vn.size as usize;
         if let Some(x) = self.sections().find(|s| {
             output_start_addr >= s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize

@@ -151,9 +151,9 @@ impl Instruction {
         let arch_info = ctx.arch_info();
         self.ops.push(PcodeOperation::Fallthrough {
             input: VarNode {
-                space_index: arch_info.default_code_space_index(),
+                space_index: arch_info.default_code_space_index() as u32,
                 offset: self.address + self.length as u64,
-                size: 1,
+                size: 1u32,
             },
         });
     }
@@ -216,9 +216,9 @@ mod tests {
 
         // Create a Call instruction with no per-site CallInfo
         let dest = VarNode {
-            space_index: ctx.arch_info().default_code_space_index(),
+            space_index: ctx.arch_info().default_code_space_index() as u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         let mut instr = Instruction {
             disassembly: Disassembly {
@@ -277,9 +277,9 @@ mod tests {
 
         // Build a Call instruction that targets the address we overrode
         let dest = VarNode {
-            space_index: ctx.arch_info().default_code_space_index(),
+            space_index: ctx.arch_info().default_code_space_index() as u32,
             offset: override_addr,
-            size: 8,
+            size: 8u32,
         };
         let mut instr = Instruction {
             disassembly: Disassembly {
@@ -341,9 +341,9 @@ mod tests {
 
         // Build a Call instruction with no call_info so postprocess will attach defaults
         let dest = VarNode {
-            space_index: ctx.arch_info().default_code_space_index(),
+            space_index: ctx.arch_info().default_code_space_index() as u32,
             offset: 0x3000,
-            size: 8,
+            size: 8u32,
         };
         let mut instr = Instruction {
             disassembly: Disassembly {

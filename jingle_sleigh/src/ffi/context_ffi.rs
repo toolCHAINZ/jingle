@@ -65,11 +65,11 @@ pub(crate) struct ImageFFI<'a> {
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
     /// default code space.
-    pub(crate) space_index: usize,
+    pub(crate) space_index: u32,
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: usize) -> Self {
+    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: u32) -> Self {
         Self {
             provider: Box::new(provider),
             base_offset: 0,

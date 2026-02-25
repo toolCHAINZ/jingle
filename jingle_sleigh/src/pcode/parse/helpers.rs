@@ -40,9 +40,9 @@ pub fn parse_reference_pair(
                 space_name
             )))?;
     Ok(IndirectVarNode {
-        pointer_space_index: space.index,
+        pointer_space_index: space.index as u32,
         pointer_location,
-        access_size_bytes: 0,
+        access_size_bytes: 0u32,
     })
 }
 
@@ -76,8 +76,8 @@ pub fn parse_varnode(
                 )))?;
         Ok(VarNode {
             offset: loc.1,
-            space_index: space.index,
-            size,
+            space_index: space.index as u32,
+            size: size as u32,
         })
     } else {
         let reg = reg.unwrap();
@@ -148,7 +148,7 @@ pub fn parse_callother_operation(
                     return Ok(VarNode {
                         space_index: VarNode::CONST_SPACE_INDEX,
                         offset: idx as u64,
-                        size: 4,
+                        size: 4u32,
                     });
                 } else {
                     return Err(JingleSleighError::PcodeParseValidation(format!(

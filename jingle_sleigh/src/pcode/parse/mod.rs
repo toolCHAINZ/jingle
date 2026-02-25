@@ -134,7 +134,7 @@ pub(crate) fn parse_pcode(
             let p = inner.next().unwrap();
             let vn = helpers::parse_varnode(p, info)?;
             let input = IndirectVarNode {
-                pointer_space_index: info.default_code_space_index(),
+                pointer_space_index: info.default_code_space_index() as u32,
                 pointer_location: vn,
                 access_size_bytes: 0,
             };
@@ -201,7 +201,7 @@ pub(crate) fn parse_pcode(
             let p = inner.next().unwrap();
             let vn = helpers::parse_varnode(p, info)?;
             let input = IndirectVarNode {
-                pointer_space_index: info.default_code_space_index(),
+                pointer_space_index: info.default_code_space_index() as u32,
                 pointer_location: vn,
                 access_size_bytes: 0,
             };

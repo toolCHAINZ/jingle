@@ -54,7 +54,7 @@ impl<'a> LoadedSleighContext<'a> {
     ) -> Result<Self, JingleSleighError> {
         let img = Box::pin(ImageFFI::new(
             img,
-            sleigh_context.arch_info().default_code_space_index(),
+            sleigh_context.arch_info().default_code_space_index() as u32,
         ));
         let mut s = Self {
             sleigh: sleigh_context,
@@ -85,8 +85,8 @@ impl<'a> LoadedSleighContext<'a> {
         // override is present in the ModelingMetadata.
         instr.postprocess(&self.sleigh);
         let vn = VarNode {
-            space_index: self.arch_info.default_code_space_index(),
-            size: instr.length,
+            space_index: self.arch_info.default_code_space_index() as u32,
+            size: instr.length as u32,
             offset,
         };
         if self.img.has_range(&vn) {
@@ -105,7 +105,7 @@ impl<'a> LoadedSleighContext<'a> {
 
     /// Read the byte range specified by the given [`VarNode`] from the configured image provider.
     pub fn read_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
-        if vn.space_index == self.arch_info.default_code_space_index() {
+        if vn.space_index == self.arch_info.default_code_space_index() as u32 {
             self.img.provider.get_bytes(&self.adjust_varnode_vma(vn))
         } else {
             None
@@ -133,7 +133,7 @@ impl<'a> LoadedSleighContext<'a> {
     ) -> Result<(), JingleSleighError> {
         let base_address = self.get_base_address();
         let (sleigh, img_ref) = self.borrow_parts();
-        *img_ref = ImageFFI::new(img, sleigh.arch_info().default_code_space_index());
+        *img_ref = ImageFFI::new(img, sleigh.arch_info().default_code_space_index() as u32);
         sleigh
             .ctx
             .lock()

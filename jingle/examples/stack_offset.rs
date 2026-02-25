@@ -48,9 +48,9 @@ fn main() {
 
     // Create the stack pointer varnode (RSP on x86-64)
     let stack_pointer = VarNode {
-        space_index: 4, // Register space index for registers (depends on sleigh description)
-        offset: 8,      // RSP offset in the register space for this target
-        size: 8,        // 8 bytes for 64-bit
+        space_index: 4u32, // Register space index for registers (depends on sleigh description)
+        offset: 8,         // RSP offset in the register space for this target
+        size: 8u32,        // 8 bytes for 64-bit
     };
 
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).

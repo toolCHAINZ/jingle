@@ -16,9 +16,9 @@ fn test_call_behavior_branch() {
 
     let call_op = PcodeOperation::Call {
         dest: VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x2000,
-            size: 8,
+            size: 8u32,
         },
         args: vec![],
         call_info: None,
@@ -39,9 +39,9 @@ fn test_call_behavior_step_over() {
 
     let call_op = PcodeOperation::Call {
         dest: VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x2000,
-            size: 8,
+            size: 8u32,
         },
         args: vec![],
         call_info: None,
@@ -61,9 +61,9 @@ fn test_call_behavior_terminate() {
 
     let call_op = PcodeOperation::Call {
         dest: VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x2000,
-            size: 8,
+            size: 8u32,
         },
         args: vec![],
         call_info: None,

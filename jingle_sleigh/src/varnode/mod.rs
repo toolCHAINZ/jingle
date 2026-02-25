@@ -25,20 +25,22 @@ use std::ops::Range;
 #[cfg_attr(feature = "pyo3", pyclass)]
 pub struct VarNode {
     /// The index at which the relevant space can be found in a [`SleighArchInfo`]
-    pub space_index: usize,
+    ///
+    /// Use a compact integer because the number of spaces is small in practice.
+    pub space_index: u32,
     /// The offset into the given space
     pub offset: u64,
     /// The size in bytes of the given [`VarNode`]
     ///
     /// todo: double-check the sleigh spec and see whether this is always bytes or if it is space word size
-    pub size: usize,
+    pub size: u32,
 }
 
 #[cfg(feature = "pyo3")]
 #[pymethods]
 impl VarNode {
     #[new]
-    pub fn new(space_index: usize, offset: u64, size: usize) -> Self {
+    pub fn new(space_index: u32, offset: u64, size: u32) -> Self {
         Self {
             space_index,
             offset,
@@ -50,7 +52,7 @@ impl VarNode {
 impl VarNode {
     /// This value is hardcoded in `space.cc` within `SLEIGH`. Also hardcoding it here for convenience.
     /// todo: It would be best if this was checked with a static assert from cxx
-    pub const CONST_SPACE_INDEX: usize = 0;
+    pub const CONST_SPACE_INDEX: u32 = 0;
 
     pub fn is_const(&self) -> bool {
         self.space_index == Self::CONST_SPACE_INDEX
@@ -98,7 +100,7 @@ impl From<&VarNode> for Range<usize> {
     fn from(value: &VarNode) -> Self {
         Range {
             start: value.offset as usize,
-            end: value.offset as usize + value.size,
+            end: value.offset as usize + value.size as usize,
         }
     }
 }
@@ -123,12 +125,12 @@ pub fn create_varnode<T: Borrow<SleighArchInfo>>(
     ctx: &T,
     name: &str,
     offset: u64,
-    size: usize,
+    size: u32,
 ) -> Result<VarNode, JingleSleighError> {
     for (space_index, space) in ctx.borrow().spaces().iter().enumerate() {
         if space.name.eq(name) {
             return Ok(VarNode {
-                space_index,
+                space_index: space_index as u32,
                 size,
                 offset,
             });
@@ -140,9 +142,9 @@ pub fn create_varnode<T: Borrow<SleighArchInfo>>(
 #[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IndirectVarNode {
-    pub pointer_space_index: usize,
+    pub pointer_space_index: u32,
     pub pointer_location: VarNode,
-    pub access_size_bytes: usize,
+    pub access_size_bytes: u32,
 }
 
 impl Display for IndirectVarNode {
@@ -198,8 +200,8 @@ impl From<IndirectVarNode> for GeneralizedVarNode {
 impl From<VarnodeInfoFFI> for VarNode {
     fn from(value: VarnodeInfoFFI) -> Self {
         Self {
-            size: value.size,
-            space_index: value.space.getIndex() as usize,
+            size: value.size as u32,
+            space_index: value.space.getIndex() as u32,
             offset: value.offset,
         }
     }
@@ -208,8 +210,8 @@ impl From<VarnodeInfoFFI> for VarNode {
 impl From<&VarnodeInfoFFI> for VarNode {
     fn from(value: &VarnodeInfoFFI) -> Self {
         Self {
-            size: value.size,
-            space_index: value.space.getIndex() as usize,
+            size: value.size as u32,
+            space_index: value.space.getIndex() as u32,
             offset: value.offset,
         }
     }

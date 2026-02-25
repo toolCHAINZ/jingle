@@ -729,8 +729,8 @@ impl From<RawPcodeOp> for PcodeOperation {
                 $op {
                     input: IndirectVarNode {
                         pointer_location: VarNode::from(&value.inputs[0]),
-                        access_size_bytes: value.space.getAddrSize() as usize,
-                        pointer_space_index: value.space.getIndex() as usize,
+                        access_size_bytes: value.space.getAddrSize() as u32,
+                        pointer_space_index: value.space.getIndex() as u32,
                     },
                 }
             };
@@ -772,7 +772,7 @@ impl From<RawPcodeOp> for PcodeOperation {
                 let output = VarNode::from(&value.output);
                 Load {
                     input: IndirectVarNode {
-                        pointer_space_index: space.getIndex() as usize,
+                        pointer_space_index: space.getIndex() as u32,
                         pointer_location: VarNode::from(&value.inputs[1]),
                         access_size_bytes: output.size,
                     },
@@ -788,7 +788,7 @@ impl From<RawPcodeOp> for PcodeOperation {
                 let input = VarNode::from(&value.inputs[2]);
                 Store {
                     output: IndirectVarNode {
-                        pointer_space_index: space.getIndex() as usize,
+                        pointer_space_index: space.getIndex() as u32,
                         pointer_location: VarNode::from(&value.inputs[1]),
                         access_size_bytes: input.size,
                     },

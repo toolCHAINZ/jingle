@@ -196,9 +196,9 @@ impl SimpleValue {
     /// For composite nodes, the stored size is returned.
     pub fn size(&self) -> usize {
         match self {
-            SimpleValue::Entry(Entry(vn)) => vn.size,
-            SimpleValue::Const(vn) => vn.as_ref().size,
-            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().size,
+            SimpleValue::Entry(Entry(vn)) => vn.size as usize,
+            SimpleValue::Const(vn) => vn.as_ref().size as usize,
+            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().size as usize,
             SimpleValue::Mul(MulExpr(_, _, s))
             | SimpleValue::Add(AddExpr(_, _, s))
             | SimpleValue::Sub(SubExpr(_, _, s))
@@ -229,7 +229,7 @@ impl SimpleValue {
         let vn = VarNode {
             space_index: VarNode::CONST_SPACE_INDEX,
             offset: v as u64,
-            size: 8,
+            size: 8u32,
         };
         SimpleValue::Const(Const(vn))
     }
@@ -262,7 +262,7 @@ impl SimpleValue {
     // Keep the older helpers (used by some simplifications) for parity:
 
     /// Create a constant SimpleValue with the given value and size (in bytes).
-    fn make_const(value: i64, size: usize) -> Self {
+    fn make_const(value: i64, size: u32) -> Self {
         let vn = VarNode {
             space_index: VarNode::CONST_SPACE_INDEX,
             offset: value as u64,
@@ -408,7 +408,7 @@ impl Simplify for AddExpr {
             let b = b_vn.offset as i64;
             let res = a.wrapping_add(b);
             let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // normalization: ensure constants are on the right
@@ -429,9 +429,9 @@ impl Simplify for AddExpr {
                     let res = inner_right_const.wrapping_add(right_const);
                     let size = std::cmp::max(
                         left_inner_left.as_ref().size(),
-                        SimpleValue::derive_size_from(&SimpleValue::make_const(res, 8)),
+                        SimpleValue::derive_size_from(&SimpleValue::make_const(res, 8u32)),
                     );
-                    let new_const = SimpleValue::make_const(res, size);
+                    let new_const = SimpleValue::make_const(res, size as u32);
                     return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }
             }
@@ -449,10 +449,10 @@ impl Simplify for AddExpr {
 
                     // If res is negative, create Add instead of Sub to avoid infinite loop
                     if res < 0 {
-                        let new_const = SimpleValue::make_const(-res, size);
+                        let new_const = SimpleValue::make_const(-res, size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
-                        let new_const = SimpleValue::make_const(res, size);
+                        let new_const = SimpleValue::make_const(res, size as u32);
                         return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
@@ -483,7 +483,7 @@ impl Simplify for SubExpr {
             let right = right_vn.offset as i64;
             let res = left.wrapping_sub(right);
             let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // DO NOT normalize for subtraction - it is not commutative!
@@ -500,7 +500,7 @@ impl Simplify for SubExpr {
             Some(a) => {
                 if a < 0 {
                     let new_const =
-                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left));
+                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left) as u32);
                     let add = AddExpr(
                         Intern::new(left.clone()),
                         Intern::new(new_const),
@@ -516,7 +516,7 @@ impl Simplify for SubExpr {
         // x - x -> 0
         if left == right {
             let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size);
+            return SimpleValue::make_const(0, size as u32);
         }
 
         // ((expr + #a) - #b) -> (expr + #(a - b)) or (expr - #(b - a))
@@ -531,11 +531,11 @@ impl Simplify for SubExpr {
 
                     // If res is negative, create Sub instead of Add to avoid infinite loop
                     if res < 0 {
-                        let new_const = SimpleValue::make_const(-res, size);
-                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
-                    } else {
-                        let new_const = SimpleValue::make_const(res, size);
+                        let new_const = SimpleValue::make_const(-res, size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                    } else {
+                        let new_const = SimpleValue::make_const(res, size as u32);
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
             }
@@ -550,7 +550,7 @@ impl Simplify for SubExpr {
                     let res = a_val.wrapping_add(b_val);
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size);
+                    let new_const = SimpleValue::make_const(res, size as u32);
                     return SubExpr(*expr, Intern::new(new_const), size).simplify();
                 }
             }
@@ -583,7 +583,7 @@ impl Simplify for MulExpr {
             let res = a_v.wrapping_mul(b_v);
             let size =
                 SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // expr * 1 -> expr
@@ -594,7 +594,7 @@ impl Simplify for MulExpr {
         // expr * 0 -> 0
         if right.as_const().map(|vn| vn.offset as i64) == Some(0) {
             let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size);
+            return SimpleValue::make_const(0, size as u32);
         }
 
         let s = std::cmp::max(left.size(), right.size());
@@ -743,13 +743,13 @@ impl Simplify for XorExpr {
             let res = (left_val ^ right_val) as i64;
             let size =
                 SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size);
+            return SimpleValue::make_const(res, size as u32);
         }
 
         // identical children => 0 (x XOR x = 0)
         if left == right {
             let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size);
+            return SimpleValue::make_const(0, size as u32);
         }
 
         // expr XOR 0 -> expr

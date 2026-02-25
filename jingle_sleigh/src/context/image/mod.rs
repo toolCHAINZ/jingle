@@ -37,9 +37,13 @@ pub trait ImageBytes: SleighImageCore {
     /// Read the byte range specified by the varnode, returning a vector.
     /// Returns `None` if the full range is not available.
     fn get_bytes(&self, vn: &VarNode) -> Option<Vec<u8>> {
-        let mut vec = vec![0u8; vn.size];
+        let mut vec = vec![0u8; vn.size as usize];
         let size = self.load(vn, &mut vec);
-        if size < vn.size { None } else { Some(vec) }
+        if size < vn.size as usize {
+            None
+        } else {
+            Some(vec)
+        }
     }
 }
 

@@ -51,14 +51,16 @@ impl JingleDisplay for VarNode {
         } else if let Some(name) = ctx.register_name(self) {
             write!(f, "{name}")
         } else if let Some(SpaceType::IPTR_INTERNAL) =
-            ctx.get_space(self.space_index).map(|s| s._type)
+            ctx.get_space(self.space_index as usize).map(|s| s._type)
         {
             write!(f, "$U{:x}:{}", self.offset, self.size)
         } else {
             write!(
                 f,
                 "[{}]{:#x}:{}",
-                ctx.get_space(self.space_index).ok_or(std::fmt::Error)?.name,
+                ctx.get_space(self.space_index as usize)
+                    .ok_or(std::fmt::Error)?
+                    .name,
                 self.offset,
                 self.size
             )
@@ -71,7 +73,7 @@ impl JingleDisplay for IndirectVarNode {
         write!(
             f,
             "{}({})",
-            ctx.get_space(self.pointer_space_index)
+            ctx.get_space(self.pointer_space_index as usize)
                 .ok_or(std::fmt::Error)?
                 .name,
             self.pointer_location.display(ctx)

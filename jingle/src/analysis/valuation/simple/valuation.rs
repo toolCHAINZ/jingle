@@ -657,9 +657,9 @@ mod tests {
     fn test_iter_yields_tuples() {
         let mut valuation = SimpleValuation::new();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         valuation
             .direct_writes
@@ -679,9 +679,9 @@ mod tests {
     fn test_iter_mut_yields_tuples() {
         let mut valuation = SimpleValuation::new();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         valuation
             .direct_writes
@@ -704,9 +704,9 @@ mod tests {
     fn test_into_iter_yields_entries() {
         let mut valuation = SimpleValuation::new();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         valuation
             .direct_writes
@@ -729,9 +729,9 @@ mod tests {
         assert!(valuation.is_empty());
 
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         valuation
             .direct_writes
@@ -753,14 +753,14 @@ mod tests {
     fn test_keys_iterator() {
         let mut valuation = SimpleValuation::new();
         let vn1 = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         let vn2 = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x2000,
-            size: 8,
+            size: 8u32,
         };
 
         valuation
@@ -781,14 +781,14 @@ mod tests {
     fn test_values_iterator() {
         let mut valuation = SimpleValuation::new();
         let vn1 = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         let vn2 = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x2000,
-            size: 8,
+            size: 8u32,
         };
 
         valuation
@@ -808,9 +808,9 @@ mod tests {
     fn test_values_mut_iterator() {
         let mut valuation = SimpleValuation::new();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
 
         valuation
@@ -833,9 +833,9 @@ mod tests {
     fn test_display() {
         let mut valuation = SimpleValuation::new();
         let vn = VarNode {
-            space_index: 0,
+            space_index: 0u32,
             offset: 0x1000,
-            size: 8,
+            size: 8u32,
         };
         valuation
             .direct_writes

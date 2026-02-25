@@ -78,7 +78,7 @@ pub trait ModelingContext: Debug + Sized {
             Direct(d) => self
                 .get_final_state()
                 .arch_info()
-                .get_space(d.space_index)
+                .get_space(d.space_index as usize)
                 .map(|o| o._type == SpaceType::IPTR_PROCESSOR)
                 .unwrap_or(false),
             Indirect(_) => true,
@@ -200,8 +200,8 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.track_input(&Indirect(ResolvedIndirectVarNode {
                     pointer,
                     pointer_location: indirect.pointer_location.clone(),
-                    access_size_bytes: indirect.access_size_bytes,
-                    pointer_space_idx: indirect.pointer_space_index,
+                    access_size_bytes: indirect.access_size_bytes as usize,
+                    pointer_space_idx: indirect.pointer_space_index as usize,
                 }));
                 self.get_final_state().read_varnode_indirect(&indirect)
             }
@@ -219,8 +219,8 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.track_output(&Indirect(ResolvedIndirectVarNode {
                     pointer,
                     pointer_location: indirect.pointer_location.clone(),
-                    access_size_bytes: indirect.access_size_bytes,
-                    pointer_space_idx: indirect.pointer_space_index,
+                    access_size_bytes: indirect.access_size_bytes as usize,
+                    pointer_space_idx: indirect.pointer_space_index as usize,
                 }));
                 self.get_final_state_mut()
                     .write_varnode_indirect(indirect, val)?;
@@ -639,10 +639,10 @@ pub(crate) trait TranslationContext: ModelingContext {
                     .get_final_state()
                     .get_default_code_space_info()
                     .index_size_bytes;
-                let hash_vn = create_varnode(self.get_arch_info(), "const", hash, size as usize)?;
+                let hash_vn = create_varnode(self.get_arch_info(), "const", hash, size)?;
                 let metadata = self
                     .get_final_state()
-                    .immediate_metadata_array(true, hash_vn.size);
+                    .immediate_metadata_array(true, hash_vn.size as usize);
                 self.get_final_state_mut()
                     .write_varnode_metadata(&hash_vn, metadata)?;
                 self.get_branch_builder().set_last(&hash_vn.into());
@@ -651,7 +651,7 @@ pub(crate) trait TranslationContext: ModelingContext {
                     let hash_bv = BV::from_u64(hash, size as u32);
                     let metadata = self
                         .get_final_state()
-                        .immediate_metadata_array(true, out.size);
+                        .immediate_metadata_array(true, out.size as usize);
                     self.get_final_state_mut()
                         .write_varnode_metadata(out, metadata)?;
                     self.write(&out.into(), hash_bv)?;

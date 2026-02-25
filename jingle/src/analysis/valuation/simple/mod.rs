@@ -240,7 +240,7 @@ impl SimpleValuationState {
                     for (vn, _) in new_state.valuation.direct_writes.items() {
                         let keep = self
                             .arch_info
-                            .get_space(vn.space_index)
+                            .get_space(vn.space_index as usize)
                             .map(|space| space._type != SpaceType::IPTR_INTERNAL)
                             .unwrap_or(true);
                         if !keep {
@@ -258,7 +258,7 @@ impl SimpleValuationState {
                 for (vn, _) in new_state.valuation.direct_writes.items() {
                     let keep = self
                         .arch_info
-                        .get_space(vn.space_index)
+                        .get_space(vn.space_index as usize)
                         .map(|space| space._type != SpaceType::IPTR_INTERNAL)
                         .unwrap_or(true);
                     if !keep {
