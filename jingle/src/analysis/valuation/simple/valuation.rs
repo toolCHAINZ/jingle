@@ -53,10 +53,7 @@ impl SimpleValuation {
     /// or `SingleValuationLocation`) and returns a reference to the stored `SimpleValue` if present.
     pub fn get<B: Borrow<SingleValuationLocation>>(&self, loc: B) -> Option<&SimpleValue> {
         match loc.borrow() {
-            SingleValuationLocation::Direct(vn_intern) => {
-                // VarNodeMap::get accepts anything that can borrow a VarNode
-                self.direct_writes.get(vn_intern.as_ref())
-            }
+            SingleValuationLocation::Direct(vn) => self.direct_writes.get(vn),
             SingleValuationLocation::Indirect(ptr_intern) => {
                 // indirect_writes keyed by SimpleValue, lookup by reference to the SimpleValue
                 self.indirect_writes.get(ptr_intern.as_ref())
@@ -104,8 +101,8 @@ impl SimpleValuation {
 
     pub fn remove_value_from(&mut self, loc: &SingleValuationLocation) {
         match loc {
-            SingleValuationLocation::Direct(vn_intern) => {
-                self.direct_writes.remove(vn_intern.as_ref());
+            SingleValuationLocation::Direct(vn) => {
+                self.direct_writes.remove(vn);
             }
             SingleValuationLocation::Indirect(ptr_intern) => {
                 self.indirect_writes.remove(ptr_intern.as_ref());
@@ -116,14 +113,14 @@ impl SimpleValuation {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SingleValuationLocation {
-    Direct(Intern<VarNode>),
+    Direct(VarNode),
     Indirect(Intern<SimpleValue>),
 }
 
 impl SingleValuationLocation {
     /// Construct a `SingleValuationLocation` representing a direct location.
     pub fn new_direct(vn: VarNode) -> Self {
-        SingleValuationLocation::Direct(Intern::new(vn))
+        SingleValuationLocation::Direct(vn)
     }
 
     /// Construct a `SingleValuationLocation` representing an indirect (pointer) location.
@@ -135,14 +132,14 @@ impl SingleValuationLocation {
 // Allow converting a raw `VarNode` directly into a `SingleValuationLocation::Direct`.
 impl From<VarNode> for SingleValuationLocation {
     fn from(vn: VarNode) -> Self {
-        SingleValuationLocation::Direct(Intern::new(vn))
+        SingleValuationLocation::Direct(vn)
     }
 }
 
 // Allow converting a raw `VarNode` directly into a `SingleValuationLocation::Direct`.
 impl From<&VarNode> for SingleValuationLocation {
     fn from(vn: &VarNode) -> Self {
-        SingleValuationLocation::Direct(Intern::new(vn.clone()))
+        SingleValuationLocation::Direct(vn.clone())
     }
 }
 
@@ -181,7 +178,7 @@ impl SingleValuation {
     /// Construct a `SingleValuation` representing a direct write.
     pub fn new_direct(vn: VarNode, value: SimpleValue) -> Self {
         Self {
-            location: SingleValuationLocation::Direct(Intern::new(vn)),
+            location: SingleValuationLocation::Direct(vn),
             value: Intern::new(value),
         }
     }
@@ -222,9 +219,7 @@ impl SimpleValuation {
         let loc = loc.into();
         let val = value.into().simplify();
         match loc {
-            SingleValuationLocation::Direct(vn_intern) => {
-                // VarNodeMap::insert expects an owned VarNode
-                let vn = vn_intern.as_ref().clone();
+            SingleValuationLocation::Direct(vn) => {
                 self.direct_writes.insert(vn, val);
             }
             SingleValuationLocation::Indirect(ptr_intern) => {
@@ -239,7 +234,7 @@ impl SimpleValuation {
 impl JingleDisplay for SingleValuationLocation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            SingleValuationLocation::Direct(vn_intern) => vn_intern.as_ref().fmt_jingle(f, info),
+            SingleValuationLocation::Direct(vn) => vn.fmt_jingle(f, info),
             SingleValuationLocation::Indirect(ptr_intern) => {
                 // Display indirect locations as a bracketed pointer expression.
                 write!(f, "*[")?;
@@ -253,10 +248,7 @@ impl JingleDisplay for SingleValuationLocation {
 impl Display for SingleValuationLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            // For direct locations we can rely on `VarNode`'s `Display` implementation.
-            SingleValuationLocation::Direct(vn_intern) => write!(f, "{}", vn_intern.as_ref()),
-            // `SimpleValue` does not implement `std::fmt::Display`, so fall back to `Debug`
-            // (which is available) to provide a reasonable textual representation.
+            SingleValuationLocation::Direct(vn) => write!(f, "{}", vn),
             SingleValuationLocation::Indirect(ptr_intern) => {
                 write!(f, "*[{}]", ptr_intern.as_ref())
             }
@@ -303,8 +295,7 @@ impl<'a> Iterator for SimpleValuationIter<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_iter.next() {
-                let location = SingleValuationLocation::Direct(Intern::new(vn.clone()));
-                return Some((location, val));
+                return Some((SingleValuationLocation::Direct(vn.clone()), val));
             }
             self.direct_done = true;
         }
@@ -354,8 +345,7 @@ impl<'a> Iterator for SimpleValuationIterMut<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_iter.next() {
-                let location = SingleValuationLocation::Direct(Intern::new(vn.clone()));
-                return Some((location, val));
+                return Some((SingleValuationLocation::Direct(vn.clone()), val));
             }
             self.direct_done = true;
         }
@@ -396,7 +386,7 @@ impl<'a> Iterator for Keys<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, _)) = self.direct_iter.next() {
-                return Some(SingleValuationLocation::Direct(Intern::new(vn.clone())));
+                return Some(SingleValuationLocation::Direct(vn.clone()));
             }
             self.direct_done = true;
         }
@@ -493,7 +483,7 @@ impl<'a> Iterator for ValuesMut<'a> {
 /// An owning iterator that consumes a `SimpleValuation` and yields `SingleValuation`
 /// items without borrowing the original `SimpleValuation`.
 pub struct SimpleValuationIntoIter {
-    direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)>,
+    direct_entries: Vec<(VarNode, Intern<SimpleValue>)>,
     direct_idx: usize,
     indirect_entries: Vec<(Intern<SimpleValue>, Intern<SimpleValue>)>,
     indirect_idx: usize,
@@ -504,10 +494,10 @@ impl Iterator for SimpleValuationIntoIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.direct_idx < self.direct_entries.len() {
-            let (vn_intern, val_intern) = self.direct_entries[self.direct_idx];
+            let (ref vn, val_intern) = self.direct_entries[self.direct_idx];
             self.direct_idx += 1;
             return Some(SingleValuation {
-                location: SingleValuationLocation::Direct(vn_intern),
+                location: SingleValuationLocation::Direct(vn.clone()),
                 value: val_intern,
             });
         }
@@ -539,10 +529,9 @@ impl IntoIterator for SimpleValuation {
     type IntoIter = SimpleValuationIntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        // Move direct entries, interning them as we go.
-        let mut direct_entries: Vec<(Intern<VarNode>, Intern<SimpleValue>)> = Vec::new();
+        let mut direct_entries: Vec<(VarNode, Intern<SimpleValue>)> = Vec::new();
         for (vn, val) in self.direct_writes.into_iter() {
-            direct_entries.push((Intern::new(vn), Intern::new(val)));
+            direct_entries.push((vn, Intern::new(val)));
         }
 
         // Move indirect entries (pointer expression -> value).
@@ -564,13 +553,10 @@ impl From<Vec<SingleValuation>> for SimpleValuation {
     fn from(vs: Vec<SingleValuation>) -> Self {
         let mut s = SimpleValuation::new();
         for sv in vs.into_iter() {
-            // Obtain a cloned SimpleValue from the SingleValuation
             let val = sv.value();
-            // Match on the location reference to insert into the appropriate map
             match sv.location() {
-                SingleValuationLocation::Direct(vn_intern) => {
-                    s.direct_writes
-                        .insert(vn_intern.as_ref().clone(), val.clone());
+                SingleValuationLocation::Direct(vn) => {
+                    s.direct_writes.insert(vn.clone(), val.clone());
                 }
                 SingleValuationLocation::Indirect(ptr_intern) => {
                     s.indirect_writes
@@ -591,13 +577,10 @@ impl FromIterator<SingleValuation> for SimpleValuation {
     fn from_iter<T: IntoIterator<Item = SingleValuation>>(iter: T) -> Self {
         let mut s = SimpleValuation::new();
         for sv in iter {
-            // Obtain a cloned SimpleValue from the SingleValuation
             let val = sv.value();
-            // Match on the location reference to insert into the appropriate map
             match sv.location() {
-                SingleValuationLocation::Direct(vn_intern) => {
-                    s.direct_writes
-                        .insert(vn_intern.as_ref().clone(), val.clone());
+                SingleValuationLocation::Direct(vn) => {
+                    s.direct_writes.insert(vn.clone(), val.clone());
                 }
                 SingleValuationLocation::Indirect(ptr_intern) => {
                     s.indirect_writes

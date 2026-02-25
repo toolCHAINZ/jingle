@@ -110,6 +110,9 @@ where
 
                 let mut was_merged = false;
                 for reached_state in reached.iter_mut() {
+                    if !reached_state.would_merge(&dest_state) {
+                        continue;
+                    }
                     let old_reached = reached_state.clone();
                     if reached_state.merge(&dest_state).merged() {
                         tracing::debug!("    Merged dest_state into existing reached_state");

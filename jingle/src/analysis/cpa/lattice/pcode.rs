@@ -151,6 +151,10 @@ impl AbstractState for PcodeAddressLattice {
         self.merge_sep(other)
     }
 
+    fn would_merge(&self, _other: &Self) -> bool {
+        false
+    }
+
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
         self.stop_sep(states)
     }

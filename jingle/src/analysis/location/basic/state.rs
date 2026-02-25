@@ -119,6 +119,10 @@ impl AbstractState for BasicLocationState {
         self.inner.merge(&other.inner)
     }
 
+    fn would_merge(&self, _other: &Self) -> bool {
+        false
+    }
+
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {
         self.inner.stop(states.map(|s| &s.inner))
     }

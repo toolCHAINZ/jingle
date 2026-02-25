@@ -174,6 +174,13 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
         MergeOutcome::NoOp
     }
 
+    /// Returns `false` only if `merge(other)` is guaranteed to return `NoOp`.
+    /// Conservative default of `true` preserves existing behaviour for all types
+    /// that do not override this.
+    fn would_merge(&self, _other: &Self) -> bool {
+        true
+    }
+
     /// Stop predicate: is `self` covered by any of `states`?
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool;
 
