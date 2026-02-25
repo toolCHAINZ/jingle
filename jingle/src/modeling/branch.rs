@@ -36,7 +36,7 @@ impl BlockEndBehavior {
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()
-                        .read_varnode_metadata(&i.pointer_location()),
+                        .read_varnode_metadata(i.pointer_location()),
                 }
             }
         }
@@ -53,7 +53,7 @@ impl BlockEndBehavior {
                     // Indirect branch, we want to only inspect the pointer
                     GeneralizedVarNode::Indirect(i) => ctx
                         .get_final_state()
-                        .read_varnode(&i.pointer_location())
+                        .read_varnode(i.pointer_location())
                         .map(|f| f.simplify()),
                 }
             }

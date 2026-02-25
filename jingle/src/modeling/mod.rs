@@ -78,7 +78,7 @@ pub trait ModelingContext: Debug + Sized {
             Direct(d) => self
                 .get_final_state()
                 .arch_info()
-                .get_space(d.space_index() as usize)
+                .get_space(d.space_index())
                 .map(|o| o._type == SpaceType::IPTR_PROCESSOR)
                 .unwrap_or(false),
             Indirect(_) => true,
@@ -195,7 +195,7 @@ pub(crate) trait TranslationContext: ModelingContext {
                 self.track_input(&Direct(indirect.pointer_location().clone()));
                 let pointer = self
                     .get_final_state()
-                    .read_varnode(&indirect.pointer_location())?
+                    .read_varnode(indirect.pointer_location())?
                     .clone();
                 self.track_input(&Indirect(ResolvedIndirectVarNode {
                     pointer,

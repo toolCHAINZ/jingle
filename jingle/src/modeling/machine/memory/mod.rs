@@ -96,7 +96,7 @@ impl MemoryState {
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location())?;
+        let ptr = self.read_varnode(indirect.pointer_location())?;
 
         let space = self
             .spaces
@@ -117,7 +117,7 @@ impl MemoryState {
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location())?;
+        let ptr = self.read_varnode(indirect.pointer_location())?;
 
         let space = self
             .spaces
@@ -185,7 +185,7 @@ impl MemoryState {
         {
             return Err(ConstantWrite);
         }
-        let ptr = self.read_varnode(&dest.pointer_location())?;
+        let ptr = self.read_varnode(dest.pointer_location())?;
         self.spaces[dest.pointer_space_index()].write(&val, &ptr)?;
         Ok(())
     }
@@ -205,7 +205,7 @@ impl MemoryState {
         {
             return Err(ConstantWrite);
         }
-        let ptr = self.read_varnode(&dest.pointer_location())?;
+        let ptr = self.read_varnode(dest.pointer_location())?;
         self.spaces[dest.pointer_space_index()].write(&val, &ptr)?;
         Ok(())
     }

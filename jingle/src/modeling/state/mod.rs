@@ -92,7 +92,7 @@ impl State {
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location())?;
+        let ptr = self.read_varnode(indirect.pointer_location())?;
 
         let space = self
             .spaces
@@ -112,7 +112,7 @@ impl State {
         if pointer_space_info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&indirect.pointer_location())?;
+        let ptr = self.read_varnode(indirect.pointer_location())?;
 
         let space = self
             .spaces
@@ -197,7 +197,7 @@ impl State {
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(ConstantWrite);
         }
-        let ptr = self.read_varnode(&dest.pointer_location())?;
+        let ptr = self.read_varnode(dest.pointer_location())?;
         self.spaces[dest.pointer_space_index()].write_data(&val, &ptr)?;
         Ok(())
     }
@@ -215,7 +215,7 @@ impl State {
         if info._type == SpaceType::IPTR_CONSTANT {
             return Err(IndirectConstantRead);
         }
-        let ptr = self.read_varnode(&dest.pointer_location())?;
+        let ptr = self.read_varnode(dest.pointer_location())?;
         self.spaces[dest.pointer_space_index()].write_metadata(&val, &ptr)?;
         Ok(())
     }
@@ -224,8 +224,8 @@ impl State {
         match vn {
             ResolvedVarnode::Direct(d) => self.read_varnode(d),
             ResolvedVarnode::Indirect(indirect) => {
-                let array = self.get_space(indirect.pointer_space_idx as usize)?;
-                (0..indirect.access_size_bytes as usize)
+                let array = self.get_space(indirect.pointer_space_idx)?;
+                (0..indirect.access_size_bytes)
                     .map(|i| {
                         array
                             .select(&indirect.pointer.clone().add(i as u64))

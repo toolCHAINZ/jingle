@@ -117,7 +117,7 @@ where
                         tracing::debug!("      Merged state: {}", reached_state);
                         // Call the reducer's merged_state with the operation reference `op`
                         // that has lifetime `'op`.
-                        reducer.merged_state(&state, &old_reached, &reached_state, &op);
+                        reducer.merged_state(&state, &old_reached, reached_state, &op);
                         waitlist.push_back(reached_state.clone());
                         merged_states += 1;
                         was_merged = true;
