@@ -9,7 +9,7 @@ pub use crate::analysis::cpa::residue::{CFG, TerminatingReducer, VEC};
 use tracing::{Level, span};
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome};
+use crate::analysis::cpa::state::{AbstractState, LocationState};
 use crate::analysis::pcode_store::PcodeStore;
 use std::borrow::Borrow;
 use std::collections::VecDeque;

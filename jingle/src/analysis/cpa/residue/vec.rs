@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 
 use super::Residue;
 use crate::analysis::cpa::state::AbstractState;
@@ -20,16 +19,26 @@ where
     ///
     /// The reducer stores the index of the destination state in the order
     /// transitions are observed by the CPA.
-    fn new_state(&mut self, _source_idx: usize, dest_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
+    fn new_state(
+        &mut self,
+        _source_idx: usize,
+        _dest_idx: usize,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
+    ) {
     }
 
     /// When states are merged, we don't need to update our indices since
     /// the reached vector is updated in place by the CPA algorithm.
-    fn merged_state(&mut self, _source_idx: usize, _merged_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
+    fn merged_state(
+        &mut self,
+        _source_idx: usize,
+        _merged_idx: usize,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
+    ) {
     }
 
     fn new() -> Self {
-        Self::default()
+        Self
     }
 
     /// Return the collected visited states by indexing into the reached vector.
@@ -73,6 +82,6 @@ where
     type Reducer<'op> = VecReducer;
 
     fn make<'op>(&self) -> Self::Reducer<'op> {
-        VecReducer::default()
+        VecReducer
     }
 }

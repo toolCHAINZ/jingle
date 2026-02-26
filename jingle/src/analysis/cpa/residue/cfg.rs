@@ -9,27 +9,21 @@ use crate::analysis::pcode_store::PcodeOpRef;
 /// This reducer observes CPA transitions by tracking index pairs and associated
 /// operations, then builds a `PcodeCfg` in `finalize()` using the actual states.
 #[derive(Debug)]
-pub struct CfgReducer<'a>
-{
+pub struct CfgReducer<'a> {
     /// Accumulated edges as (source_idx, dest_idx, optional_operation) tuples.
     edges: Vec<(usize, usize, Option<PcodeOpRef<'a>>)>,
 }
 
-impl<'a> Default for CfgReducer<'a>
-{
+impl<'a> Default for CfgReducer<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> CfgReducer<'a>
-
-{
+impl<'a> CfgReducer<'a> {
     /// Create an empty `CfgReducer`.
     pub fn new() -> Self {
-        Self {
-            edges: Vec::new(),
-        }
+        Self { edges: Vec::new() }
     }
 }
 

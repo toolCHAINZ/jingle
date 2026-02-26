@@ -142,7 +142,11 @@ impl<
         let a_reached: Vec<A::State> = reached.iter().map(|cs| cs.s1.clone()).collect();
         let b_reached: Vec<B::State> = reached.iter().map(|cs| cs.s2.clone()).collect();
         let c_reached: Vec<C::State> = reached.iter().map(|cs| cs.s3.clone()).collect();
-        (a.finalize(a_reached), b.finalize(b_reached), c.finalize(c_reached))
+        (
+            a.finalize(a_reached),
+            b.finalize(b_reached),
+            c.finalize(c_reached),
+        )
     }
 
     fn merged_state(
@@ -207,14 +211,22 @@ impl<
         }
     }
 
-    fn finalize(self, reached: Vec<CompoundState4<A::State, B::State, C::State, D::State>>) -> Self::Output {
+    fn finalize(
+        self,
+        reached: Vec<CompoundState4<A::State, B::State, C::State, D::State>>,
+    ) -> Self::Output {
         let Self { a, b, c, d } = self;
         // Project compound states into separate component vectors
         let a_reached: Vec<A::State> = reached.iter().map(|cs| cs.s1.clone()).collect();
         let b_reached: Vec<B::State> = reached.iter().map(|cs| cs.s2.clone()).collect();
         let c_reached: Vec<C::State> = reached.iter().map(|cs| cs.s3.clone()).collect();
         let d_reached: Vec<D::State> = reached.iter().map(|cs| cs.s4.clone()).collect();
-        (a.finalize(a_reached), b.finalize(b_reached), c.finalize(c_reached), d.finalize(d_reached))
+        (
+            a.finalize(a_reached),
+            b.finalize(b_reached),
+            c.finalize(c_reached),
+            d.finalize(d_reached),
+        )
     }
 
     fn merged_state(

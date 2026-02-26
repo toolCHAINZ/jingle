@@ -38,7 +38,13 @@ pub trait Residue<'a, S> {
     /// `source_idx` is the index of the state that produced the transition.
     /// `merged_idx` is the index of the state that was merged into (updated state).
     /// `op` is the optional pcode operation that caused this transition.
-    fn merged_state(&mut self, _source_idx: usize, _merged_idx: usize, _op: &Option<PcodeOpRef<'a>>) {}
+    fn merged_state(
+        &mut self,
+        _source_idx: usize,
+        _merged_idx: usize,
+        _op: &Option<PcodeOpRef<'a>>,
+    ) {
+    }
 
     /// Construct a new instance of the residue collector.
     fn new() -> Self;

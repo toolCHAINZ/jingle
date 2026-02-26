@@ -42,7 +42,12 @@ where
     ///
     /// The source state has at least one successor, so it is not terminating.
     /// The destination state is a potential terminating state (to be verified later).
-    fn new_state(&mut self, source_idx: usize, dest_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
+    fn new_state(
+        &mut self,
+        source_idx: usize,
+        dest_idx: usize,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
+    ) {
         // The source state has successors, so it's not terminating
         self.terminating_indices.remove(&source_idx);
         // For now, consider dest as terminating
@@ -52,7 +57,12 @@ where
     /// Handle state merging by tracking the source as non-terminating.
     ///
     /// The source state produced a transition, so it's not terminating.
-    fn merged_state(&mut self, source_idx: usize, _merged_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
+    fn merged_state(
+        &mut self,
+        source_idx: usize,
+        _merged_idx: usize,
+        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
+    ) {
         // The source state has successors, so it's not terminating
         self.terminating_indices.remove(&source_idx);
     }
