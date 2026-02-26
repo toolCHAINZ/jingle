@@ -144,8 +144,7 @@ where
 pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
     /// Merge `other` into `self`. Mutate `self` and return whether a merge occurred.
     /// The mutated `self` MUST be >= than it was before (monotonicity guarantee).
-    /// If a merge occurred, returns `Merged(old_state)` where `old_state` is a clone
-    /// of `self` before the merge.
+    /// If a merge occurred, returns `Merged`
     fn merge(&mut self, other: &Self) -> MergeOutcome;
 
     /// Default cartesian merge using `join`.

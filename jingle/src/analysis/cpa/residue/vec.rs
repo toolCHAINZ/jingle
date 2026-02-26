@@ -1,4 +1,3 @@
-
 use super::Residue;
 use crate::analysis::cpa::state::AbstractState;
 
