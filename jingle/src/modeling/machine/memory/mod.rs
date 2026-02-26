@@ -15,6 +15,7 @@ use jingle_sleigh::{
 use std::borrow::Borrow;
 use std::ops::Add;
 use z3::ast::{Array, Ast, BV, Bool};
+use z3::{Context, Model, Solvable, Translate};
 
 /// Represents the modeled combined memory state of the system. State
 /// is represented with Z3 formulas built up as select and store operations
@@ -257,5 +258,45 @@ impl MemoryState {
             info: self.info.clone(),
             spaces,
         }
+    }
+}
+
+unsafe impl Translate for MemoryState {
+    fn translate(&self, dest: &Context) -> Self {
+        let spaces = self.spaces.translate(dest);
+        Self {
+            info: self.info.clone(),
+            spaces,
+        }
+    }
+}
+
+impl Solvable for MemoryState {
+    type ModelInstance = Self;
+
+    fn read_from_model(
+        &self,
+        model: &Model,
+        model_completion: bool,
+    ) -> Option<Self::ModelInstance> {
+        let spaces = self
+            .spaces
+            .iter()
+            .map(|s| s.read_from_model(model, model_completion))
+            .collect::<Option<Vec<_>>>()?;
+        Some(Self {
+            info: self.info.clone(),
+            spaces,
+        })
+    }
+
+    fn generate_constraint(&self, model: &Self::ModelInstance) -> Bool {
+        let space_constraints: Vec<Bool> = self
+            .spaces
+            .iter()
+            .zip(&model.spaces)
+            .map(|(s, m)| s.generate_constraint(m))
+            .collect();
+        Bool::or(space_constraints.iter().collect::<Vec<_>>().as_slice())
     }
 }
