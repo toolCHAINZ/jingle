@@ -163,8 +163,8 @@ impl JoinSemiLattice for UnwindingState {
 }
 
 impl AbstractState for UnwindingState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
-        self.merge_join(other)
+    fn merge(&mut self, other: &Self) -> MergeOutcome {
+        self.merge_sep(other)
     }
 
     fn stop<'a, T: Iterator<Item = &'a Self>>(&'a self, states: T) -> bool {

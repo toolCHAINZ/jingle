@@ -76,7 +76,7 @@ macro_rules! named_tuple {
         impl<$F: ComponentStrengthen + AbstractState, $( $T: ComponentStrengthen + AbstractState ),+> AbstractState
             for $name<$F, $( $T ),+>
         {
-            fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
+            fn merge(&mut self, other: &Self) -> MergeOutcome {
                 if self == other {
                     return MergeOutcome::NoOp;
                 }
@@ -115,22 +115,7 @@ macro_rules! named_tuple {
                 )+
 
                 if any_merged {
-                    // Extract old component states from merge outcomes
-                    // Use Option to defer cloning until the end
-                    let old_first = match first_outcome {
-                        MergeOutcome::Merged(old) => old,
-                        MergeOutcome::NoOp => self.$first_field.clone(),
-                    };
-
-                    MergeOutcome::Merged($name {
-                        $first_field: old_first,
-                        $(
-                            $field: match $field {
-                                MergeOutcome::Merged(old) => old,
-                                MergeOutcome::NoOp => self.$field.clone(),
-                            }
-                        ),+
-                    })
+                    MergeOutcome::Merged
                 } else {
                     MergeOutcome::NoOp
                 }

@@ -43,7 +43,7 @@ fn main() {
 
     let location_analysis = (
         BasicLocationAnalysis::new(CallBehavior::Branch),
-        UnwindingAnalysis::new(2),
+        UnwindingAnalysis::new(8),
     );
 
     // Wrap with CfgReducer (pass the factory ZST)

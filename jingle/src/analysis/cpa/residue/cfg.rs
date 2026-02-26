@@ -6,94 +6,71 @@ use crate::analysis::pcode_store::PcodeOpRef;
 
 /// A generic reducer that records transitions/merges into a `PcodeCfg`.
 ///
-/// This reducer observes CPA transitions and builds a `PcodeCfg` whose nodes
-/// are the abstract states (`N`) and whose edge payloads are `PcodeOpRef<'a>`.
+/// This reducer observes CPA transitions by tracking index pairs and associated
+/// operations, then builds a `PcodeCfg` in `finalize()` using the actual states.
 #[derive(Debug)]
-pub struct CfgReducer<'a, N>
-where
-    N: LocationState + CfgState,
+pub struct CfgReducer<'a>
 {
-    /// The accumulated CFG.
-    pub cfg: PcodeCfg<N, PcodeOpRef<'a>>,
+    /// Accumulated edges as (source_idx, dest_idx, optional_operation) tuples.
+    edges: Vec<(usize, usize, Option<PcodeOpRef<'a>>)>,
 }
 
-impl<'a, N> Default for CfgReducer<'a, N>
-where
-    N: LocationState + CfgState,
+impl<'a> Default for CfgReducer<'a>
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, N> CfgReducer<'a, N>
-where
-    N: LocationState + CfgState,
+impl<'a> CfgReducer<'a>
+
 {
     /// Create an empty `CfgReducer`.
     pub fn new() -> Self {
         Self {
-            cfg: PcodeCfg::new(),
+            edges: Vec::new(),
         }
-    }
-
-    /// Take ownership of the built CFG, leaving an empty one in its place.
-    pub fn take_cfg(&mut self) -> PcodeCfg<N, PcodeOpRef<'a>> {
-        std::mem::take(&mut self.cfg)
     }
 }
 
-impl<'a, N> Residue<'a, N> for CfgReducer<'a, N>
+impl<'a, N> Residue<'a, N> for CfgReducer<'a>
 where
     N: LocationState + CfgState,
 {
     type Output = PcodeCfg<N, PcodeOpRef<'a>>;
 
-    /// Record a transition from `state` to `dest_state`, optionally with `op`.
-    fn new_state(&mut self, state: &N, dest_state: &N, op: &Option<PcodeOpRef<'a>>) {
-        // Ensure the source node exists
-        self.cfg.add_node(state);
-
-        if let Some(op_ref) = op {
-            // Clone the referenced op into an owned payload for the edge
-            let owned = op_ref.clone();
-            self.cfg.add_edge(state, dest_state, owned);
-        }
+    /// Record a transition from source to destination state with optional operation.
+    fn new_state(&mut self, source_idx: usize, dest_idx: usize, op: &Option<PcodeOpRef<'a>>) {
+        // Clone the operation if present and store the edge
+        self.edges.push((source_idx, dest_idx, op.clone()));
     }
 
-    /// Handle merges by updating nodes/edges in the internal CFG.
-    ///
-    /// Uses the partial order to find all nodes that were subsumed by the merge:
-    /// any node `n` where `n <= merged_state` should be replaced with `merged_state`.
-    fn merged_state(&mut self, state: &N, merged_state: &N, op: &Option<PcodeOpRef<'a>>) {
-        // Find all nodes in the CFG that are <= merged_state (subsumed by the merge)
-        // These need to be replaced/combined with merged_state
-        let subsumed_nodes: Vec<N> = self
-            .cfg
-            .nodes()
-            .filter(|node| node < &merged_state)
-            .cloned()
-            .collect();
-
-        // Replace each subsumed node with the merged state
-        for old_node in subsumed_nodes {
-            if &old_node != merged_state {
-                self.cfg.replace_and_combine_nodes(&old_node, merged_state);
-            }
-        }
-
-        if let Some(op_ref) = op {
-            let owned = op_ref.clone();
-            self.cfg.add_edge(state, merged_state, owned);
-        }
+    /// Handle merges by recording the edge from source to merged state.
+    fn merged_state(&mut self, source_idx: usize, merged_idx: usize, op: &Option<PcodeOpRef<'a>>) {
+        // Record the edge to the merged state
+        self.edges.push((source_idx, merged_idx, op.clone()));
     }
 
     fn new() -> Self {
         Self::new()
     }
 
-    fn finalize(self) -> Self::Output {
-        self.cfg
+    /// Build the PcodeCfg from accumulated edges and the reached states.
+    fn finalize(self, reached: Vec<N>) -> Self::Output {
+        let mut cfg = PcodeCfg::new();
+        dbg!(self.edges.len(), reached.len());
+        // Add all edges, which will automatically add nodes as needed
+        for (source_idx, dest_idx, op) in self.edges {
+            if let Some(op_ref) = op {
+                cfg.add_edge(&reached[source_idx], &reached[dest_idx], op_ref);
+            } else {
+                // Add nodes even without an operation edge
+                cfg.add_node(&reached[source_idx]);
+                cfg.add_node(&reached[dest_idx]);
+            }
+        }
+
+        cfg
     }
 }
 
@@ -127,11 +104,9 @@ where
     A: crate::analysis::cpa::ConfigurableProgramAnalysis,
     A::State: crate::analysis::cpa::state::LocationState + CfgState,
 {
-    type Reducer<'op> = CfgReducer<'op, A::State>;
+    type Reducer<'op> = CfgReducer<'op>;
 
     fn make<'op>(&self) -> Self::Reducer<'op> {
-        CfgReducer {
-            cfg: PcodeCfg::new(),
-        }
+        CfgReducer::new()
     }
 }

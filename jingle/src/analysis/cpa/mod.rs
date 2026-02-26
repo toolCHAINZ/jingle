@@ -73,8 +73,7 @@ where
         // Use index-based waitlist to eliminate clones.
         // `reached` only grows (never shrinks), so indices remain stable.
         let mut waitlist: VecDeque<usize> = VecDeque::new();
-        let mut reached: VecDeque<Self::State> = VecDeque::new();
-        reached.push_back(initial.clone());
+        let mut reached: Vec<Self::State> = vec![initial.clone()];
         waitlist.push_back(0);
 
         tracing::debug!("CPA started with initial state: {:?}", initial);
@@ -118,13 +117,11 @@ where
 
                 let mut was_merged = false;
                 for (idx, reached_state) in reached.iter_mut().enumerate() {
-                    if let MergeOutcome::Merged(old) =  reached_state.merge(&dest_state) {
+                    if reached_state.merge(&dest_state).is_merged() {
                         tracing::debug!("    Merged dest_state into existing reached_state");
                         tracing::debug!("      Merged state: {}", reached_state);
-                        // Call the reducer's merged_state with the merged state
-                        // The reducer can use the partial order to identify which states
-                        // were subsumed by this merge
-                        reducer.merged_state(&old, reached_state, &op);
+                        // Call the reducer's merged_state with state indices and operation
+                        reducer.merged_state(state_idx, idx, &op);
                         waitlist.push_back(idx);
                         merged_states += 1;
                         was_merged = true;
@@ -140,15 +137,14 @@ where
                 // Only record a new state in the reducer if it will actually be added to `reached`.
                 // record that a new state was reached without merging
                 tracing::debug!("Adding new state without merging: {}", dest_state);
-                // Pass the borrowed `op` (of lifetime `'op`) to the reducer. The reducer
-                // type was instantiated for `'op` above and accepts `PcodeOpRef<'op>`.
-                reducer.new_state(&reached[state_idx], &dest_state, &op);
 
                 if !dest_state.stop(reached.iter()) {
                     tracing::trace!("    Adding new state to waitlist and reached");
                     // Push to reached first, then enqueue its index
                     let new_idx = reached.len();
-                    reached.push_back(dest_state);
+                    reached.push(dest_state);
+                    // Notify reducer of the transition using indices and operation
+                    reducer.new_state(state_idx, new_idx, &op);
                     waitlist.push_back(new_idx);
                     new_states += 1;
                 } else {
@@ -174,7 +170,7 @@ where
             reached.len()
         );
 
-        reducer.finalize()
+        reducer.finalize(reached)
     }
 
     fn with_residue<F>(self, f: F) -> ResidueWrapper<Self, F>

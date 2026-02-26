@@ -5,89 +5,36 @@ use crate::analysis::cpa::state::AbstractState;
 
 /// A simple reducer that records every visited destination state in a `Vec`.
 ///
-/// This reducer collects clones of destination states passed to `residue` in the
-/// order they are observed by the CPA. When a `merged` event occurs, any earlier
-/// recorded occurrences of the `dest_state` are replaced with clones of the
-/// `merged_state`, so the collected history reflects merges performed by the CPA.
-///
-/// Note: replacement equality is determined by comparing entries (requires
-/// the state type to implement equality). This mirrors the previous behavior.
-pub struct VecReducer<S>
-where
-    S: AbstractState,
-{
-    /// Collected visited states (destinations passed to `residue`).
-    pub visited: Vec<S>,
-    _phantom: PhantomData<S>,
-}
+/// This reducer does nothing as the CPA is running and at the end returns
+/// a Vector of visited states given by the CPA
+#[derive(Default)]
+pub struct VecReducer;
 
-impl<S> VecReducer<S>
-where
-    S: AbstractState,
-{
-    /// Create an empty `VecReducer` with reserved capacity.
-    pub fn new_with_capacity(cap: usize) -> Self {
-        Self {
-            visited: Vec::with_capacity(cap),
-            _phantom: Default::default(),
-        }
-    }
-}
-
-impl<S> Default for VecReducer<S>
-where
-    S: AbstractState,
-{
-    fn default() -> Self {
-        Self {
-            visited: Vec::new(),
-            _phantom: Default::default(),
-        }
-    }
-}
-
-impl<'a, S> Residue<'a, S> for VecReducer<S>
+impl<'a, S> Residue<'a, S> for VecReducer
 where
     S: AbstractState,
 {
     type Output = Vec<S>;
 
-    /// Record the destination state into the internal `Vec`.
+    /// Record the destination state index.
     ///
-    /// The reducer stores clones of the `dest_state` argument in the order they
-    /// are observed by the CPA.
-    fn new_state(
-        &mut self,
-        _state: &S,
-        dest_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
-    ) {
-        self.visited.push(dest_state.clone());
+    /// The reducer stores the index of the destination state in the order
+    /// transitions are observed by the CPA.
+    fn new_state(&mut self, _source_idx: usize, dest_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
     }
 
-    /// When two abstract states are merged, replace earlier occurrences in the
-    /// recorded `visited` list that are <= merged_state with clones of `merged_state`.
-    fn merged_state(
-        &mut self,
-        _curr_state: &S,
-        merged_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
-    ) {
-        // Replace any visited state that is <= merged_state (subsumed by the merge)
-        for entry in &mut self.visited {
-            if &*entry < merged_state {
-                *entry = merged_state.clone();
-            }
-        }
+    /// When states are merged, we don't need to update our indices since
+    /// the reached vector is updated in place by the CPA algorithm.
+    fn merged_state(&mut self, _source_idx: usize, _merged_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
     }
 
     fn new() -> Self {
         Self::default()
     }
 
-    /// Return the collected visited states.
-    fn finalize(self) -> Self::Output {
-        self.visited
+    /// Return the collected visited states by indexing into the reached vector.
+    fn finalize(self, reached: Vec<S>) -> Self::Output {
+        reached
     }
 }
 
@@ -123,7 +70,7 @@ where
     A: crate::analysis::cpa::ConfigurableProgramAnalysis,
     A::State: AbstractState,
 {
-    type Reducer<'op> = VecReducer<A::State>;
+    type Reducer<'op> = VecReducer;
 
     fn make<'op>(&self) -> Self::Reducer<'op> {
         VecReducer::default()

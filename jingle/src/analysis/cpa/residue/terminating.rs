@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use crate::analysis::cpa::residue::Residue;
@@ -5,49 +6,18 @@ use crate::analysis::cpa::state::AbstractState;
 
 /// A reducer that collects terminating states: states that never transition to other states.
 ///
-/// A state is considered terminating if it has no successors over the transfer function
+/// A state is considered terminating if it has no successors when the transfer function
 /// is applied.
 ///
-/// The reducer tracks all states visited by the CPA and identifies which ones
-/// never appear as source states in a state transition. When a merge occurs,
-/// the merged state replaces the original destination state in the tracking logic.
+/// The reducer tracks state indices: all destination indices and which indices appear
+/// as sources (non-terminating). In `finalize()`, the difference gives terminating states.
 pub struct TerminatingReducer<S>
 where
     S: AbstractState,
 {
-    /// All destination states observed during the analysis.
-    all_states: Vec<S>,
-    /// States that have been observed as source states (i.e., have successors).
-    non_terminating_states: Vec<S>,
+    /// Indices of states that have been observed as source states (i.e., have successors).
+    terminating_indices: HashSet<usize>,
     _phantom: PhantomData<S>,
-}
-
-impl<S> TerminatingReducer<S>
-where
-    S: AbstractState,
-{
-    /// Create an empty `TerminatingReducer`.
-    pub fn new_with_capacity(cap: usize) -> Self {
-        Self {
-            all_states: Vec::with_capacity(cap),
-            non_terminating_states: Vec::with_capacity(cap),
-            _phantom: Default::default(),
-        }
-    }
-
-    /// Compute the terminating states from the tracked information.
-    ///
-    /// A state is terminating if it appears in `all_states` but not in `non_terminating_states`.
-    fn compute_terminating_states(self) -> Vec<S> {
-        let mut terminating_states = Vec::new();
-        for state in self.all_states {
-            // A state is terminating if it's not in the non-terminating list
-            if !self.non_terminating_states.iter().any(|s| s == &state) {
-                terminating_states.push(state);
-            }
-        }
-        terminating_states
-    }
 }
 
 impl<S> Default for TerminatingReducer<S>
@@ -56,8 +26,7 @@ where
 {
     fn default() -> Self {
         Self {
-            all_states: Vec::new(),
-            non_terminating_states: Vec::new(),
+            terminating_indices: HashSet::new(),
             _phantom: Default::default(),
         }
     }
@@ -69,55 +38,23 @@ where
 {
     type Output = Vec<S>;
 
-    /// Track a state transition from `state` to `dest_state`.
+    /// Track a state transition from source to destination.
     ///
-    /// The source `state` has at least one successor, so it is not terminating.
-    /// The `dest_state` is recorded as a potential terminating state (to be verified later).
-    fn new_state(
-        &mut self,
-        state: &S,
-        dest_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
-    ) {
+    /// The source state has at least one successor, so it is not terminating.
+    /// The destination state is a potential terminating state (to be verified later).
+    fn new_state(&mut self, source_idx: usize, dest_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
         // The source state has successors, so it's not terminating
-        if !self.non_terminating_states.iter().any(|s| s == state) {
-            self.non_terminating_states.push(state.clone());
-        }
-
-        // Track the destination state
-        if !self.all_states.iter().any(|s| s == dest_state) {
-            self.all_states.push(dest_state.clone());
-        }
+        self.terminating_indices.remove(&source_idx);
+        // For now, consider dest as terminating
+        self.terminating_indices.insert(dest_idx);
     }
 
-    /// Handle state merging by updating our tracking data.
+    /// Handle state merging by tracking the source as non-terminating.
     ///
-    /// When states are merged, the current state is also a non-terminating state since
-    /// it produced successors. We update references to states <= merged_state to point
-    /// to the merged state (using the partial order guarantee).
-    fn merged_state(
-        &mut self,
-        curr_state: &S,
-        merged_state: &S,
-        _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
-    ) {
-        // The current state has successors, so it's not terminating
-        if !self.non_terminating_states.iter().any(|s| s == curr_state) {
-            self.non_terminating_states.push(curr_state.clone());
-        }
-
-        // Replace any state that is <= merged_state (subsumed by the merge)
-        for state in &mut self.all_states {
-            if &*state < merged_state {
-                *state = merged_state.clone();
-            }
-        }
-
-        for state in &mut self.non_terminating_states {
-            if &*state < merged_state {
-                *state = merged_state.clone();
-            }
-        }
+    /// The source state produced a transition, so it's not terminating.
+    fn merged_state(&mut self, source_idx: usize, _merged_idx: usize, _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>) {
+        // The source state has successors, so it's not terminating
+        self.terminating_indices.remove(&source_idx);
     }
 
     fn new() -> Self {
@@ -126,9 +63,13 @@ where
 
     /// Return the collected terminating states.
     ///
-    /// Terminating states are those that were visited but never produced any successors.
-    fn finalize(self) -> Self::Output {
-        self.compute_terminating_states()
+    /// Terminating states are those indices that appear in all_indices but not
+    /// in non_terminating_indices.
+    fn finalize(self, reached: Vec<S>) -> Self::Output {
+        self.terminating_indices
+            .into_iter()
+            .map(|idx| reached[idx].clone())
+            .collect()
     }
 }
 
