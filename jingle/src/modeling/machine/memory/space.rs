@@ -4,8 +4,8 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
 use std::borrow::Borrow;
 use std::ops::Add;
-use z3::{Context, Model, Solvable, Sort, Translate};
 use z3::ast::{Array, Ast, BV, Bool};
+use z3::{Context, Model, Solvable, Sort, Translate};
 
 /// SLEIGH models programs using many spaces. This struct serves as a helper for modeling a single
 /// space. `jingle` uses an SMT Array sort to model a space.
@@ -162,10 +162,10 @@ fn write_to_array<const W: u32>(
     scratch
 }
 
-unsafe impl Translate for BMCModeledSpace{
+unsafe impl Translate for BMCModeledSpace {
     fn translate(&self, dest: &Context) -> Self {
         let array = self.data.translate(dest);
-        Self{
+        Self {
             data: array,
             word_size_bytes: self.word_size_bytes,
             index_size_bytes: self.index_size_bytes,
@@ -178,9 +178,13 @@ unsafe impl Translate for BMCModeledSpace{
 impl Solvable for BMCModeledSpace {
     type ModelInstance = Self;
 
-    fn read_from_model(&self, model: &Model, model_completion: bool) -> Option<Self::ModelInstance> {
+    fn read_from_model(
+        &self,
+        model: &Model,
+        model_completion: bool,
+    ) -> Option<Self::ModelInstance> {
         let arr = self.data.read_from_model(model, model_completion)?;
-        Some(Self{
+        Some(Self {
             data: arr,
             word_size_bytes: self.word_size_bytes,
             index_size_bytes: self.index_size_bytes,

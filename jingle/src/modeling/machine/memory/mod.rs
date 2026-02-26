@@ -274,7 +274,11 @@ unsafe impl Translate for MemoryState {
 impl Solvable for MemoryState {
     type ModelInstance = Self;
 
-    fn read_from_model(&self, model: &Model, model_completion: bool) -> Option<Self::ModelInstance> {
+    fn read_from_model(
+        &self,
+        model: &Model,
+        model_completion: bool,
+    ) -> Option<Self::ModelInstance> {
         let spaces = self
             .spaces
             .iter()
