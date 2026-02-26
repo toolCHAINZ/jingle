@@ -15,35 +15,46 @@ use crate::analysis::cpa::{ConfigurableProgramAnalysis, state::AbstractState};
 /// information that isn't naturally stored in the abstract states themselves
 /// and return that accumulated information in a structured way.
 ///
-/// The hooks receive an `Option<PcodeOpRef<'_>>` describing the p-code operation
-/// associated with the transition (if any).
+/// States in the CPA have stable indices in the `reached` vector. Reducers track
+/// transitions using these indices rather than storing state handles, then receive
+/// the final `reached` vector by ownership in `finalize()` to construct outputs.
 ///
 /// Notes:
-/// - `new_state` is called for every observed transition A => B before merging.
-/// - `merged_state` is called when the CPA merges two states; it receives the
-///   current state, the original destination state, the merged state, and the
-///   p-code operation (if present) that caused the transition.
+/// - `new_state` is called for every observed transition A => B with their indices.
+/// - `merged_state` is called when states are merged, providing source and merged indices.
+/// - `finalize` receives ownership of the `reached` vector to produce final output.
 pub trait Residue<'a, S> {
     type Output;
 
-    /// Called for every observed transition (A => B) prior to merging.
-    /// `op` is the optional pcode operation associated with the transition.
-    fn new_state(&mut self, _state: &S, _dest_state: &S, _op: &Option<PcodeOpRef<'a>>) {}
+    /// Called for every observed transition from source to destination state.
+    ///
+    /// `source_idx` is the index of the source state in the `reached` vector.
+    /// `dest_idx` is the index where the destination state will be stored.
+    /// `op` is the optional pcode operation that caused this transition.
+    fn new_state(&mut self, _source_idx: usize, _dest_idx: usize, _op: &Option<PcodeOpRef<'a>>) {}
 
-    /// Called when two abstract states are merged. `curr_state` is the state
-    /// that produced the transition, and `merged_state` is the state after merging.
+    /// Called when two abstract states are merged.
     ///
-    /// The reducer can identify affected states using the monotonicity guarantee:
-    /// any state `s` where `s <= merged_state` was potentially subsumed by this merge.
-    ///
-    /// `op` is the optional p-code operation for the transition.
-    fn merged_state(&mut self, _curr_state: &S, _merged_state: &S, _op: &Option<PcodeOpRef<'a>>) {}
+    /// `source_idx` is the index of the state that produced the transition.
+    /// `merged_idx` is the index of the state that was merged into (updated state).
+    /// `op` is the optional pcode operation that caused this transition.
+    fn merged_state(
+        &mut self,
+        _source_idx: usize,
+        _merged_idx: usize,
+        _op: &Option<PcodeOpRef<'a>>,
+    ) {
+    }
 
     /// Construct a new instance of the residue collector.
     fn new() -> Self;
 
     /// Finalize and return the collected output.
-    fn finalize(self) -> Self::Output;
+    ///
+    /// Receives ownership of the `reached` vector containing all states discovered
+    /// during the analysis. Implementations use this along with accumulated transition
+    /// indices to construct their final output.
+    fn finalize(self, reached: Vec<S>) -> Self::Output;
 }
 
 pub struct EmptyResidue<T>(PhantomData<T>);
@@ -54,7 +65,7 @@ impl<'a, T: AbstractState> Residue<'a, T> for EmptyResidue<T> {
         Self(Default::default())
     }
 
-    fn finalize(self) -> Self::Output {}
+    fn finalize(self, _reached: Vec<T>) -> Self::Output {}
 }
 
 /// A factory trait: given an analysis `A` we need a way to produce a reducer

@@ -24,29 +24,32 @@ impl<'op, A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
         }
     }
 
-    fn finalize(self) -> Self::Output {
+    fn finalize(self, reached: Vec<CompoundState2<A::State, B::State>>) -> Self::Output {
         let Self { a, b } = self;
-        (a.finalize(), b.finalize())
+        // Project compound states into separate component vectors
+        let a_reached: Vec<A::State> = reached.iter().map(|cs| cs.s1.clone()).collect();
+        let b_reached: Vec<B::State> = reached.iter().map(|cs| cs.s2.clone()).collect();
+        (a.finalize(a_reached), b.finalize(b_reached))
     }
 
     fn merged_state(
         &mut self,
-        curr_state: &CompoundState2<A::State, B::State>,
-        merged_state: &CompoundState2<A::State, B::State>,
+        source_idx: usize,
+        merged_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
-        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
+        self.a.merged_state(source_idx, merged_idx, op);
+        self.b.merged_state(source_idx, merged_idx, op);
     }
 
     fn new_state(
         &mut self,
-        state: &CompoundState2<A::State, B::State>,
-        dest_state: &CompoundState2<A::State, B::State>,
+        source_idx: usize,
+        dest_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.new_state(&state.s1, &dest_state.s1, op);
-        self.b.new_state(&state.s2, &dest_state.s2, op);
+        self.a.new_state(source_idx, dest_idx, op);
+        self.b.new_state(source_idx, dest_idx, op);
     }
 }
 
@@ -71,29 +74,32 @@ impl<'op, A: ConfigurableProgramAnalysis, B: ConfigurableProgramAnalysis>
         }
     }
 
-    fn finalize(self) -> Self::Output {
+    fn finalize(self, reached: Vec<CompoundState2<A::State, B::State>>) -> Self::Output {
         let Self { a, b } = self;
-        (a.finalize(), b.finalize())
+        // Project compound states into separate component vectors
+        let a_reached: Vec<A::State> = reached.iter().map(|cs| cs.s1.clone()).collect();
+        let b_reached: Vec<B::State> = reached.iter().map(|cs| cs.s2.clone()).collect();
+        (a.finalize(a_reached), b.finalize(b_reached))
     }
 
     fn merged_state(
         &mut self,
-        curr_state: &CompoundState2<A::State, B::State>,
-        merged_state: &CompoundState2<A::State, B::State>,
+        source_idx: usize,
+        merged_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
-        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
+        self.a.merged_state(source_idx, merged_idx, op);
+        self.b.merged_state(source_idx, merged_idx, op);
     }
 
     fn new_state(
         &mut self,
-        state: &CompoundState2<A::State, B::State>,
-        dest_state: &CompoundState2<A::State, B::State>,
+        source_idx: usize,
+        dest_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.new_state(&state.s1, &dest_state.s1, op);
-        self.b.new_state(&state.s2, &dest_state.s2, op);
+        self.a.new_state(source_idx, dest_idx, op);
+        self.b.new_state(source_idx, dest_idx, op);
     }
 }
 
@@ -130,31 +136,39 @@ impl<
         }
     }
 
-    fn finalize(self) -> Self::Output {
+    fn finalize(self, reached: Vec<CompoundState3<A::State, B::State, C::State>>) -> Self::Output {
         let Self { a, b, c } = self;
-        (a.finalize(), b.finalize(), c.finalize())
+        // Project compound states into separate component vectors
+        let a_reached: Vec<A::State> = reached.iter().map(|cs| cs.s1.clone()).collect();
+        let b_reached: Vec<B::State> = reached.iter().map(|cs| cs.s2.clone()).collect();
+        let c_reached: Vec<C::State> = reached.iter().map(|cs| cs.s3.clone()).collect();
+        (
+            a.finalize(a_reached),
+            b.finalize(b_reached),
+            c.finalize(c_reached),
+        )
     }
 
     fn merged_state(
         &mut self,
-        curr_state: &CompoundState3<A::State, B::State, C::State>,
-        merged_state: &CompoundState3<A::State, B::State, C::State>,
+        source_idx: usize,
+        merged_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
-        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
-        self.c.merged_state(&curr_state.s3, &merged_state.s3, op);
+        self.a.merged_state(source_idx, merged_idx, op);
+        self.b.merged_state(source_idx, merged_idx, op);
+        self.c.merged_state(source_idx, merged_idx, op);
     }
 
     fn new_state(
         &mut self,
-        state: &CompoundState3<A::State, B::State, C::State>,
-        dest_state: &CompoundState3<A::State, B::State, C::State>,
+        source_idx: usize,
+        dest_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.new_state(&state.s1, &dest_state.s1, op);
-        self.b.new_state(&state.s2, &dest_state.s2, op);
-        self.c.new_state(&state.s3, &dest_state.s3, op);
+        self.a.new_state(source_idx, dest_idx, op);
+        self.b.new_state(source_idx, dest_idx, op);
+        self.c.new_state(source_idx, dest_idx, op);
     }
 }
 
@@ -197,32 +211,45 @@ impl<
         }
     }
 
-    fn finalize(self) -> Self::Output {
+    fn finalize(
+        self,
+        reached: Vec<CompoundState4<A::State, B::State, C::State, D::State>>,
+    ) -> Self::Output {
         let Self { a, b, c, d } = self;
-        (a.finalize(), b.finalize(), c.finalize(), d.finalize())
+        // Project compound states into separate component vectors
+        let a_reached: Vec<A::State> = reached.iter().map(|cs| cs.s1.clone()).collect();
+        let b_reached: Vec<B::State> = reached.iter().map(|cs| cs.s2.clone()).collect();
+        let c_reached: Vec<C::State> = reached.iter().map(|cs| cs.s3.clone()).collect();
+        let d_reached: Vec<D::State> = reached.iter().map(|cs| cs.s4.clone()).collect();
+        (
+            a.finalize(a_reached),
+            b.finalize(b_reached),
+            c.finalize(c_reached),
+            d.finalize(d_reached),
+        )
     }
 
     fn merged_state(
         &mut self,
-        curr_state: &CompoundState4<A::State, B::State, C::State, D::State>,
-        merged_state: &CompoundState4<A::State, B::State, C::State, D::State>,
+        source_idx: usize,
+        merged_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.merged_state(&curr_state.s1, &merged_state.s1, op);
-        self.b.merged_state(&curr_state.s2, &merged_state.s2, op);
-        self.c.merged_state(&curr_state.s3, &merged_state.s3, op);
-        self.d.merged_state(&curr_state.s4, &merged_state.s4, op);
+        self.a.merged_state(source_idx, merged_idx, op);
+        self.b.merged_state(source_idx, merged_idx, op);
+        self.c.merged_state(source_idx, merged_idx, op);
+        self.d.merged_state(source_idx, merged_idx, op);
     }
 
     fn new_state(
         &mut self,
-        state: &CompoundState4<A::State, B::State, C::State, D::State>,
-        dest_state: &CompoundState4<A::State, B::State, C::State, D::State>,
+        source_idx: usize,
+        dest_idx: usize,
         op: &Option<crate::analysis::pcode_store::PcodeOpRef<'op>>,
     ) {
-        self.a.new_state(&state.s1, &dest_state.s1, op);
-        self.b.new_state(&state.s2, &dest_state.s2, op);
-        self.c.new_state(&state.s3, &dest_state.s3, op);
-        self.d.new_state(&state.s4, &dest_state.s4, op);
+        self.a.new_state(source_idx, dest_idx, op);
+        self.b.new_state(source_idx, dest_idx, op);
+        self.c.new_state(source_idx, dest_idx, op);
+        self.d.new_state(source_idx, dest_idx, op);
     }
 }

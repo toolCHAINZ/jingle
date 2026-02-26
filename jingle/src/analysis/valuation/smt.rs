@@ -603,7 +603,7 @@ impl JoinSemiLattice for SmtValuationState {
 }
 
 impl AbstractState for SmtValuationState {
-    fn merge(&mut self, other: &Self) -> MergeOutcome {
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
         self.merge_join(other)
     }
 

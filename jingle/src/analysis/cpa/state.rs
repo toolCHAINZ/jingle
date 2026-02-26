@@ -9,6 +9,7 @@ use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MergeOutcome {
     NoOp,
+    /// Merge occurred. Contains a clone of the state before the merge.
     Merged,
 }
 
@@ -143,6 +144,7 @@ where
 pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
     /// Merge `other` into `self`. Mutate `self` and return whether a merge occurred.
     /// The mutated `self` MUST be >= than it was before (monotonicity guarantee).
+    /// If a merge occurred, returns `Merged`
     fn merge(&mut self, other: &Self) -> MergeOutcome;
 
     /// Default cartesian merge using `join`.
