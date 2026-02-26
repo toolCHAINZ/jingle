@@ -7,14 +7,15 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum MergeOutcome {
+pub enum MergeOutcome<T> {
     NoOp,
-    Merged,
+    /// Merge occurred. Contains a clone of the state before the merge.
+    Merged(T),
 }
 
-impl MergeOutcome {
+impl<T> MergeOutcome<T> {
     pub fn is_merged(&self) -> bool {
-        matches!(self, MergeOutcome::Merged)
+        matches!(self, MergeOutcome::Merged(_))
     }
 
     pub fn is_noop(&self) -> bool {
@@ -143,20 +144,23 @@ where
 pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
     /// Merge `other` into `self`. Mutate `self` and return whether a merge occurred.
     /// The mutated `self` MUST be >= than it was before (monotonicity guarantee).
-    fn merge(&mut self, other: &Self) -> MergeOutcome;
+    /// If a merge occurred, returns `Merged(old_state)` where `old_state` is a clone
+    /// of `self` before the merge.
+    fn merge(&mut self, other: &Self) -> MergeOutcome<Self>;
 
     /// Default cartesian merge using `join`.
-    fn merge_join(&mut self, new_state: &Self) -> MergeOutcome {
+    fn merge_join(&mut self, new_state: &Self) -> MergeOutcome<Self> {
         if self == new_state {
             MergeOutcome::NoOp
         } else {
+            let old = self.clone();
             self.join(new_state);
-            MergeOutcome::Merged
+            MergeOutcome::Merged(old)
         }
     }
 
     /// Default separate merge (no-op).
-    fn merge_sep(&mut self, _: &Self) -> MergeOutcome {
+    fn merge_sep(&mut self, _: &Self) -> MergeOutcome<Self> {
         MergeOutcome::NoOp
     }
 

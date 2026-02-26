@@ -9,7 +9,7 @@ pub use crate::analysis::cpa::residue::{CFG, TerminatingReducer, VEC};
 use tracing::{Level, span};
 
 use crate::analysis::cpa::residue::{Residue, ResidueWrapper};
-use crate::analysis::cpa::state::{AbstractState, LocationState};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome};
 use crate::analysis::pcode_store::PcodeStore;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -70,29 +70,34 @@ where
         // Construct the reducer specialized for the `'op` lifetime.
         let mut reducer = <Self::Reducer<'op> as residue::Residue<'op, Self::State>>::new();
 
-        let mut waitlist: VecDeque<Self::State> = VecDeque::new();
+        // Use index-based waitlist to eliminate clones.
+        // `reached` only grows (never shrinks), so indices remain stable.
+        let mut waitlist: VecDeque<usize> = VecDeque::new();
         let mut reached: VecDeque<Self::State> = VecDeque::new();
-        waitlist.push_front(initial.clone());
-        reached.push_front(initial.clone());
+        reached.push_back(initial.clone());
+        waitlist.push_back(0);
 
         tracing::debug!("CPA started with initial state: {:?}", initial);
         tracing::debug!("Initial waitlist size: 1, reached size: 1");
 
         let mut iteration = 0;
-        while let Some(state) = waitlist.pop_front() {
+        while let Some(state_idx) = waitlist.pop_front() {
             let span = span!(Level::DEBUG, "cpa", iteration);
             let _enter = span.enter();
             iteration += 1;
-            tracing::trace!("Processing state {:?}", state);
+
+            let reached_len = reached.len();
+
+            tracing::trace!("Processing state at index {}", state_idx);
             tracing::trace!(
                 "  Waitlist size: {}, Reached size: {}",
                 waitlist.len(),
-                reached.len()
+                reached_len
             );
 
             // Ask the state for the operation using the borrowed pcode_store.
             // The returned `op` will have lifetime `'op`.
-            let op = state.get_operation(pcode_store);
+            let op = reached[state_idx].get_operation(pcode_store);
             tracing::debug!(
                 "  Operation at state: {:?}",
                 op.as_ref().map(|p| format!("{:x}", p.as_ref()))
@@ -102,22 +107,25 @@ where
             let mut merged_states = 0;
             let mut stopped_states = 0;
 
-            for dest_state in op
+            // Collect transfer results to avoid holding a borrow of state during iteration
+            let dest_states: Vec<_> = op
                 .iter()
-                .flat_map(|op| state.transfer(op.as_ref()).into_iter())
-            {
+                .flat_map(|op| reached[state_idx].transfer(op.as_ref()).into_iter())
+                .collect();
+
+            for dest_state in dest_states {
                 tracing::trace!("    Transfer produced dest_state: {}", dest_state);
 
                 let mut was_merged = false;
-                for reached_state in reached.iter_mut() {
-                    if reached_state.merge(&dest_state).is_merged() {
+                for (idx, reached_state) in reached.iter_mut().enumerate() {
+                    if let MergeOutcome::Merged(old) =  reached_state.merge(&dest_state) {
                         tracing::debug!("    Merged dest_state into existing reached_state");
                         tracing::debug!("      Merged state: {}", reached_state);
                         // Call the reducer's merged_state with the merged state
                         // The reducer can use the partial order to identify which states
                         // were subsumed by this merge
-                        reducer.merged_state(&state, reached_state, &op);
-                        waitlist.push_back(reached_state.clone());
+                        reducer.merged_state(&old, reached_state, &op);
+                        waitlist.push_back(idx);
                         merged_states += 1;
                         was_merged = true;
                     }
@@ -134,12 +142,14 @@ where
                 tracing::debug!("Adding new state without merging: {}", dest_state);
                 // Pass the borrowed `op` (of lifetime `'op`) to the reducer. The reducer
                 // type was instantiated for `'op` above and accepts `PcodeOpRef<'op>`.
-                reducer.new_state(&state, &dest_state, &op);
+                reducer.new_state(&reached[state_idx], &dest_state, &op);
 
                 if !dest_state.stop(reached.iter()) {
                     tracing::trace!("    Adding new state to waitlist and reached");
-                    waitlist.push_back(dest_state.clone());
-                    reached.push_back(dest_state.clone());
+                    // Push to reached first, then enqueue its index
+                    let new_idx = reached.len();
+                    reached.push_back(dest_state);
+                    waitlist.push_back(new_idx);
                     new_states += 1;
                 } else {
                     tracing::trace!("    State stopped (already covered)");

@@ -76,35 +76,61 @@ macro_rules! named_tuple {
         impl<$F: ComponentStrengthen + AbstractState, $( $T: ComponentStrengthen + AbstractState ),+> AbstractState
             for $name<$F, $( $T ),+>
         {
-            fn merge(&mut self, other: &Self) -> MergeOutcome {
+            fn merge(&mut self, other: &Self) -> MergeOutcome<Self> {
                 if self == other {
                     return MergeOutcome::NoOp;
                 }
 
-                // OPTIMIZATION: No cloning at all!
-                // Components merge in-place and just return a flag.
-                // The CPA algorithm clones before calling merge if it needs the old value.
-
-                let mut any_merged = false;
-
+                // Merge first field and capture the outcome
                 let eq = self.$first_field == other.$first_field;
-                let field_merged = self.$first_field.merge(&other.$first_field).is_merged();
-                if !eq && !field_merged && !any_merged {
+                let first_outcome = self.$first_field.merge(&other.$first_field);
+
+                let mut any_merged = first_outcome.is_merged();
+                if !eq && !any_merged {
                     return MergeOutcome::NoOp;
                 }
-                any_merged |= field_merged;
 
+                // Store outcomes for remaining fields
+                #[allow(unused_assignments)]
+                let mut all_equal = eq;
                 $(
                     let eq = self.$field == other.$field;
-                    let field_merged = self.$field.merge(&other.$field).is_merged();
-                    if !eq && !field_merged && !any_merged {
+                    all_equal = all_equal && eq;
+                )+
+
+                // Early exit optimization: if all fields are equal and none merged, no-op
+                if all_equal && !any_merged {
+                    return MergeOutcome::NoOp;
+                }
+
+                // Now merge remaining fields and collect outcomes
+                $(
+                    let eq = self.$field == other.$field;
+                    #[allow(non_snake_case)]
+                    let $field = self.$field.merge(&other.$field);
+                    if !eq && !$field.is_merged() && !any_merged {
                         return MergeOutcome::NoOp;
                     }
-                    any_merged |= field_merged;
+                    any_merged |= $field.is_merged();
                 )+
 
                 if any_merged {
-                    MergeOutcome::Merged
+                    // Extract old component states from merge outcomes
+                    // Use Option to defer cloning until the end
+                    let old_first = match first_outcome {
+                        MergeOutcome::Merged(old) => old,
+                        MergeOutcome::NoOp => self.$first_field.clone(),
+                    };
+
+                    MergeOutcome::Merged($name {
+                        $first_field: old_first,
+                        $(
+                            $field: match $field {
+                                MergeOutcome::Merged(old) => old,
+                                MergeOutcome::NoOp => self.$field.clone(),
+                            }
+                        ),+
+                    })
                 } else {
                     MergeOutcome::NoOp
                 }
