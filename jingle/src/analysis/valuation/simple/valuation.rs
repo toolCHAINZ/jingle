@@ -168,7 +168,7 @@ impl SingleValuation {
     pub fn new(location: SingleValuationLocation, value: SimpleValue) -> Self {
         Self {
             location,
-            value: value,
+            value,
         }
     }
 }
@@ -178,7 +178,7 @@ impl SingleValuation {
     pub fn new_direct(vn: VarNode, value: SimpleValue) -> Self {
         Self {
             location: SingleValuationLocation::Direct(vn),
-            value: value,
+            value,
         }
     }
 
@@ -186,7 +186,7 @@ impl SingleValuation {
     pub fn new_indirect(ptr: SimpleValue, value: SimpleValue) -> Self {
         Self {
             location: SingleValuationLocation::Indirect(ptr),
-            value: value,
+            value,
         }
     }
 

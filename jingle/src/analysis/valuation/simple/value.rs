@@ -58,11 +58,11 @@ pub struct Offset(Intern<Entry>, Intern<Const>);
 
 impl Offset {
     pub fn base_vn(&self) -> &Entry {
-        &self.0.as_ref()
+        self.0.as_ref()
     }
 
     pub fn offset(&self) -> &Const {
-        &self.1.as_ref()
+        self.1.as_ref()
     }
 }
 
