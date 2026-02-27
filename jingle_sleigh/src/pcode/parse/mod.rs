@@ -302,7 +302,7 @@ mod tests {
                 input: "\n\n    $U8000:8 = COPY RAX\n",
                 expected: vec![PcodeOperation::Copy {
                     input: VarNode::new(0, 8, 4),
-                    output: VarNode::new(0, 0x8000, 8),
+                    output: VarNode::new(0x8000, 8, 2),
                 }],
             },
         ];
