@@ -166,10 +166,7 @@ impl SingleValuation {
     /// Construct a `SingleValuation` from a location and a value.
     /// The provided `value` will be interned.
     pub fn new(location: SingleValuationLocation, value: SimpleValue) -> Self {
-        Self {
-            location,
-            value,
-        }
+        Self { location, value }
     }
 }
 
