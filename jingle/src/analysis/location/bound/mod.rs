@@ -5,56 +5,55 @@ use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
 use crate::analysis::location::bound::state::BoundedBranchState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
-/// How to treat instruction fallthrough pcode operations when counting branches.
+/// Analysis that bounds the number of observed instructions and/or branches.
 ///
-/// - `Ignore` (default): do not count `PcodeOperation::Fallthrough` as a branch.
-/// - `Count`: count fallthroughs as branches.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FallthroughCounting {
-    Ignore,
-    Count,
-}
-
-/// Analysis that bounds the number of observed branches/transitions.
+/// This analysis supports three primary configurations:
+/// - Bound only the number of branches (backwards-compatible with the old API).
+/// - Bound only the number of instructions.
+/// - Bound both instructions and branches simultaneously.
 ///
-/// The constructor `new` defaults to ignoring fallthrough pcode operations
-/// (so by default we count ISA instructions rather than ISA basic blocks).
+/// Use the provided constructors to choose the desired configuration.
 pub struct BoundedBranchAnalysis {
-    max_steps: usize,
-    fallthrough_counting: FallthroughCounting,
+    /// Optional maximum number of instructions to observe.
+    max_instructions: Option<usize>,
+    /// Optional maximum number of branches to observe.
+    max_branches: Option<usize>,
 }
 
 impl BoundedBranchAnalysis {
-    /// Create a new analysis that ignores fallthroughs by default.
-    pub fn new(max_steps: usize) -> Self {
+    /// Backwards-compatible constructor: bounds the number of branches (old behaviour).
+    pub fn new(max_branches: usize) -> Self {
         Self {
-            max_steps,
-            fallthrough_counting: FallthroughCounting::Ignore,
+            max_instructions: None,
+            max_branches: Some(max_branches),
         }
     }
 
-    /// Create a new analysis with an explicit fallthrough counting mode.
-    pub fn with_fallthrough_counting(max_steps: usize, mode: FallthroughCounting) -> Self {
+    /// Create an analysis that bounds only instructions (ignoring branch counts).
+    pub fn new_instruction_bound(max_instructions: usize) -> Self {
         Self {
-            max_steps,
-            fallthrough_counting: mode,
+            max_instructions: Some(max_instructions),
+            max_branches: None,
         }
     }
 
-    /// Convenience constructor that preserves the old behaviour: count all branches,
-    /// including fallthroughs.
-    pub fn new_counting_all(max_steps: usize) -> Self {
-        Self::with_fallthrough_counting(max_steps, FallthroughCounting::Count)
+    /// Create an analysis with explicit optional bounds for instructions and branches.
+    /// Use `None` for any bound you do not want to apply.
+    pub fn with_bounds(max_instructions: Option<usize>, max_branches: Option<usize>) -> Self {
+        Self {
+            max_instructions,
+            max_branches,
+        }
     }
 
-    /// Access the configured fallthrough counting mode.
-    pub fn fallthrough_counting(&self) -> FallthroughCounting {
-        self.fallthrough_counting
+    /// Access the optional configured maximum number of branches.
+    pub fn max_branches(&self) -> Option<usize> {
+        self.max_branches
     }
 
-    /// Access the configured maximum number of steps/branches.
-    pub fn max_steps(&self) -> usize {
-        self.max_steps
+    /// Access the optional configured maximum number of instructions.
+    pub fn max_instructions(&self) -> Option<usize> {
+        self.max_instructions
     }
 }
 
@@ -65,7 +64,6 @@ impl ConfigurableProgramAnalysis for BoundedBranchAnalysis {
 
 impl IntoState<BoundedBranchAnalysis> for ConcretePcodeAddress {
     fn into_state(self, c: &BoundedBranchAnalysis) -> BoundedBranchState {
-        // Pass the configured mode into the initial state.
-        BoundedBranchState::new(c.max_steps, c.fallthrough_counting)
+        BoundedBranchState::with_both_bounds(c.max_instructions, c.max_branches)
     }
 }
