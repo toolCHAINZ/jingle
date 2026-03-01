@@ -2,10 +2,11 @@ use std::{
     borrow::Borrow,
     cmp::Ordering,
     fmt::{Display, LowerHex},
+    hash::{DefaultHasher, Hash, Hasher},
     iter::{empty, once},
 };
 
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{JingleDisplay, PcodeOperation};
 
 use crate::{
     analysis::{
@@ -16,7 +17,7 @@ use crate::{
             state::{AbstractState, LocationState, MergeOutcome, Successor},
         },
         location::basic::BasicLocationAnalysis,
-        valuation::SimpleValuationState,
+        valuation::{SimpleValuationState, SingleValuationLocation},
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
     register_strengthen,
@@ -178,11 +179,12 @@ impl LocationState for BasicLocationState {
 
 impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &SimpleValuationState) {
-        if let PcodeAddressLattice::Computed(indirect_var_node) = &self.inner {
-            let ptr_value = v.get_value(indirect_var_node.pointer_location());
-            if let Some(value) = ptr_value {
-                if let Some(v) = value.as_const_value() {
-                    self.inner = PcodeAddressLattice::Const(ConcretePcodeAddress::from(v as u64))
+        if let PcodeAddressLattice::Computed(ptr) = &self.inner {
+            let ptr = SingleValuationLocation::from(ptr.clone());
+            if let Some(value) = v.valuation().get(ptr) {
+                if let Some(addr) = value.as_const_value() {
+                    self.inner =
+                        PcodeAddressLattice::Const(ConcretePcodeAddress::from(addr as u64));
                 }
             }
         }

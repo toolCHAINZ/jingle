@@ -18,11 +18,15 @@ pub struct BoundedBranchState {
     pub instruction_count: usize,
     /// Number of counted branches visited so far.
     pub branch_count: usize,
+    /// Number of counted pcode ops
+    pub ops: usize,
 
     /// Optional maximum number of instructions to allow.
     pub max_instructions: Option<usize>,
     /// Optional maximum number of branches to allow.
     pub max_branches: Option<usize>,
+    /// Optional max number of pcode ops
+    pub max_ops: Option<usize>,
 }
 
 impl BoundedBranchState {
@@ -32,8 +36,10 @@ impl BoundedBranchState {
         Self {
             instruction_count: 0,
             branch_count: 0,
+            ops: 0,
             max_instructions: None,
             max_branches: Some(max_count),
+            max_ops: None,
         }
     }
 
@@ -42,19 +48,27 @@ impl BoundedBranchState {
         Self {
             instruction_count: 0,
             branch_count: 0,
+            ops: 0,
             max_instructions: Some(max_instructions),
             max_branches: None,
+            max_ops: None,
         }
     }
 
     /// Create a state with explicit optional bounds for instructions and branches.
     /// Use `None` for any bound you do not want to apply.
-    pub fn with_both_bounds(max_instructions: Option<usize>, max_branches: Option<usize>) -> Self {
+    pub fn with_all_bounds(
+        max_instructions: Option<usize>,
+        max_branches: Option<usize>,
+        max_ops: Option<usize>,
+    ) -> Self {
         Self {
             instruction_count: 0,
             branch_count: 0,
+            ops: 0,
             max_instructions,
             max_branches,
+            max_ops,
         }
     }
 
@@ -70,6 +84,11 @@ impl BoundedBranchState {
                 return true;
             }
         }
+        if let Some(max_ops) = self.max_ops {
+            if self.ops >= max_ops {
+                return true;
+            }
+        }
         false
     }
 }
@@ -79,8 +98,8 @@ impl PartialOrd for BoundedBranchState {
         // We treat "smaller" counts as better (shorter paths). Reverse the tuple
         // so that lower instruction/branch counts compare as "greater" in the lattice.
         // We compare instruction count first, then branch count as a tie-breaker.
-        Reverse((self.instruction_count, self.branch_count))
-            .partial_cmp(&Reverse((other.instruction_count, other.branch_count)))
+        ((self.instruction_count, self.branch_count, self.ops))
+            .partial_cmp(&((other.instruction_count, other.branch_count, other.ops)))
     }
 }
 
@@ -106,6 +125,9 @@ impl JoinSemiLattice for BoundedBranchState {
             (Some(a), Some(b)) => Some(a.max(b)),
             _ => None,
         };
+        self.instruction_count = self.instruction_count.max(other.instruction_count);
+        self.branch_count = self.branch_count.max(other.branch_count);
+        self.ops = self.ops.max(other.ops);
     }
 }
 
@@ -153,8 +175,10 @@ impl AbstractState for BoundedBranchState {
         let next = Self {
             instruction_count: next_instruction_count,
             branch_count: next_branch_count,
+            ops: self.ops + 1,
             max_instructions: self.max_instructions,
             max_branches: self.max_branches,
+            max_ops: self.max_ops,
         };
 
         once(next).into()

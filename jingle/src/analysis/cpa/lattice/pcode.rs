@@ -1,8 +1,9 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::valuation::SimpleValue;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use jingle_sleigh::{IndirectVarNode, PcodeOperation};
+use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, LowerHex};
@@ -18,7 +19,7 @@ use std::iter::{empty, once};
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum PcodeAddressLattice {
     Const(ConcretePcodeAddress),
-    Computed(IndirectVarNode),
+    Computed(SimpleValue),
     Top,
 }
 
@@ -30,9 +31,7 @@ impl JingleDisplay for PcodeAddressLattice {
     ) -> std::fmt::Result {
         match self {
             PcodeAddressLattice::Const(addr) => write!(f, "{:x}", addr),
-            PcodeAddressLattice::Computed(indirect_var_node) => {
-                indirect_var_node.fmt_jingle(f, info)
-            }
+            PcodeAddressLattice::Computed(sv) => sv.fmt_jingle(f, info),
             PcodeAddressLattice::Top => write!(f, "Top"),
         }
     }
@@ -60,9 +59,8 @@ impl LowerHex for PcodeAddressLattice {
             // Delegate to the inner `ConcretePcodeAddress` LowerHex implementation
             // so `{:#x}` / `{:x}` on `PcodeAddressLattice::Const` prints the expected hex form.
             PcodeAddressLattice::Const(a) => write!(f, "PcodeAddressLattice::Const({:x})", a),
-            // Computed values don't have a natural hex representation; fall back to debug.
-            PcodeAddressLattice::Computed(c) => {
-                write!(f, "PcodeAddressLattice::Computed({:?})", c)
+            PcodeAddressLattice::Computed(sv) => {
+                write!(f, "PcodeAddressLattice::Computed({:x})", sv)
             }
             PcodeAddressLattice::Top => write!(f, "PcodeAddressLattice::Top"),
         }
@@ -161,7 +159,8 @@ impl AbstractState for PcodeAddressLattice {
             PcodeOperation::BranchInd { input }
             | PcodeOperation::CallInd { input }
             | PcodeOperation::Return { input } => {
-                return once(PcodeAddressLattice::Computed(input.clone())).into();
+                let ptr = SimpleValue::entry(input.pointer_location().clone());
+                return once(PcodeAddressLattice::Computed(ptr)).into();
             }
             _ => {}
         }
@@ -198,9 +197,7 @@ impl Display for PcodeAddressLattice {
             PcodeAddressLattice::Const(concrete_pcode_address) => {
                 write!(f, "{:x}", concrete_pcode_address)
             }
-            PcodeAddressLattice::Computed(indirect_var_node) => {
-                write!(f, "{:x}", indirect_var_node)
-            }
+            PcodeAddressLattice::Computed(sv) => write!(f, "{}", sv),
             PcodeAddressLattice::Top => write!(f, "Top"),
         }
     }

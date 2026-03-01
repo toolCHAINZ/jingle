@@ -14,10 +14,12 @@ use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 ///
 /// Use the provided constructors to choose the desired configuration.
 pub struct BoundedBranchAnalysis {
-    /// Optional maximum number of instructions to observe.
+    /// Maximum number of ISA instructions.
     max_instructions: Option<usize>,
-    /// Optional maximum number of branches to observe.
+    /// Maximum number of explicit ISA branches.
     max_branches: Option<usize>,
+    /// Maximum number of pcode steps
+    max_ops: Option<usize>,
 }
 
 impl BoundedBranchAnalysis {
@@ -26,6 +28,7 @@ impl BoundedBranchAnalysis {
         Self {
             max_instructions: None,
             max_branches: Some(max_branches),
+            max_ops: None,
         }
     }
 
@@ -34,15 +37,21 @@ impl BoundedBranchAnalysis {
         Self {
             max_instructions: Some(max_instructions),
             max_branches: None,
+            max_ops: None,
         }
     }
 
     /// Create an analysis with explicit optional bounds for instructions and branches.
     /// Use `None` for any bound you do not want to apply.
-    pub fn with_bounds(max_instructions: Option<usize>, max_branches: Option<usize>) -> Self {
+    pub fn with_bounds(
+        max_instructions: Option<usize>,
+        max_branches: Option<usize>,
+        max_ops: Option<usize>,
+    ) -> Self {
         Self {
             max_instructions,
             max_branches,
+            max_ops,
         }
     }
 
@@ -55,6 +64,10 @@ impl BoundedBranchAnalysis {
     pub fn max_instructions(&self) -> Option<usize> {
         self.max_instructions
     }
+
+    pub fn max_ops(&self) -> Option<usize> {
+        self.max_ops
+    }
 }
 
 impl ConfigurableProgramAnalysis for BoundedBranchAnalysis {
@@ -64,6 +77,6 @@ impl ConfigurableProgramAnalysis for BoundedBranchAnalysis {
 
 impl IntoState<BoundedBranchAnalysis> for ConcretePcodeAddress {
     fn into_state(self, c: &BoundedBranchAnalysis) -> BoundedBranchState {
-        BoundedBranchState::with_both_bounds(c.max_instructions, c.max_branches)
+        BoundedBranchState::with_all_bounds(c.max_instructions, c.max_branches, c.max_ops)
     }
 }
