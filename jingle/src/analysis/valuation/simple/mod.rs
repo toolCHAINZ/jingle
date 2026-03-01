@@ -252,10 +252,15 @@ impl SimpleValuationState {
                     }
                 }
             }
-            PcodeOperation::BranchInd { .. } | PcodeOperation::CallInd { .. } => {
-                // Similar retain behavior as above for branch-indirect.
+            PcodeOperation::BranchInd { input } | PcodeOperation::CallInd { input } => {
+                // Clear IPTR_INTERNAL varnodes except the branch target, which must survive
+                // so that strengthen_from_valuation can read it.
+                let branch_target = input.pointer_location();
                 let mut to_remove: Vec<VarNode> = Vec::new();
                 for (vn, _) in new_state.valuation.direct_writes.items() {
+                    if vn == branch_target {
+                        continue;
+                    }
                     let keep = self
                         .arch_info
                         .get_space(vn.space_index())
