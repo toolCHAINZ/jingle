@@ -17,7 +17,7 @@ use crate::{
             state::{AbstractState, LocationState, MergeOutcome, Successor},
         },
         location::basic::BasicLocationAnalysis,
-        valuation::{SimpleValue, SimpleValuationState},
+        valuation::{SimpleValuationState, SimpleValue},
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
     register_strengthen,

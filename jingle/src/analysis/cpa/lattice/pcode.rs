@@ -105,13 +105,25 @@ impl PartialOrd for PcodeAddressLattice {
             (Self::Top, Self::Const(_)) => Some(Ordering::Greater),
             (Self::Const(_), Self::Top) => Some(Ordering::Less),
             (Self::Const(a), Self::Const(b)) => {
-                if a == b { Some(Ordering::Equal) } else { None }
+                if a == b {
+                    Some(Ordering::Equal)
+                } else {
+                    None
+                }
             }
             (Self::Indirect(x), Self::Indirect(y)) => {
-                if x == y { Some(Ordering::Equal) } else { None }
+                if x == y {
+                    Some(Ordering::Equal)
+                } else {
+                    None
+                }
             }
             (Self::Computed(x), Self::Computed(y)) => {
-                if x == y { Some(Ordering::Equal) } else { None }
+                if x == y {
+                    Some(Ordering::Equal)
+                } else {
+                    None
+                }
             }
             // Different kinds are incomparable
             _ => None,
