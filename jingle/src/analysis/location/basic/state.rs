@@ -180,8 +180,11 @@ impl LocationState for BasicLocationState {
 impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &SimpleValuationState) {
         if let PcodeAddressLattice::Indirect(ivn) = &self.inner {
-            let entry = SimpleValue::entry(ivn.pointer_location().clone());
-            if let Some(value) = v.valuation().indirect_writes.get(&entry) {
+            if let Some(value) = v.get_value(ivn.pointer_location()) {
+                if matches!(value, SimpleValue::Top) {
+                    // Top carries no useful info; Indirect(ivn) is more informative.
+                    return;
+                }
                 if let Some(addr) = value.as_const_value() {
                     self.inner =
                         PcodeAddressLattice::Const(ConcretePcodeAddress::from(addr as u64));
