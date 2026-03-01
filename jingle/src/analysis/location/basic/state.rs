@@ -2,11 +2,11 @@ use std::{
     borrow::Borrow,
     cmp::Ordering,
     fmt::{Display, LowerHex},
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::Hash,
     iter::{empty, once},
 };
 
-use jingle_sleigh::{JingleDisplay, PcodeOperation};
+use jingle_sleigh::PcodeOperation;
 
 use crate::{
     analysis::{
@@ -17,7 +17,7 @@ use crate::{
             state::{AbstractState, LocationState, MergeOutcome, Successor},
         },
         location::basic::BasicLocationAnalysis,
-        valuation::{SimpleValuationState, SingleValuationLocation},
+        valuation::{SimpleValue, SimpleValuationState},
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
     register_strengthen,
@@ -179,14 +179,17 @@ impl LocationState for BasicLocationState {
 
 impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &SimpleValuationState) {
-        if let PcodeAddressLattice::Computed(ptr) = &self.inner {
-            let ptr = SingleValuationLocation::from(ptr.clone());
-            if let Some(value) = v.valuation().get(ptr) {
+        if let PcodeAddressLattice::Indirect(ivn) = &self.inner {
+            let entry = SimpleValue::entry(ivn.pointer_location().clone());
+            if let Some(value) = v.valuation().indirect_writes.get(&entry) {
                 if let Some(addr) = value.as_const_value() {
                     self.inner =
                         PcodeAddressLattice::Const(ConcretePcodeAddress::from(addr as u64));
+                } else {
+                    self.inner = PcodeAddressLattice::Computed(value.clone());
                 }
             }
+            // No info → leave as Indirect (two paths with no valuation are genuinely equal)
         }
     }
 }
@@ -197,8 +200,9 @@ impl CfgState for BasicLocationState {
     fn new_const(&self, i: &jingle_sleigh::SleighArchInfo) -> Self::Model {
         match &self.inner {
             PcodeAddressLattice::Const(addr) => MachineState::fresh_for_address(i, *addr),
-            // For computed or unknown locations, fall back to a generic fresh machine state.
-            PcodeAddressLattice::Computed(_) | PcodeAddressLattice::Top => MachineState::fresh(i),
+            PcodeAddressLattice::Indirect(_)
+            | PcodeAddressLattice::Computed(_)
+            | PcodeAddressLattice::Top => MachineState::fresh(i),
         }
     }
 
@@ -206,6 +210,7 @@ impl CfgState for BasicLocationState {
         match &self.inner {
             PcodeAddressLattice::Const(a) => a.model_id(),
             PcodeAddressLattice::Top => "State_Top_".to_string(),
+            PcodeAddressLattice::Indirect(_) => "State_Indirect_".to_string(),
             PcodeAddressLattice::Computed(_) => "State_Computed_".to_string(),
         }
     }

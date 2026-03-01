@@ -2,7 +2,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
-use std::cmp::{Ordering, Reverse};
+use std::cmp::Ordering;
 use std::fmt::Display;
 use std::iter::{empty, once};
 
@@ -98,8 +98,8 @@ impl PartialOrd for BoundedBranchState {
         // We treat "smaller" counts as better (shorter paths). Reverse the tuple
         // so that lower instruction/branch counts compare as "greater" in the lattice.
         // We compare instruction count first, then branch count as a tie-breaker.
-        ((self.instruction_count, self.branch_count, self.ops))
-            .partial_cmp(&((other.instruction_count, other.branch_count, other.ops)))
+        (self.instruction_count, self.branch_count, self.ops)
+            .partial_cmp(&(other.instruction_count, other.branch_count, other.ops))
     }
 }
 
