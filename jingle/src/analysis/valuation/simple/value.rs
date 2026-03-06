@@ -86,6 +86,22 @@ pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct XorExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// A signed comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntSLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// An equality comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// An unsigned comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// A PopCount operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct PopCount(pub Intern<SimpleValue>);
+
 /// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
