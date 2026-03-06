@@ -10,7 +10,7 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
-use std::ops::BitXor;
+use std::ops::{BitXor, Deref};
 use std::{
     fmt::Formatter,
     ops::{Add, Mul, Sub},
@@ -24,9 +24,25 @@ trait Simplify {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Entry(VarNode);
 
+impl Deref for Entry {
+    type Target = VarNode;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// A constant value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Const(VarNode);
+
+impl Deref for Const {
+    type Target = VarNode;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// A value representing a positive offset from a location pointed to by another value.
 /// This is similar to sleigh/ghidra's post-analysis stack offset space.
@@ -38,7 +54,17 @@ pub struct Const(VarNode);
 /// For example, `Offset(r1, 4:8)` refers to the range of 8 bytes that begins
 /// 4 bytes after the address pointed to by r1.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Offset(pub Entry, pub Const);
+pub struct Offset(Intern<Entry>, Intern<Const>);
+
+impl Offset {
+    pub fn base_vn(&self) -> &Entry {
+        self.0.as_ref()
+    }
+
+    pub fn offset(&self) -> &Const {
+        self.1.as_ref()
+    }
+}
 
 /// A multiplication expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -198,7 +224,7 @@ impl SimpleValue {
         match self {
             SimpleValue::Entry(Entry(vn)) => vn.size(),
             SimpleValue::Const(vn) => vn.as_ref().size(),
-            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().size(),
+            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().0.size(),
             SimpleValue::Mul(MulExpr(_, _, s))
             | SimpleValue::Add(AddExpr(_, _, s))
             | SimpleValue::Sub(SubExpr(_, _, s))
@@ -218,7 +244,7 @@ impl SimpleValue {
 
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn offset(vn: VarNode, offset: VarNode) -> Self {
-        SimpleValue::Offset(Offset(Entry(vn), Const(offset)))
+        SimpleValue::Offset(Offset(Intern::new(Entry(vn)), Intern::new(Const(offset))))
     }
 
     /// Construct a `Const(...)` from a raw i64 value.
@@ -807,12 +833,12 @@ impl JingleDisplay for SimpleValue {
                 // print constant offset in hex (retain prior appearance)
                 write!(f, "{:#x}", vn.as_ref().offset())
             }
-            SimpleValue::Offset(Offset(Entry(vn), con)) => {
+            SimpleValue::Offset(Offset(vn, con)) => {
                 write!(
                     f,
                     "offset({},{})",
-                    vn.display(info),
-                    con.as_ref().display(info)
+                    vn.as_ref().0.display(info),
+                    con.as_ref().0.display(info)
                 )
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
@@ -858,7 +884,7 @@ impl std::fmt::Display for SimpleValue {
                 write!(f, "{:#x}", vn.as_ref().offset())
             }
             SimpleValue::Offset(Offset(vn, off)) => {
-                write!(f, "offset({}, {})", vn.0, off.as_ref())
+                write!(f, "offset({}, {})", vn.0, off.0)
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
@@ -909,7 +935,7 @@ impl std::fmt::LowerHex for SimpleValue {
                 write!(f, "{:x}", vn.as_ref().offset())
             }
             SimpleValue::Offset(Offset(vn, off)) => {
-                write!(f, "offset({:x}, {:x})", vn.0, off.as_ref())
+                write!(f, "offset({:x}, {:x})", vn.0, off.0)
             }
             SimpleValue::Mul(MulExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.1...jingle_sleigh-v0.5.2) - 2026-02-27
+
+### Fixed
+
+- reduce redundant interning#207 ([#207](https://github.com/toolCHAINZ/jingle/pull/207))
+
 ## [0.5.1](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.0...jingle_sleigh-v0.5.1) - 2026-02-25
 
 ### Other

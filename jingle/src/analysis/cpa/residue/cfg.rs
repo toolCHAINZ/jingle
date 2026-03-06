@@ -52,7 +52,6 @@ where
     /// Build the PcodeCfg from accumulated edges and the reached states.
     fn finalize(self, reached: Vec<N>) -> Self::Output {
         let mut cfg = PcodeCfg::new();
-        dbg!(self.edges.len(), reached.len());
         // Add all edges, which will automatically add nodes as needed
         for (source_idx, dest_idx, op) in self.edges {
             if let Some(op_ref) = op {
