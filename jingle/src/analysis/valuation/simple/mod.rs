@@ -220,6 +220,105 @@ impl SimpleValuationState {
                 }
             }
 
+            PcodeOperation::IntEqual { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_equal(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntSignedLess { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_sless(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntLess { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_less(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::PopCount { input, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::popcount(a).simplify());
+                }
+            }
+
+            PcodeOperation::IntNotEqual { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_not_equal(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntLessEqual { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_less_equal(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntSignedLessEqual { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_sless_equal(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntCarry { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_carry(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntSignedCarry { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_scarry(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::IntSignedBorrow { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_sborrow(a, b).simplify());
+                }
+            }
+
             // Other operations we don't model produce writes of Top.
             _ => {
                 if let Some(GeneralizedVarNode::Direct(vn)) = op.output() {

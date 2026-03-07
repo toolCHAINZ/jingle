@@ -86,6 +86,46 @@ pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct XorExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// A signed comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntSLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// An equality comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// An unsigned comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// A PopCount operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct PopCount(pub Intern<SimpleValue>);
+
+/// An inequality comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntNotEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// An unsigned less-than-or-equal comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntLessEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// A signed less-than-or-equal comparison operator
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntSLessEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// Unsigned addition carry-out
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntCarry(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// Signed addition overflow (SCARRY)
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntSCarry(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
+/// Signed subtraction overflow (SBORROW)
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntSBorrow(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+
 /// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
@@ -121,6 +161,18 @@ pub enum SimpleValue {
     Or(Or),
     Xor(XorExpr),
     Load(Load),
+
+    IntSLess(IntSLess),
+    IntEqual(IntEqual),
+    IntLess(IntLess),
+    PopCount(PopCount),
+
+    IntNotEqual(IntNotEqual),
+    IntLessEqual(IntLessEqual),
+    IntSLessEqual(IntSLessEqual),
+    IntCarry(IntCarry),
+    IntSCarry(IntSCarry),
+    IntSBorrow(IntSBorrow),
 
     Top,
 }
@@ -166,6 +218,16 @@ impl SimpleValue {
                 | SimpleValue::Sub(_)
                 | SimpleValue::Or(_)
                 | SimpleValue::Xor(_)
+                | SimpleValue::IntSLess(_)
+                | SimpleValue::IntEqual(_)
+                | SimpleValue::IntLess(_)
+                | SimpleValue::PopCount(_)
+                | SimpleValue::IntNotEqual(_)
+                | SimpleValue::IntLessEqual(_)
+                | SimpleValue::IntSLessEqual(_)
+                | SimpleValue::IntCarry(_)
+                | SimpleValue::IntSCarry(_)
+                | SimpleValue::IntSBorrow(_)
         )
     }
 
@@ -217,6 +279,86 @@ impl SimpleValue {
         }
     }
 
+    /// Accessor for `IntSLess` variant.
+    pub fn as_int_sless(&self) -> Option<&IntSLess> {
+        match self {
+            SimpleValue::IntSLess(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntEqual` variant.
+    pub fn as_int_equal(&self) -> Option<&IntEqual> {
+        match self {
+            SimpleValue::IntEqual(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntLess` variant.
+    pub fn as_int_less(&self) -> Option<&IntLess> {
+        match self {
+            SimpleValue::IntLess(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `PopCount` variant.
+    pub fn as_popcount(&self) -> Option<&PopCount> {
+        match self {
+            SimpleValue::PopCount(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntNotEqual` variant.
+    pub fn as_int_not_equal(&self) -> Option<&IntNotEqual> {
+        match self {
+            SimpleValue::IntNotEqual(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntLessEqual` variant.
+    pub fn as_int_less_equal(&self) -> Option<&IntLessEqual> {
+        match self {
+            SimpleValue::IntLessEqual(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntSLessEqual` variant.
+    pub fn as_int_sless_equal(&self) -> Option<&IntSLessEqual> {
+        match self {
+            SimpleValue::IntSLessEqual(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntCarry` variant.
+    pub fn as_int_carry(&self) -> Option<&IntCarry> {
+        match self {
+            SimpleValue::IntCarry(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntSCarry` variant.
+    pub fn as_int_scarry(&self) -> Option<&IntSCarry> {
+        match self {
+            SimpleValue::IntSCarry(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `IntSBorrow` variant.
+    pub fn as_int_sborrow(&self) -> Option<&IntSBorrow> {
+        match self {
+            SimpleValue::IntSBorrow(v) => Some(v),
+            _ => None,
+        }
+    }
+
     /// Get the size in bytes represented by this SimpleValue.
     /// For `Entry` and `Const`, this returns the underlying VarNode's size.
     /// For composite nodes, the stored size is returned.
@@ -231,6 +373,16 @@ impl SimpleValue {
             | SimpleValue::Or(Or(_, _, s))
             | SimpleValue::Xor(XorExpr(_, _, s)) => *s,
             SimpleValue::Load(Load(_, s)) => *s,
+            SimpleValue::IntSLess(_)
+            | SimpleValue::IntEqual(_)
+            | SimpleValue::IntLess(_)
+            | SimpleValue::PopCount(_)
+            | SimpleValue::IntNotEqual(_)
+            | SimpleValue::IntLessEqual(_)
+            | SimpleValue::IntSLessEqual(_)
+            | SimpleValue::IntCarry(_)
+            | SimpleValue::IntSCarry(_)
+            | SimpleValue::IntSBorrow(_) => 1,
             SimpleValue::Top => 8, // conservative default
         }
     }
@@ -279,6 +431,56 @@ impl SimpleValue {
     pub fn load(child: SimpleValue) -> Self {
         let s = child.size();
         SimpleValue::Load(Load(Intern::new(child), s))
+    }
+
+    /// Construct an `IntEqual(...)` node from two children.
+    pub fn int_equal(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntEqual(IntEqual(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntLess(...)` node from two children.
+    pub fn int_less(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntLess(IntLess(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntSLess(...)` node from two children.
+    pub fn int_sless(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntSLess(IntSLess(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct a `PopCount(...)` node from a child.
+    pub fn popcount(child: SimpleValue) -> Self {
+        SimpleValue::PopCount(PopCount(Intern::new(child)))
+    }
+
+    /// Construct an `IntNotEqual(...)` node from two children.
+    pub fn int_not_equal(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntNotEqual(IntNotEqual(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntLessEqual(...)` node from two children.
+    pub fn int_less_equal(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntLessEqual(IntLessEqual(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntSLessEqual(...)` node from two children.
+    pub fn int_sless_equal(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntSLessEqual(IntSLessEqual(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntCarry(...)` node from two children.
+    pub fn int_carry(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntCarry(IntCarry(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntSCarry(...)` node from two children.
+    pub fn int_scarry(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntSCarry(IntSCarry(Intern::new(left), Intern::new(right)))
+    }
+
+    /// Construct an `IntSBorrow(...)` node from two children.
+    pub fn int_sborrow(left: SimpleValue, right: SimpleValue) -> Self {
+        SimpleValue::IntSBorrow(IntSBorrow(Intern::new(left), Intern::new(right)))
     }
 
     // Keep the older helpers (used by some simplifications) for parity:
@@ -340,6 +542,16 @@ impl SimpleValue {
             SimpleValue::Xor(_) => 7,
             SimpleValue::Load(_) => 8,
             SimpleValue::Top => 9,
+            SimpleValue::IntSLess(_) => 10,
+            SimpleValue::IntEqual(_) => 11,
+            SimpleValue::IntLess(_) => 12,
+            SimpleValue::PopCount(_) => 13,
+            SimpleValue::IntNotEqual(_) => 14,
+            SimpleValue::IntLessEqual(_) => 15,
+            SimpleValue::IntSLessEqual(_) => 16,
+            SimpleValue::IntCarry(_) => 17,
+            SimpleValue::IntSCarry(_) => 18,
+            SimpleValue::IntSBorrow(_) => 19,
         }
     }
 }
@@ -353,6 +565,16 @@ impl Simplify for SimpleValue {
             SimpleValue::Or(expr) => expr.simplify(),
             SimpleValue::Xor(expr) => expr.simplify(),
             SimpleValue::Load(expr) => expr.simplify(),
+            SimpleValue::IntSLess(expr) => expr.simplify(),
+            SimpleValue::IntEqual(expr) => expr.simplify(),
+            SimpleValue::IntLess(expr) => expr.simplify(),
+            SimpleValue::PopCount(expr) => expr.simplify(),
+            SimpleValue::IntNotEqual(expr) => expr.simplify(),
+            SimpleValue::IntLessEqual(expr) => expr.simplify(),
+            SimpleValue::IntSLessEqual(expr) => expr.simplify(),
+            SimpleValue::IntCarry(expr) => expr.simplify(),
+            SimpleValue::IntSCarry(expr) => expr.simplify(),
+            SimpleValue::IntSBorrow(expr) => expr.simplify(),
             SimpleValue::Entry(_)
             | SimpleValue::Offset(_)
             | SimpleValue::Const(_)
@@ -547,13 +769,13 @@ impl Simplify for SubExpr {
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
 
-                    // If res is negative, create Sub instead of Add to avoid infinite loop
+                    // res = a - b (net constant); positive → Add, negative → Sub with -res
                     if res < 0 {
                         let new_const = SimpleValue::make_const(-res, size as u32);
-                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
                         let new_const = SimpleValue::make_const(res, size as u32);
-                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
             }
@@ -795,6 +1017,234 @@ impl Simplify for Load {
     }
 }
 
+impl Simplify for IntEqual {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let result = (a_vn.offset() == b_vn.offset()) as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(1, 1);
+        }
+
+        SimpleValue::IntEqual(IntEqual(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntLess {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let result = (a_vn.offset() < b_vn.offset()) as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(0, 1);
+        }
+
+        SimpleValue::IntLess(IntLess(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntSLess {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let result = ((a_vn.offset() as i64) < (b_vn.offset() as i64)) as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(0, 1);
+        }
+
+        SimpleValue::IntSLess(IntSLess(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for PopCount {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let Some(vn) = a_s.as_const() {
+            let result = vn.offset().count_ones() as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        SimpleValue::PopCount(PopCount(Intern::new(a_s)))
+    }
+}
+
+impl Simplify for IntNotEqual {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let result = (a_vn.offset() != b_vn.offset()) as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(0, 1);
+        }
+
+        SimpleValue::IntNotEqual(IntNotEqual(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntLessEqual {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let result = (a_vn.offset() <= b_vn.offset()) as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(1, 1);
+        }
+
+        SimpleValue::IntLessEqual(IntLessEqual(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntSLessEqual {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let result = ((a_vn.offset() as i64) <= (b_vn.offset() as i64)) as i64;
+            return SimpleValue::make_const(result, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(1, 1);
+        }
+
+        SimpleValue::IntSLessEqual(IntSLessEqual(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntCarry {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let bits = (a_vn.size() * 8) as u32;
+            let carry = (a_vn.offset() as u128 + b_vn.offset() as u128) >> bits;
+            return SimpleValue::make_const((carry != 0) as i64, 1);
+        }
+
+        SimpleValue::IntCarry(IntCarry(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntSCarry {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let n = a_vn.size() * 8;
+            let mask = if n == 64 {
+                u64::MAX
+            } else {
+                (1u64 << n).wrapping_sub(1)
+            };
+            let sign_mask = 1u64 << (n - 1);
+            let a_val = a_vn.offset() & mask;
+            let b_val = b_vn.offset() & mask;
+            let sum = a_val.wrapping_add(b_val) & mask;
+            let overflow = ((a_val ^ sum) & (b_val ^ sum) & sign_mask) != 0;
+            return SimpleValue::make_const(overflow as i64, 1);
+        }
+
+        SimpleValue::IntSCarry(IntSCarry(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
+impl Simplify for IntSBorrow {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let n = a_vn.size() * 8;
+            let mask = if n == 64 {
+                u64::MAX
+            } else {
+                (1u64 << n).wrapping_sub(1)
+            };
+            let sign_mask = 1u64 << (n - 1);
+            let a_val = a_vn.offset() & mask;
+            let b_val = b_vn.offset() & mask;
+            let diff = a_val.wrapping_sub(b_val) & mask;
+            let overflow = ((a_val ^ b_val) & (a_val ^ diff) & sign_mask) != 0;
+            return SimpleValue::make_const(overflow as i64, 1);
+        }
+
+        if a_s == b_s {
+            return SimpleValue::make_const(0, 1);
+        }
+
+        SimpleValue::IntSBorrow(IntSBorrow(Intern::new(a_s), Intern::new(b_s)))
+    }
+}
+
 fn fmt_operand_jingle(
     f: &mut Formatter<'_>,
     v: &SimpleValue,
@@ -867,6 +1317,62 @@ impl JingleDisplay for SimpleValue {
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
+            SimpleValue::IntEqual(IntEqual(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "==")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            SimpleValue::IntSLess(IntSLess(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "s<")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            SimpleValue::IntLess(IntLess(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "u<")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            SimpleValue::PopCount(PopCount(a)) => {
+                write!(f, "popcount(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ")")
+            }
+            SimpleValue::IntNotEqual(IntNotEqual(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "!=")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            SimpleValue::IntLessEqual(IntLessEqual(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "u<=")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            SimpleValue::IntSLessEqual(IntSLessEqual(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "s<=")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            SimpleValue::IntCarry(IntCarry(a, b)) => {
+                write!(f, "carry(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ",")?;
+                b.as_ref().fmt_jingle(f, info)?;
+                write!(f, ")")
+            }
+            SimpleValue::IntSCarry(IntSCarry(a, b)) => {
+                write!(f, "scarry(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ",")?;
+                b.as_ref().fmt_jingle(f, info)?;
+                write!(f, ")")
+            }
+            SimpleValue::IntSBorrow(IntSBorrow(a, b)) => {
+                write!(f, "sborrow(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ",")?;
+                b.as_ref().fmt_jingle(f, info)?;
+                write!(f, ")")
+            }
             SimpleValue::Top => write!(f, "⊤"),
         }
     }
@@ -914,6 +1420,48 @@ impl std::fmt::Display for SimpleValue {
             SimpleValue::Load(Load(a, _)) => {
                 // Load(child)
                 write!(f, "Load({})", a.as_ref())
+            }
+            SimpleValue::IntEqual(IntEqual(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "==")?;
+                fmt_operand(f, b.as_ref())
+            }
+            SimpleValue::IntSLess(IntSLess(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "s<")?;
+                fmt_operand(f, b.as_ref())
+            }
+            SimpleValue::IntLess(IntLess(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "u<")?;
+                fmt_operand(f, b.as_ref())
+            }
+            SimpleValue::PopCount(PopCount(a)) => {
+                write!(f, "popcount({})", a.as_ref())
+            }
+            SimpleValue::IntNotEqual(IntNotEqual(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "!=")?;
+                fmt_operand(f, b.as_ref())
+            }
+            SimpleValue::IntLessEqual(IntLessEqual(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "u<=")?;
+                fmt_operand(f, b.as_ref())
+            }
+            SimpleValue::IntSLessEqual(IntSLessEqual(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "s<=")?;
+                fmt_operand(f, b.as_ref())
+            }
+            SimpleValue::IntCarry(IntCarry(a, b)) => {
+                write!(f, "carry({}, {})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::IntSCarry(IntSCarry(a, b)) => {
+                write!(f, "scarry({}, {})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::IntSBorrow(IntSBorrow(a, b)) => {
+                write!(f, "sborrow({}, {})", a.as_ref(), b.as_ref())
             }
             SimpleValue::Top => {
                 // Special top symbol
@@ -965,6 +1513,48 @@ impl std::fmt::LowerHex for SimpleValue {
             SimpleValue::Load(Load(a, _)) => {
                 write!(f, "Load({:x})", a.as_ref())
             }
+            SimpleValue::IntEqual(IntEqual(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "==")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::IntSLess(IntSLess(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "s<")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::IntLess(IntLess(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "u<")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::PopCount(PopCount(a)) => {
+                write!(f, "popcount({:x})", a.as_ref())
+            }
+            SimpleValue::IntNotEqual(IntNotEqual(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "!=")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::IntLessEqual(IntLessEqual(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "u<=")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::IntSLessEqual(IntSLessEqual(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "s<=")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::IntCarry(IntCarry(a, b)) => {
+                write!(f, "carry({:x}, {:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::IntSCarry(IntSCarry(a, b)) => {
+                write!(f, "scarry({:x}, {:x})", a.as_ref(), b.as_ref())
+            }
+            SimpleValue::IntSBorrow(IntSBorrow(a, b)) => {
+                write!(f, "sborrow({:x}, {:x})", a.as_ref(), b.as_ref())
+            }
             SimpleValue::Top => write!(f, "⊤"),
         }
     }
@@ -988,3 +1578,7 @@ impl SimpleValue {
 impl JoinSemiLattice for SimpleValue {
     fn join(&mut self, _other: &Self) {}
 }
+
+#[cfg(test)]
+#[path = "value_tests.rs"]
+mod value_tests;
