@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.7...jingle-v0.6.8) - 2026-03-07
+
+### Other
+
+- SimpleValuation comparison ops ([#213](https://github.com/toolCHAINZ/jingle/pull/213))
+
 ## [0.6.7](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.6...jingle-v0.6.7) - 2026-03-01
 
 ### Added
