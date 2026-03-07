@@ -304,8 +304,14 @@ fn or_variant_ordering() {
     // Or(entry, const)  =>  canonical form: const (rank 0) on left, entry (rank 1) on right
     let result = SimpleValue::or(SimpleValue::entry(vn_b()), SimpleValue::const_(7)).simplify();
     let or = result.as_or().expect("expected Or");
-    assert!(or.0.as_const().is_some(), "lower-rank const should be on left");
-    assert!(or.1.as_entry().is_some(), "higher-rank entry should be on right");
+    assert!(
+        or.0.as_const().is_some(),
+        "lower-rank const should be on left"
+    );
+    assert!(
+        or.1.as_entry().is_some(),
+        "higher-rank entry should be on right"
+    );
 }
 
 // --- XorExpr -----------------------------------------------------------------
@@ -434,8 +440,7 @@ fn int_less_top() {
 #[test]
 fn int_sless_const_folding_true() {
     // signed: -1 < 0
-    let result =
-        SimpleValue::int_sless(SimpleValue::const_(-1), SimpleValue::const_(0)).simplify();
+    let result = SimpleValue::int_sless(SimpleValue::const_(-1), SimpleValue::const_(0)).simplify();
     assert_eq!(result, SimpleValue::make_const(1, 1));
 }
 
@@ -505,11 +510,9 @@ fn int_less_equal_const_true_equal() {
 
 #[test]
 fn int_less_equal_self() {
-    let result = SimpleValue::int_less_equal(
-        SimpleValue::entry(vn_a()),
-        SimpleValue::entry(vn_a()),
-    )
-    .simplify();
+    let result =
+        SimpleValue::int_less_equal(SimpleValue::entry(vn_a()), SimpleValue::entry(vn_a()))
+            .simplify();
     assert_eq!(result, SimpleValue::make_const(1, 1));
 }
 
@@ -538,18 +541,15 @@ fn int_sless_equal_const_false() {
 
 #[test]
 fn int_sless_equal_self() {
-    let result = SimpleValue::int_sless_equal(
-        SimpleValue::entry(vn_a()),
-        SimpleValue::entry(vn_a()),
-    )
-    .simplify();
+    let result =
+        SimpleValue::int_sless_equal(SimpleValue::entry(vn_a()), SimpleValue::entry(vn_a()))
+            .simplify();
     assert_eq!(result, SimpleValue::make_const(1, 1));
 }
 
 #[test]
 fn int_sless_equal_top() {
-    let result =
-        SimpleValue::int_sless_equal(SimpleValue::Top, SimpleValue::const_(1)).simplify();
+    let result = SimpleValue::int_sless_equal(SimpleValue::Top, SimpleValue::const_(1)).simplify();
     assert_eq!(result, SimpleValue::Top);
 }
 
@@ -590,8 +590,7 @@ fn int_carry_64bit_overflow() {
 
 #[test]
 fn int_carry_top() {
-    let result =
-        SimpleValue::int_carry(SimpleValue::Top, SimpleValue::const_(1)).simplify();
+    let result = SimpleValue::int_carry(SimpleValue::Top, SimpleValue::const_(1)).simplify();
     assert_eq!(result, SimpleValue::Top);
 }
 
@@ -600,11 +599,9 @@ fn int_carry_top() {
 #[test]
 fn int_scarry_no_overflow() {
     // 1 + 1 = 2, no signed overflow for i8
-    let result = SimpleValue::int_scarry(
-        SimpleValue::make_const(1, 1),
-        SimpleValue::make_const(1, 1),
-    )
-    .simplify();
+    let result =
+        SimpleValue::int_scarry(SimpleValue::make_const(1, 1), SimpleValue::make_const(1, 1))
+            .simplify();
     assert_eq!(result, SimpleValue::make_const(0, 1));
 }
 
@@ -632,8 +629,7 @@ fn int_scarry_negative_no_overflow() {
 
 #[test]
 fn int_scarry_top() {
-    let result =
-        SimpleValue::int_scarry(SimpleValue::Top, SimpleValue::const_(1)).simplify();
+    let result = SimpleValue::int_scarry(SimpleValue::Top, SimpleValue::const_(1)).simplify();
     assert_eq!(result, SimpleValue::Top);
 }
 
@@ -642,19 +638,16 @@ fn int_scarry_top() {
 #[test]
 fn int_sborrow_no_overflow() {
     // 1 - 0 = 1, no signed borrow
-    let result = SimpleValue::int_sborrow(
-        SimpleValue::make_const(1, 1),
-        SimpleValue::make_const(0, 1),
-    )
-    .simplify();
+    let result =
+        SimpleValue::int_sborrow(SimpleValue::make_const(1, 1), SimpleValue::make_const(0, 1))
+            .simplify();
     assert_eq!(result, SimpleValue::make_const(0, 1));
 }
 
 #[test]
 fn int_sborrow_self() {
     let result =
-        SimpleValue::int_sborrow(SimpleValue::entry(vn_a()), SimpleValue::entry(vn_a()))
-            .simplify();
+        SimpleValue::int_sborrow(SimpleValue::entry(vn_a()), SimpleValue::entry(vn_a())).simplify();
     assert_eq!(result, SimpleValue::make_const(0, 1));
 }
 
@@ -671,8 +664,7 @@ fn int_sborrow_overflow() {
 
 #[test]
 fn int_sborrow_top() {
-    let result =
-        SimpleValue::int_sborrow(SimpleValue::Top, SimpleValue::const_(1)).simplify();
+    let result = SimpleValue::int_sborrow(SimpleValue::Top, SimpleValue::const_(1)).simplify();
     assert_eq!(result, SimpleValue::Top);
 }
 
@@ -702,7 +694,10 @@ fn popcount_top() {
 #[test]
 fn leaf_values_unchanged() {
     assert_eq!(SimpleValue::const_(5).simplify(), SimpleValue::const_(5));
-    assert_eq!(SimpleValue::entry(vn_a()).simplify(), SimpleValue::entry(vn_a()));
+    assert_eq!(
+        SimpleValue::entry(vn_a()).simplify(),
+        SimpleValue::entry(vn_a())
+    );
     assert_eq!(SimpleValue::Top.simplify(), SimpleValue::Top);
 }
 

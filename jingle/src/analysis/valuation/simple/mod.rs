@@ -224,7 +224,9 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, SimpleValue::int_equal(a, b).simplify());
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_equal(a, b).simplify());
                 }
             }
 
@@ -232,7 +234,9 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, SimpleValue::int_sless(a, b).simplify());
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_sless(a, b).simplify());
                 }
             }
 
@@ -240,14 +244,18 @@ impl SimpleValuationState {
                 let a = SimpleValue::from_varnode_or_entry(self, input0);
                 let b = SimpleValue::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, SimpleValue::int_less(a, b).simplify());
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::int_less(a, b).simplify());
                 }
             }
 
             PcodeOperation::PopCount { input, .. } => {
                 let a = SimpleValue::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, SimpleValue::popcount(a).simplify());
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::popcount(a).simplify());
                 }
             }
 

@@ -1196,7 +1196,11 @@ impl Simplify for IntSCarry {
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let n = a_vn.size() * 8;
-            let mask = if n == 64 { u64::MAX } else { (1u64 << n).wrapping_sub(1) };
+            let mask = if n == 64 {
+                u64::MAX
+            } else {
+                (1u64 << n).wrapping_sub(1)
+            };
             let sign_mask = 1u64 << (n - 1);
             let a_val = a_vn.offset() & mask;
             let b_val = b_vn.offset() & mask;
@@ -1220,7 +1224,11 @@ impl Simplify for IntSBorrow {
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let n = a_vn.size() * 8;
-            let mask = if n == 64 { u64::MAX } else { (1u64 << n).wrapping_sub(1) };
+            let mask = if n == 64 {
+                u64::MAX
+            } else {
+                (1u64 << n).wrapping_sub(1)
+            };
             let sign_mask = 1u64 << (n - 1);
             let a_val = a_vn.offset() & mask;
             let b_val = b_vn.offset() & mask;
