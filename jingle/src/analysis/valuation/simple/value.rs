@@ -769,13 +769,13 @@ impl Simplify for SubExpr {
                     let size =
                         std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
 
-                    // If res is negative, create Sub instead of Add to avoid infinite loop
+                    // res = a - b (net constant); positive → Add, negative → Sub with -res
                     if res < 0 {
                         let new_const = SimpleValue::make_const(-res, size as u32);
-                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
                         let new_const = SimpleValue::make_const(res, size as u32);
-                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
             }
@@ -1570,3 +1570,7 @@ impl SimpleValue {
 impl JoinSemiLattice for SimpleValue {
     fn join(&mut self, _other: &Self) {}
 }
+
+#[cfg(test)]
+#[path = "value_tests.rs"]
+mod value_tests;
