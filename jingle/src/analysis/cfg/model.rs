@@ -1,7 +1,6 @@
 use crate::JingleError;
-// use crate::analysis::compound::CompoundState;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::LocationState;
+use crate::analysis::cpa::state::PcodeLocation;
 use crate::analysis::pcode_store::PcodeOpRef;
 use crate::modeling::machine::MachineState;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -43,10 +42,20 @@ impl CfgStateModel for MachineState {
     }
 }
 
+/// Minimal requirement for a node in a `PcodeCfg`.
+///
+/// Any type that is also `AbstractState + PcodeLocation + Hash + Eq` satisfies
+/// this trait via the blanket impl below; no explicit implementation is needed.
+pub trait CfgNode: PcodeLocation + Clone + Debug + Hash + Eq {}
+
+impl<T: PcodeLocation + Clone + Debug + Hash + Eq> CfgNode for T {}
+
 /// A trait for types that support generating SMT models for pcode states. These states (and models)
 /// may also include metadata outside the pcode state, such as unwinding counts and observer
 /// automata states.
-pub trait CfgState: Clone + Debug + Hash + Eq {
+///
+/// `location()` and `concrete_location()` are inherited from [`PcodeLocation`] via [`CfgNode`].
+pub trait CfgState: CfgNode {
     /// A type representing a model of a [`CfgState`]
     type Model: CfgStateModel;
 
@@ -55,14 +64,6 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
 
     /// Prefix used when producing SMT models of this state with `fresh`
     fn model_id(&self) -> String;
-
-    fn location(&self) -> PcodeAddressLattice;
-    /// Each CFG state is optionally associated with a concrete p-code address
-    /// todo: Rename this to concrete_location. Require implementers to implement
-    /// location() -> PcodeAddressLattice and provide concrete_location() by default
-    fn concrete_location(&self) -> Option<ConcretePcodeAddress> {
-        self.location().get_location()
-    }
 }
 
 /// A trait representing the transition of states by a [`PcodeOperation`] or a sequence of
@@ -71,6 +72,12 @@ pub trait CfgState: Clone + Debug + Hash + Eq {
 /// This reprresents transitions between the beginning and end of a node in a pcode CFG
 pub trait ModelTransition<S: CfgStateModel>: Clone + Debug {
     fn transition(&self, init: &S) -> Result<S, JingleError>;
+}
+
+impl PcodeLocation for ConcretePcodeAddress {
+    fn location(&self) -> PcodeAddressLattice {
+        PcodeAddressLattice::Const(*self)
+    }
 }
 
 impl CfgState for ConcretePcodeAddress {
@@ -82,10 +89,6 @@ impl CfgState for ConcretePcodeAddress {
 
     fn model_id(&self) -> String {
         format!("State_PC_{:x}_{:x}", self.machine, self.pcode)
-    }
-
-    fn location(&self) -> PcodeAddressLattice {
-        PcodeAddressLattice::Const(*self)
     }
 }
 

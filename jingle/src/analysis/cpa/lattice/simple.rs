@@ -1,5 +1,6 @@
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::lattice::{JoinSemiLattice, PartialJoinSemiLattice};
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor};
 use crate::analysis::pcode_store::PcodeStore;
 use jingle_sleigh::PcodeOperation;
 use std::borrow::Borrow;
@@ -87,6 +88,15 @@ impl<S: AbstractState + PartialJoinSemiLattice> AbstractState for SimpleLattice<
     }
 }
 
+impl<S: LocationState + AbstractState + PartialJoinSemiLattice> PcodeLocation for SimpleLattice<S> {
+    fn location(&self) -> PcodeAddressLattice {
+        match self {
+            SimpleLattice::Value(v) => v.location(),
+            SimpleLattice::Top => PcodeAddressLattice::Top,
+        }
+    }
+}
+
 impl<S: LocationState + AbstractState + PartialJoinSemiLattice> LocationState for SimpleLattice<S> {
     fn get_operation<'op, T: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
         &self,
@@ -96,11 +106,5 @@ impl<S: LocationState + AbstractState + PartialJoinSemiLattice> LocationState fo
             SimpleLattice::Value(a) => a.get_operation(t),
             SimpleLattice::Top => None,
         }
-    }
-
-    fn get_location(
-        &self,
-    ) -> Option<crate::modeling::machine::cpu::concrete::ConcretePcodeAddress> {
-        self.value().and_then(|c| c.get_location())
     }
 }

@@ -1,5 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, Successor};
+use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor};
 use crate::analysis::valuation::SimpleValue;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -188,6 +188,12 @@ impl AbstractState for PcodeAddressLattice {
     }
 }
 
+impl PcodeLocation for PcodeAddressLattice {
+    fn location(&self) -> PcodeAddressLattice {
+        self.clone()
+    }
+}
+
 impl LocationState for PcodeAddressLattice {
     fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore<'a> + ?Sized>(
         &self,
@@ -199,10 +205,6 @@ impl LocationState for PcodeAddressLattice {
             | PcodeAddressLattice::Computed(_)
             | PcodeAddressLattice::Top => None,
         }
-    }
-
-    fn get_location(&self) -> Option<ConcretePcodeAddress> {
-        self.value().cloned()
     }
 }
 

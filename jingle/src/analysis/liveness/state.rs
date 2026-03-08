@@ -42,6 +42,26 @@ impl LivenessState {
     pub fn live_varnodes(&self) -> impl Iterator<Item = VarNode> + '_ {
         self.live.varnodes()
     }
+
+    /// Returns `true` if `vn` is live at this program point.
+    ///
+    /// Uses `VarNodeSet::covers` which handles overlapping ranges correctly.
+    #[must_use]
+    pub fn is_live(&self, vn: &VarNode) -> bool {
+        self.live.covers(vn)
+    }
+
+    /// Compute `live_in = reads(op) ∪ (live_out − kill(op))` — the backward transfer.
+    ///
+    /// Returns the liveness state on entry to `op`, given `self` as the liveness
+    /// state on exit. Used by [`super::cpa_state::LivenessCpaState::transfer`].
+    pub(crate) fn apply_transfer(&self, op: &PcodeOperation) -> Self {
+        let (reads, kill) = reads_kill(op);
+        let mut new_live = self.live.clone();
+        new_live.subtract(&kill);
+        new_live.union(&reads);
+        Self { live: new_live }
+    }
 }
 
 /// Compute the reads and kill sets for a single pcode operation.
@@ -51,7 +71,7 @@ impl LivenessState {
 /// - **kill**: the single direct output varnode, if any.  Indirect outputs
 ///   (memory stores) conservatively produce no kill so we over-approximate
 ///   the live set.
-fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
+pub(crate) fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
     let mut reads = VarNodeSet::default();
     let mut kill = VarNodeSet::default();
 

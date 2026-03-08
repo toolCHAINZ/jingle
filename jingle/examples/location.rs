@@ -4,7 +4,7 @@ use jingle::analysis::Analysis;
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
-use jingle::analysis::cpa::state::LocationState;
+use jingle::analysis::cpa::state::{LocationState, PcodeLocation};
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
@@ -33,14 +33,14 @@ fn main() {
         // `node` is a tuple like `(DirectLocationState, BoundedBranchState)`.
         // Call `get_location` on the first element (the location-carrying component)
         // to avoid requiring trait-method resolution on the tuple itself.
-        match node.get_location() {
+        match node.concrete_location() {
             Some(a) => println!("{:x}", a),
             None => println!("(no location)"),
         }
     }
     let leaf = pcode_graph.leaf_nodes().collect::<Vec<_>>();
     for node in leaf {
-        match node.get_location() {
+        match node.concrete_location() {
             Some(a) => println!("leaf: {:x}", a),
             None => println!("leaf: (no location)"),
         }

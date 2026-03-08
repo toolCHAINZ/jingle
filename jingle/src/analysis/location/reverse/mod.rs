@@ -1,12 +1,12 @@
 use std::fmt::Display;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-use jingle_sleigh::PcodeOperation;
-
-use crate::analysis::cfg::{CfgState, PcodeCfg};
+use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::VecReducer;
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState, RunnableConfigurableProgramAnalysis};
+use crate::analysis::linkage::PcodeReverseLinkage;
 use crate::analysis::pcode_store::PcodeStore;
 
 pub mod state;
@@ -15,51 +15,58 @@ pub use state::ReverseLocationState;
 
 /// A CPA that traverses the CFG in reverse, following backward edges.
 ///
-/// Wraps a pre-built [`PcodeCfg`] and provides predecessor-based transfer:
+/// Wraps a [`PcodeReverseLinkage<N>`] and provides predecessor-based transfer:
 /// for each node, `transfer` yields all forward-CFG predecessors, enabling
 /// backward dataflow analyses (e.g. liveness) when composed with a suitable
 /// secondary CPA.
-pub struct ReverseLocationAnalysis<N: CfgState> {
-    cfg: Arc<PcodeCfg<N, PcodeOperation>>,
+pub struct ReverseLocationAnalysis<N: CfgState, L: PcodeReverseLinkage<N>> {
+    linkage: Arc<L>,
+    _phantom: PhantomData<N>,
 }
 
-impl<N: CfgState> ReverseLocationAnalysis<N> {
-    /// Construct a reverse analysis from an existing forward CFG.
+impl<N: CfgState, L: PcodeReverseLinkage<N>> ReverseLocationAnalysis<N, L> {
+    /// Construct a reverse analysis from any [`PcodeReverseLinkage`] implementor.
     #[must_use]
-    pub fn new(cfg: Arc<PcodeCfg<N, PcodeOperation>>) -> Self {
-        Self { cfg }
+    pub fn new(linkage: Arc<L>) -> Self {
+        Self {
+            linkage,
+            _phantom: PhantomData,
+        }
     }
 
-    /// Return a reference to the underlying forward CFG.
+    /// Return a reference to the underlying linkage.
     #[must_use]
-    pub fn cfg(&self) -> &PcodeCfg<N, PcodeOperation> {
-        &self.cfg
+    pub fn linkage(&self) -> &L {
+        &self.linkage
     }
 }
 
-impl<N> ConfigurableProgramAnalysis for ReverseLocationAnalysis<N>
+impl<N, L> ConfigurableProgramAnalysis for ReverseLocationAnalysis<N, L>
 where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
+    L: PcodeReverseLinkage<N> + 'static,
 {
-    type State = ReverseLocationState<N>;
+    type State = ReverseLocationState<N, L>;
     type Reducer<'op> = VecReducer;
 }
 
-impl<N> IntoState<ReverseLocationAnalysis<N>> for N
+impl<N, L> IntoState<ReverseLocationAnalysis<N, L>> for N
 where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
+    L: PcodeReverseLinkage<N> + 'static,
 {
-    fn into_state(self, c: &ReverseLocationAnalysis<N>) -> ReverseLocationState<N> {
+    fn into_state(self, c: &ReverseLocationAnalysis<N, L>) -> ReverseLocationState<N, L> {
         ReverseLocationState {
             inner: self,
-            cfg: Arc::clone(&c.cfg),
+            linkage: Arc::clone(&c.linkage),
         }
     }
 }
 
-impl<N> ReverseLocationAnalysis<N>
+impl<N, L> ReverseLocationAnalysis<N, L>
 where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
+    L: PcodeReverseLinkage<N> + 'static,
 {
     /// Run the reverse analysis from every leaf node of the forward CFG,
     /// collecting all reached states into a single `Vec`.
@@ -71,12 +78,15 @@ where
     pub fn run_from_leaves<'op, T: PcodeStore<'op> + ?Sized>(
         &self,
         store: &'op T,
-    ) -> Vec<ReverseLocationState<N>> {
+    ) -> Vec<ReverseLocationState<N, L>>
+    where
+        ReverseLocationState<N, L>: 'op,
+    {
         let mut all = Vec::new();
-        for leaf in self.cfg.leaf_nodes() {
+        for leaf in self.linkage.leaf_nodes() {
             let initial = ReverseLocationState {
-                inner: leaf.clone(),
-                cfg: Arc::clone(&self.cfg),
+                inner: leaf,
+                linkage: Arc::clone(&self.linkage),
             };
             let results = self.run_cpa(initial, store);
             all.extend(results);
