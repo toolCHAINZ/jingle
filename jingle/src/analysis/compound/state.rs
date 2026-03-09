@@ -1,13 +1,11 @@
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::{LocationState, PcodeLocation};
-use crate::{
-    analysis::{
-        cfg::CfgState,
-        compound::strengthen::ComponentStrengthen,
-        cpa::{
-            lattice::JoinSemiLattice,
-            state::{AbstractState, MergeOutcome, Successor},
-        },
+use crate::analysis::{
+    cfg::CfgState,
+    compound::strengthen::ComponentStrengthen,
+    cpa::{
+        lattice::JoinSemiLattice,
+        state::{AbstractState, MergeOutcome, Successor},
     },
 };
 use itertools::iproduct;

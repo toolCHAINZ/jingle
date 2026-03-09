@@ -1,5 +1,7 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor};
+use crate::analysis::cpa::state::{
+    AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor,
+};
 use crate::analysis::valuation::SimpleValue;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;

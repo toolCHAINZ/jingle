@@ -5,8 +5,8 @@ use std::sync::Arc;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 
 use crate::analysis::cfg::{CfgState, PcodeCfg};
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::PcodeLocation;
 use crate::analysis::liveness::{LivenessAnalysis, LivenessState};
 use crate::analysis::pcode_store::PcodeStore;

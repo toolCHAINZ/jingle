@@ -1,8 +1,8 @@
+pub use crate::analysis::cpa::state::PcodeLocation;
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
 pub use model::{CfgNode, CfgState, CfgStateModel, ModelTransition};
-pub use crate::analysis::cpa::state::PcodeLocation;
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::StableDiGraph;

@@ -1,7 +1,6 @@
 use itertools::Itertools;
 
-use crate::analysis::cfg::model::ModelTransition;
-use crate::analysis::cfg::{CfgNode, CfgState, PcodeCfg};
+use crate::analysis::cfg::{CfgNode, PcodeCfg};
 
 /// Provides forward CFG traversal: successors, entries, and leaves.
 pub trait PcodeLinkage<N: CfgNode> {

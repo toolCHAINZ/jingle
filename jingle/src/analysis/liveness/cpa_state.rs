@@ -8,7 +8,9 @@ use jingle_sleigh::PcodeOperation;
 
 use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor};
+use crate::analysis::cpa::state::{
+    AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor,
+};
 use crate::analysis::linkage::PcodeReverseLinkage;
 use crate::analysis::liveness::state::LivenessState;
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
@@ -94,7 +96,9 @@ impl<N: CfgState + Display, L: PcodeReverseLinkage<N>> Display for LivenessCpaSt
 
 // --- JoinSemiLattice: join on live set ---
 
-impl<N: CfgState + PartialOrd, L: PcodeReverseLinkage<N>> JoinSemiLattice for LivenessCpaState<N, L> {
+impl<N: CfgState + PartialOrd, L: PcodeReverseLinkage<N>> JoinSemiLattice
+    for LivenessCpaState<N, L>
+{
     fn join(&mut self, other: &Self) {
         self.live.join(&other.live);
     }
@@ -158,7 +162,10 @@ where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
     L: PcodeReverseLinkage<N> + 'static,
 {
-    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(&self, t: &'op T) -> Option<PcodeOpRef<'op>> {
+    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(
+        &self,
+        t: &'op T,
+    ) -> Option<PcodeOpRef<'op>> {
         let addr = self.location.concrete_location()?;
         t.get_pcode_op_at(addr)
     }

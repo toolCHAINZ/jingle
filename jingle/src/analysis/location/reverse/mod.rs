@@ -5,7 +5,9 @@ use std::sync::Arc;
 use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::VecReducer;
-use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState, RunnableConfigurableProgramAnalysis};
+use crate::analysis::cpa::{
+    ConfigurableProgramAnalysis, IntoState, RunnableConfigurableProgramAnalysis,
+};
 use crate::analysis::linkage::PcodeReverseLinkage;
 use crate::analysis::pcode_store::PcodeStore;
 

@@ -1,5 +1,5 @@
-use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;

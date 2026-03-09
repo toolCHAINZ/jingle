@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crate::analysis::cfg::CfgState;
+use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::Residue;
 use crate::analysis::linkage::PcodeReverseLinkage;
 use crate::analysis::liveness::cpa_state::LivenessCpaState;
 use crate::analysis::liveness::state::LivenessState;
-use crate::analysis::cpa::lattice::JoinSemiLattice;
 
 /// Reducer that folds all reached [`LivenessCpaState`] values into a
 /// `HashMap` keyed by the CFG node, with liveness sets joined across

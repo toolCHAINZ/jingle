@@ -8,7 +8,9 @@ use jingle_sleigh::PcodeOperation;
 
 use crate::analysis::cfg::CfgState;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
-use crate::analysis::cpa::state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor};
+use crate::analysis::cpa::state::{
+    AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor,
+};
 use crate::analysis::linkage::PcodeReverseLinkage;
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 
@@ -125,7 +127,10 @@ where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
     L: PcodeReverseLinkage<N> + 'static,
 {
-    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(&self, t: &'op T) -> Option<PcodeOpRef<'op>> {
+    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(
+        &self,
+        t: &'op T,
+    ) -> Option<PcodeOpRef<'op>> {
         let addr = self.inner.concrete_location()?;
         t.get_pcode_op_at(addr)
     }
