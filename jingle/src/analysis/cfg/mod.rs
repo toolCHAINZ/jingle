@@ -1,4 +1,5 @@
 pub use crate::analysis::cpa::state::PcodeLocation;
+use crate::analysis::dominators::{DominatorTree, PostDominatorTree};
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
@@ -302,6 +303,16 @@ impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
         self.graph
             .externals(Direction::Incoming)
             .map(move |idx| self.graph.node_weight(idx).unwrap())
+    }
+
+    /// Compute the dominator tree for this CFG.
+    pub fn dominator_tree(&self) -> DominatorTree<N> {
+        DominatorTree::compute(self)
+    }
+
+    /// Compute the post-dominator tree for this CFG.
+    pub fn post_dominator_tree(&self) -> PostDominatorTree<N> {
+        PostDominatorTree::compute(self)
     }
 
     pub fn edge_weights(&self) -> impl Iterator<Item = &D> {

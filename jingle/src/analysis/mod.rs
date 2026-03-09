@@ -10,6 +10,7 @@ pub mod cfg;
 pub mod compound;
 pub mod cpa;
 pub mod ctl;
+pub mod dominators;
 pub mod linkage;
 pub mod liveness;
 pub mod location;
