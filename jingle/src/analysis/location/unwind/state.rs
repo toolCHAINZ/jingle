@@ -105,7 +105,7 @@ impl UnwindingState {
 
     /// Move to a new location, updating visited set and back-edge counts
     fn move_to<L: LocationState>(&mut self, other: &L) {
-        if let Some(new_location) = other.get_location() {
+        if let Some(new_location) = other.concrete_location() {
             // Check if this is a back-edge (new_location is already in visited set)
             if let Some(idx) = self.dominators.iter().position(|p| p == &new_location) {
                 let edge = (self.location, new_location);

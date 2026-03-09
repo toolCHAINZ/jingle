@@ -14,7 +14,7 @@ use crate::{
         cpa::{
             ConfigurableProgramAnalysis, IntoState,
             lattice::{JoinSemiLattice, pcode::PcodeAddressLattice},
-            state::{AbstractState, LocationState, MergeOutcome, Successor},
+            state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor},
         },
         location::basic::BasicLocationAnalysis,
         valuation::{SimpleValuationState, SimpleValue},
@@ -164,16 +164,18 @@ impl AbstractState for BasicLocationState {
     }
 }
 
+impl PcodeLocation for BasicLocationState {
+    fn location(&self) -> PcodeAddressLattice {
+        self.inner.clone()
+    }
+}
+
 impl LocationState for BasicLocationState {
     fn get_operation<'op, T: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
         &self,
         t: &'op T,
     ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
         self.inner.get_operation(t)
-    }
-
-    fn get_location(&self) -> Option<ConcretePcodeAddress> {
-        self.inner.value().cloned()
     }
 }
 
@@ -216,10 +218,6 @@ impl CfgState for BasicLocationState {
             PcodeAddressLattice::Indirect(_) => "State_Indirect_".to_string(),
             PcodeAddressLattice::Computed(_) => "State_Computed_".to_string(),
         }
-    }
-
-    fn location(&self) -> PcodeAddressLattice {
-        self.inner.clone()
     }
 }
 

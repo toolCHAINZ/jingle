@@ -15,6 +15,7 @@
 
 mod basic;
 mod bound;
+pub mod reverse;
 mod unwind;
 
 pub use basic::BasicLocationAnalysis;
@@ -25,6 +26,9 @@ pub use basic::state::CallBehavior;
 
 pub use bound::BoundedBranchAnalysis;
 pub use bound::state::BoundedBranchState;
+
+pub use reverse::ReverseLocationAnalysis;
+pub use reverse::state::ReverseLocationState;
 
 pub use unwind::UnwindingAnalysis;
 pub use unwind::state::UnwindingState;

@@ -1,7 +1,8 @@
+pub use crate::analysis::cpa::state::PcodeLocation;
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{PcodeOperation, SleighArchInfo};
-pub use model::{CfgState, CfgStateModel, ModelTransition};
+pub use model::{CfgNode, CfgState, CfgStateModel, ModelTransition};
 use petgraph::Direction;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::StableDiGraph;
@@ -28,7 +29,7 @@ impl LowerHex for EmptyEdge {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PcodeCfg<N, D> {
     pub(crate) graph: StableDiGraph<N, EmptyEdge>,
     // Key pcode ops by concrete p-code address so lookups by address are efficient.
@@ -98,19 +99,19 @@ impl<'a, N: CfgState, D: ModelTransition<N::Model>> PcodeCfgVisitor<'a, N, D> {
     }
 }
 
-impl<N: CfgState, D: ModelTransition<N::Model>> Default for PcodeCfg<N, D> {
+impl<N: CfgNode, D> Default for PcodeCfg<N, D> {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
-    pub fn new() -> Self {
         Self {
             graph: Default::default(),
             ops: Default::default(),
             indices: Default::default(),
         }
+    }
+}
+
+impl<N: CfgNode, D> PcodeCfg<N, D> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn graph(&self) -> &StableDiGraph<N, EmptyEdge> {
@@ -145,7 +146,9 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
             self.indices.insert(node.clone(), idx);
         }
     }
+}
 
+impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
     pub fn replace_and_combine_nodes<T: Borrow<N>, S: Borrow<N>>(
         &mut self,
         old_weight: T,
@@ -309,11 +312,6 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
         self.nodes().filter(move |a| location == **a)
     }
 
-    /// Create a `ModeledPcodeCfg` by generating SMT models for all nodes in the CFG.
-    pub fn smt_model(self, info: SleighArchInfo) -> ModeledPcodeCfg<N, D> {
-        ModeledPcodeCfg::new(self, info)
-    }
-
     /// Build a sub-CFG from a set of `NodeIndex` values.
     ///
     /// This will include:
@@ -405,7 +403,14 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 }
 
-impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOperation> {
+impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
+    /// Create a `ModeledPcodeCfg` by generating SMT models for all nodes in the CFG.
+    pub fn smt_model(self, info: SleighArchInfo) -> ModeledPcodeCfg<N, D> {
+        ModeledPcodeCfg::new(self, info)
+    }
+}
+
+impl<'op, L: CfgNode> PcodeStore<'op> for PcodeCfg<L, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
         &'op self,
         addr: T,
@@ -416,7 +421,7 @@ impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOperation> {
     }
 }
 
-impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOpRef<'op>> {
+impl<'op, L: CfgNode> PcodeStore<'op> for PcodeCfg<L, PcodeOpRef<'op>> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
         &'op self,
         addr: T,
@@ -432,11 +437,11 @@ impl<'op, L: CfgState> PcodeStore<'op> for PcodeCfg<L, PcodeOpRef<'op>> {
 
 /// Trait providing a `basic_blocks` transformation for CFGs whose op storage type
 /// can yield a reference to a `PcodeOperation` via `AsRef<PcodeOperation>`.
-pub trait BasicBlocks<N: CfgState> {
+pub trait BasicBlocks<N: CfgNode> {
     fn basic_blocks(&self) -> PcodeCfg<N, Vec<PcodeOperation>>;
 }
 
-impl<N: CfgState, D: AsRef<PcodeOperation>> BasicBlocks<N> for PcodeCfg<N, D>
+impl<N: CfgNode, D: AsRef<PcodeOperation>> BasicBlocks<N> for PcodeCfg<N, D>
 where
     PcodeOperation: Clone,
 {

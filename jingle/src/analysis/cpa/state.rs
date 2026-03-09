@@ -1,4 +1,5 @@
 use crate::analysis::cpa::lattice::JoinSemiLattice;
+use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::pcode_store::{PcodeOpRef, PcodeStore};
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::PcodeOperation;
@@ -183,8 +184,18 @@ pub trait AbstractState: JoinSemiLattice + Clone + Debug + Display {
     fn transfer<'a, B: Borrow<PcodeOperation>>(&'a self, opcode: B) -> Successor<'a, Self>;
 }
 
+/// States that have a program location.
+pub trait PcodeLocation {
+    fn location(&self) -> PcodeAddressLattice;
+
+    /// Returns the concrete p-code address for this state, if one exists.
+    fn concrete_location(&self) -> Option<ConcretePcodeAddress> {
+        self.location().value().cloned()
+    }
+}
+
 /// States that know their program location.
-pub trait LocationState: AbstractState {
+pub trait LocationState: AbstractState + PcodeLocation {
     /// Retrieve the p-code operation for this location from a pcode store.
     ///
     /// Relaxed lifetime: the returned operation borrows from the provided
@@ -193,5 +204,4 @@ pub trait LocationState: AbstractState {
     /// tied to the store borrow without forcing the state to outlive that borrow.
     fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(&self, t: &'op T)
     -> Option<PcodeOpRef<'op>>;
-    fn get_location(&self) -> Option<ConcretePcodeAddress>;
 }

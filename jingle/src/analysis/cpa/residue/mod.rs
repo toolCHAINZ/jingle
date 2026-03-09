@@ -1,4 +1,5 @@
 pub mod cfg;
+pub mod liveness_map;
 pub mod terminating;
 pub mod vec;
 
@@ -152,5 +153,6 @@ where
 // These are provided by the child modules above (`cfg`, `vec`, and `final`) and
 // exposed here so consumers can write `use crate::analysis::cpa::residue::CFG;`.
 pub use self::cfg::{CFG, CfgReducer, CfgReducerFactory};
+pub use self::liveness_map::LivenessMapReducer;
 pub use self::terminating::TerminatingReducer;
 pub use self::vec::{VEC, VecReducer, VecReducerFactory};

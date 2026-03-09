@@ -1,15 +1,12 @@
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
-use crate::analysis::cpa::state::LocationState;
-use crate::{
-    analysis::{
-        cfg::CfgState,
-        compound::strengthen::ComponentStrengthen,
-        cpa::{
-            lattice::JoinSemiLattice,
-            state::{AbstractState, MergeOutcome, Successor},
-        },
+use crate::analysis::cpa::state::{LocationState, PcodeLocation};
+use crate::analysis::{
+    cfg::CfgState,
+    compound::strengthen::ComponentStrengthen,
+    cpa::{
+        lattice::JoinSemiLattice,
+        state::{AbstractState, MergeOutcome, Successor},
     },
-    modeling::machine::cpu::concrete::ConcretePcodeAddress,
 };
 use itertools::iproduct;
 use jingle_sleigh::SleighArchInfo;
@@ -143,6 +140,13 @@ macro_rules! named_tuple {
             }
         }
 
+        // PcodeLocation implementation: delegate to the first (location-carrying) field.
+        impl<$F: PcodeLocation, $( $T ),+> PcodeLocation for $name<$F, $( $T ),+> {
+            fn location(&self) -> PcodeAddressLattice {
+                self.$first_field.location()
+            }
+        }
+
         // CfgState implementation: use the first component for model and location.
         impl<$F: CfgState, $( $T: Display + Clone + Debug + Hash + Eq ),+> CfgState for $name<$F, $( $T ),+> {
             type Model = $F::Model;
@@ -159,10 +163,6 @@ macro_rules! named_tuple {
                     id = format!("{}_{}", id, &self.$field);
                 )+
                 id
-            }
-
-            fn location(&self) -> PcodeAddressLattice {
-                self.$first_field.location()
             }
         }
 
@@ -190,10 +190,6 @@ macro_rules! named_tuple {
                 t: &'op P,
             ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
                 self.$first_field.get_operation(t)
-            }
-
-            fn get_location(&self) -> Option<ConcretePcodeAddress> {
-                self.$first_field.get_location()
             }
         }
     };

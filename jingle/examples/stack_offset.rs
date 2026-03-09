@@ -4,7 +4,7 @@ use jingle::analysis::Analysis;
 use jingle::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
-use jingle::analysis::cpa::state::LocationState;
+use jingle::analysis::cpa::state::{LocationState, PcodeLocation};
 use jingle::analysis::cpa::{RunnableConfigurableProgramAnalysis, TerminatingReducer};
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
@@ -71,7 +71,7 @@ fn main() {
     // Use `cloned()` to get owned tuples so we can inspect and store values.
     for node in cfg.nodes().cloned() {
         // Extract the concrete program location (if any) from the left component.
-        if let Some(addr) = node.s1.get_location() {
+        if let Some(addr) = node.s1.concrete_location() {
             // Extract stack pointer info from the DirectValuationState (right component).
             if let Some(sp_value) = node.s2.get_value(&stack_pointer) {
                 stack_offsets.insert(addr, sp_value.clone());
@@ -86,7 +86,7 @@ fn main() {
 
     // List CFG nodes (program locations)
     let mut locations: Vec<ConcretePcodeAddress> =
-        cfg.nodes().filter_map(|n| n.get_location()).collect();
+        cfg.nodes().filter_map(|n| n.concrete_location()).collect();
     locations.sort_by_key(|a| *a);
 
     println!("CFG nodes (program locations): {}", locations.len());
@@ -116,14 +116,14 @@ fn main() {
     let node_refs = cfg.nodes().collect::<Vec<_>>();
     for node in node_refs {
         let origin_str = node
-            .get_location()
+            .concrete_location()
             .map(|a| format!("0x{:x}", a))
             .unwrap_or_else(|| "(no loc)".to_string());
 
         if let Some(successors) = cfg.successors(node) {
             for succ in successors {
                 let succ_str = succ
-                    .get_location()
+                    .concrete_location()
                     .map(|a| format!("0x{:x}", a))
                     .unwrap_or_else(|| "(no loc)".to_string());
 
@@ -142,11 +142,11 @@ fn main() {
     println!("\nLeaf nodes: {}", leaf_nodes.len());
     for leaf in &leaf_nodes {
         let leaf_loc = leaf
-            .get_location()
+            .concrete_location()
             .map(|a| format!("0x{:x}", a))
             .unwrap_or_else(|| "(no loc)".to_string());
         let offset_info = leaf
-            .get_location()
+            .concrete_location()
             .and_then(|a| stack_offsets.get(&a))
             .map(|value| format!("{}", value.display(loaded.arch_info())))
             .unwrap_or_default();
@@ -154,7 +154,7 @@ fn main() {
         println!("  {} {}", leaf_loc, offset_info);
 
         // Print detailed DirectValuationState for this leaf (if available)
-        if let Some(addr) = leaf.get_location() {
+        if let Some(addr) = leaf.concrete_location() {
             if let Some(state) = direct_valuations.get(&addr) {
                 let count = state.written_locations().len();
                 println!("    DirectValuationState: {} tracked varnode(s)", count);

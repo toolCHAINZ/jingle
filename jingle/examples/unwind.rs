@@ -3,7 +3,7 @@
 use jingle::analysis::cpa::RunnableConfigurableProgramAnalysis;
 use jingle::analysis::cpa::residue::CFG;
 use jingle::analysis::cpa::residue::Residue;
-use jingle::analysis::cpa::state::LocationState;
+use jingle::analysis::cpa::state::{LocationState, PcodeLocation};
 use jingle::analysis::location::{CallBehavior, UnwindingAnalysis};
 use jingle::analysis::{Analysis, location::BasicLocationAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -58,7 +58,7 @@ fn main() {
 
     println!("CFG nodes (unwound states): {}", cfg.nodes().count());
 
-    let mut locations: Vec<_> = cfg.nodes().filter_map(|n| n.get_location()).collect();
+    let mut locations: Vec<_> = cfg.nodes().filter_map(|n| n.concrete_location()).collect();
     locations.sort();
     locations.dedup();
 
@@ -66,7 +66,7 @@ fn main() {
     for loc in &locations {
         let count = cfg
             .nodes()
-            .filter(|n| n.get_location() == Some(*loc))
+            .filter(|n| n.concrete_location() == Some(*loc))
             .count();
         println!("  0x{:x} (visited {} times)", loc, count);
     }
