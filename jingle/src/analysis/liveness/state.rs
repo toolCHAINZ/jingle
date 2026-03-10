@@ -80,6 +80,31 @@ pub(crate) fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
     ) {
         return (reads, kill);
     }
+
+    match op {
+        PcodeOperation::Branch { .. } | PcodeOperation::Fallthrough { .. } => {
+            return (reads, kill);
+        }
+        PcodeOperation::CBranch { input1, .. } => {
+            reads.insert(&input1);
+            return (reads, kill);
+        }
+        PcodeOperation::Call {
+            args, call_info, ..
+        } => {
+            for arg in args {
+                reads.insert(arg);
+            }
+            if let Some(call_info) = call_info {
+                for ele in &call_info.killed_regs {
+                    kill.insert(ele);
+                }
+            }
+            return (reads, kill);
+        }
+        _ => {}
+    }
+
     for input in op
         .inputs()
         .iter()
