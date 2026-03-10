@@ -74,8 +74,17 @@ impl LivenessState {
 pub(crate) fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
     let mut reads = VarNodeSet::default();
     let mut kill = VarNodeSet::default();
-
-    for input in op.inputs() {
+    if matches!(
+        op,
+        PcodeOperation::Branch { .. } | PcodeOperation::Fallthrough { .. }
+    ) {
+        return (reads, kill);
+    }
+    for input in op
+        .inputs()
+        .iter()
+        .filter(|i| i.space_index() != VarNode::CONST_SPACE_INDEX as usize)
+    {
         match input {
             GeneralizedVarNode::Direct(vn) => reads.insert(&vn),
             GeneralizedVarNode::Indirect(ivn) => reads.insert(ivn.pointer_location()),

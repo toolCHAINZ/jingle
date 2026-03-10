@@ -9,6 +9,7 @@ use crate::analysis::valuation::simple::valuation::SimpleValuation;
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use itertools::Merge;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -451,7 +452,18 @@ impl JoinSemiLattice for SimpleValuationState {
                     }
                 }
                 None => {
-                    self.valuation.add(key.clone(), other_val.clone());
+                    match self.merge_behavior {
+                        MergeBehavior::Or => {
+                            let entry = SimpleValue::from_varnode_or_entry(self, key);
+                            let or = SimpleValue::or(entry, other_val.clone());
+                            self.valuation.add(key.clone(), or.simplify());
+                        }
+                        MergeBehavior::Top => {
+                            // If the other state has a direct write that we don't, we have to assume it could be anything.
+                            self.valuation.add(key.clone(), SimpleValue::Top);
+                            continue;
+                        }
+                    }
                 }
             }
         }
