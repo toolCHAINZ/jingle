@@ -2,9 +2,11 @@ use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use jingle_sleigh::{PcodeOperation, SleighArchInfo};
+use jingle_sleigh::{SleighArchInfo, VarNode};
 
 use crate::analysis::cfg::{CfgState, PcodeCfg};
+use crate::analysis::linkage::CfgLinkage;
+use crate::display::JingleDisplay;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::PcodeLocation;
@@ -56,6 +58,24 @@ impl<N: CfgState> PcodeLocation for LivenessAnnotated<N> {
     }
 }
 
+impl<N: CfgState + JingleDisplay> JingleDisplay for LivenessAnnotated<N> {
+    fn fmt_jingle(&self, f: &mut std::fmt::Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+        self.node.fmt_jingle(f, info)?;
+        let mut live: Vec<VarNode> = self.live_in.live_varnodes().collect();
+        live.sort();
+        write!(f, "  live: [")?;
+        let mut first = true;
+        for vn in &live {
+            if !first {
+                write!(f, ", ")?;
+            }
+            vn.fmt_jingle(f, info)?;
+            first = false;
+        }
+        write!(f, "]")
+    }
+}
+
 impl<N: CfgState> CfgState for LivenessAnnotated<N> {
     type Model = N::Model;
 
@@ -68,7 +88,7 @@ impl<N: CfgState> CfgState for LivenessAnnotated<N> {
     }
 }
 
-impl<N> PcodeCfg<N, PcodeOperation>
+impl<N, D: Clone> PcodeCfg<N, D>
 where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + std::hash::Hash + Eq + 'static,
 {
@@ -84,8 +104,9 @@ where
     pub fn annotate_liveness<'op, T: PcodeStore<'op> + ?Sized>(
         &self,
         store: &'op T,
-    ) -> PcodeCfg<LivenessAnnotated<N>, PcodeOperation> {
-        let liveness_map = LivenessAnalysis::new(Arc::new(self.clone())).run_from_leaves(store);
+    ) -> PcodeCfg<LivenessAnnotated<N>, D> {
+        let liveness_map =
+            LivenessAnalysis::new(Arc::new(CfgLinkage::from_cfg(self))).run_from_leaves(store);
 
         let annotated_node = |n: &N| LivenessAnnotated {
             node: n.clone(),
@@ -95,7 +116,7 @@ where
                 .unwrap_or_else(LivenessState::empty),
         };
 
-        let mut enriched: PcodeCfg<LivenessAnnotated<N>, PcodeOperation> = PcodeCfg::new();
+        let mut enriched: PcodeCfg<LivenessAnnotated<N>, D> = PcodeCfg::new();
 
         // Add all nodes first to capture leaves that have no outgoing edges.
         for node in self.nodes() {

@@ -1,6 +1,11 @@
 use itertools::Itertools;
+use petgraph::Direction;
+use petgraph::graph::NodeIndex;
+use petgraph::prelude::StableDiGraph;
+use petgraph::visit::EdgeRef;
+use std::collections::HashMap;
 
-use crate::analysis::cfg::{CfgNode, PcodeCfg};
+use crate::analysis::cfg::{CfgNode, EmptyEdge, PcodeCfg};
 
 /// Provides forward CFG traversal: successors, entries, and leaves.
 pub trait PcodeLinkage<N: CfgNode> {
@@ -79,6 +84,43 @@ impl<N: CfgNode> PcodeLinkage<N> for Vec<N> {
         } else {
             vec![]
         }
+    }
+}
+
+/// Lightweight linkage built from a CFG's graph structure alone.
+///
+/// Captures the graph topology without the op map (`D`), so it is `'static`
+/// whenever `N: 'static`, regardless of the op storage type of the source CFG.
+pub struct CfgLinkage<N: CfgNode> {
+    graph: StableDiGraph<N, EmptyEdge>,
+    indices: HashMap<N, NodeIndex>,
+}
+
+impl<N: CfgNode> CfgLinkage<N> {
+    pub fn from_cfg<D>(cfg: &PcodeCfg<N, D>) -> Self {
+        Self {
+            graph: cfg.graph.clone(),
+            indices: cfg.indices.clone(),
+        }
+    }
+}
+
+impl<N: CfgNode> PcodeReverseLinkage<N> for CfgLinkage<N> {
+    fn predecessors_of(&self, node: &N) -> Vec<N> {
+        let Some(&idx) = self.indices.get(node) else {
+            return vec![];
+        };
+        self.graph
+            .edges_directed(idx, Direction::Incoming)
+            .map(|e| self.graph.node_weight(e.source()).unwrap().clone())
+            .collect()
+    }
+
+    fn leaf_nodes(&self) -> Vec<N> {
+        self.graph
+            .externals(Direction::Outgoing)
+            .map(|idx| self.graph.node_weight(idx).unwrap().clone())
+            .collect()
     }
 }
 

@@ -57,6 +57,7 @@ impl LivenessState {
     /// state on exit. Used by [`super::cpa_state::LivenessCpaState::transfer`].
     pub(crate) fn apply_transfer(&self, op: &PcodeOperation) -> Self {
         let (reads, kill) = reads_kill(op);
+op));
         let mut new_live = self.live.clone();
         new_live.subtract(&kill);
         new_live.union(&reads);
