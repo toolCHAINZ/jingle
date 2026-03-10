@@ -94,26 +94,20 @@ where
                 reached_len
             );
 
-            // Ask the state for the operation using the borrowed pcode_store.
-            // The returned `op` will have lifetime `'op`.
-            let op = reached[state_idx].get_operation(pcode_store);
-            tracing::debug!(
-                "  Operation at state: {:?}",
-                op.as_ref().map(|p| format!("{:x}", p.as_ref()))
-            );
-
             let mut new_states = 0;
             let mut merged_states = 0;
             let mut stopped_states = 0;
 
-            // Collect transfer results to avoid holding a borrow of state during iteration
-            let dest_states: Vec<_> = op
-                .iter()
-                .flat_map(|op| reached[state_idx].transfer(op.as_ref()).into_iter())
-                .collect();
+            // Collect all (op, successor_state) transitions from the current state.
+            // For forward analysis this fetches the op at the current location and
+            // applies the transfer function. For backward analysis this looks up
+            // predecessor nodes and applies the backward transfer, returning one
+            // pair per predecessor.
+            let transitions = reached[state_idx].get_transitions(pcode_store);
 
-            for dest_state in dest_states {
+            for (op, dest_state) in transitions {
                 tracing::trace!("    Transfer produced dest_state: {}", dest_state);
+                let op_ref = Some(op);
 
                 let mut was_merged = false;
                 for (idx, reached_state) in reached.iter_mut().enumerate() {
@@ -121,7 +115,7 @@ where
                         tracing::debug!("    Merged dest_state into existing reached_state");
                         tracing::debug!("      Merged state: {}", reached_state);
                         // Call the reducer's merged_state with state indices and operation
-                        reducer.merged_state(state_idx, idx, &op);
+                        reducer.merged_state(state_idx, idx, &op_ref);
                         waitlist.push_back(idx);
                         merged_states += 1;
                         was_merged = true;
@@ -144,7 +138,7 @@ where
                     let new_idx = reached.len();
                     reached.push(dest_state);
                     // Notify reducer of the transition using indices and operation
-                    reducer.new_state(state_idx, new_idx, &op);
+                    reducer.new_state(state_idx, new_idx, &op_ref);
                     waitlist.push_back(new_idx);
                     new_states += 1;
                 } else {

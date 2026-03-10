@@ -195,11 +195,19 @@ macro_rules! named_tuple {
             $F: 'static,
             $( $T: 'static ),+
         {
-            fn get_operation<'op, P: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
+            fn get_transitions<'op, P: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
                 &self,
-                t: &'op P,
-            ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
-                self.$first_field.get_operation(t)
+                store: &'op P,
+            ) -> Vec<(crate::analysis::pcode_store::PcodeOpRef<'op>, Self)> {
+                let Some(op) = self.$first_field.concrete_location()
+                    .and_then(|a| store.get_pcode_op_at(a))
+                else {
+                    return vec![];
+                };
+                self.transfer(op.as_ref())
+                    .into_iter()
+                    .map(|s| (op.clone(), s))
+                    .collect()
             }
         }
     };

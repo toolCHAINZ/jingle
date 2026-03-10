@@ -181,11 +181,17 @@ impl PcodeLocation for BasicLocationState {
 }
 
 impl LocationState for BasicLocationState {
-    fn get_operation<'op, T: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
+    fn get_transitions<'op, T: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
         &self,
-        t: &'op T,
-    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
-        self.inner.get_operation(t)
+        store: &'op T,
+    ) -> Vec<(crate::analysis::pcode_store::PcodeOpRef<'op>, Self)> {
+        let Some(op) = self.concrete_location().and_then(|a| store.get_pcode_op_at(a)) else {
+            return vec![];
+        };
+        self.transfer(op.as_ref())
+            .into_iter()
+            .map(|s| (op.clone(), s))
+            .collect()
     }
 }
 

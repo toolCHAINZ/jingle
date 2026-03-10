@@ -127,11 +127,24 @@ where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
     L: PcodeReverseLinkage<N> + 'static,
 {
-    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(
+    fn get_transitions<'op, T: PcodeStore<'op> + ?Sized>(
         &self,
-        t: &'op T,
-    ) -> Option<PcodeOpRef<'op>> {
-        let addr = self.inner.concrete_location()?;
-        t.get_pcode_op_at(addr)
+        store: &'op T,
+    ) -> Vec<(PcodeOpRef<'op>, Self)> {
+        self.linkage
+            .predecessors_of(&self.inner)
+            .into_iter()
+            .filter_map(|pred| {
+                let addr = pred.concrete_location()?;
+                let op = store.get_pcode_op_at(addr)?;
+                Some((
+                    op,
+                    ReverseLocationState {
+                        inner: pred,
+                        linkage: Arc::clone(&self.linkage),
+                    },
+                ))
+            })
+            .collect()
     }
 }
