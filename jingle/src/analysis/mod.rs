@@ -19,6 +19,7 @@ mod path;
 pub mod pcode_store;
 pub mod valuation;
 pub mod varnode;
+pub mod structuring;
 pub mod varnode_map;
 
 /// A trait for analyses that can be run. This is automatically implemented for all

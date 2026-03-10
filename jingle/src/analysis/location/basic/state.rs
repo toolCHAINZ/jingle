@@ -6,7 +6,7 @@ use std::{
     iter::{empty, once},
 };
 
-use jingle_sleigh::PcodeOperation;
+use jingle_sleigh::{JingleDisplay, PcodeOperation};
 
 use crate::{
     analysis::{
@@ -90,6 +90,16 @@ impl Display for BasicLocationState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // PcodeAddressLattice doesn't implement Display, so we use Debug
         write!(f, "{}", self.inner)
+    }
+}
+
+impl JingleDisplay for BasicLocationState {
+    fn fmt_jingle(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        info: &jingle_sleigh::SleighArchInfo,
+    ) -> std::fmt::Result {
+        self.inner.fmt_jingle(f, info)
     }
 }
 

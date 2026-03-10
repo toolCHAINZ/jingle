@@ -9,7 +9,7 @@ use crate::analysis::{
     },
 };
 use itertools::iproduct;
-use jingle_sleigh::SleighArchInfo;
+use jingle_sleigh::{JingleDisplay, SleighArchInfo};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -68,7 +68,17 @@ macro_rules! named_tuple {
             }
         }
 
-
+        impl<$F: JingleDisplay, $( $T: JingleDisplay ),+> JingleDisplay for $name<$F, $( $T ),+> {
+            fn fmt_jingle(&self, f: &mut std::fmt::Formatter<'_>, ctx: &SleighArchInfo) -> std::fmt::Result {
+                write!(f, "(")?;
+                self.$first_field.fmt_jingle(f, ctx)?;
+                $(
+                    write!(f, ", ")?;
+                    self.$field.fmt_jingle(f, ctx)?;
+                )+
+                write!(f, ")")
+            }
+        }
 
         impl<$F: ComponentStrengthen + AbstractState, $( $T: ComponentStrengthen + AbstractState ),+> AbstractState
             for $name<$F, $( $T ),+>

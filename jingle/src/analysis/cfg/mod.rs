@@ -315,6 +315,15 @@ impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
         PostDominatorTree::compute(self)
     }
 
+    pub fn structure(
+        &self,
+    ) -> Result<
+        crate::analysis::structuring::StructuredCfg<N>,
+        crate::analysis::structuring::StructuringError,
+    > {
+        crate::analysis::structuring::structure(self)
+    }
+
     pub fn edge_weights(&self) -> impl Iterator<Item = &D> {
         self.ops.values()
     }
