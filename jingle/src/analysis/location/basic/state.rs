@@ -185,7 +185,10 @@ impl LocationState for BasicLocationState {
         &self,
         store: &'op T,
     ) -> Vec<(crate::analysis::pcode_store::PcodeOpRef<'op>, Self)> {
-        let Some(op) = self.concrete_location().and_then(|a| store.get_pcode_op_at(a)) else {
+        let Some(op) = self
+            .concrete_location()
+            .and_then(|a| store.get_pcode_op_at(a))
+        else {
             return vec![];
         };
         self.transfer(op.as_ref())

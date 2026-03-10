@@ -5,13 +5,13 @@ use std::sync::Arc;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 
 use crate::analysis::cfg::{CfgState, PcodeCfg};
-use crate::analysis::linkage::CfgLinkage;
-use crate::display::JingleDisplay;
 use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
 use crate::analysis::cpa::state::PcodeLocation;
+use crate::analysis::linkage::CfgLinkage;
 use crate::analysis::liveness::{LivenessAnalysis, LivenessState};
 use crate::analysis::pcode_store::PcodeStore;
+use crate::display::JingleDisplay;
 
 /// A CFG node decorated with the liveness state computed at that program point.
 ///
@@ -59,7 +59,11 @@ impl<N: CfgState> PcodeLocation for LivenessAnnotated<N> {
 }
 
 impl<N: CfgState + JingleDisplay> JingleDisplay for LivenessAnnotated<N> {
-    fn fmt_jingle(&self, f: &mut std::fmt::Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
+    fn fmt_jingle(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        info: &SleighArchInfo,
+    ) -> std::fmt::Result {
         self.node.fmt_jingle(f, info)?;
         let mut live: Vec<VarNode> = self.live_in.live_varnodes().collect();
         live.sort();

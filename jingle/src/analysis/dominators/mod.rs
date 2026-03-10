@@ -68,7 +68,11 @@ fn compute_idom<N: CfgNode, D>(cfg: &PcodeCfg<N, D>, reversed: bool) -> HashMap<
     };
     let real_entries: Vec<N> = g
         .externals(entry_direction)
-        .map(|idx| g.node_weight(idx).expect("external node must be valid").clone())
+        .map(|idx| {
+            g.node_weight(idx)
+                .expect("external node must be valid")
+                .clone()
+        })
         .collect();
 
     if real_entries.is_empty() {

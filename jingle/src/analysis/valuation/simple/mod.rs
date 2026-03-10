@@ -9,7 +9,6 @@ use crate::analysis::valuation::simple::valuation::SimpleValuation;
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
-use itertools::Merge;
 use jingle_sleigh::{GeneralizedVarNode, PcodeOperation, SleighArchInfo, SpaceType, VarNode};
 use std::borrow::Borrow;
 use std::cmp::Ordering;

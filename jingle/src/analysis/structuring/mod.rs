@@ -204,9 +204,7 @@ fn compute_sccs<N: CfgNode, D: Clone>(cfg: &PcodeCfg<N, D>) -> Vec<HashSet<N>> {
     sccs
 }
 
-fn check_reducibility<N: CfgNode, D: Clone>(
-    cfg: &PcodeCfg<N, D>,
-) -> Result<(), StructuringError> {
+fn check_reducibility<N: CfgNode, D: Clone>(cfg: &PcodeCfg<N, D>) -> Result<(), StructuringError> {
     // A CFG is irreducible iff any strongly connected component (SCC) with more
     // than one node has multiple external entry points — nodes inside the SCC
     // that have at least one predecessor outside the SCC.  Reducible natural
@@ -555,7 +553,16 @@ mod tests {
     fn if_inside_loop() {
         // 0→1 (entry), 1→2 (loop header to if-cond), 1→6 (loop exit),
         // 2→3, 2→4 (if-else branches), 3→5, 4→5 (merge), 5→1 (latch)
-        let cfg = make_cfg(&[(0, 1), (1, 2), (1, 6), (2, 3), (2, 4), (3, 5), (4, 5), (5, 1)]);
+        let cfg = make_cfg(&[
+            (0, 1),
+            (1, 2),
+            (1, 6),
+            (2, 3),
+            (2, 4),
+            (3, 5),
+            (4, 5),
+            (5, 1),
+        ]);
         let result = structure(&cfg).unwrap();
 
         let StructuredCfg::Sequence(items) = result else {
