@@ -293,6 +293,23 @@ pub enum GeneralizedVarNode {
     Indirect(IndirectVarNode),
 }
 
+impl GeneralizedVarNode {
+    pub fn is_direct(&self) -> bool {
+        matches!(self, GeneralizedVarNode::Direct(_))
+    }
+
+    pub fn is_indirect(&self) -> bool {
+        matches!(self, GeneralizedVarNode::Indirect(_))
+    }
+
+    pub fn space_index(&self) -> usize {
+        match self {
+            GeneralizedVarNode::Direct(vn) => vn.space_index(),
+            GeneralizedVarNode::Indirect(indirect) => indirect.pointer_space_index(),
+        }
+    }
+}
+
 impl From<&VarNode> for GeneralizedVarNode {
     fn from(value: &VarNode) -> Self {
         GeneralizedVarNode::Direct(value.clone())

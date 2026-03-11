@@ -196,12 +196,17 @@ pub trait PcodeLocation {
 
 /// States that know their program location.
 pub trait LocationState: AbstractState + PcodeLocation {
-    /// Retrieve the p-code operation for this location from a pcode store.
+    /// Returns all `(op, next_state)` transitions from this state.
     ///
-    /// Relaxed lifetime: the returned operation borrows from the provided
-    /// `PcodeStore` reference only; the state (`&self`) is not required to be
-    /// borrowed for the same lifetime. This allows callers to obtain an op
-    /// tied to the store borrow without forcing the state to outlive that borrow.
-    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(&self, t: &'op T)
-    -> Option<PcodeOpRef<'op>>;
+    /// For forward analysis: `op` is the single op at the current location;
+    /// each `next_state` is an abstract successor (one per CFG branch target).
+    ///
+    /// For backward analysis: each pair is `(op_at_predecessor, predecessor_state)`,
+    /// where the abstract transfer has already been applied. The op belongs to
+    /// the predecessor (which always has at least one outgoing edge to the current
+    /// location, so its op is guaranteed to be present in the store).
+    fn get_transitions<'op, T: PcodeStore<'op> + ?Sized>(
+        &self,
+        store: &'op T,
+    ) -> Vec<(PcodeOpRef<'op>, Self)>;
 }

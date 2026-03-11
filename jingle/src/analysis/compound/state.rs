@@ -9,7 +9,7 @@ use crate::analysis::{
     },
 };
 use itertools::iproduct;
-use jingle_sleigh::SleighArchInfo;
+use jingle_sleigh::{JingleDisplay, SleighArchInfo};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -68,7 +68,17 @@ macro_rules! named_tuple {
             }
         }
 
-
+        impl<$F: JingleDisplay, $( $T: JingleDisplay ),+> JingleDisplay for $name<$F, $( $T ),+> {
+            fn fmt_jingle(&self, f: &mut std::fmt::Formatter<'_>, ctx: &SleighArchInfo) -> std::fmt::Result {
+                write!(f, "(")?;
+                self.$first_field.fmt_jingle(f, ctx)?;
+                $(
+                    write!(f, ", ")?;
+                    self.$field.fmt_jingle(f, ctx)?;
+                )+
+                write!(f, ")")
+            }
+        }
 
         impl<$F: ComponentStrengthen + AbstractState, $( $T: ComponentStrengthen + AbstractState ),+> AbstractState
             for $name<$F, $( $T ),+>
@@ -185,11 +195,19 @@ macro_rules! named_tuple {
             $F: 'static,
             $( $T: 'static ),+
         {
-            fn get_operation<'op, P: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
+            fn get_transitions<'op, P: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
                 &self,
-                t: &'op P,
-            ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'op>> {
-                self.$first_field.get_operation(t)
+                store: &'op P,
+            ) -> Vec<(crate::analysis::pcode_store::PcodeOpRef<'op>, Self)> {
+                let Some(op) = self.$first_field.concrete_location()
+                    .and_then(|a| store.get_pcode_op_at(a))
+                else {
+                    return vec![];
+                };
+                self.transfer(op.as_ref())
+                    .into_iter()
+                    .map(|s| (op.clone(), s))
+                    .collect()
             }
         }
     };

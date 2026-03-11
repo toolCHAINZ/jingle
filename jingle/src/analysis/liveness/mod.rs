@@ -63,9 +63,18 @@ where
     {
         let mut result: HashMap<N, LivenessState> = HashMap::new();
         for leaf in self.linkage.leaf_nodes() {
+            // Compute live_in[leaf] = reads(leaf_op) when the op is available
+            // (e.g. LoadedSleighContext), or empty when the store is a PcodeCfg
+            // that only indexes ops keyed by edge sources (leaf has no outgoing
+            // edges, so its op is absent from the CFG op map).
+            let initial_live = leaf
+                .concrete_location()
+                .and_then(|addr| store.get_pcode_op_at(addr))
+                .map(|op| LivenessState::empty().apply_transfer(op.as_ref()))
+                .unwrap_or_else(LivenessState::empty);
             let initial = LivenessCpaState {
                 location: leaf,
-                live: LivenessState::empty(),
+                live: initial_live,
                 linkage: Arc::clone(&self.linkage),
             };
             let partial: HashMap<N, LivenessState> = self.run_cpa(initial, store);

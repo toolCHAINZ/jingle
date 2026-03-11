@@ -1,3 +1,7 @@
+//! This can use some refactoring: the gritty details of the liveness cpa state and how it interacts with backwards location
+//! can remain hidden, but that shouldn't necessitate LivenessCpaState containing location or a linkage handle.
+//! It should still be a normal compound cpa internally, but exposed to the world as a single "annotate_liveness()" call.
+
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
@@ -162,11 +166,32 @@ where
     N: CfgState + JoinSemiLattice + Display + PartialOrd + 'static,
     L: PcodeReverseLinkage<N> + 'static,
 {
-    fn get_operation<'op, T: PcodeStore<'op> + ?Sized>(
+    /// Backward liveness transitions: for each CFG predecessor of the current
+    /// location, fetch the predecessor's op (always present since it has at
+    /// least one outgoing edge to the current node) and compute
+    /// `live_in[pred] = reads(op_pred) ∪ (live_in[current] − kill(op_pred))`.
+    fn get_transitions<'op, T: PcodeStore<'op> + ?Sized>(
         &self,
-        t: &'op T,
-    ) -> Option<PcodeOpRef<'op>> {
-        let addr = self.location.concrete_location()?;
-        t.get_pcode_op_at(addr)
+        store: &'op T,
+    ) -> Vec<(PcodeOpRef<'op>, Self)> {
+        let live_in_current = &self.live;
+        let linkage = Arc::clone(&self.linkage);
+        self.linkage
+            .predecessors_of(&self.location)
+            .into_iter()
+            .filter_map(|pred| {
+                let addr = pred.concrete_location()?;
+                let op = store.get_pcode_op_at(addr)?;
+                let live_in_pred = live_in_current.apply_transfer(op.as_ref());
+                Some((
+                    op,
+                    LivenessCpaState {
+                        location: pred,
+                        live: live_in_pred,
+                        linkage: Arc::clone(&linkage),
+                    },
+                ))
+            })
+            .collect()
     }
 }

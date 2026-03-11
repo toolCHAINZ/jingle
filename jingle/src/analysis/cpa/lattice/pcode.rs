@@ -197,16 +197,22 @@ impl PcodeLocation for PcodeAddressLattice {
 }
 
 impl LocationState for PcodeAddressLattice {
-    fn get_operation<'a, T: crate::analysis::pcode_store::PcodeStore<'a> + ?Sized>(
+    fn get_transitions<'op, T: crate::analysis::pcode_store::PcodeStore<'op> + ?Sized>(
         &self,
-        t: &'a T,
-    ) -> Option<crate::analysis::pcode_store::PcodeOpRef<'a>> {
-        match self {
-            PcodeAddressLattice::Const(a) => t.get_pcode_op_at(a),
+        store: &'op T,
+    ) -> Vec<(crate::analysis::pcode_store::PcodeOpRef<'op>, Self)> {
+        let Some(op) = (match self {
+            PcodeAddressLattice::Const(a) => store.get_pcode_op_at(a),
             PcodeAddressLattice::Indirect(_)
             | PcodeAddressLattice::Computed(_)
             | PcodeAddressLattice::Top => None,
-        }
+        }) else {
+            return vec![];
+        };
+        self.transfer(op.as_ref())
+            .into_iter()
+            .map(|s| (op.clone(), s))
+            .collect()
     }
 }
 
