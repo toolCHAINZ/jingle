@@ -86,7 +86,7 @@ pub(crate) fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
             return (reads, kill);
         }
         PcodeOperation::CBranch { input1, .. } => {
-            reads.insert(&input1);
+            reads.insert(input1);
             return (reads, kill);
         }
         PcodeOperation::Call {
@@ -111,7 +111,7 @@ pub(crate) fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
         .filter(|i| i.space_index() != VarNode::CONST_SPACE_INDEX as usize)
     {
         match input {
-            GeneralizedVarNode::Direct(vn) => reads.insert(&vn),
+            GeneralizedVarNode::Direct(vn) => reads.insert(vn),
             GeneralizedVarNode::Indirect(ivn) => reads.insert(ivn.pointer_location()),
         }
     }
