@@ -48,7 +48,7 @@ impl LivenessState {
     /// Uses `VarNodeSet::covers` which handles overlapping ranges correctly.
     #[must_use]
     pub fn is_live(&self, vn: &VarNode) -> bool {
-        self.live.covers(vn)
+        self.live.partial_covers(vn)
     }
 
     /// Compute `live_in = reads(op) ∪ (live_out − kill(op))` — the backward transfer.
