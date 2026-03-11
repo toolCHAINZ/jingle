@@ -434,6 +434,11 @@ impl SleighContext {
         self.metadata.add_call_def(addr, info);
     }
 
+    /// Returns the per-address call metadata registry.
+    pub fn func_info(&self) -> &HashMap<u64, CallInfo> {
+        &self.metadata.func_info
+    }
+
     pub fn add_callother_metadata(&mut self, sig: &[VarNode], info: CallInfo) {
         self.metadata.add_callother_def(sig, info);
     }
