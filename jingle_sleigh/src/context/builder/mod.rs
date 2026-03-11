@@ -200,10 +200,13 @@ impl SleighContextBuilder {
                                 let stackshift = p.stackshift.and_then(|s| s.parse::<i32>().ok());
                                 let proto_name = p.name.unwrap_or_else(|| "__unnamed".to_string());
 
-                                // parse input pentries
-                                let mut pentries: Vec<crate::context::PentryInfo> = Vec::new();
-                                if let Some(input) = p.input {
-                                    if let Some(entries) = input.pentry {
+                                // Helper closure to convert CSpecInputOutput → Vec<PentryInfo>
+                                let parse_pentries =
+                                    |io: CSpecInputOutput| -> Vec<crate::context::PentryInfo> {
+                                        let Some(entries) = io.pentry else {
+                                            return Vec::new();
+                                        };
+                                        let mut out = Vec::with_capacity(entries.len());
                                         for pe in entries {
                                             let minsize =
                                                 pe.minsize.and_then(|s| s.parse::<u32>().ok());
@@ -230,7 +233,7 @@ impl SleighContextBuilder {
                                                     }
                                                 }
                                             }
-                                            pentries.push(crate::context::PentryInfo {
+                                            out.push(crate::context::PentryInfo {
                                                 minsize,
                                                 maxsize,
                                                 align,
@@ -240,8 +243,14 @@ impl SleighContextBuilder {
                                                 addr_offset,
                                             });
                                         }
-                                    }
-                                }
+                                        out
+                                    };
+
+                                // parse input pentries
+                                let pentries = p.input.map(parse_pentries).unwrap_or_default();
+                                // parse output pentries
+                                let output_pentries =
+                                    p.output.map(parse_pentries).unwrap_or_default();
 
                                 // parse killedbycall
                                 let mut killed: Vec<String> = Vec::new();
@@ -268,6 +277,7 @@ impl SleighContextBuilder {
                                     extrapop,
                                     stackshift,
                                     pentries,
+                                    output_pentries,
                                     killed_by_call: killed,
                                     unaffected,
                                 };
@@ -507,6 +517,88 @@ mod tests {
             found,
             "No language with detected program counter found in local Ghidra installation"
         );
+    }
+
+    #[test]
+    fn test_arg_varnodes_fastcall_x86() {
+        // x86win.cspec __fastcall: ECX (arg0), EDX (arg1), then stack at offset 4.
+        // Sleigh has no native "stack" space, so only the 2 register slots are available.
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build("x86:LE:32:default").unwrap();
+        let cc = ctx.calling_convention_info();
+        let arch = ctx.arch_info();
+
+        // 2 register args
+        let vns = cc.arg_varnodes(arch, Some("__fastcall"), 2).unwrap();
+        assert_eq!(vns.len(), 2);
+        assert_eq!(vns[0], *arch.register("ECX").unwrap());
+        assert_eq!(vns[1], *arch.register("EDX").unwrap());
+
+        // Requesting more than the 2 register slots errors (stack args can't be modelled)
+        let err = cc.arg_varnodes(arch, Some("__fastcall"), 3).unwrap_err();
+        assert!(
+            matches!(err, crate::JingleSleighError::InsufficientPentries(_)),
+            "expected InsufficientPentries, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_arg_varnodes_cdecl_x86() {
+        // x86 __cdecl passes all args on the stack. Since Sleigh has no native "stack"
+        // space, arg_varnodes cannot produce any VarNodes for a pure stack convention.
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build("x86:LE:32:default").unwrap();
+        let cc = ctx.calling_convention_info();
+        let arch = ctx.arch_info();
+
+        let err = cc.arg_varnodes(arch, Some("__cdecl"), 1).unwrap_err();
+        assert!(
+            matches!(err, crate::JingleSleighError::InsufficientPentries(_)),
+            "expected InsufficientPentries, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_arg_varnodes_zero_count() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build("x86:LE:32:default").unwrap();
+        let vns = ctx
+            .calling_convention_info()
+            .arg_varnodes(ctx.arch_info(), None, 0)
+            .unwrap();
+        assert!(vns.is_empty());
+    }
+
+    #[test]
+    fn test_arg_varnodes_unknown_convention_errors() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build("x86:LE:32:default").unwrap();
+        let result =
+            ctx.calling_convention_info()
+                .arg_varnodes(ctx.arch_info(), Some("__nonexistent"), 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_return_varnodes_x86() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build("x86:LE:32:default").unwrap();
+        let cc = ctx.calling_convention_info();
+        let arch = ctx.arch_info();
+        // __cdecl returns in EAX (for small values)
+        let rvns = cc.return_varnodes(arch, Some("__cdecl")).unwrap();
+        assert!(!rvns.is_empty());
+        assert!(rvns.iter().any(|vn| arch.register_name(vn) == Some("EAX")));
     }
 
     #[test]

@@ -44,6 +44,8 @@ pub enum JingleSleighError {
     PcodeParse(Box<pest::error::Error<Rule>>),
     #[error("Unable to validate parsed pcode from text: {0}")]
     PcodeParseValidation(String),
+    #[error("Calling convention argument resolution failed: {0}")]
+    InsufficientPentries(String),
 }
 
 impl From<JingleSleighError> for std::fmt::Error {
