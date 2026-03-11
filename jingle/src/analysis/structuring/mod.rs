@@ -1,3 +1,6 @@
+//! This is a placeholder structuring algorithm, written with agent assistance given existing graph structuring literature,
+//! the CPA traits in this repo, and the StructuredCfg type as a goal. It has not been evaluated except on simple
+//! test-cases and is subject to change.
 use crate::analysis::cfg::{CfgNode, PcodeCfg};
 use crate::analysis::dominators::{DominatorTree, PostDominatorTree};
 use jingle_sleigh::{JingleDisplay, SleighArchInfo};
