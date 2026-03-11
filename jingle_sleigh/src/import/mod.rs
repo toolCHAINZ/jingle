@@ -1,8 +1,8 @@
-use crate::context::{CallInfo, ModelingBehavior, ParameterLocation};
+use crate::VarNode;
 use crate::context::SleighContext;
+use crate::context::{CallInfo, ModelingBehavior, ParameterLocation};
 use crate::error::JingleSleighError;
 use crate::space::SleighArchInfo;
-use crate::VarNode;
 use serde::Deserialize;
 use std::io::Read;
 use std::path::Path;
@@ -39,7 +39,9 @@ pub fn load_from_ghidra_xml<P: AsRef<Path>>(
         .and_then(|f| f.function)
         .unwrap_or_default();
 
-    let mut stats = ImportStats { functions_loaded: 0 };
+    let mut stats = ImportStats {
+        functions_loaded: 0,
+    };
 
     for func in functions {
         let addr = match parse_hex_or_dec(&func.entry_point) {
