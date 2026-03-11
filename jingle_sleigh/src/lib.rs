@@ -3,14 +3,17 @@ pub(crate) mod error;
 
 pub mod display;
 pub(crate) mod ffi;
+pub mod import;
 pub(crate) mod instruction;
 pub(crate) mod pcode;
 pub(crate) mod space;
 pub(crate) mod varnode;
 
+pub use context::ParameterLocation;
 pub use display::{JingleDisplay, JingleDisplayWrapper};
 pub use error::JingleSleighError;
 pub use ffi::addrspace::bridge::SpaceType;
+pub use import::{ImportStats, load_from_ghidra_xml};
 pub use instruction::*;
 pub use pcode::*;
 pub use space::{SleighArchInfo, SleighEndianness, SpaceInfo};

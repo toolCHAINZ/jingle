@@ -522,7 +522,6 @@ mod tests {
     #[test]
     fn test_arg_varnodes_fastcall_x86() {
         // x86win.cspec __fastcall: ECX (arg0), EDX (arg1), then stack at offset 4.
-        // Sleigh has no native "stack" space, so only the 2 register slots are available.
         let builder =
             SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
                 .unwrap();
@@ -531,23 +530,30 @@ mod tests {
         let arch = ctx.arch_info();
 
         // 2 register args
-        let vns = cc.arg_varnodes(arch, Some("__fastcall"), 2).unwrap();
-        assert_eq!(vns.len(), 2);
-        assert_eq!(vns[0], *arch.register("ECX").unwrap());
-        assert_eq!(vns[1], *arch.register("EDX").unwrap());
+        let locs = cc.arg_varnodes(arch, Some("__fastcall"), 2).unwrap();
+        assert_eq!(locs.len(), 2);
+        assert_eq!(
+            locs[0],
+            crate::context::ParameterLocation::Register(arch.register("ECX").unwrap().clone())
+        );
+        assert_eq!(
+            locs[1],
+            crate::context::ParameterLocation::Register(arch.register("EDX").unwrap().clone())
+        );
 
-        // Requesting more than the 2 register slots errors (stack args can't be modelled)
-        let err = cc.arg_varnodes(arch, Some("__fastcall"), 3).unwrap_err();
+        // Requesting a 3rd arg should yield a Stack entry
+        let locs3 = cc.arg_varnodes(arch, Some("__fastcall"), 3).unwrap();
+        assert_eq!(locs3.len(), 3);
         assert!(
-            matches!(err, crate::JingleSleighError::InsufficientPentries(_)),
-            "expected InsufficientPentries, got {err:?}"
+            matches!(locs3[2], crate::context::ParameterLocation::Stack { .. }),
+            "expected Stack location for arg 2, got {:?}",
+            locs3[2]
         );
     }
 
     #[test]
     fn test_arg_varnodes_cdecl_x86() {
-        // x86 __cdecl passes all args on the stack. Since Sleigh has no native "stack"
-        // space, arg_varnodes cannot produce any VarNodes for a pure stack convention.
+        // x86 __cdecl passes all args on the stack; arg_varnodes now returns Stack entries.
         let builder =
             SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
                 .unwrap();
@@ -555,11 +561,14 @@ mod tests {
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
 
-        let err = cc.arg_varnodes(arch, Some("__cdecl"), 1).unwrap_err();
-        assert!(
-            matches!(err, crate::JingleSleighError::InsufficientPentries(_)),
-            "expected InsufficientPentries, got {err:?}"
-        );
+        let locs = cc.arg_varnodes(arch, Some("__cdecl"), 2).unwrap();
+        assert_eq!(locs.len(), 2);
+        for loc in &locs {
+            assert!(
+                matches!(loc, crate::context::ParameterLocation::Stack { .. }),
+                "expected Stack location for __cdecl arg, got {loc:?}"
+            );
+        }
     }
 
     #[test]

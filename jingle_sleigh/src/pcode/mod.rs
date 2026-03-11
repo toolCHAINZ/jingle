@@ -439,7 +439,17 @@ impl PcodeOperation {
             } => {
                 let mut args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
                 if let Some(a) = call_info {
-                    let b: Vec<_> = a.args.iter().map(GeneralizedVarNode::from).collect();
+                    let b: Vec<_> = a
+                        .args
+                        .iter()
+                        .filter_map(|loc| {
+                            if let crate::context::ParameterLocation::Register(vn) = loc {
+                                Some(GeneralizedVarNode::from(vn))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
                     args.extend_from_slice(b.as_slice());
                 }
                 args

@@ -65,7 +65,9 @@ impl Instruction {
                     if let Some(a) = m.func_info.get(&input.offset()) {
                         *call_info = Some(a.clone());
                         for ele in &a.args {
-                            args.push(ele.clone());
+                            if let crate::context::ParameterLocation::Register(vn) = ele {
+                                args.push(vn.clone());
+                            }
                         }
                     }
                 }
@@ -76,7 +78,9 @@ impl Instruction {
                     if let Some(a) = m.callother_info.get(inputs) {
                         *call_info = Some(a.clone());
                         for ele in &a.args {
-                            inputs.push(ele.clone());
+                            if let crate::context::ParameterLocation::Register(vn) = ele {
+                                inputs.push(vn.clone());
+                            }
                         }
                     }
                 }

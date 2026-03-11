@@ -37,6 +37,15 @@ pub enum SideEffect {
     RegisterDecrement(String, u8),
 }
 
+/// The location of a function parameter at the call site.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ParameterLocation {
+    /// Argument held in a register at the call site.
+    Register(VarNode),
+    /// Argument on the stack; `offset` is bytes from the call-site SP (positive = above SP).
+    Stack { offset: i64, size: u32 },
+}
+
 pub struct ModelingSummary {}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,8 +72,8 @@ impl Default for ModelingBehavior {
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "pyo3", pyclass)]
 pub struct CallInfo {
-    /// Argument varnodes associated with this call (if known from signature metadata)
-    pub args: Vec<VarNode>,
+    /// Argument locations associated with this call (if known from signature metadata)
+    pub args: Vec<ParameterLocation>,
     /// Optional output varnodes (for functions returning via memory or hidden return)
     pub outputs: Option<Vec<VarNode>>,
     /// How to model the call's side-effects by default
@@ -227,25 +236,22 @@ impl CallingConventionInfo {
         }
     }
 
-    /// Returns varnodes for the first `count` arguments of the named convention.
+    /// Returns parameter locations for the first `count` arguments of the named convention.
     /// Falls back to the default convention if `convention` is `None`.
     ///
-    /// Register pentries yield one varnode each (looked up by name in `arch`).
-    /// Stack/address pentries cannot be represented as static VarNodes in Sleigh
-    /// (stack accesses are runtime `ram[SP + offset]` computations). If `count`
-    /// exceeds the number of register-passed slots, an `InsufficientPentries`
-    /// error is returned explaining the limitation.
+    /// Register pentries yield `ParameterLocation::Register` entries.
+    /// Stack/address pentries yield `ParameterLocation::Stack` entries.
     pub fn arg_varnodes(
         &self,
         arch: &SleighArchInfo,
         convention: Option<&str>,
         count: usize,
-    ) -> Result<Vec<VarNode>, JingleSleighError> {
+    ) -> Result<Vec<ParameterLocation>, JingleSleighError> {
         if count == 0 {
             return Ok(Vec::new());
         }
         let proto = self.find_convention(convention)?;
-        let mut result: Vec<VarNode> = Vec::with_capacity(count);
+        let mut result: Vec<ParameterLocation> = Vec::with_capacity(count);
 
         for pentry in &proto.pentries {
             if result.len() >= count {
@@ -261,14 +267,20 @@ impl CallingConventionInfo {
                             "register '{reg_name}' not found in arch info"
                         ))
                     })?;
-                    result.push(vn.clone());
+                    result.push(ParameterLocation::Register(vn.clone()));
                 }
-            } else if pentry.addr_space.is_some() {
-                // Stack-spill pentry: Sleigh has no native "stack" address space — stack
-                // accesses in pcode are expressed as runtime ram[SP + offset] computations.
-                // We cannot produce a statically-correct VarNode for stack-passed arguments.
-                // Stop here and report the number of register slots available.
-                break;
+            } else if let Some(_space_name) = &pentry.addr_space {
+                let base = pentry.addr_offset.unwrap_or(0) as i64;
+                let step = pentry.align.or(pentry.minsize).unwrap_or(4) as i64;
+                let size = pentry.align.or(pentry.minsize).unwrap_or(4);
+                let mut slot = 0i64;
+                while result.len() < count {
+                    result.push(ParameterLocation::Stack {
+                        offset: base + slot * step,
+                        size,
+                    });
+                    slot += 1;
+                }
             }
             // Pentries with neither registers nor addr_space (e.g. type-specific
             // alternatives) are skipped — they don't map to a single arg slot.
@@ -276,8 +288,7 @@ impl CallingConventionInfo {
 
         if result.len() < count {
             return Err(JingleSleighError::InsufficientPentries(format!(
-                "convention '{}' provides only {} register arg slots but {} were requested \
-                 (remaining slots are stack-passed and require runtime SP knowledge)",
+                "convention '{}' provides only {} arg slots but {} were requested",
                 proto.name,
                 result.len(),
                 count
