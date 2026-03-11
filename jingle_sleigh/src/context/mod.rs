@@ -216,11 +216,14 @@ impl CallingConventionInfo {
                     ))
                 })
         } else {
-            self.info.default_calling_convention.as_ref().ok_or_else(|| {
-                JingleSleighError::InsufficientPentries(
-                    "no default calling convention available".to_string(),
-                )
-            })
+            self.info
+                .default_calling_convention
+                .as_ref()
+                .ok_or_else(|| {
+                    JingleSleighError::InsufficientPentries(
+                        "no default calling convention available".to_string(),
+                    )
+                })
         }
     }
 

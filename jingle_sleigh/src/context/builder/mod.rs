@@ -581,9 +581,9 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
                 .unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
-        let result = ctx
-            .calling_convention_info()
-            .arg_varnodes(ctx.arch_info(), Some("__nonexistent"), 1);
+        let result =
+            ctx.calling_convention_info()
+                .arg_varnodes(ctx.arch_info(), Some("__nonexistent"), 1);
         assert!(result.is_err());
     }
 
