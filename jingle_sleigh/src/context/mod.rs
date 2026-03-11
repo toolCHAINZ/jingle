@@ -133,8 +133,10 @@ pub struct PrototypeInfo {
     pub extrapop: Option<i32>,
     /// Optional stackshift value (stack shift for this prototype). Unknown is represented by None.
     pub stackshift: Option<i32>,
-    /// The parsed pentry list (arguments / stack entries). May be empty.
+    /// The parsed input pentry list (arguments / stack entries). May be empty.
     pub pentries: Vec<PentryInfo>,
+    /// The parsed output pentry list (return values). May be empty.
+    pub output_pentries: Vec<PentryInfo>,
     /// Registers (by name) that are killed by the call.
     pub killed_by_call: Vec<String>,
     /// Registers / varnodes listed as unaffected by the call.
@@ -200,6 +202,107 @@ impl CallingConventionInfo {
 
     pub fn default_calling_convention(&self) -> Option<&PrototypeInfo> {
         self.info.default_calling_convention.as_ref()
+    }
+
+    fn find_convention(&self, name: Option<&str>) -> Result<&PrototypeInfo, JingleSleighError> {
+        if let Some(n) = name {
+            self.info
+                .call_conventions
+                .iter()
+                .find(|p| p.name == n)
+                .ok_or_else(|| {
+                    JingleSleighError::InsufficientPentries(format!(
+                        "calling convention '{n}' not found"
+                    ))
+                })
+        } else {
+            self.info.default_calling_convention.as_ref().ok_or_else(|| {
+                JingleSleighError::InsufficientPentries(
+                    "no default calling convention available".to_string(),
+                )
+            })
+        }
+    }
+
+    /// Returns varnodes for the first `count` arguments of the named convention.
+    /// Falls back to the default convention if `convention` is `None`.
+    ///
+    /// Register pentries yield one varnode each (looked up by name in `arch`).
+    /// Stack/address pentries cannot be represented as static VarNodes in Sleigh
+    /// (stack accesses are runtime `ram[SP + offset]` computations). If `count`
+    /// exceeds the number of register-passed slots, an `InsufficientPentries`
+    /// error is returned explaining the limitation.
+    pub fn arg_varnodes(
+        &self,
+        arch: &SleighArchInfo,
+        convention: Option<&str>,
+        count: usize,
+    ) -> Result<Vec<VarNode>, JingleSleighError> {
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let proto = self.find_convention(convention)?;
+        let mut result: Vec<VarNode> = Vec::with_capacity(count);
+
+        for pentry in &proto.pentries {
+            if result.len() >= count {
+                break;
+            }
+            if !pentry.registers.is_empty() {
+                for reg_name in &pentry.registers {
+                    if result.len() >= count {
+                        break;
+                    }
+                    let vn = arch.register(reg_name).ok_or_else(|| {
+                        JingleSleighError::InsufficientPentries(format!(
+                            "register '{reg_name}' not found in arch info"
+                        ))
+                    })?;
+                    result.push(vn.clone());
+                }
+            } else if pentry.addr_space.is_some() {
+                // Stack-spill pentry: Sleigh has no native "stack" address space — stack
+                // accesses in pcode are expressed as runtime ram[SP + offset] computations.
+                // We cannot produce a statically-correct VarNode for stack-passed arguments.
+                // Stop here and report the number of register slots available.
+                break;
+            }
+            // Pentries with neither registers nor addr_space (e.g. type-specific
+            // alternatives) are skipped — they don't map to a single arg slot.
+        }
+
+        if result.len() < count {
+            return Err(JingleSleighError::InsufficientPentries(format!(
+                "convention '{}' provides only {} register arg slots but {} were requested \
+                 (remaining slots are stack-passed and require runtime SP knowledge)",
+                proto.name,
+                result.len(),
+                count
+            )));
+        }
+        Ok(result)
+    }
+
+    /// Returns varnodes for the return values of the named convention.
+    /// Falls back to the default convention if `convention` is `None`.
+    ///
+    /// Only register-based output pentries are returned; stack-based output
+    /// pentries (rare) are skipped.
+    pub fn return_varnodes(
+        &self,
+        arch: &SleighArchInfo,
+        convention: Option<&str>,
+    ) -> Result<Vec<VarNode>, JingleSleighError> {
+        let proto = self.find_convention(convention)?;
+        let mut result = Vec::new();
+        for pentry in &proto.output_pentries {
+            for reg_name in &pentry.registers {
+                if let Some(vn) = arch.register(reg_name) {
+                    result.push(vn.clone());
+                }
+            }
+        }
+        Ok(result)
     }
 }
 
