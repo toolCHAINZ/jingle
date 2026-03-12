@@ -60,6 +60,17 @@ impl VarNodeSpaceSet {
         true
     }
 
+    /// Returns true if any range in `self` intersects any range in `other`.
+    pub fn intersects(&self, other: &Self) -> bool {
+        // For each range in other, check if we have any overlap
+        for other_range in other.vn_starts.iter().map(|(s, e)| *s..*e) {
+            if self.get_overlaps(&other_range).next().is_some() {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn union(&mut self, other: &Self) {
         for (start, end) in &other.vn_starts {
             self.insert(*start..*end);
@@ -142,6 +153,19 @@ impl VarNodeSet {
         n
     }
 
+    /// Returns true if there exists any varnode range in `self` that intersects with any range
+    /// in `other`. Intersections are only considered within the same space index.
+    pub fn intersects(&self, other: &Self) -> bool {
+        for (space, map) in &self.space_map {
+            if let Some(other_map) = other.space_map.get(space) {
+                if map.intersects(other_map) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     pub fn union(&mut self, other: &Self) {
         for (space, map) in &other.space_map {
             self.get_map_mut(*space).union(map);
@@ -159,6 +183,19 @@ impl VarNodeSet {
     pub fn covers(&self, vn: &VarNode) -> bool {
         if let Some(map) = self.space_map.get(&vn.space_index()) {
             map.covers(&vn.into())
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the provided varnode overlaps any range in this set (even partially).
+    ///
+    /// This differs from `covers` in that it returns true for any partial overlap, not only
+    /// when the set fully covers the provided varnode.
+    pub fn partial_covers(&self, vn: &VarNode) -> bool {
+        if let Some(map) = self.space_map.get(&vn.space_index()) {
+            let range: Range<u64> = vn.into();
+            map.get_overlaps(&range).next().is_some()
         } else {
             false
         }
@@ -384,6 +421,48 @@ mod tests {
         let intersect = set1.intersect(&set2);
         let items = intersect.varnodes().collect::<Vec<_>>();
         assert_eq!(items, vec![vn]);
+    }
+
+    #[test]
+    fn test_intersects_disjoint() {
+        let mut set1 = VarNodeSet::default();
+        let mut set2 = VarNodeSet::default();
+        let vn1 = VarNode::new(0, 4u32, 0u32);
+        let vn2 = VarNode::new(8, 4u32, 0u32);
+        set1.insert(&vn1);
+        set2.insert(&vn2);
+        assert!(!set1.intersects(&set2));
+        // symmetric
+        assert!(!set2.intersects(&set1));
+    }
+
+    #[test]
+    fn test_intersects_partial_overlap() {
+        let mut set1 = VarNodeSet::default();
+        let mut set2 = VarNodeSet::default();
+        let vn1 = VarNode::new(0, 8u32, 0u32);
+        let vn2 = VarNode::new(6, 4u32, 0u32);
+        set1.insert(&vn1);
+        set2.insert(&vn2);
+        assert!(set1.intersects(&set2));
+        // also the intersect result should be non-empty
+        let inter = set1.intersect(&set2);
+        assert_eq!(inter.varnodes().count(), 1);
+    }
+
+    #[test]
+    fn test_intersects_multi_space() {
+        let mut set1 = VarNodeSet::default();
+        let mut set2 = VarNodeSet::default();
+        let a = VarNode::new(0, 4u32, 0u32);
+        let b = VarNode::new(0, 4u32, 1u32);
+        set1.insert(&a);
+        set2.insert(&b);
+        // different spaces -> no intersection
+        assert!(!set1.intersects(&set2));
+        // add same-space range to set1
+        set1.insert(&b);
+        assert!(set1.intersects(&set2));
     }
 
     #[test]

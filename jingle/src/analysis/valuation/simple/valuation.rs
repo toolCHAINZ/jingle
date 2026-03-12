@@ -126,6 +126,16 @@ impl SingleValuationLocation {
     pub fn new_indirect(ptr: SimpleValue) -> Self {
         SingleValuationLocation::Indirect(ptr)
     }
+
+    pub fn direct_covers(&self, other: &Self) -> bool {
+        if let SingleValuationLocation::Direct(vn1) = self
+            && let SingleValuationLocation::Direct(vn2) = other
+        {
+            vn1.covers(vn2)
+        } else {
+            false
+        }
+    }
 }
 
 // Allow converting a raw `VarNode` directly into a `SingleValuationLocation::Direct`.

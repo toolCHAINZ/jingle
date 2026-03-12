@@ -46,6 +46,8 @@ pub enum JingleSleighError {
     PcodeParseValidation(String),
     #[error("Calling convention argument resolution failed: {0}")]
     InsufficientPentries(String),
+    #[error("IO error: {0}")]
+    IoError(String),
 }
 
 impl From<JingleSleighError> for std::fmt::Error {
