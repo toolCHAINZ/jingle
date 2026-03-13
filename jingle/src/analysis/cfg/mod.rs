@@ -320,7 +320,10 @@ impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
     ) -> Result<
         crate::analysis::structuring::StructuredCfg<N>,
         crate::analysis::structuring::StructuringError,
-    > {
+    >
+    where
+        D: crate::analysis::structuring::CbranchInfo,
+    {
         crate::analysis::structuring::structure(self)
     }
 

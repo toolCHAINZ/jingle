@@ -7,6 +7,39 @@ use jingle_sleigh::{JingleDisplay, SleighArchInfo};
 use std::collections::HashSet;
 use std::fmt;
 
+pub(crate) trait CbranchInfo {
+    fn cbranch_input0(&self) -> Option<&jingle_sleigh::VarNode>;
+}
+
+impl CbranchInfo for () {
+    fn cbranch_input0(&self) -> Option<&jingle_sleigh::VarNode> {
+        None
+    }
+}
+
+impl CbranchInfo for jingle_sleigh::PcodeOperation {
+    fn cbranch_input0(&self) -> Option<&jingle_sleigh::VarNode> {
+        if let jingle_sleigh::PcodeOperation::CBranch { input0, .. } = self {
+            Some(input0)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> CbranchInfo for jingle_sleigh::PcodeOpRef<'a> {
+    fn cbranch_input0(&self) -> Option<&jingle_sleigh::VarNode> {
+        use std::ops::Deref;
+        self.deref().cbranch_input0()
+    }
+}
+
+impl CbranchInfo for Vec<jingle_sleigh::PcodeOperation> {
+    fn cbranch_input0(&self) -> Option<&jingle_sleigh::VarNode> {
+        self.last()?.cbranch_input0()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StructuredCfg<N> {
     Block(N),
@@ -109,7 +142,7 @@ pub enum StructuringError {
     Empty,
 }
 
-pub fn structure<N: CfgNode, D: Clone>(
+pub fn structure<N: CfgNode, D: Clone + CbranchInfo>(
     cfg: &PcodeCfg<N, D>,
 ) -> Result<StructuredCfg<N>, StructuringError> {
     let entries: Vec<&N> = cfg.entry_nodes().collect();
@@ -270,7 +303,7 @@ fn flatten<N: CfgNode>(items: Vec<StructuredCfg<N>>) -> StructuredCfg<N> {
     }
 }
 
-fn structure_from<N: CfgNode, D: Clone>(
+fn structure_from<N: CfgNode, D: Clone + CbranchInfo>(
     current: &N,
     stop_at: Option<&N>,
     cfg: &PcodeCfg<N, D>,
@@ -310,8 +343,25 @@ fn structure_from<N: CfgNode, D: Clone>(
         }
         2 => {
             let merge = pdom.immediate_dominator(current);
-            let then_branch = structure_from(&fwd_succs[0], merge, cfg, dom, pdom, back_edges)?;
-            let else_branch = structure_from(&fwd_succs[1], merge, cfg, dom, pdom, back_edges)?;
+            let taken_idx = cfg
+                .get_op_at(current)
+                .and_then(|op| op.cbranch_input0())
+                .and_then(|input0| {
+                    current.concrete_location().and_then(|addr| {
+                        let target =
+                            crate::modeling::machine::cpu::concrete::ConcretePcodeAddress
+                                ::resolve_from_varnode(input0, addr);
+                        fwd_succs
+                            .iter()
+                            .position(|s| s.concrete_location() == Some(target))
+                    })
+                })
+                .unwrap_or(0);
+            let else_idx = 1 - taken_idx;
+            let then_branch =
+                structure_from(&fwd_succs[taken_idx], merge, cfg, dom, pdom, back_edges)?;
+            let else_branch =
+                structure_from(&fwd_succs[else_idx], merge, cfg, dom, pdom, back_edges)?;
             let rest = match merge {
                 Some(m) => structure_from(m, stop_at, cfg, dom, pdom, back_edges)?,
                 None => StructuredCfg::Sequence(vec![]),
@@ -329,7 +379,7 @@ fn structure_from<N: CfgNode, D: Clone>(
     }
 }
 
-fn structure_loop<N: CfgNode, D: Clone>(
+fn structure_loop<N: CfgNode, D: Clone + CbranchInfo>(
     header: &N,
     stop_at: Option<&N>,
     cfg: &PcodeCfg<N, D>,
@@ -526,6 +576,44 @@ mod tests {
         let cfg = make_cfg(&[(0, 1)]);
         let result = structure(&cfg).unwrap();
         assert_eq!(result.to_string(), "block(0:0)\nblock(1:0)\n");
+    }
+
+    #[test]
+    fn cbranch_then_is_taken_branch() {
+        // CBRANCH at n(0): input0 = absolute VarNode pointing to n(2) (taken),
+        // fallthrough = n(1). Edges added in CPA order: taken first, then fallthrough.
+        // With petgraph head-insertion, successors() returns [n(1), n(2)] (reversed),
+        // so without the fix, then=n(1) (fallthrough, WRONG). With the fix, then=n(2).
+        use jingle_sleigh::{PcodeOperation, VarNode};
+        let cbranch_op = PcodeOperation::CBranch {
+            input0: VarNode::new(2u64, 8u32, 1u32), // absolute addr 2 → n(2)
+            input1: VarNode::new_const(1u64, 1u32),
+        };
+        let mut cfg: PcodeCfg<ConcretePcodeAddress, PcodeOperation> = PcodeCfg::new();
+        cfg.add_edge(n(0), n(2), cbranch_op.clone()); // taken (added first)
+        cfg.add_edge(n(0), n(1), cbranch_op.clone()); // fallthrough (added second)
+        cfg.add_edge(n(1), n(3), cbranch_op.clone());
+        cfg.add_edge(n(2), n(3), cbranch_op.clone());
+        let result = structure(&cfg).unwrap();
+        let StructuredCfg::Sequence(items) = result else {
+            panic!("{result:?}")
+        };
+        let StructuredCfg::IfElse {
+            then_branch,
+            else_branch,
+            ..
+        } = &items[0]
+        else {
+            panic!("expected IfElse, got {:?}", items[0]);
+        };
+        assert!(
+            matches!(then_branch.as_ref(), StructuredCfg::Block(a) if *a == n(2)),
+            "then_branch should be taken (n(2)), got {then_branch:?}"
+        );
+        assert!(
+            matches!(else_branch.as_ref(), StructuredCfg::Block(a) if *a == n(1)),
+            "else_branch should be fallthrough (n(1)), got {else_branch:?}"
+        );
     }
 
     #[test]
