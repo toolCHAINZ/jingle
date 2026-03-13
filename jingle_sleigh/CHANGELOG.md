@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.2...jingle_sleigh-v0.5.3) - 2026-03-13
+
+### Added
+
+- experimental ghidra xml import ([#218](https://github.com/toolCHAINZ/jingle/pull/218))
+- rudimentary graph structuring ([#216](https://github.com/toolCHAINZ/jingle/pull/216))
+
+### Other
+
+- arg/return varnode helpers and output pentries ([#217](https://github.com/toolCHAINZ/jingle/pull/217))
+
 ## [0.5.2](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.1...jingle_sleigh-v0.5.2) - 2026-02-27
 
 ### Fixed
