@@ -10,7 +10,7 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
-use std::ops::{BitXor, Deref};
+use std::ops::{BitAnd, BitXor, Deref};
 use std::{
     fmt::Formatter,
     ops::{Add, Mul, Sub},
@@ -86,6 +86,10 @@ pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct XorExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
 
+/// A bitwise AND expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct AndExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+
 /// A signed comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct IntSLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
@@ -160,6 +164,7 @@ pub enum SimpleValue {
 
     Or(Or),
     Xor(XorExpr),
+    And(AndExpr),
     Load(Load),
 
     IntSLess(IntSLess),
@@ -218,6 +223,7 @@ impl SimpleValue {
                 | SimpleValue::Sub(_)
                 | SimpleValue::Or(_)
                 | SimpleValue::Xor(_)
+                | SimpleValue::And(_)
                 | SimpleValue::IntSLess(_)
                 | SimpleValue::IntEqual(_)
                 | SimpleValue::IntLess(_)
@@ -267,6 +273,14 @@ impl SimpleValue {
     pub fn as_xor(&self) -> Option<&XorExpr> {
         match self {
             SimpleValue::Xor(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `And` variant.
+    pub fn as_and(&self) -> Option<&AndExpr> {
+        match self {
+            SimpleValue::And(a) => Some(a),
             _ => None,
         }
     }
@@ -371,7 +385,8 @@ impl SimpleValue {
             | SimpleValue::Add(AddExpr(_, _, s))
             | SimpleValue::Sub(SubExpr(_, _, s))
             | SimpleValue::Or(Or(_, _, s))
-            | SimpleValue::Xor(XorExpr(_, _, s)) => *s,
+            | SimpleValue::Xor(XorExpr(_, _, s))
+            | SimpleValue::And(AndExpr(_, _, s)) => *s,
             SimpleValue::Load(Load(_, s)) => *s,
             SimpleValue::IntSLess(_)
             | SimpleValue::IntEqual(_)
@@ -423,6 +438,12 @@ impl SimpleValue {
     pub fn xor(left: SimpleValue, right: SimpleValue) -> Self {
         let s = std::cmp::max(left.size(), right.size());
         SimpleValue::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
+    }
+
+    /// Construct an `And(...)` node from two children. Size is derived from children.
+    pub fn and(left: SimpleValue, right: SimpleValue) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::And(AndExpr(Intern::new(left), Intern::new(right), s))
     }
 
     /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
@@ -540,18 +561,19 @@ impl SimpleValue {
             SimpleValue::Sub(_) => 5,
             SimpleValue::Or(_) => 6,
             SimpleValue::Xor(_) => 7,
-            SimpleValue::Load(_) => 8,
-            SimpleValue::Top => 9,
-            SimpleValue::IntSLess(_) => 10,
-            SimpleValue::IntEqual(_) => 11,
-            SimpleValue::IntLess(_) => 12,
-            SimpleValue::PopCount(_) => 13,
-            SimpleValue::IntNotEqual(_) => 14,
-            SimpleValue::IntLessEqual(_) => 15,
-            SimpleValue::IntSLessEqual(_) => 16,
-            SimpleValue::IntCarry(_) => 17,
-            SimpleValue::IntSCarry(_) => 18,
-            SimpleValue::IntSBorrow(_) => 19,
+            SimpleValue::And(_) => 8,
+            SimpleValue::Load(_) => 9,
+            SimpleValue::Top => 10,
+            SimpleValue::IntSLess(_) => 11,
+            SimpleValue::IntEqual(_) => 12,
+            SimpleValue::IntLess(_) => 13,
+            SimpleValue::PopCount(_) => 14,
+            SimpleValue::IntNotEqual(_) => 15,
+            SimpleValue::IntLessEqual(_) => 16,
+            SimpleValue::IntSLessEqual(_) => 17,
+            SimpleValue::IntCarry(_) => 18,
+            SimpleValue::IntSCarry(_) => 19,
+            SimpleValue::IntSBorrow(_) => 20,
         }
     }
 }
@@ -564,6 +586,7 @@ impl Simplify for SimpleValue {
             SimpleValue::Sub(expr) => expr.simplify(),
             SimpleValue::Or(expr) => expr.simplify(),
             SimpleValue::Xor(expr) => expr.simplify(),
+            SimpleValue::And(expr) => expr.simplify(),
             SimpleValue::Load(expr) => expr.simplify(),
             SimpleValue::IntSLess(expr) => expr.simplify(),
             SimpleValue::IntEqual(expr) => expr.simplify(),
@@ -607,6 +630,15 @@ impl BitXor for SimpleValue {
     fn bitxor(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
         SimpleValue::Xor(XorExpr(Intern::new(self), Intern::new(rhs), s))
+    }
+}
+
+impl BitAnd for SimpleValue {
+    type Output = SimpleValue;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        let s = std::cmp::max(self.size(), rhs.size());
+        SimpleValue::And(AndExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
@@ -1003,6 +1035,55 @@ impl Simplify for XorExpr {
     }
 }
 
+impl Simplify for AndExpr {
+    fn simplify(&self) -> SimpleValue {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+
+        // both const -> fold
+        if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
+            let res = (left_vn.offset() & right_vn.offset()) as i64;
+            let size =
+                SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
+            return SimpleValue::make_const(res, size as u32);
+        }
+
+        // x & x -> x
+        if left == right {
+            return left;
+        }
+
+        // x & 0 -> 0
+        if right.as_const().map(|vn| vn.offset()) == Some(0) {
+            let size = SimpleValue::derive_size_from(&left);
+            return SimpleValue::make_const(0, size as u32);
+        }
+
+        // x & all-ones -> x
+        let all_ones = match left.size() {
+            1 => Some(0xFF_u64),
+            2 => Some(0xFFFF_u64),
+            4 => Some(0xFFFF_FFFF_u64),
+            8 => Some(u64::MAX),
+            _ => None,
+        };
+        if let Some(mask) = all_ones {
+            if right.as_const().map(|vn| vn.offset()) == Some(mask) {
+                return left;
+            }
+        }
+
+        let s = std::cmp::max(left.size(), right.size());
+        SimpleValue::And(AndExpr(Intern::new(left), Intern::new(right), s))
+    }
+}
+
 impl Simplify for Load {
     fn simplify(&self) -> SimpleValue {
         let a_intern = self.0;
@@ -1316,6 +1397,11 @@ impl JingleDisplay for SimpleValue {
                 write!(f, "^")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
+            SimpleValue::And(AndExpr(a, b, _)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "&")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
             SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
             SimpleValue::IntEqual(IntEqual(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
@@ -1417,6 +1503,11 @@ impl std::fmt::Display for SimpleValue {
                 write!(f, "^")?;
                 fmt_operand(f, b.as_ref())
             }
+            SimpleValue::And(AndExpr(a, b, _)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "&")?;
+                fmt_operand(f, b.as_ref())
+            }
             SimpleValue::Load(Load(a, _)) => {
                 // Load(child)
                 write!(f, "Load({})", a.as_ref())
@@ -1508,6 +1599,11 @@ impl std::fmt::LowerHex for SimpleValue {
             SimpleValue::Xor(XorExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "^")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            SimpleValue::And(AndExpr(a, b, _)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "&")?;
                 fmt_operand_hex(f, b.as_ref())
             }
             SimpleValue::Load(Load(a, _)) => {

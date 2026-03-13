@@ -354,6 +354,55 @@ fn xor_double_const() {
     assert_eq!(result, SimpleValue::make_const(0, 8));
 }
 
+// --- AndExpr -----------------------------------------------------------------
+
+#[test]
+fn and_const_folding() {
+    let result = (SimpleValue::const_(0b1010) & SimpleValue::const_(0b1100)).simplify();
+    assert_eq!(result, SimpleValue::make_const(0b1000, 8));
+}
+
+#[test]
+fn and_self() {
+    let result = (SimpleValue::entry(vn_a()) & SimpleValue::entry(vn_a())).simplify();
+    assert_eq!(result, SimpleValue::entry(vn_a()));
+}
+
+#[test]
+fn and_zero() {
+    let result = (SimpleValue::entry(vn_a()) & SimpleValue::const_(0)).simplify();
+    assert_eq!(result, SimpleValue::make_const(0, 8));
+}
+
+#[test]
+fn and_all_ones_identity() {
+    // entry of size 1 & 0xFF -> entry
+    let vn = VarNode::new(0x100u64, 1u32, 0u32);
+    let entry = SimpleValue::entry(vn);
+    let result = (entry.clone() & SimpleValue::make_const(0xFF_i64, 1)).simplify();
+    assert_eq!(result, entry);
+}
+
+#[test]
+fn and_top_propagation() {
+    let result = (SimpleValue::Top & SimpleValue::entry(vn_a())).simplify();
+    assert_eq!(result, SimpleValue::Top);
+}
+
+#[test]
+fn and_symbolic_stays_symbolic() {
+    let result = (SimpleValue::entry(vn_a()) & SimpleValue::entry(vn_b())).simplify();
+    assert!(result.as_and().is_some(), "expected And node");
+}
+
+#[test]
+fn and_normalizes_const_to_right() {
+    let result = (SimpleValue::const_(5) & SimpleValue::entry(vn_a())).simplify();
+    let and = result.as_and().expect("expected And node");
+    assert!(and.0.as_entry().is_some(), "expected entry on left");
+    assert!(and.1.as_const().is_some(), "expected const on right");
+}
+
 // --- Load --------------------------------------------------------------------
 
 #[test]

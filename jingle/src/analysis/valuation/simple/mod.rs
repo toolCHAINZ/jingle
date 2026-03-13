@@ -167,6 +167,14 @@ impl SimpleValuationState {
             //             .add(output_vn, SimpleValue::or(a, b).simplify());
             //     }
             // }
+            PcodeOperation::IntAnd { input0, input1, .. }
+            | PcodeOperation::BoolAnd { input0, input1, .. } => {
+                let a = SimpleValue::from_varnode_or_entry(self, input0);
+                let b = SimpleValue::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state.valuation.add(output_vn, (a & b).simplify());
+                }
+            }
 
             // Approximate shifts as addition (conservative)
             PcodeOperation::IntLeftShift { input0, input1, .. }
