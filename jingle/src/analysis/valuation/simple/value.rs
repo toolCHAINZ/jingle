@@ -449,6 +449,8 @@ impl SimpleValue {
     /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
     /// (In practice the output varnode size often dictates the load size; callers may
     /// want to construct loads via `make_load_with_size` if available.)
+    /// todo: we should _not_ be pulling the size from the child value; it is independent of
+    /// pointer size
     pub fn load(child: SimpleValue) -> Self {
         let s = child.size();
         SimpleValue::Load(Load(Intern::new(child), s))
