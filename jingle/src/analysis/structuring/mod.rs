@@ -7,7 +7,7 @@ use jingle_sleigh::{JingleDisplay, SleighArchInfo};
 use std::collections::HashSet;
 use std::fmt;
 
-pub(crate) trait CbranchInfo {
+pub trait CbranchInfo {
     fn cbranch_input0(&self) -> Option<&jingle_sleigh::VarNode>;
 }
 
