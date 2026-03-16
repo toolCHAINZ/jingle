@@ -147,6 +147,30 @@ impl<N: CfgNode, D> PcodeCfg<N, D> {
             self.indices.insert(node.clone(), idx);
         }
     }
+
+    /// Remove all leaf nodes (out-degree 0) that have no concrete location.
+    ///
+    /// These arise from symbolic return-address successors produced by the CPA transfer
+    /// function for `Return` ops. They are phantom nodes that confuse graph structuring
+    /// by making a terminal concrete node look like it has a successor.
+    pub fn trim_symbolic_leaves(&mut self) {
+        let to_remove: Vec<NodeIndex> = self
+            .graph
+            .node_indices()
+            .filter(|&idx| {
+                self.graph[idx].concrete_location().is_none()
+                    && self
+                        .graph
+                        .neighbors_directed(idx, Direction::Outgoing)
+                        .count()
+                        == 0
+            })
+            .collect();
+        for idx in to_remove {
+            let node = self.graph.remove_node(idx).expect("index was valid");
+            self.indices.remove(&node);
+        }
+    }
 }
 
 impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
@@ -324,7 +348,7 @@ impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
     where
         D: crate::analysis::structuring::CbranchInfo,
     {
-        crate::analysis::structuring::structure(self)
+        crate::analysis::structuring::structure(self.clone())
     }
 
     pub fn edge_weights(&self) -> impl Iterator<Item = &D> {

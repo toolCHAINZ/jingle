@@ -165,6 +165,23 @@ impl AbstractState for BasicLocationState {
             }
         }
 
+        if let PcodeOperation::CallInd { .. } = op {
+            match self.call_behavior {
+                CallBehavior::Branch => {
+                    // Fall through to default: inner lattice produces Indirect(input)
+                }
+                CallBehavior::StepOver => {
+                    if let PcodeAddressLattice::Const(addr) = &self.inner {
+                        let next = addr.next_pcode();
+                        return once(BasicLocationState::location(next, self.call_behavior)).into();
+                    }
+                }
+                CallBehavior::Terminate => {
+                    return empty().into();
+                }
+            }
+        }
+
         // Default behavior: delegate to inner state and wrap results
         self.inner
             .transfer(op)

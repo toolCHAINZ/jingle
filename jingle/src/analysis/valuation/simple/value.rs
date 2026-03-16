@@ -64,6 +64,20 @@ impl Offset {
     pub fn offset(&self) -> &Const {
         self.1.as_ref()
     }
+
+    pub fn overlaps(&self, other: &Self) -> bool {
+        // Two offsets overlap if they refer to the same base and their offset ranges intersect.
+        if self.base_vn() != other.base_vn() {
+            return false;
+        }
+        let self_start = self.offset().as_ref().offset();
+        let self_end = self_start + self.offset().as_ref().size() as u64;
+        let other_start = other.offset().as_ref().offset();
+        let other_end = other_start + other.offset().as_ref().size() as u64;
+
+        // Check if the ranges [self_start, self_end) and [other_start, other_end) overlap
+        !(self_end <= other_start || other_end <= self_start)
+    }
 }
 
 /// A multiplication expression

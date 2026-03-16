@@ -143,8 +143,9 @@ pub enum StructuringError {
 }
 
 pub fn structure<N: CfgNode, D: Clone + CbranchInfo>(
-    cfg: &PcodeCfg<N, D>,
+    mut cfg: PcodeCfg<N, D>,
 ) -> Result<StructuredCfg<N>, StructuringError> {
+    cfg.trim_symbolic_leaves();
     let entries: Vec<&N> = cfg.entry_nodes().collect();
     match entries.len() {
         0 => return Err(StructuringError::Empty),
@@ -154,8 +155,8 @@ pub fn structure<N: CfgNode, D: Clone + CbranchInfo>(
     let entry = entries[0].clone();
     let dom = cfg.dominator_tree();
     let pdom = cfg.post_dominator_tree();
-    check_reducibility(cfg)?;
-    structure_from(&entry, None, cfg, &dom, &pdom, &HashSet::new())
+    check_reducibility(&cfg)?;
+    structure_from(&entry, None, &cfg, &dom, &pdom, &HashSet::new())
 }
 
 /// Computes all strongly connected components using Kosaraju's algorithm.
@@ -455,6 +456,8 @@ fn structure_loop<N: CfgNode, D: Clone + CbranchInfo>(
 mod tests {
     use super::*;
     use crate::analysis::cfg::PcodeCfg;
+    use crate::analysis::cpa::lattice::pcode::PcodeAddressLattice;
+    use crate::analysis::cpa::state::PcodeLocation;
     use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 
     fn n(m: u64) -> ConcretePcodeAddress {
@@ -472,14 +475,14 @@ mod tests {
     #[test]
     fn empty_returns_error() {
         let cfg: PcodeCfg<ConcretePcodeAddress, ()> = PcodeCfg::new();
-        assert!(matches!(structure(&cfg), Err(StructuringError::Empty)));
+        assert!(matches!(structure(cfg), Err(StructuringError::Empty)));
     }
 
     #[test]
     fn single_block() {
         let mut cfg: PcodeCfg<ConcretePcodeAddress, ()> = PcodeCfg::new();
         cfg.add_node(n(0));
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         assert!(matches!(result, StructuredCfg::Block(a) if a == n(0)));
     }
 
@@ -487,7 +490,7 @@ mod tests {
     fn linear_sequence() {
         // A→B→C
         let cfg = make_cfg(&[(0, 1), (1, 2)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let StructuredCfg::Sequence(items) = result else {
             panic!("expected Sequence, got {result:?}");
         };
@@ -501,7 +504,7 @@ mod tests {
     fn diamond_if_else() {
         // A→B, A→C, B→D, C→D
         let cfg = make_cfg(&[(0, 1), (0, 2), (1, 3), (2, 3)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let StructuredCfg::Sequence(items) = result else {
             panic!("expected Sequence, got {result:?}");
         };
@@ -514,7 +517,7 @@ mod tests {
     fn if_without_else() {
         // A→B, A→C, B→C  (B is the then-branch, C is the merge/else)
         let cfg = make_cfg(&[(0, 1), (0, 2), (1, 2)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let StructuredCfg::Sequence(items) = result else {
             panic!("expected Sequence, got {result:?}");
         };
@@ -527,7 +530,7 @@ mod tests {
     fn natural_loop() {
         // A→B, B→C, C→B, C→D
         let cfg = make_cfg(&[(0, 1), (1, 2), (2, 1), (2, 3)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let StructuredCfg::Sequence(items) = result else {
             panic!("expected Sequence, got {result:?}");
         };
@@ -546,7 +549,7 @@ mod tests {
     fn while_loop() {
         // A→B, B→C, B→D, C→B
         let cfg = make_cfg(&[(0, 1), (1, 2), (1, 3), (2, 1)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let StructuredCfg::Sequence(items) = result else {
             panic!("expected Sequence, got {result:?}");
         };
@@ -566,7 +569,7 @@ mod tests {
         // A→B, A→C, B→C, C→B
         let cfg = make_cfg(&[(0, 1), (0, 2), (1, 2), (2, 1)]);
         assert!(matches!(
-            structure(&cfg),
+            structure(cfg),
             Err(StructuringError::Irreducible)
         ));
     }
@@ -574,7 +577,7 @@ mod tests {
     #[test]
     fn display_sequence() {
         let cfg = make_cfg(&[(0, 1)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         assert_eq!(result.to_string(), "block(0:0)\nblock(1:0)\n");
     }
 
@@ -594,7 +597,7 @@ mod tests {
         cfg.add_edge(n(0), n(1), cbranch_op.clone()); // fallthrough (added second)
         cfg.add_edge(n(1), n(3), cbranch_op.clone());
         cfg.add_edge(n(2), n(3), cbranch_op.clone());
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let StructuredCfg::Sequence(items) = result else {
             panic!("{result:?}")
         };
@@ -620,7 +623,7 @@ mod tests {
     fn display_if_else() {
         // A→B, A→C, B→D, C→D
         let cfg = make_cfg(&[(0, 1), (0, 2), (1, 3), (2, 3)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let s = result.to_string();
         assert!(s.contains("if 0:0 {"), "missing if header: {s}");
         assert!(s.contains("  block(1:0)"), "missing then-branch: {s}");
@@ -633,11 +636,44 @@ mod tests {
     fn display_loop() {
         // A→B, B→C, C→B, C→D
         let cfg = make_cfg(&[(0, 1), (1, 2), (2, 1), (2, 3)]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
         let s = result.to_string();
         assert!(s.contains("loop 1:0 {"), "missing loop header: {s}");
         assert!(s.contains("  block(2:0)"), "missing loop body: {s}");
         assert!(s.contains("block(3:0)"), "missing post-loop: {s}");
+    }
+
+    /// A node type that can represent either a concrete pcode location or a symbolic one.
+    /// Used to test that `structure()` prunes symbolic leaf nodes before running.
+    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+    enum MaybeSymbolicNode {
+        Concrete(ConcretePcodeAddress),
+        Symbolic,
+    }
+
+    impl PcodeLocation for MaybeSymbolicNode {
+        fn location(&self) -> PcodeAddressLattice {
+            match self {
+                MaybeSymbolicNode::Concrete(addr) => PcodeAddressLattice::Const(*addr),
+                MaybeSymbolicNode::Symbolic => PcodeAddressLattice::Top,
+            }
+        }
+    }
+
+    #[test]
+    fn symbolic_leaf_is_pruned() {
+        // Concrete node A with one successor: a symbolic leaf.
+        // Without pruning the structurer sees a Sequence [A, leaf].
+        // With pruning it should see just Block(A).
+        let concrete = MaybeSymbolicNode::Concrete(ConcretePcodeAddress::new(0, 0));
+        let symbolic = MaybeSymbolicNode::Symbolic;
+        let mut cfg: PcodeCfg<MaybeSymbolicNode, ()> = PcodeCfg::new();
+        cfg.add_edge(concrete.clone(), symbolic, ());
+        let result = structure(cfg).unwrap();
+        assert!(
+            matches!(result, StructuredCfg::Block(ref n) if *n == concrete),
+            "expected Block(concrete), got {result:?}"
+        );
     }
 
     #[test]
@@ -654,7 +690,7 @@ mod tests {
             (4, 5),
             (5, 1),
         ]);
-        let result = structure(&cfg).unwrap();
+        let result = structure(cfg).unwrap();
 
         let StructuredCfg::Sequence(items) = result else {
             panic!("expected Sequence, got {result:?}");
