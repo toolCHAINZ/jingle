@@ -7,8 +7,7 @@ use crate::{
 };
 
 use super::*;
-use jingle_sleigh::{PcodeOperation, VarNode};
-use jingle_sleigh::varnode::IndirectVarNode;
+use jingle_sleigh::{IndirectVarNode, PcodeOperation, VarNode};
 
 #[test]
 fn test_call_behavior_branch() {

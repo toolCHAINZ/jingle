@@ -568,10 +568,7 @@ mod tests {
     fn irreducible_fails() {
         // A→B, A→C, B→C, C→B
         let cfg = make_cfg(&[(0, 1), (0, 2), (1, 2), (2, 1)]);
-        assert!(matches!(
-            structure(cfg),
-            Err(StructuringError::Irreducible)
-        ));
+        assert!(matches!(structure(cfg), Err(StructuringError::Irreducible)));
     }
 
     #[test]

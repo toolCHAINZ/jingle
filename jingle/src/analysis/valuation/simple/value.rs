@@ -10,7 +10,10 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
-use std::ops::{BitAnd, BitXor, Deref};
+use std::{
+    borrow::Borrow,
+    ops::{BitAnd, BitXor, Deref},
+};
 use std::{
     fmt::Formatter,
     ops::{Add, Mul, Sub},
@@ -36,6 +39,12 @@ impl Deref for Entry {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Const(VarNode);
 
+impl From<VarNode> for Const {
+    fn from(value: VarNode) -> Self {
+        Self(value)
+    }
+}
+
 impl Deref for Const {
     type Target = VarNode;
 
@@ -57,6 +66,13 @@ impl Deref for Const {
 pub struct Offset(Intern<Entry>, Intern<Const>);
 
 impl Offset {
+    pub fn new(base: impl Borrow<Entry>, offset: impl Borrow<Const>) -> Self {
+        Self(
+            Intern::new(base.borrow().clone()),
+            Intern::new(offset.borrow().clone()),
+        )
+    }
+
     pub fn base_vn(&self) -> &Entry {
         self.0.as_ref()
     }

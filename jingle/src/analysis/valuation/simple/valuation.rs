@@ -136,6 +136,21 @@ impl SingleValuationLocation {
             false
         }
     }
+
+    pub fn indirect(&self) -> Option<&SimpleValue> {
+        match self {
+            Self::Indirect(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn is_direct(&self) -> bool {
+        matches!(self, Self::Direct(_))
+    }
+
+    pub fn is_indirect(&self) -> bool {
+        matches!(self, Self::Indirect(_))
+    }
 }
 
 // Allow converting a raw `VarNode` directly into a `SingleValuationLocation::Direct`.
