@@ -261,6 +261,12 @@ impl MemoryState {
     }
 }
 
+impl AsRef<SleighArchInfo> for MemoryState {
+    fn as_ref(&self) -> &SleighArchInfo {
+        &self.info
+    }
+}
+
 unsafe impl Translate for MemoryState {
     fn translate(&self, dest: &Context) -> Self {
         let spaces = self.spaces.translate(dest);

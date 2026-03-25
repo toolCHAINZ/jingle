@@ -10,7 +10,10 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
-use std::ops::{BitAnd, BitXor, Deref};
+use std::{
+    borrow::Borrow,
+    ops::{BitAnd, BitXor, Deref},
+};
 use std::{
     fmt::Formatter,
     ops::{Add, Mul, Sub},
@@ -36,6 +39,12 @@ impl Deref for Entry {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Const(VarNode);
 
+impl From<VarNode> for Const {
+    fn from(value: VarNode) -> Self {
+        Self(value)
+    }
+}
+
 impl Deref for Const {
     type Target = VarNode;
 
@@ -57,12 +66,33 @@ impl Deref for Const {
 pub struct Offset(Intern<Entry>, Intern<Const>);
 
 impl Offset {
+    pub fn new(base: impl Borrow<Entry>, offset: impl Borrow<Const>) -> Self {
+        Self(
+            Intern::new(base.borrow().clone()),
+            Intern::new(offset.borrow().clone()),
+        )
+    }
+
     pub fn base_vn(&self) -> &Entry {
         self.0.as_ref()
     }
 
     pub fn offset(&self) -> &Const {
         self.1.as_ref()
+    }
+
+    pub fn overlaps(&self, other: &Self) -> bool {
+        // Two offsets overlap if they refer to the same base and their offset ranges intersect.
+        if self.base_vn() != other.base_vn() {
+            return false;
+        }
+        let self_start = self.offset().as_ref().offset();
+        let self_end = self_start + self.offset().as_ref().size() as u64;
+        let other_start = other.offset().as_ref().offset();
+        let other_end = other_start + other.offset().as_ref().size() as u64;
+
+        // Check if the ranges [self_start, self_end) and [other_start, other_end) overlap
+        !(self_end <= other_start || other_end <= self_start)
     }
 }
 
@@ -449,6 +479,8 @@ impl SimpleValue {
     /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
     /// (In practice the output varnode size often dictates the load size; callers may
     /// want to construct loads via `make_load_with_size` if available.)
+    /// todo: we should _not_ be pulling the size from the child value; it is independent of
+    /// pointer size
     pub fn load(child: SimpleValue) -> Self {
         let s = child.size();
         SimpleValue::Load(Load(Intern::new(child), s))
