@@ -164,6 +164,18 @@ pub struct IntSBorrow(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Load(pub Intern<SimpleValue>, pub usize);
 
+/// A zero-extension of the inner value to `output_size` bytes
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct ZeroExtend(pub Intern<SimpleValue>, pub usize);
+
+/// A sign-extension of the inner value to `output_size` bytes
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct SignExtend(pub Intern<SimpleValue>, pub usize);
+
+/// Extraction of `output_size` bytes from the inner value starting at `byte_offset`
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Extract(pub Intern<SimpleValue>, pub usize, pub usize);
+
 impl AsRef<VarNode> for Const {
     fn as_ref(&self) -> &VarNode {
         &self.0
@@ -196,6 +208,10 @@ pub enum SimpleValue {
     Xor(XorExpr),
     And(AndExpr),
     Load(Load),
+
+    ZeroExtend(ZeroExtend),
+    SignExtend(SignExtend),
+    Extract(Extract),
 
     IntSLess(IntSLess),
     IntEqual(IntEqual),
@@ -254,6 +270,9 @@ impl SimpleValue {
                 | SimpleValue::Or(_)
                 | SimpleValue::Xor(_)
                 | SimpleValue::And(_)
+                | SimpleValue::ZeroExtend(_)
+                | SimpleValue::SignExtend(_)
+                | SimpleValue::Extract(_)
                 | SimpleValue::IntSLess(_)
                 | SimpleValue::IntEqual(_)
                 | SimpleValue::IntLess(_)
@@ -418,6 +437,9 @@ impl SimpleValue {
             | SimpleValue::Xor(XorExpr(_, _, s))
             | SimpleValue::And(AndExpr(_, _, s)) => *s,
             SimpleValue::Load(Load(_, s)) => *s,
+            SimpleValue::ZeroExtend(ZeroExtend(_, s))
+            | SimpleValue::SignExtend(SignExtend(_, s)) => *s,
+            SimpleValue::Extract(Extract(_, _, s)) => *s,
             SimpleValue::IntSLess(_)
             | SimpleValue::IntEqual(_)
             | SimpleValue::IntLess(_)
@@ -536,6 +558,22 @@ impl SimpleValue {
         SimpleValue::IntSBorrow(IntSBorrow(Intern::new(left), Intern::new(right)))
     }
 
+    /// Construct a `ZeroExtend(...)` node that zero-extends `inner` to `output_size` bytes.
+    pub fn zero_extend(inner: SimpleValue, output_size: usize) -> Self {
+        SimpleValue::ZeroExtend(ZeroExtend(Intern::new(inner), output_size))
+    }
+
+    /// Construct a `SignExtend(...)` node that sign-extends `inner` to `output_size` bytes.
+    pub fn sign_extend(inner: SimpleValue, output_size: usize) -> Self {
+        SimpleValue::SignExtend(SignExtend(Intern::new(inner), output_size))
+    }
+
+    /// Construct an `Extract(...)` node that extracts `output_size` bytes from `inner`
+    /// starting at `byte_offset`.
+    pub fn extract(inner: SimpleValue, byte_offset: usize, output_size: usize) -> Self {
+        SimpleValue::Extract(Extract(Intern::new(inner), byte_offset, output_size))
+    }
+
     // Keep the older helpers (used by some simplifications) for parity:
 
     /// Create a constant SimpleValue with the given value and size (in bytes).
@@ -595,17 +633,20 @@ impl SimpleValue {
             SimpleValue::Xor(_) => 7,
             SimpleValue::And(_) => 8,
             SimpleValue::Load(_) => 9,
-            SimpleValue::Top => 10,
-            SimpleValue::IntSLess(_) => 11,
-            SimpleValue::IntEqual(_) => 12,
-            SimpleValue::IntLess(_) => 13,
-            SimpleValue::PopCount(_) => 14,
-            SimpleValue::IntNotEqual(_) => 15,
-            SimpleValue::IntLessEqual(_) => 16,
-            SimpleValue::IntSLessEqual(_) => 17,
-            SimpleValue::IntCarry(_) => 18,
-            SimpleValue::IntSCarry(_) => 19,
-            SimpleValue::IntSBorrow(_) => 20,
+            SimpleValue::ZeroExtend(_) => 10,
+            SimpleValue::SignExtend(_) => 11,
+            SimpleValue::Extract(_) => 12,
+            SimpleValue::Top => 13,
+            SimpleValue::IntSLess(_) => 14,
+            SimpleValue::IntEqual(_) => 15,
+            SimpleValue::IntLess(_) => 16,
+            SimpleValue::PopCount(_) => 17,
+            SimpleValue::IntNotEqual(_) => 18,
+            SimpleValue::IntLessEqual(_) => 19,
+            SimpleValue::IntSLessEqual(_) => 20,
+            SimpleValue::IntCarry(_) => 21,
+            SimpleValue::IntSCarry(_) => 22,
+            SimpleValue::IntSBorrow(_) => 23,
         }
     }
 }
@@ -620,6 +661,9 @@ impl Simplify for SimpleValue {
             SimpleValue::Xor(expr) => expr.simplify(),
             SimpleValue::And(expr) => expr.simplify(),
             SimpleValue::Load(expr) => expr.simplify(),
+            SimpleValue::ZeroExtend(expr) => expr.simplify(),
+            SimpleValue::SignExtend(expr) => expr.simplify(),
+            SimpleValue::Extract(expr) => expr.simplify(),
             SimpleValue::IntSLess(expr) => expr.simplify(),
             SimpleValue::IntEqual(expr) => expr.simplify(),
             SimpleValue::IntLess(expr) => expr.simplify(),
@@ -1130,6 +1174,115 @@ impl Simplify for Load {
     }
 }
 
+/// Return a bitmask covering exactly `size_bytes` bytes (up to 8).
+fn mask_for_size(size_bytes: usize) -> u64 {
+    if size_bytes >= 8 {
+        u64::MAX
+    } else {
+        (1u64 << (size_bytes * 8)).wrapping_sub(1)
+    }
+}
+
+impl Simplify for ZeroExtend {
+    fn simplify(&self) -> SimpleValue {
+        let ZeroExtend(inner_intern, output_size) = self;
+        let inner = inner_intern.as_ref().simplify();
+
+        if matches!(inner, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        // identity: extending to the same size is a no-op
+        if inner.size() == *output_size {
+            return inner;
+        }
+
+        // constant folding: mask to source size (unsigned), then store in output size
+        if let Some(vn) = inner.as_const() {
+            let src_value = vn.offset() & mask_for_size(vn.size());
+            return SimpleValue::make_const(src_value as i64, *output_size as u32);
+        }
+
+        // chain: zext(zext(x, s1), s2) where s2 >= s1 → zext(x, s2)
+        if let SimpleValue::ZeroExtend(ZeroExtend(inner2, s1)) = &inner {
+            if *output_size >= *s1 {
+                return ZeroExtend(*inner2, *output_size).simplify();
+            }
+        }
+
+        SimpleValue::ZeroExtend(ZeroExtend(Intern::new(inner), *output_size))
+    }
+}
+
+impl Simplify for SignExtend {
+    fn simplify(&self) -> SimpleValue {
+        let SignExtend(inner_intern, output_size) = self;
+        let inner = inner_intern.as_ref().simplify();
+
+        if matches!(inner, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        // identity: extending to the same size is a no-op
+        if inner.size() == *output_size {
+            return inner;
+        }
+
+        // constant folding
+        if let Some(vn) = inner.as_const() {
+            let src_size = vn.size();
+            let raw = vn.offset();
+            // sign-extend from src_size bytes to u64
+            let sign_extended = if src_size > 0 && src_size < 8 {
+                let sign_bit = 1u64 << (src_size * 8 - 1);
+                if raw & sign_bit != 0 {
+                    raw | (u64::MAX << (src_size * 8))
+                } else {
+                    raw
+                }
+            } else {
+                raw
+            };
+            let masked = sign_extended & mask_for_size(*output_size);
+            return SimpleValue::make_const(masked as i64, *output_size as u32);
+        }
+
+        // chain: sext(sext(x, s1), s2) where s2 >= s1 → sext(x, s2)
+        if let SimpleValue::SignExtend(SignExtend(inner2, s1)) = &inner {
+            if *output_size >= *s1 {
+                return SignExtend(*inner2, *output_size).simplify();
+            }
+        }
+
+        SimpleValue::SignExtend(SignExtend(Intern::new(inner), *output_size))
+    }
+}
+
+impl Simplify for Extract {
+    fn simplify(&self) -> SimpleValue {
+        let Extract(inner_intern, byte_offset, output_size) = self;
+        let inner = inner_intern.as_ref().simplify();
+
+        if matches!(inner, SimpleValue::Top) {
+            return SimpleValue::Top;
+        }
+
+        // identity: extracting the full value at offset 0 is a no-op
+        if *byte_offset == 0 && inner.size() == *output_size {
+            return inner;
+        }
+
+        // constant folding
+        if let Some(vn) = inner.as_const() {
+            let shifted = vn.offset() >> (byte_offset * 8);
+            let masked = shifted & mask_for_size(*output_size);
+            return SimpleValue::make_const(masked as i64, *output_size as u32);
+        }
+
+        SimpleValue::Extract(Extract(Intern::new(inner), *byte_offset, *output_size))
+    }
+}
+
 impl Simplify for IntEqual {
     fn simplify(&self) -> SimpleValue {
         let a_s = self.0.as_ref().simplify();
@@ -1435,6 +1588,21 @@ impl JingleDisplay for SimpleValue {
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
             SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
+            SimpleValue::ZeroExtend(ZeroExtend(a, s)) => {
+                write!(f, "zext(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ", {s})")
+            }
+            SimpleValue::SignExtend(SignExtend(a, s)) => {
+                write!(f, "sext(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ", {s})")
+            }
+            SimpleValue::Extract(Extract(a, off, s)) => {
+                write!(f, "extract(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ", {off}:{s})")
+            }
             SimpleValue::IntEqual(IntEqual(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "==")?;
@@ -1544,6 +1712,11 @@ impl std::fmt::Display for SimpleValue {
                 // Load(child)
                 write!(f, "Load({})", a.as_ref())
             }
+            SimpleValue::ZeroExtend(ZeroExtend(a, s)) => write!(f, "zext({}, {s})", a.as_ref()),
+            SimpleValue::SignExtend(SignExtend(a, s)) => write!(f, "sext({}, {s})", a.as_ref()),
+            SimpleValue::Extract(Extract(a, off, s)) => {
+                write!(f, "extract({}, {off}:{s})", a.as_ref())
+            }
             SimpleValue::IntEqual(IntEqual(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "==")?;
@@ -1640,6 +1813,15 @@ impl std::fmt::LowerHex for SimpleValue {
             }
             SimpleValue::Load(Load(a, _)) => {
                 write!(f, "Load({:x})", a.as_ref())
+            }
+            SimpleValue::ZeroExtend(ZeroExtend(a, s)) => {
+                write!(f, "zext({:x}, {s})", a.as_ref())
+            }
+            SimpleValue::SignExtend(SignExtend(a, s)) => {
+                write!(f, "sext({:x}, {s})", a.as_ref())
+            }
+            SimpleValue::Extract(Extract(a, off, s)) => {
+                write!(f, "extract({:x}, {off}:{s})", a.as_ref())
             }
             SimpleValue::IntEqual(IntEqual(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;

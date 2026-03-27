@@ -219,12 +219,35 @@ impl SimpleValuationState {
                 }
             }
 
-            PcodeOperation::IntSExt { input, .. } | PcodeOperation::IntZExt { input, .. } => {
-                // todo, just have a self.read that takes a gneral varnode and does
-                // either a direct or indirect read?
+            PcodeOperation::IntZExt { input, .. } => {
                 let v = SimpleValue::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, v.simplify());
+                    let out_size = output_vn.size();
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::zero_extend(v, out_size).simplify());
+                }
+            }
+
+            PcodeOperation::IntSExt { input, .. } => {
+                let v = SimpleValue::from_varnode_or_entry(self, input);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    let out_size = output_vn.size();
+                    new_state
+                        .valuation
+                        .add(output_vn, SimpleValue::sign_extend(v, out_size).simplify());
+                }
+            }
+
+            PcodeOperation::SubPiece { input0, input1, .. } => {
+                let v = SimpleValue::from_varnode_or_entry(self, input0);
+                let byte_offset = input1.offset() as usize;
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    let out_size = output_vn.size();
+                    new_state.valuation.add(
+                        output_vn,
+                        SimpleValue::extract(v, byte_offset, out_size).simplify(),
+                    );
                 }
             }
 
