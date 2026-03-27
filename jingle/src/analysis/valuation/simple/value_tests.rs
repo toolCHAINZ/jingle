@@ -761,3 +761,155 @@ fn dispatch_delegates_to_variant() {
     let via_expr = expr.simplify();
     assert_eq!(via_variant, via_expr);
 }
+
+// --- ZeroExtend --------------------------------------------------------------
+
+#[test]
+fn zero_extend_const_folding() {
+    // zext(0x42 as u8, 4) → 0x00000042 as u32
+    let inner = SimpleValue::make_const(0x42, 1);
+    let result = SimpleValue::zero_extend(inner, 4).simplify();
+    assert_eq!(result, SimpleValue::make_const(0x42, 4));
+}
+
+#[test]
+fn zero_extend_const_masks_high_bits() {
+    // zext(-1 as i8, 4) — -1 in i64 has all bits set, but as a 1-byte const
+    // the stored offset is 0xFFFFFFFFFFFFFFFF. We should mask to 0x000000FF.
+    let inner = SimpleValue::make_const(-1, 1);
+    let result = SimpleValue::zero_extend(inner, 4).simplify();
+    assert_eq!(result, SimpleValue::make_const(0xFF, 4));
+}
+
+#[test]
+fn zero_extend_identity_same_size() {
+    let entry = SimpleValue::entry(vn_a());
+    let result = SimpleValue::zero_extend(entry.clone(), entry.size()).simplify();
+    assert_eq!(result, entry);
+}
+
+#[test]
+fn zero_extend_top() {
+    let result = SimpleValue::zero_extend(SimpleValue::Top, 8).simplify();
+    assert_eq!(result, SimpleValue::Top);
+}
+
+#[test]
+fn zero_extend_chain_collapses() {
+    // zext(zext(x, 4), 8) → zext(x, 8)
+    let entry = SimpleValue::entry(vn_a());
+    let inner = SimpleValue::zero_extend(entry.clone(), 4);
+    let result = SimpleValue::zero_extend(inner, 8).simplify();
+    assert_eq!(result, SimpleValue::zero_extend(entry, 8).simplify());
+}
+
+// --- SignExtend --------------------------------------------------------------
+
+#[test]
+fn sign_extend_const_positive() {
+    // sext(0x42 as u8, 4) — sign bit of byte 0x42 is 0, so result is 0x00000042
+    let inner = SimpleValue::make_const(0x42, 1);
+    let result = SimpleValue::sign_extend(inner, 4).simplify();
+    assert_eq!(result, SimpleValue::make_const(0x42, 4));
+}
+
+#[test]
+fn sign_extend_const_negative() {
+    // sext(0xFF as u8, 4) — sign bit is 1, so result is -1 as i32 = 0xFFFFFFFF
+    let inner = SimpleValue::make_const(0xFF, 1);
+    let result = SimpleValue::sign_extend(inner, 4).simplify();
+    // 0xFFFFFFFF as i64 = 4294967295, but as i32 (4-byte) = -1
+    assert_eq!(result, SimpleValue::make_const(0xFFFF_FFFF_u64 as i64, 4));
+}
+
+#[test]
+fn sign_extend_identity_same_size() {
+    let entry = SimpleValue::entry(vn_a());
+    let result = SimpleValue::sign_extend(entry.clone(), entry.size()).simplify();
+    assert_eq!(result, entry);
+}
+
+#[test]
+fn sign_extend_top() {
+    let result = SimpleValue::sign_extend(SimpleValue::Top, 8).simplify();
+    assert_eq!(result, SimpleValue::Top);
+}
+
+#[test]
+fn sign_extend_chain_collapses() {
+    // sext(sext(x, 4), 8) → sext(x, 8)
+    let entry = SimpleValue::entry(vn_a());
+    let inner = SimpleValue::sign_extend(entry.clone(), 4);
+    let result = SimpleValue::sign_extend(inner, 8).simplify();
+    assert_eq!(result, SimpleValue::sign_extend(entry, 8).simplify());
+}
+
+// --- Extract -----------------------------------------------------------------
+
+#[test]
+fn extract_const_folding() {
+    // extract(0xAABBCCDD as u32, byte_offset=1, output_size=1) → 0xCC
+    let inner = SimpleValue::make_const(0xAABBCCDD_u64 as i64, 4);
+    let result = SimpleValue::extract(inner, 1, 1).simplify();
+    assert_eq!(result, SimpleValue::make_const(0xCC, 1));
+}
+
+#[test]
+fn extract_identity_full() {
+    // extract(x, 0, x.size()) → x
+    let entry = SimpleValue::entry(vn_a());
+    let size = entry.size();
+    let result = SimpleValue::extract(entry.clone(), 0, size).simplify();
+    assert_eq!(result, entry);
+}
+
+#[test]
+fn extract_top() {
+    let result = SimpleValue::extract(SimpleValue::Top, 0, 4).simplify();
+    assert_eq!(result, SimpleValue::Top);
+}
+
+// --- Trimming via SimpleValuation::add ---------------------------------------
+
+#[test]
+fn add_trims_covered_sub_entries() {
+    use crate::analysis::valuation::simple::valuation::SimpleValuation;
+
+    let mut val = SimpleValuation::new();
+
+    // Write a 4-byte entry at offset 4 in space 0
+    let small_vn = VarNode::new(4u64, 4u32, 0u32);
+    val.add(small_vn.clone(), SimpleValue::const_(0x42));
+
+    // Now write an 8-byte entry at offset 4 in the same space — covers small_vn
+    let big_vn = VarNode::new(4u64, 8u32, 0u32);
+    val.add(big_vn.clone(), SimpleValue::const_(0x1234));
+
+    // The small entry should have been removed
+    assert!(
+        val.direct_writes.get(&small_vn).is_none(),
+        "small entry should be trimmed after larger write covers it"
+    );
+    // The large entry should still be present
+    assert!(val.direct_writes.get(&big_vn).is_some());
+}
+
+#[test]
+fn add_does_not_trim_non_covered_entries() {
+    use crate::analysis::valuation::simple::valuation::SimpleValuation;
+
+    let mut val = SimpleValuation::new();
+
+    // Write entries at different offsets in space 0
+    let vn_other = VarNode::new(0x100u64, 4u32, 0u32);
+    val.add(vn_other.clone(), SimpleValue::const_(0x99));
+
+    // Write at a completely different offset — should not trim vn_other
+    let vn_new = VarNode::new(4u64, 8u32, 0u32);
+    val.add(vn_new.clone(), SimpleValue::const_(0x1234));
+
+    assert!(
+        val.direct_writes.get(&vn_other).is_some(),
+        "unrelated entry should not be trimmed"
+    );
+}
