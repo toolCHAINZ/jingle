@@ -244,9 +244,8 @@ impl SimpleValuation {
                 // Remove any existing entries whose range is entirely covered by this write.
                 // Writing to a larger region (e.g. register[4:8]) physically overwrites all
                 // sub-regions (e.g. register[4:4]) that fall within it.
-                self.direct_writes.retain(|existing, _| {
-                    !vn.covers(existing) || existing == &vn
-                });
+                self.direct_writes
+                    .retain(|existing, _| !vn.covers(existing) || existing == &vn);
                 self.direct_writes.insert(vn, val);
             }
             SingleValuationLocation::Indirect(ptr_intern) => {
