@@ -5,7 +5,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::residue::EmptyResidue;
 use crate::analysis::cpa::state::{AbstractState, MergeOutcome, Successor};
 use crate::analysis::cpa::{ConfigurableProgramAnalysis, IntoState};
-use crate::analysis::valuation::simple::valuation::Valuation;
+use crate::analysis::valuation::simple::valuation::ValuationSet;
 use crate::analysis::varnode_map::VarNodeMap;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
@@ -27,11 +27,11 @@ pub enum MergeBehavior {
     Top,
 }
 
-/// State for the valuation CPA. Stores a `Valuation` which contains both
+/// State for the valuation CPA. Stores a `ValuationSet` which contains both
 /// direct and indirect write maps.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct ValuationState {
-    valuation: Valuation,
+    valuation: ValuationSet,
     arch_info: SleighArchInfo,
     /// Merge behavior controlling how conflicting valuations are handled during `join`.
     merge_behavior: MergeBehavior,
@@ -64,7 +64,7 @@ impl ValuationState {
     /// Create a new state with the default merge behavior of `Or`.
     pub fn new(arch_info: SleighArchInfo) -> Self {
         Self {
-            valuation: Valuation::new(),
+            valuation: ValuationSet::new(),
             arch_info,
             merge_behavior: MergeBehavior::Or,
         }
@@ -73,7 +73,7 @@ impl ValuationState {
     /// Create a new state specifying the desired merge behavior.
     pub fn new_with_behavior(arch_info: SleighArchInfo, merge_behavior: MergeBehavior) -> Self {
         Self {
-            valuation: Valuation::new(),
+            valuation: ValuationSet::new(),
             arch_info,
             merge_behavior,
         }
@@ -87,7 +87,7 @@ impl ValuationState {
         &self.valuation.direct_writes
     }
 
-    pub fn valuation(&self) -> &Valuation {
+    pub fn valuation(&self) -> &ValuationSet {
         &self.valuation
     }
 
@@ -560,7 +560,7 @@ impl IntoState<ValuationAnalysis> for ConcretePcodeAddress {
         c: &ValuationAnalysis,
     ) -> <ValuationAnalysis as ConfigurableProgramAnalysis>::State {
         ValuationState {
-            valuation: Valuation::new(),
+            valuation: ValuationSet::new(),
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
         }

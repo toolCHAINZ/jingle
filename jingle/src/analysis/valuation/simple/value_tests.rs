@@ -841,9 +841,9 @@ fn extract_top() {
 
 #[test]
 fn add_trims_covered_sub_entries() {
-    use crate::analysis::valuation::simple::valuation::Valuation;
+    use crate::analysis::valuation::simple::valuation::ValuationSet;
 
-    let mut val = Valuation::new();
+    let mut val = ValuationSet::new();
 
     // Write a 4-byte entry at offset 4 in space 0
     let small_vn = VarNode::new(4u64, 4u32, 0u32);
@@ -864,9 +864,9 @@ fn add_trims_covered_sub_entries() {
 
 #[test]
 fn add_does_not_trim_non_covered_entries() {
-    use crate::analysis::valuation::simple::valuation::Valuation;
+    use crate::analysis::valuation::simple::valuation::ValuationSet;
 
-    let mut val = Valuation::new();
+    let mut val = ValuationSet::new();
 
     // Write entries at different offsets in space 0
     let vn_other = VarNode::new(0x100u64, 4u32, 0u32);
