@@ -9,9 +9,7 @@ use jingle::analysis::cpa::{RunnableConfigurableProgramAnalysis, TerminatingRedu
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::analysis::pcode_store::PcodeStore;
 use jingle::analysis::pcode_store::{self, PcodeOpRef};
-use jingle::analysis::valuation::{
-    MergeBehavior, SimpleValuationAnalysis, SimpleValuationState, SimpleValue,
-};
+use jingle::analysis::valuation::{MergeBehavior, ValuationAnalysis, ValuationState, Value};
 use jingle::display::JingleDisplay;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
@@ -52,8 +50,7 @@ fn main() {
     // Build a compound analysis: DirectLocationAnalysis (left) + DirectValuationAnalysis (right).
     // Wrap the compound with a CfgReducer so `run` returns the constructed CFG.
     let location_analysis = BasicLocationAnalysis::new(CallBehavior::Branch);
-    let valuation_analysis =
-        SimpleValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Top);
+    let valuation_analysis = ValuationAnalysis::new(loaded.arch_info().clone(), MergeBehavior::Top);
 
     // The tuple implements Analysis via the compound machinery; wrap it with the CfgReducer (factory)
     let mut compound_with_cfg = (location_analysis, valuation_analysis).with_residue(CFG);
@@ -64,8 +61,8 @@ fn main() {
     let cfg = compound_with_cfg.run(&loaded, ConcretePcodeAddress::from(FUNC_NESTED));
 
     // We'll collect valuation info keyed by concrete addresses encountered in the CFG.
-    let mut stack_offsets: HashMap<ConcretePcodeAddress, SimpleValue> = HashMap::new();
-    let mut direct_valuations: HashMap<ConcretePcodeAddress, SimpleValuationState> = HashMap::new();
+    let mut stack_offsets: HashMap<ConcretePcodeAddress, Value> = HashMap::new();
+    let mut direct_valuations: HashMap<ConcretePcodeAddress, ValuationState> = HashMap::new();
 
     // `cfg.nodes()` yields `&N` where N = (DirectLocationState, DirectValuationState).
     // Use `cloned()` to get owned tuples so we can inspect and store values.
@@ -98,7 +95,7 @@ fn main() {
 
         let val_count = direct_valuations
             .get(loc)
-            .map(|v: &SimpleValuationState| v.written_locations().len())
+            .map(|v: &ValuationState| v.written_locations().len())
             .unwrap_or(0);
 
         let val_info = if val_count > 0 {
@@ -196,7 +193,7 @@ fn main() {
 
     let concrete_offsets = stack_offsets
         .values()
-        .filter(|v| !matches!(v, SimpleValue::Top))
+        .filter(|v| !matches!(v, Value::Top))
         .count();
 
     println!("  Concrete stack offsets: {}", concrete_offsets);
@@ -204,7 +201,7 @@ fn main() {
         "  Total tracked varnodes across all locations: {}",
         direct_valuations
             .values()
-            .map(|v: &SimpleValuationState| v.written_locations().len())
+            .map(|v: &ValuationState| v.written_locations().len())
             .sum::<usize>()
     );
 

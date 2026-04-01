@@ -1,11 +1,5 @@
-// Refactored SimpleValue:
-//  - constants are now represented as `VarNode`s in the constant space (keeps offset+size)
-//  - every expression node carries a `size: usize` (derived from leaves / consts)
-// This file preserves the external API where possible (e.g. `const_(i64)` still exists)
-// but internally stores constants as interned `VarNode`s so sizes propagate through expressions.
-
 use crate::{
-    analysis::{cpa::lattice::JoinSemiLattice, valuation::SimpleValuationState},
+    analysis::{cpa::lattice::JoinSemiLattice, valuation::ValuationState},
     display::JingleDisplay,
 };
 use internment::Intern;
@@ -20,7 +14,7 @@ use std::{
 };
 
 trait Simplify {
-    fn simplify(&self) -> SimpleValue;
+    fn simplify(&self) -> Value;
 }
 
 /// An entry value of a direct location
@@ -98,83 +92,83 @@ impl Offset {
 
 /// A multiplication expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct MulExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+pub struct MulExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// An addition expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct AddExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+pub struct AddExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A subtraction expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct SubExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+pub struct SubExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// An expression representing two possible values
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Or(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+pub struct Or(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise XOR expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct XorExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+pub struct XorExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise AND expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct AndExpr(pub Intern<SimpleValue>, pub Intern<SimpleValue>, pub usize);
+pub struct AndExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A signed comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntSLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntSLess(pub Intern<Value>, pub Intern<Value>);
 
 /// An equality comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// An unsigned comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntLess(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntLess(pub Intern<Value>, pub Intern<Value>);
 
 /// A PopCount operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct PopCount(pub Intern<SimpleValue>);
+pub struct PopCount(pub Intern<Value>);
 
 /// An inequality comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntNotEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntNotEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// An unsigned less-than-or-equal comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntLessEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntLessEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// A signed less-than-or-equal comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntSLessEqual(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntSLessEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// Unsigned addition carry-out
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntCarry(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntCarry(pub Intern<Value>, pub Intern<Value>);
 
 /// Signed addition overflow (SCARRY)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntSCarry(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntSCarry(pub Intern<Value>, pub Intern<Value>);
 
 /// Signed subtraction overflow (SBORROW)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct IntSBorrow(pub Intern<SimpleValue>, pub Intern<SimpleValue>);
+pub struct IntSBorrow(pub Intern<Value>, pub Intern<Value>);
 
 /// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Load(pub Intern<SimpleValue>, pub usize);
+pub struct Load(pub Intern<Value>, pub usize);
 
 /// A zero-extension of the inner value to `output_size` bytes
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct ZeroExtend(pub Intern<SimpleValue>, pub usize);
+pub struct ZeroExtend(pub Intern<Value>, pub usize);
 
 /// A sign-extension of the inner value to `output_size` bytes
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct SignExtend(pub Intern<SimpleValue>, pub usize);
+pub struct SignExtend(pub Intern<Value>, pub usize);
 
 /// Extraction of `output_size` bytes from the inner value starting at `byte_offset`
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Extract(pub Intern<SimpleValue>, pub usize, pub usize);
+pub struct Extract(pub Intern<Value>, pub usize, pub usize);
 
 impl AsRef<VarNode> for Const {
     fn as_ref(&self) -> &VarNode {
@@ -190,7 +184,7 @@ impl AsRef<VarNode> for Entry {
 
 /// Symbolic valuation built from varnodes and constants (constants are interned VarNodes).
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub enum SimpleValue {
+pub enum Value {
     /// A direct entry referencing an existing non-const varnode
     Entry(Entry),
 
@@ -228,12 +222,12 @@ pub enum SimpleValue {
     Top,
 }
 
-impl SimpleValue {
+impl Value {
     /// Return a reference to the `VarNode` if this is a `Const` variant.
     /// This lets callers inspect both offset and size directly.
     pub fn as_const(&self) -> Option<&VarNode> {
         match self {
-            SimpleValue::Const(vn_intern) => Some(vn_intern.as_ref()),
+            Value::Const(vn_intern) => Some(vn_intern.as_ref()),
             _ => None,
         }
     }
@@ -248,7 +242,7 @@ impl SimpleValue {
     /// Accessor for `Entry` variant.
     pub fn as_entry(&self) -> Option<&Entry> {
         match self {
-            SimpleValue::Entry(e) => Some(e),
+            Value::Entry(e) => Some(e),
             _ => None,
         }
     }
@@ -256,7 +250,7 @@ impl SimpleValue {
     /// Accessor for `Entry` variant.
     pub fn as_offset(&self) -> Option<&Offset> {
         match self {
-            SimpleValue::Offset(e) => Some(e),
+            Value::Offset(e) => Some(e),
             _ => None,
         }
     }
@@ -264,32 +258,32 @@ impl SimpleValue {
     fn is_compound(&self) -> bool {
         matches!(
             self,
-            SimpleValue::Mul(_)
-                | SimpleValue::Add(_)
-                | SimpleValue::Sub(_)
-                | SimpleValue::Or(_)
-                | SimpleValue::Xor(_)
-                | SimpleValue::And(_)
-                | SimpleValue::ZeroExtend(_)
-                | SimpleValue::SignExtend(_)
-                | SimpleValue::Extract(_)
-                | SimpleValue::IntSLess(_)
-                | SimpleValue::IntEqual(_)
-                | SimpleValue::IntLess(_)
-                | SimpleValue::PopCount(_)
-                | SimpleValue::IntNotEqual(_)
-                | SimpleValue::IntLessEqual(_)
-                | SimpleValue::IntSLessEqual(_)
-                | SimpleValue::IntCarry(_)
-                | SimpleValue::IntSCarry(_)
-                | SimpleValue::IntSBorrow(_)
+            Value::Mul(_)
+                | Value::Add(_)
+                | Value::Sub(_)
+                | Value::Or(_)
+                | Value::Xor(_)
+                | Value::And(_)
+                | Value::ZeroExtend(_)
+                | Value::SignExtend(_)
+                | Value::Extract(_)
+                | Value::IntSLess(_)
+                | Value::IntEqual(_)
+                | Value::IntLess(_)
+                | Value::PopCount(_)
+                | Value::IntNotEqual(_)
+                | Value::IntLessEqual(_)
+                | Value::IntSLessEqual(_)
+                | Value::IntCarry(_)
+                | Value::IntSCarry(_)
+                | Value::IntSBorrow(_)
         )
     }
 
     /// Accessor for `Mul` variant.
     pub fn as_mul(&self) -> Option<&MulExpr> {
         match self {
-            SimpleValue::Mul(m) => Some(m),
+            Value::Mul(m) => Some(m),
             _ => None,
         }
     }
@@ -297,7 +291,7 @@ impl SimpleValue {
     /// Accessor for `Add` variant.
     pub fn as_add(&self) -> Option<&AddExpr> {
         match self {
-            SimpleValue::Add(a) => Some(a),
+            Value::Add(a) => Some(a),
             _ => None,
         }
     }
@@ -305,7 +299,7 @@ impl SimpleValue {
     /// Accessor for `Sub` variant.
     pub fn as_sub(&self) -> Option<&SubExpr> {
         match self {
-            SimpleValue::Sub(s) => Some(s),
+            Value::Sub(s) => Some(s),
             _ => None,
         }
     }
@@ -313,7 +307,7 @@ impl SimpleValue {
     /// Accessor for `Or` variant.
     pub fn as_or(&self) -> Option<&Or> {
         match self {
-            SimpleValue::Or(o) => Some(o),
+            Value::Or(o) => Some(o),
             _ => None,
         }
     }
@@ -321,7 +315,7 @@ impl SimpleValue {
     /// Accessor for `Xor` variant.
     pub fn as_xor(&self) -> Option<&XorExpr> {
         match self {
-            SimpleValue::Xor(x) => Some(x),
+            Value::Xor(x) => Some(x),
             _ => None,
         }
     }
@@ -329,7 +323,7 @@ impl SimpleValue {
     /// Accessor for `And` variant.
     pub fn as_and(&self) -> Option<&AndExpr> {
         match self {
-            SimpleValue::And(a) => Some(a),
+            Value::And(a) => Some(a),
             _ => None,
         }
     }
@@ -337,7 +331,7 @@ impl SimpleValue {
     /// Accessor for `Load` variant.
     pub fn as_load(&self) -> Option<&Load> {
         match self {
-            SimpleValue::Load(l) => Some(l),
+            Value::Load(l) => Some(l),
             _ => None,
         }
     }
@@ -345,7 +339,7 @@ impl SimpleValue {
     /// Accessor for `IntSLess` variant.
     pub fn as_int_sless(&self) -> Option<&IntSLess> {
         match self {
-            SimpleValue::IntSLess(v) => Some(v),
+            Value::IntSLess(v) => Some(v),
             _ => None,
         }
     }
@@ -353,7 +347,7 @@ impl SimpleValue {
     /// Accessor for `IntEqual` variant.
     pub fn as_int_equal(&self) -> Option<&IntEqual> {
         match self {
-            SimpleValue::IntEqual(v) => Some(v),
+            Value::IntEqual(v) => Some(v),
             _ => None,
         }
     }
@@ -361,7 +355,7 @@ impl SimpleValue {
     /// Accessor for `IntLess` variant.
     pub fn as_int_less(&self) -> Option<&IntLess> {
         match self {
-            SimpleValue::IntLess(v) => Some(v),
+            Value::IntLess(v) => Some(v),
             _ => None,
         }
     }
@@ -369,7 +363,7 @@ impl SimpleValue {
     /// Accessor for `PopCount` variant.
     pub fn as_popcount(&self) -> Option<&PopCount> {
         match self {
-            SimpleValue::PopCount(v) => Some(v),
+            Value::PopCount(v) => Some(v),
             _ => None,
         }
     }
@@ -377,7 +371,7 @@ impl SimpleValue {
     /// Accessor for `IntNotEqual` variant.
     pub fn as_int_not_equal(&self) -> Option<&IntNotEqual> {
         match self {
-            SimpleValue::IntNotEqual(v) => Some(v),
+            Value::IntNotEqual(v) => Some(v),
             _ => None,
         }
     }
@@ -385,7 +379,7 @@ impl SimpleValue {
     /// Accessor for `IntLessEqual` variant.
     pub fn as_int_less_equal(&self) -> Option<&IntLessEqual> {
         match self {
-            SimpleValue::IntLessEqual(v) => Some(v),
+            Value::IntLessEqual(v) => Some(v),
             _ => None,
         }
     }
@@ -393,7 +387,7 @@ impl SimpleValue {
     /// Accessor for `IntSLessEqual` variant.
     pub fn as_int_sless_equal(&self) -> Option<&IntSLessEqual> {
         match self {
-            SimpleValue::IntSLessEqual(v) => Some(v),
+            Value::IntSLessEqual(v) => Some(v),
             _ => None,
         }
     }
@@ -401,7 +395,7 @@ impl SimpleValue {
     /// Accessor for `IntCarry` variant.
     pub fn as_int_carry(&self) -> Option<&IntCarry> {
         match self {
-            SimpleValue::IntCarry(v) => Some(v),
+            Value::IntCarry(v) => Some(v),
             _ => None,
         }
     }
@@ -409,7 +403,7 @@ impl SimpleValue {
     /// Accessor for `IntSCarry` variant.
     pub fn as_int_scarry(&self) -> Option<&IntSCarry> {
         match self {
-            SimpleValue::IntSCarry(v) => Some(v),
+            Value::IntSCarry(v) => Some(v),
             _ => None,
         }
     }
@@ -417,40 +411,39 @@ impl SimpleValue {
     /// Accessor for `IntSBorrow` variant.
     pub fn as_int_sborrow(&self) -> Option<&IntSBorrow> {
         match self {
-            SimpleValue::IntSBorrow(v) => Some(v),
+            Value::IntSBorrow(v) => Some(v),
             _ => None,
         }
     }
 
-    /// Get the size in bytes represented by this SimpleValue.
+    /// Get the size in bytes represented by this Value.
     /// For `Entry` and `Const`, this returns the underlying VarNode's size.
     /// For composite nodes, the stored size is returned.
     pub fn size(&self) -> usize {
         match self {
-            SimpleValue::Entry(Entry(vn)) => vn.size(),
-            SimpleValue::Const(vn) => vn.as_ref().size(),
-            SimpleValue::Offset(Offset(_, vn)) => vn.as_ref().0.size(),
-            SimpleValue::Mul(MulExpr(_, _, s))
-            | SimpleValue::Add(AddExpr(_, _, s))
-            | SimpleValue::Sub(SubExpr(_, _, s))
-            | SimpleValue::Or(Or(_, _, s))
-            | SimpleValue::Xor(XorExpr(_, _, s))
-            | SimpleValue::And(AndExpr(_, _, s)) => *s,
-            SimpleValue::Load(Load(_, s)) => *s,
-            SimpleValue::ZeroExtend(ZeroExtend(_, s))
-            | SimpleValue::SignExtend(SignExtend(_, s)) => *s,
-            SimpleValue::Extract(Extract(_, _, s)) => *s,
-            SimpleValue::IntSLess(_)
-            | SimpleValue::IntEqual(_)
-            | SimpleValue::IntLess(_)
-            | SimpleValue::PopCount(_)
-            | SimpleValue::IntNotEqual(_)
-            | SimpleValue::IntLessEqual(_)
-            | SimpleValue::IntSLessEqual(_)
-            | SimpleValue::IntCarry(_)
-            | SimpleValue::IntSCarry(_)
-            | SimpleValue::IntSBorrow(_) => 1,
-            SimpleValue::Top => 8, // conservative default
+            Value::Entry(Entry(vn)) => vn.size(),
+            Value::Const(vn) => vn.as_ref().size(),
+            Value::Offset(Offset(_, vn)) => vn.as_ref().0.size(),
+            Value::Mul(MulExpr(_, _, s))
+            | Value::Add(AddExpr(_, _, s))
+            | Value::Sub(SubExpr(_, _, s))
+            | Value::Or(Or(_, _, s))
+            | Value::Xor(XorExpr(_, _, s))
+            | Value::And(AndExpr(_, _, s)) => *s,
+            Value::Load(Load(_, s)) => *s,
+            Value::ZeroExtend(ZeroExtend(_, s)) | Value::SignExtend(SignExtend(_, s)) => *s,
+            Value::Extract(Extract(_, _, s)) => *s,
+            Value::IntSLess(_)
+            | Value::IntEqual(_)
+            | Value::IntLess(_)
+            | Value::PopCount(_)
+            | Value::IntNotEqual(_)
+            | Value::IntLessEqual(_)
+            | Value::IntSLessEqual(_)
+            | Value::IntCarry(_)
+            | Value::IntSCarry(_)
+            | Value::IntSBorrow(_) => 1,
+            Value::Top => 8, // conservative default
         }
     }
 
@@ -458,12 +451,12 @@ impl SimpleValue {
 
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn entry(vn: VarNode) -> Self {
-        SimpleValue::Entry(Entry(vn))
+        Value::Entry(Entry(vn))
     }
 
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn offset(vn: VarNode, offset: VarNode) -> Self {
-        SimpleValue::Offset(Offset(Intern::new(Entry(vn)), Intern::new(Const(offset))))
+        Value::Offset(Offset(Intern::new(Entry(vn)), Intern::new(Const(offset))))
     }
 
     /// Construct a `Const(...)` from a raw i64 value.
@@ -472,30 +465,30 @@ impl SimpleValue {
     pub fn const_(v: i64) -> Self {
         // default to 8-byte sized constant
         let vn = VarNode::new_const(v as u64, 8u32);
-        SimpleValue::Const(Const(vn))
+        Value::Const(Const(vn))
     }
 
     /// Construct a `Const(...)` directly from a `VarNode` (already contains size).
     pub fn const_from_varnode(vn: VarNode) -> Self {
-        SimpleValue::Const(Const(vn))
+        Value::Const(Const(vn))
     }
 
     /// Construct an `Or(...)` node from two children. Size is derived from children.
-    pub fn or(left: SimpleValue, right: SimpleValue) -> Self {
+    pub fn or(left: Value, right: Value) -> Self {
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Or(Or(Intern::new(left), Intern::new(right), s))
+        Value::Or(Or(Intern::new(left), Intern::new(right), s))
     }
 
     /// Construct a `Xor(...)` node from two children. Size is derived from children.
-    pub fn xor(left: SimpleValue, right: SimpleValue) -> Self {
+    pub fn xor(left: Value, right: Value) -> Self {
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
+        Value::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
     }
 
     /// Construct an `And(...)` node from two children. Size is derived from children.
-    pub fn and(left: SimpleValue, right: SimpleValue) -> Self {
+    pub fn and(left: Value, right: Value) -> Self {
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::And(AndExpr(Intern::new(left), Intern::new(right), s))
+        Value::And(AndExpr(Intern::new(left), Intern::new(right), s))
     }
 
     /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
@@ -503,88 +496,88 @@ impl SimpleValue {
     /// want to construct loads via `make_load_with_size` if available.)
     /// todo: we should _not_ be pulling the size from the child value; it is independent of
     /// pointer size
-    pub fn load(child: SimpleValue) -> Self {
+    pub fn load(child: Value) -> Self {
         let s = child.size();
-        SimpleValue::Load(Load(Intern::new(child), s))
+        Value::Load(Load(Intern::new(child), s))
     }
 
     /// Construct an `IntEqual(...)` node from two children.
-    pub fn int_equal(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntEqual(IntEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_equal(left: Value, right: Value) -> Self {
+        Value::IntEqual(IntEqual(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntLess(...)` node from two children.
-    pub fn int_less(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntLess(IntLess(Intern::new(left), Intern::new(right)))
+    pub fn int_less(left: Value, right: Value) -> Self {
+        Value::IntLess(IntLess(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntSLess(...)` node from two children.
-    pub fn int_sless(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntSLess(IntSLess(Intern::new(left), Intern::new(right)))
+    pub fn int_sless(left: Value, right: Value) -> Self {
+        Value::IntSLess(IntSLess(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct a `PopCount(...)` node from a child.
-    pub fn popcount(child: SimpleValue) -> Self {
-        SimpleValue::PopCount(PopCount(Intern::new(child)))
+    pub fn popcount(child: Value) -> Self {
+        Value::PopCount(PopCount(Intern::new(child)))
     }
 
     /// Construct an `IntNotEqual(...)` node from two children.
-    pub fn int_not_equal(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntNotEqual(IntNotEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_not_equal(left: Value, right: Value) -> Self {
+        Value::IntNotEqual(IntNotEqual(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntLessEqual(...)` node from two children.
-    pub fn int_less_equal(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntLessEqual(IntLessEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_less_equal(left: Value, right: Value) -> Self {
+        Value::IntLessEqual(IntLessEqual(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntSLessEqual(...)` node from two children.
-    pub fn int_sless_equal(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntSLessEqual(IntSLessEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_sless_equal(left: Value, right: Value) -> Self {
+        Value::IntSLessEqual(IntSLessEqual(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntCarry(...)` node from two children.
-    pub fn int_carry(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntCarry(IntCarry(Intern::new(left), Intern::new(right)))
+    pub fn int_carry(left: Value, right: Value) -> Self {
+        Value::IntCarry(IntCarry(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntSCarry(...)` node from two children.
-    pub fn int_scarry(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntSCarry(IntSCarry(Intern::new(left), Intern::new(right)))
+    pub fn int_scarry(left: Value, right: Value) -> Self {
+        Value::IntSCarry(IntSCarry(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct an `IntSBorrow(...)` node from two children.
-    pub fn int_sborrow(left: SimpleValue, right: SimpleValue) -> Self {
-        SimpleValue::IntSBorrow(IntSBorrow(Intern::new(left), Intern::new(right)))
+    pub fn int_sborrow(left: Value, right: Value) -> Self {
+        Value::IntSBorrow(IntSBorrow(Intern::new(left), Intern::new(right)))
     }
 
     /// Construct a `ZeroExtend(...)` node that zero-extends `inner` to `output_size` bytes.
-    pub fn zero_extend(inner: SimpleValue, output_size: usize) -> Self {
-        SimpleValue::ZeroExtend(ZeroExtend(Intern::new(inner), output_size))
+    pub fn zero_extend(inner: Value, output_size: usize) -> Self {
+        Value::ZeroExtend(ZeroExtend(Intern::new(inner), output_size))
     }
 
     /// Construct a `SignExtend(...)` node that sign-extends `inner` to `output_size` bytes.
-    pub fn sign_extend(inner: SimpleValue, output_size: usize) -> Self {
-        SimpleValue::SignExtend(SignExtend(Intern::new(inner), output_size))
+    pub fn sign_extend(inner: Value, output_size: usize) -> Self {
+        Value::SignExtend(SignExtend(Intern::new(inner), output_size))
     }
 
     /// Construct an `Extract(...)` node that extracts `output_size` bytes from `inner`
     /// starting at `byte_offset`.
-    pub fn extract(inner: SimpleValue, byte_offset: usize, output_size: usize) -> Self {
-        SimpleValue::Extract(Extract(Intern::new(inner), byte_offset, output_size))
+    pub fn extract(inner: Value, byte_offset: usize, output_size: usize) -> Self {
+        Value::Extract(Extract(Intern::new(inner), byte_offset, output_size))
     }
 
     // Keep the older helpers (used by some simplifications) for parity:
 
-    /// Create a constant SimpleValue with the given value and size (in bytes).
+    /// Create a constant Value with the given value and size (in bytes).
     fn make_const(value: i64, size: u32) -> Self {
         let vn = VarNode::new_const(value as u64, size);
-        SimpleValue::Const(Const(vn))
+        Value::Const(Const(vn))
     }
 
     /// Helper to pick a reasonable size for a new constant when folding results.
     /// Prefer sizes found on any child; fall back to 8 bytes (64-bit).
-    fn derive_size_from(val: &SimpleValue) -> usize {
+    fn derive_size_from(val: &Value) -> usize {
         // If we have an explicit size on this node or on a leaf varnode, return it.
         let s = val.size();
         if s == 0 { 8 } else { s }
@@ -592,7 +585,7 @@ impl SimpleValue {
 
     /// Normalize commutative operands so that constants (if present) are on the right.
     /// Returns (left, right) possibly swapped.
-    fn normalize_commutative(left: SimpleValue, right: SimpleValue) -> (SimpleValue, SimpleValue) {
+    fn normalize_commutative(left: Value, right: Value) -> (Value, Value) {
         let left_is_const = left.as_const().is_some();
         let right_is_const = right.as_const().is_some();
 
@@ -607,9 +600,9 @@ impl SimpleValue {
     /// Normalize Or operands so that the canonical form has a non-Or on the left
     /// and an Or on the right when one operand is an Or. This makes simplifications
     /// like `Or(Or(a,b), c)` and `Or(c, Or(a,b))` handled uniformly.
-    fn normalize_or(left: SimpleValue, right: SimpleValue) -> (SimpleValue, SimpleValue) {
-        let left_is_or = matches!(left, SimpleValue::Or(_));
-        let right_is_or = matches!(right, SimpleValue::Or(_));
+    fn normalize_or(left: Value, right: Value) -> (Value, Value) {
+        let left_is_or = matches!(left, Value::Or(_));
+        let right_is_or = matches!(right, Value::Or(_));
 
         // If left is an Or and right is not, swap so the Or is on the right.
         if left_is_or && !right_is_or {
@@ -621,123 +614,120 @@ impl SimpleValue {
 
     /// Provide a coarse rank for variants so we can produce deterministic ordering
     /// among different kinds of children when canonicalizing binary commutative nodes.
-    fn variant_rank(v: &SimpleValue) -> u8 {
+    fn variant_rank(v: &Value) -> u8 {
         match v {
-            SimpleValue::Const(_) => 0,
-            SimpleValue::Entry(_) => 1,
-            SimpleValue::Offset(_) => 2,
-            SimpleValue::Mul(_) => 3,
-            SimpleValue::Add(_) => 4,
-            SimpleValue::Sub(_) => 5,
-            SimpleValue::Or(_) => 6,
-            SimpleValue::Xor(_) => 7,
-            SimpleValue::And(_) => 8,
-            SimpleValue::Load(_) => 9,
-            SimpleValue::ZeroExtend(_) => 10,
-            SimpleValue::SignExtend(_) => 11,
-            SimpleValue::Extract(_) => 12,
-            SimpleValue::Top => 13,
-            SimpleValue::IntSLess(_) => 14,
-            SimpleValue::IntEqual(_) => 15,
-            SimpleValue::IntLess(_) => 16,
-            SimpleValue::PopCount(_) => 17,
-            SimpleValue::IntNotEqual(_) => 18,
-            SimpleValue::IntLessEqual(_) => 19,
-            SimpleValue::IntSLessEqual(_) => 20,
-            SimpleValue::IntCarry(_) => 21,
-            SimpleValue::IntSCarry(_) => 22,
-            SimpleValue::IntSBorrow(_) => 23,
+            Value::Const(_) => 0,
+            Value::Entry(_) => 1,
+            Value::Offset(_) => 2,
+            Value::Mul(_) => 3,
+            Value::Add(_) => 4,
+            Value::Sub(_) => 5,
+            Value::Or(_) => 6,
+            Value::Xor(_) => 7,
+            Value::And(_) => 8,
+            Value::Load(_) => 9,
+            Value::ZeroExtend(_) => 10,
+            Value::SignExtend(_) => 11,
+            Value::Extract(_) => 12,
+            Value::Top => 13,
+            Value::IntSLess(_) => 14,
+            Value::IntEqual(_) => 15,
+            Value::IntLess(_) => 16,
+            Value::PopCount(_) => 17,
+            Value::IntNotEqual(_) => 18,
+            Value::IntLessEqual(_) => 19,
+            Value::IntSLessEqual(_) => 20,
+            Value::IntCarry(_) => 21,
+            Value::IntSCarry(_) => 22,
+            Value::IntSBorrow(_) => 23,
         }
     }
 }
 
-impl Simplify for SimpleValue {
-    fn simplify(&self) -> SimpleValue {
+impl Simplify for Value {
+    fn simplify(&self) -> Value {
         match self {
-            SimpleValue::Mul(expr) => expr.simplify(),
-            SimpleValue::Add(expr) => expr.simplify(),
-            SimpleValue::Sub(expr) => expr.simplify(),
-            SimpleValue::Or(expr) => expr.simplify(),
-            SimpleValue::Xor(expr) => expr.simplify(),
-            SimpleValue::And(expr) => expr.simplify(),
-            SimpleValue::Load(expr) => expr.simplify(),
-            SimpleValue::ZeroExtend(expr) => expr.simplify(),
-            SimpleValue::SignExtend(expr) => expr.simplify(),
-            SimpleValue::Extract(expr) => expr.simplify(),
-            SimpleValue::IntSLess(expr) => expr.simplify(),
-            SimpleValue::IntEqual(expr) => expr.simplify(),
-            SimpleValue::IntLess(expr) => expr.simplify(),
-            SimpleValue::PopCount(expr) => expr.simplify(),
-            SimpleValue::IntNotEqual(expr) => expr.simplify(),
-            SimpleValue::IntLessEqual(expr) => expr.simplify(),
-            SimpleValue::IntSLessEqual(expr) => expr.simplify(),
-            SimpleValue::IntCarry(expr) => expr.simplify(),
-            SimpleValue::IntSCarry(expr) => expr.simplify(),
-            SimpleValue::IntSBorrow(expr) => expr.simplify(),
-            SimpleValue::Entry(_)
-            | SimpleValue::Offset(_)
-            | SimpleValue::Const(_)
-            | SimpleValue::Top => self.clone(),
+            Value::Mul(expr) => expr.simplify(),
+            Value::Add(expr) => expr.simplify(),
+            Value::Sub(expr) => expr.simplify(),
+            Value::Or(expr) => expr.simplify(),
+            Value::Xor(expr) => expr.simplify(),
+            Value::And(expr) => expr.simplify(),
+            Value::Load(expr) => expr.simplify(),
+            Value::ZeroExtend(expr) => expr.simplify(),
+            Value::SignExtend(expr) => expr.simplify(),
+            Value::Extract(expr) => expr.simplify(),
+            Value::IntSLess(expr) => expr.simplify(),
+            Value::IntEqual(expr) => expr.simplify(),
+            Value::IntLess(expr) => expr.simplify(),
+            Value::PopCount(expr) => expr.simplify(),
+            Value::IntNotEqual(expr) => expr.simplify(),
+            Value::IntLessEqual(expr) => expr.simplify(),
+            Value::IntSLessEqual(expr) => expr.simplify(),
+            Value::IntCarry(expr) => expr.simplify(),
+            Value::IntSCarry(expr) => expr.simplify(),
+            Value::IntSBorrow(expr) => expr.simplify(),
+            Value::Entry(_) | Value::Offset(_) | Value::Const(_) | Value::Top => self.clone(),
         }
     }
 }
 
-impl Mul for SimpleValue {
-    type Output = SimpleValue;
+impl Mul for Value {
+    type Output = Value;
 
     fn mul(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        SimpleValue::Mul(MulExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Mul(MulExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
-impl Add for SimpleValue {
-    type Output = SimpleValue;
+impl Add for Value {
+    type Output = Value;
 
     fn add(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        SimpleValue::Add(AddExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Add(AddExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
-impl BitXor for SimpleValue {
-    type Output = SimpleValue;
+impl BitXor for Value {
+    type Output = Value;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        SimpleValue::Xor(XorExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Xor(XorExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
-impl BitAnd for SimpleValue {
-    type Output = SimpleValue;
+impl BitAnd for Value {
+    type Output = Value;
 
     fn bitand(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        SimpleValue::And(AndExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::And(AndExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
-impl Sub for SimpleValue {
-    type Output = SimpleValue;
+impl Sub for Value {
+    type Output = Value;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        SimpleValue::Sub(SubExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Sub(SubExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
-impl SimpleValue {
+impl Value {
     /// Inherent simplify method so callers don't need the `Simplify` trait in scope.
     /// This delegates to the same per-variant simplifiers that the `Simplify`
     /// implementations provide for the individual AST node structs.
-    pub fn simplify(&self) -> SimpleValue {
+    pub fn simplify(&self) -> Value {
         Simplify::simplify(self)
     }
 }
 
 impl Simplify for AddExpr {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_intern = self.0;
         let b_intern = self.1;
 
@@ -746,8 +736,8 @@ impl Simplify for AddExpr {
         let b_s = b_intern.as_ref().simplify();
 
         // if any child is Top, the result is Top
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         // both const -> fold using signed wrapping arithmetic consistent with prior behavior
@@ -755,12 +745,12 @@ impl Simplify for AddExpr {
             let a = a_vn.offset() as i64;
             let b = b_vn.offset() as i64;
             let res = a.wrapping_add(b);
-            let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
-            return SimpleValue::make_const(res, size as u32);
+            let size = Value::derive_size_from(&a_s).max(Value::derive_size_from(&b_s));
+            return Value::make_const(res, size as u32);
         }
 
         // normalization: ensure constants are on the right
-        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
 
         // expr + 0 -> expr
         // expr + (- |a|) -> expr - a
@@ -769,7 +759,7 @@ impl Simplify for AddExpr {
         }
 
         // ((expr + #a) + #b) -> (expr + #(a + b))
-        if let SimpleValue::Add(AddExpr(left_inner_left, left_inner_right, _)) = &left {
+        if let Value::Add(AddExpr(left_inner_left, left_inner_right, _)) = &left {
             if let Some(inner_right_vn) = left_inner_right.as_ref().as_const() {
                 if let Some(right_vn) = right.as_const() {
                     let inner_right_const = inner_right_vn.offset() as i64;
@@ -777,30 +767,29 @@ impl Simplify for AddExpr {
                     let res = inner_right_const.wrapping_add(right_const);
                     let size = std::cmp::max(
                         left_inner_left.as_ref().size(),
-                        SimpleValue::derive_size_from(&SimpleValue::make_const(res, 8u32)),
+                        Value::derive_size_from(&Value::make_const(res, 8u32)),
                     );
-                    let new_const = SimpleValue::make_const(res, size as u32);
+                    let new_const = Value::make_const(res, size as u32);
                     return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }
             }
         }
 
         // ((expr - #a) + #b) -> (expr - #(a - b)) or (expr + #(b - a))
-        if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
+        if let Value::Sub(SubExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
                     let a_const = a_vn.offset() as i64;
                     let b = b_vn.offset() as i64;
                     let res = a_const.wrapping_sub(b);
-                    let size =
-                        std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
+                    let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
 
                     // If res is negative, create Add instead of Sub to avoid infinite loop
                     if res < 0 {
-                        let new_const = SimpleValue::make_const(-res, size as u32);
+                        let new_const = Value::make_const(-res, size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
-                        let new_const = SimpleValue::make_const(res, size as u32);
+                        let new_const = Value::make_const(res, size as u32);
                         return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
@@ -809,20 +798,20 @@ impl Simplify for AddExpr {
 
         // default: rebuild with simplified children; size is max of children
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Add(AddExpr(Intern::new(left), Intern::new(right), s))
+        Value::Add(AddExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
 impl Simplify for SubExpr {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_intern = self.0;
         let b_intern = self.1;
 
         let a_s = a_intern.as_ref().simplify();
         let b_s = b_intern.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         // both const -> fold
@@ -830,8 +819,8 @@ impl Simplify for SubExpr {
             let left = left_vn.offset() as i64;
             let right = right_vn.offset() as i64;
             let res = left.wrapping_sub(right);
-            let size = SimpleValue::derive_size_from(&a_s).max(SimpleValue::derive_size_from(&b_s));
-            return SimpleValue::make_const(res, size as u32);
+            let size = Value::derive_size_from(&a_s).max(Value::derive_size_from(&b_s));
+            return Value::make_const(res, size as u32);
         }
 
         // DO NOT normalize for subtraction - it is not commutative!
@@ -847,8 +836,7 @@ impl Simplify for SubExpr {
             }
             Some(a) => {
                 if a < 0 {
-                    let new_const =
-                        SimpleValue::make_const(-a, SimpleValue::derive_size_from(&left) as u32);
+                    let new_const = Value::make_const(-a, Value::derive_size_from(&left) as u32);
                     let add = AddExpr(
                         Intern::new(left.clone()),
                         Intern::new(new_const),
@@ -863,26 +851,25 @@ impl Simplify for SubExpr {
 
         // x - x -> 0
         if left == right {
-            let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size as u32);
+            let size = Value::derive_size_from(&left);
+            return Value::make_const(0, size as u32);
         }
 
         // ((expr + #a) - #b) -> (expr + #(a - b)) or (expr - #(b - a))
-        if let SimpleValue::Add(AddExpr(expr, a, _)) = &left {
+        if let Value::Add(AddExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
                     let a_val = a_vn.offset() as i64;
                     let b_val = b_vn.offset() as i64;
                     let res = a_val.wrapping_sub(b_val);
-                    let size =
-                        std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
+                    let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
 
                     // res = a - b (net constant); positive → Add, negative → Sub with -res
                     if res < 0 {
-                        let new_const = SimpleValue::make_const(-res, size as u32);
+                        let new_const = Value::make_const(-res, size as u32);
                         return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
-                        let new_const = SimpleValue::make_const(res, size as u32);
+                        let new_const = Value::make_const(res, size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     }
                 }
@@ -890,48 +877,46 @@ impl Simplify for SubExpr {
         }
 
         // ((expr - #a) - #b) -> (expr - #(a + b))
-        if let SimpleValue::Sub(SubExpr(expr, a, _)) = &left {
+        if let Value::Sub(SubExpr(expr, a, _)) = &left {
             if let Some(a_vn) = a.as_ref().as_const() {
                 if let Some(b_vn) = right.as_const() {
                     let a_val = a_vn.offset() as i64;
                     let b_val = b_vn.offset() as i64;
                     let res = a_val.wrapping_add(b_val);
-                    let size =
-                        std::cmp::max(expr.as_ref().size(), SimpleValue::derive_size_from(&left));
-                    let new_const = SimpleValue::make_const(res, size as u32);
+                    let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
+                    let new_const = Value::make_const(res, size as u32);
                     return SubExpr(*expr, Intern::new(new_const), size).simplify();
                 }
             }
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Sub(SubExpr(Intern::new(left), Intern::new(right), s))
+        Value::Sub(SubExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
 impl Simplify for MulExpr {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_intern = self.0;
         let b_intern = self.1;
 
         let a_s = a_intern.as_ref().simplify();
         let b_s = b_intern.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         // normalization: prefer constant on the right
-        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
 
         // both const -> fold
         if let (Some(a_vn), Some(b_vn)) = (left.as_const(), right.as_const()) {
             let a_v = a_vn.offset() as i64;
             let b_v = b_vn.offset() as i64;
             let res = a_v.wrapping_mul(b_v);
-            let size =
-                SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size as u32);
+            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
+            return Value::make_const(res, size as u32);
         }
 
         // expr * 1 -> expr
@@ -941,17 +926,17 @@ impl Simplify for MulExpr {
 
         // expr * 0 -> 0
         if right.as_const().map(|vn| vn.offset() as i64) == Some(0) {
-            let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size as u32);
+            let size = Value::derive_size_from(&left);
+            return Value::make_const(0, size as u32);
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Mul(MulExpr(Intern::new(left), Intern::new(right), s))
+        Value::Mul(MulExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
 impl Simplify for Or {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_intern = self.0;
         let b_intern = self.1;
 
@@ -960,18 +945,18 @@ impl Simplify for Or {
         let b_s = b_intern.as_ref().simplify();
 
         // if either child is Top, the result is Top
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         // normalize so that if one side is an Or and the other is not, the Or is on the right
         // (canonical shape: non-Or on left, Or on right)
-        let (mut left, mut right) = SimpleValue::normalize_or(a_s, b_s);
+        let (mut left, mut right) = Value::normalize_or(a_s, b_s);
 
         // If both sides are non-Or, enforce deterministic ordering by variant rank.
-        if !matches!(left, SimpleValue::Or(_))
-            && !matches!(right, SimpleValue::Or(_))
-            && SimpleValue::variant_rank(&left) > SimpleValue::variant_rank(&right)
+        if !matches!(left, Value::Or(_))
+            && !matches!(right, Value::Or(_))
+            && Value::variant_rank(&left) > Value::variant_rank(&right)
         {
             std::mem::swap(&mut left, &mut right);
         }
@@ -982,93 +967,77 @@ impl Simplify for Or {
         }
 
         // Collapse nested duplicates: Or(a, Or(a, b)) -> Or(a, b)
-        if let SimpleValue::Or(Or(inner_a, inner_b, _)) = &right {
+        if let Value::Or(Or(inner_a, inner_b, _)) = &right {
             if inner_a.as_ref() == &left {
-                let inner = SimpleValue::Or(Or(Intern::new(left.clone()), *inner_b, right.size()))
-                    .simplify();
+                let inner =
+                    Value::Or(Or(Intern::new(left.clone()), *inner_b, right.size())).simplify();
                 return inner;
             }
             if inner_b.as_ref() == &left {
-                let inner = SimpleValue::Or(Or(Intern::new(left.clone()), *inner_a, right.size()))
-                    .simplify();
+                let inner =
+                    Value::Or(Or(Intern::new(left.clone()), *inner_a, right.size())).simplify();
                 return inner;
             }
         }
 
         // Factor common child between two Ors:
         // Or(Or(a,b), Or(a,c)) -> Or(a, Or(b,c)) and symmetric variants.
-        if let (SimpleValue::Or(Or(l1, l2, _)), SimpleValue::Or(Or(r1, r2, _))) = (&left, &right) {
+        if let (Value::Or(Or(l1, l2, _)), Value::Or(Or(r1, r2, _))) = (&left, &right) {
             // check all combinations for equal common child
             if l1.as_ref() == r1.as_ref() {
-                let inner = SimpleValue::Or(Or(
+                let inner = Value::Or(Or(
                     *l2,
                     *r2,
                     std::cmp::max(l2.as_ref().size(), r2.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return SimpleValue::Or(Or(
-                    Intern::new(l1.as_ref().clone()),
-                    Intern::new(inner),
-                    s,
-                ))
-                .simplify();
+                return Value::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner), s))
+                    .simplify();
             }
             if l1.as_ref() == r2.as_ref() {
-                let inner = SimpleValue::Or(Or(
+                let inner = Value::Or(Or(
                     *l2,
                     *r1,
                     std::cmp::max(l2.as_ref().size(), r1.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return SimpleValue::Or(Or(
-                    Intern::new(l1.as_ref().clone()),
-                    Intern::new(inner),
-                    s,
-                ))
-                .simplify();
+                return Value::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner), s))
+                    .simplify();
             }
             if l2.as_ref() == r1.as_ref() {
-                let inner = SimpleValue::Or(Or(
+                let inner = Value::Or(Or(
                     *l1,
                     *r2,
                     std::cmp::max(l1.as_ref().size(), r2.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return SimpleValue::Or(Or(
-                    Intern::new(l2.as_ref().clone()),
-                    Intern::new(inner),
-                    s,
-                ))
-                .simplify();
+                return Value::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner), s))
+                    .simplify();
             }
             if l2.as_ref() == r2.as_ref() {
-                let inner = SimpleValue::Or(Or(
+                let inner = Value::Or(Or(
                     *l1,
                     *r1,
                     std::cmp::max(l1.as_ref().size(), r1.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return SimpleValue::Or(Or(
-                    Intern::new(l2.as_ref().clone()),
-                    Intern::new(inner),
-                    s,
-                ))
-                .simplify();
+                return Value::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner), s))
+                    .simplify();
             }
         }
 
         // default: rebuild with simplified children
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Or(Or(Intern::new(left), Intern::new(right), s))
+        Value::Or(Or(Intern::new(left), Intern::new(right), s))
     }
 }
 
 impl Simplify for XorExpr {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_intern = self.0;
         let b_intern = self.1;
 
@@ -1077,27 +1046,26 @@ impl Simplify for XorExpr {
         let b_s = b_intern.as_ref().simplify();
 
         // if either child is Top, the result is Top
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         // normalize: prefer constant on the right
-        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
 
         // both const -> fold
         if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
             let left_val = left_vn.offset();
             let right_val = right_vn.offset();
             let res = (left_val ^ right_val) as i64;
-            let size =
-                SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size as u32);
+            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
+            return Value::make_const(res, size as u32);
         }
 
         // identical children => 0 (x XOR x = 0)
         if left == right {
-            let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size as u32);
+            let size = Value::derive_size_from(&left);
+            return Value::make_const(0, size as u32);
         }
 
         // expr XOR 0 -> expr
@@ -1107,27 +1075,26 @@ impl Simplify for XorExpr {
 
         // default: rebuild with simplified children
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
+        Value::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
 impl Simplify for AndExpr {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
-        let (left, right) = SimpleValue::normalize_commutative(a_s, b_s);
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
 
         // both const -> fold
         if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
             let res = (left_vn.offset() & right_vn.offset()) as i64;
-            let size =
-                SimpleValue::derive_size_from(&left).max(SimpleValue::derive_size_from(&right));
-            return SimpleValue::make_const(res, size as u32);
+            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
+            return Value::make_const(res, size as u32);
         }
 
         // x & x -> x
@@ -1137,8 +1104,8 @@ impl Simplify for AndExpr {
 
         // x & 0 -> 0
         if right.as_const().map(|vn| vn.offset()) == Some(0) {
-            let size = SimpleValue::derive_size_from(&left);
-            return SimpleValue::make_const(0, size as u32);
+            let size = Value::derive_size_from(&left);
+            return Value::make_const(0, size as u32);
         }
 
         // x & all-ones -> x
@@ -1156,21 +1123,21 @@ impl Simplify for AndExpr {
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        SimpleValue::And(AndExpr(Intern::new(left), Intern::new(right), s))
+        Value::And(AndExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
 impl Simplify for Load {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_intern = self.0;
         let a_s = a_intern.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) {
+            return Value::Top;
         }
 
         // keep the same size as recorded on this Load node
-        SimpleValue::Load(Load(Intern::new(a_s), self.1))
+        Value::Load(Load(Intern::new(a_s), self.1))
     }
 }
 
@@ -1184,12 +1151,12 @@ fn mask_for_size(size_bytes: usize) -> u64 {
 }
 
 impl Simplify for ZeroExtend {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let ZeroExtend(inner_intern, output_size) = self;
         let inner = inner_intern.as_ref().simplify();
 
-        if matches!(inner, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(inner, Value::Top) {
+            return Value::Top;
         }
 
         // identity: extending to the same size is a no-op
@@ -1200,27 +1167,27 @@ impl Simplify for ZeroExtend {
         // constant folding: mask to source size (unsigned), then store in output size
         if let Some(vn) = inner.as_const() {
             let src_value = vn.offset() & mask_for_size(vn.size());
-            return SimpleValue::make_const(src_value as i64, *output_size as u32);
+            return Value::make_const(src_value as i64, *output_size as u32);
         }
 
         // chain: zext(zext(x, s1), s2) where s2 >= s1 → zext(x, s2)
-        if let SimpleValue::ZeroExtend(ZeroExtend(inner2, s1)) = &inner {
+        if let Value::ZeroExtend(ZeroExtend(inner2, s1)) = &inner {
             if *output_size >= *s1 {
                 return ZeroExtend(*inner2, *output_size).simplify();
             }
         }
 
-        SimpleValue::ZeroExtend(ZeroExtend(Intern::new(inner), *output_size))
+        Value::ZeroExtend(ZeroExtend(Intern::new(inner), *output_size))
     }
 }
 
 impl Simplify for SignExtend {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let SignExtend(inner_intern, output_size) = self;
         let inner = inner_intern.as_ref().simplify();
 
-        if matches!(inner, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(inner, Value::Top) {
+            return Value::Top;
         }
 
         // identity: extending to the same size is a no-op
@@ -1244,27 +1211,27 @@ impl Simplify for SignExtend {
                 raw
             };
             let masked = sign_extended & mask_for_size(*output_size);
-            return SimpleValue::make_const(masked as i64, *output_size as u32);
+            return Value::make_const(masked as i64, *output_size as u32);
         }
 
         // chain: sext(sext(x, s1), s2) where s2 >= s1 → sext(x, s2)
-        if let SimpleValue::SignExtend(SignExtend(inner2, s1)) = &inner {
+        if let Value::SignExtend(SignExtend(inner2, s1)) = &inner {
             if *output_size >= *s1 {
                 return SignExtend(*inner2, *output_size).simplify();
             }
         }
 
-        SimpleValue::SignExtend(SignExtend(Intern::new(inner), *output_size))
+        Value::SignExtend(SignExtend(Intern::new(inner), *output_size))
     }
 }
 
 impl Simplify for Extract {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let Extract(inner_intern, byte_offset, output_size) = self;
         let inner = inner_intern.as_ref().simplify();
 
-        if matches!(inner, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(inner, Value::Top) {
+            return Value::Top;
         }
 
         // identity: extracting the full value at offset 0 is a no-op
@@ -1276,188 +1243,188 @@ impl Simplify for Extract {
         if let Some(vn) = inner.as_const() {
             let shifted = vn.offset() >> (byte_offset * 8);
             let masked = shifted & mask_for_size(*output_size);
-            return SimpleValue::make_const(masked as i64, *output_size as u32);
+            return Value::make_const(masked as i64, *output_size as u32);
         }
 
-        SimpleValue::Extract(Extract(Intern::new(inner), *byte_offset, *output_size))
+        Value::Extract(Extract(Intern::new(inner), *byte_offset, *output_size))
     }
 }
 
 impl Simplify for IntEqual {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let result = (a_vn.offset() == b_vn.offset()) as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(1, 1);
+            return Value::make_const(1, 1);
         }
 
-        SimpleValue::IntEqual(IntEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntEqual(IntEqual(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntLess {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let result = (a_vn.offset() < b_vn.offset()) as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(0, 1);
+            return Value::make_const(0, 1);
         }
 
-        SimpleValue::IntLess(IntLess(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntLess(IntLess(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntSLess {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let result = ((a_vn.offset() as i64) < (b_vn.offset() as i64)) as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(0, 1);
+            return Value::make_const(0, 1);
         }
 
-        SimpleValue::IntSLess(IntSLess(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSLess(IntSLess(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for PopCount {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) {
+            return Value::Top;
         }
 
         if let Some(vn) = a_s.as_const() {
             let result = vn.offset().count_ones() as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
-        SimpleValue::PopCount(PopCount(Intern::new(a_s)))
+        Value::PopCount(PopCount(Intern::new(a_s)))
     }
 }
 
 impl Simplify for IntNotEqual {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let result = (a_vn.offset() != b_vn.offset()) as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(0, 1);
+            return Value::make_const(0, 1);
         }
 
-        SimpleValue::IntNotEqual(IntNotEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntNotEqual(IntNotEqual(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntLessEqual {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let result = (a_vn.offset() <= b_vn.offset()) as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(1, 1);
+            return Value::make_const(1, 1);
         }
 
-        SimpleValue::IntLessEqual(IntLessEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntLessEqual(IntLessEqual(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntSLessEqual {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let result = ((a_vn.offset() as i64) <= (b_vn.offset() as i64)) as i64;
-            return SimpleValue::make_const(result, 1);
+            return Value::make_const(result, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(1, 1);
+            return Value::make_const(1, 1);
         }
 
-        SimpleValue::IntSLessEqual(IntSLessEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSLessEqual(IntSLessEqual(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntCarry {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
             let bits = (a_vn.size() * 8) as u32;
             let carry = (a_vn.offset() as u128 + b_vn.offset() as u128) >> bits;
-            return SimpleValue::make_const((carry != 0) as i64, 1);
+            return Value::make_const((carry != 0) as i64, 1);
         }
 
-        SimpleValue::IntCarry(IntCarry(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntCarry(IntCarry(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntSCarry {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
@@ -1472,20 +1439,20 @@ impl Simplify for IntSCarry {
             let b_val = b_vn.offset() & mask;
             let sum = a_val.wrapping_add(b_val) & mask;
             let overflow = ((a_val ^ sum) & (b_val ^ sum) & sign_mask) != 0;
-            return SimpleValue::make_const(overflow as i64, 1);
+            return Value::make_const(overflow as i64, 1);
         }
 
-        SimpleValue::IntSCarry(IntSCarry(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSCarry(IntSCarry(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
 impl Simplify for IntSBorrow {
-    fn simplify(&self) -> SimpleValue {
+    fn simplify(&self) -> Value {
         let a_s = self.0.as_ref().simplify();
         let b_s = self.1.as_ref().simplify();
 
-        if matches!(a_s, SimpleValue::Top) || matches!(b_s, SimpleValue::Top) {
-            return SimpleValue::Top;
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
         }
 
         if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
@@ -1500,22 +1467,18 @@ impl Simplify for IntSBorrow {
             let b_val = b_vn.offset() & mask;
             let diff = a_val.wrapping_sub(b_val) & mask;
             let overflow = ((a_val ^ b_val) & (a_val ^ diff) & sign_mask) != 0;
-            return SimpleValue::make_const(overflow as i64, 1);
+            return Value::make_const(overflow as i64, 1);
         }
 
         if a_s == b_s {
-            return SimpleValue::make_const(0, 1);
+            return Value::make_const(0, 1);
         }
 
-        SimpleValue::IntSBorrow(IntSBorrow(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSBorrow(IntSBorrow(Intern::new(a_s), Intern::new(b_s)))
     }
 }
 
-fn fmt_operand_jingle(
-    f: &mut Formatter<'_>,
-    v: &SimpleValue,
-    info: &SleighArchInfo,
-) -> std::fmt::Result {
+fn fmt_operand_jingle(f: &mut Formatter<'_>, v: &Value, info: &SleighArchInfo) -> std::fmt::Result {
     if v.is_compound() {
         write!(f, "(")?;
         v.fmt_jingle(f, info)?;
@@ -1525,7 +1488,7 @@ fn fmt_operand_jingle(
     }
 }
 
-fn fmt_operand(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt::Result {
+fn fmt_operand(f: &mut std::fmt::Formatter<'_>, v: &Value) -> std::fmt::Result {
     if v.is_compound() {
         write!(f, "({v})")
     } else {
@@ -1533,7 +1496,7 @@ fn fmt_operand(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt::Re
     }
 }
 
-fn fmt_operand_hex(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt::Result {
+fn fmt_operand_hex(f: &mut std::fmt::Formatter<'_>, v: &Value) -> std::fmt::Result {
     if v.is_compound() {
         write!(f, "({v:x})")
     } else {
@@ -1541,15 +1504,15 @@ fn fmt_operand_hex(f: &mut std::fmt::Formatter<'_>, v: &SimpleValue) -> std::fmt
     }
 }
 
-impl JingleDisplay for SimpleValue {
+impl JingleDisplay for Value {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
-            SimpleValue::Entry(Entry(vn)) => write!(f, "{}", vn.display(info)),
-            SimpleValue::Const(vn) => {
+            Value::Entry(Entry(vn)) => write!(f, "{}", vn.display(info)),
+            Value::Const(vn) => {
                 // print constant offset in hex (retain prior appearance)
                 write!(f, "{:#x}", vn.as_ref().offset())
             }
-            SimpleValue::Offset(Offset(vn, con)) => {
+            Value::Offset(Offset(vn, con)) => {
                 write!(
                     f,
                     "offset({},{})",
@@ -1557,209 +1520,209 @@ impl JingleDisplay for SimpleValue {
                     con.as_ref().0.display(info)
                 )
             }
-            SimpleValue::Mul(MulExpr(a, b, _)) => {
+            Value::Mul(MulExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "*")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::Add(AddExpr(a, b, _)) => {
+            Value::Add(AddExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "+")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::Sub(SubExpr(a, b, _)) => {
+            Value::Sub(SubExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "-")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::Or(Or(a, b, _)) => {
+            Value::Or(Or(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "||")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::Xor(XorExpr(a, b, _)) => {
+            Value::Xor(XorExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "^")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::And(AndExpr(a, b, _)) => {
+            Value::And(AndExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "&")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
-            SimpleValue::ZeroExtend(ZeroExtend(a, s)) => {
+            Value::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
+            Value::ZeroExtend(ZeroExtend(a, s)) => {
                 write!(f, "zext(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ", {s})")
             }
-            SimpleValue::SignExtend(SignExtend(a, s)) => {
+            Value::SignExtend(SignExtend(a, s)) => {
                 write!(f, "sext(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ", {s})")
             }
-            SimpleValue::Extract(Extract(a, off, s)) => {
+            Value::Extract(Extract(a, off, s)) => {
                 write!(f, "extract(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ", {off}:{s})")
             }
-            SimpleValue::IntEqual(IntEqual(a, b)) => {
+            Value::IntEqual(IntEqual(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "==")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::IntSLess(IntSLess(a, b)) => {
+            Value::IntSLess(IntSLess(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "s<")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::IntLess(IntLess(a, b)) => {
+            Value::IntLess(IntLess(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "u<")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::PopCount(PopCount(a)) => {
+            Value::PopCount(PopCount(a)) => {
                 write!(f, "popcount(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
-            SimpleValue::IntNotEqual(IntNotEqual(a, b)) => {
+            Value::IntNotEqual(IntNotEqual(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "!=")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::IntLessEqual(IntLessEqual(a, b)) => {
+            Value::IntLessEqual(IntLessEqual(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "u<=")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::IntSLessEqual(IntSLessEqual(a, b)) => {
+            Value::IntSLessEqual(IntSLessEqual(a, b)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "s<=")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            SimpleValue::IntCarry(IntCarry(a, b)) => {
+            Value::IntCarry(IntCarry(a, b)) => {
                 write!(f, "carry(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ",")?;
                 b.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
-            SimpleValue::IntSCarry(IntSCarry(a, b)) => {
+            Value::IntSCarry(IntSCarry(a, b)) => {
                 write!(f, "scarry(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ",")?;
                 b.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
-            SimpleValue::IntSBorrow(IntSBorrow(a, b)) => {
+            Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ",")?;
                 b.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
-            SimpleValue::Top => write!(f, "⊤"),
+            Value::Top => write!(f, "⊤"),
         }
     }
 }
 
-impl std::fmt::Display for SimpleValue {
+impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SimpleValue::Entry(Entry(vn)) => {
+            Value::Entry(Entry(vn)) => {
                 // Delegate to VarNode's Display implementation
                 write!(f, "{}", vn)
             }
-            SimpleValue::Const(vn) => {
+            Value::Const(vn) => {
                 // Print constant offset in hex (consistent with jingle display)
                 write!(f, "{:#x}", vn.as_ref().offset())
             }
-            SimpleValue::Offset(Offset(vn, off)) => {
+            Value::Offset(Offset(vn, off)) => {
                 write!(f, "offset({}, {})", vn.0, off.0)
             }
-            SimpleValue::Mul(MulExpr(a, b, _)) => {
+            Value::Mul(MulExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "*")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::Add(AddExpr(a, b, _)) => {
+            Value::Add(AddExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "+")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::Sub(SubExpr(a, b, _)) => {
+            Value::Sub(SubExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "-")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::Or(Or(a, b, _)) => {
+            Value::Or(Or(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "||")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::Xor(XorExpr(a, b, _)) => {
+            Value::Xor(XorExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "^")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::And(AndExpr(a, b, _)) => {
+            Value::And(AndExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "&")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::Load(Load(a, _)) => {
+            Value::Load(Load(a, _)) => {
                 // Load(child)
                 write!(f, "Load({})", a.as_ref())
             }
-            SimpleValue::ZeroExtend(ZeroExtend(a, s)) => write!(f, "zext({}, {s})", a.as_ref()),
-            SimpleValue::SignExtend(SignExtend(a, s)) => write!(f, "sext({}, {s})", a.as_ref()),
-            SimpleValue::Extract(Extract(a, off, s)) => {
+            Value::ZeroExtend(ZeroExtend(a, s)) => write!(f, "zext({}, {s})", a.as_ref()),
+            Value::SignExtend(SignExtend(a, s)) => write!(f, "sext({}, {s})", a.as_ref()),
+            Value::Extract(Extract(a, off, s)) => {
                 write!(f, "extract({}, {off}:{s})", a.as_ref())
             }
-            SimpleValue::IntEqual(IntEqual(a, b)) => {
+            Value::IntEqual(IntEqual(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "==")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::IntSLess(IntSLess(a, b)) => {
+            Value::IntSLess(IntSLess(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "s<")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::IntLess(IntLess(a, b)) => {
+            Value::IntLess(IntLess(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "u<")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::PopCount(PopCount(a)) => {
+            Value::PopCount(PopCount(a)) => {
                 write!(f, "popcount({})", a.as_ref())
             }
-            SimpleValue::IntNotEqual(IntNotEqual(a, b)) => {
+            Value::IntNotEqual(IntNotEqual(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "!=")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::IntLessEqual(IntLessEqual(a, b)) => {
+            Value::IntLessEqual(IntLessEqual(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "u<=")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::IntSLessEqual(IntSLessEqual(a, b)) => {
+            Value::IntSLessEqual(IntSLessEqual(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "s<=")?;
                 fmt_operand(f, b.as_ref())
             }
-            SimpleValue::IntCarry(IntCarry(a, b)) => {
+            Value::IntCarry(IntCarry(a, b)) => {
                 write!(f, "carry({}, {})", a.as_ref(), b.as_ref())
             }
-            SimpleValue::IntSCarry(IntSCarry(a, b)) => {
+            Value::IntSCarry(IntSCarry(a, b)) => {
                 write!(f, "scarry({}, {})", a.as_ref(), b.as_ref())
             }
-            SimpleValue::IntSBorrow(IntSBorrow(a, b)) => {
+            Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow({}, {})", a.as_ref(), b.as_ref())
             }
-            SimpleValue::Top => {
+            Value::Top => {
                 // Special top symbol
                 write!(f, "⊤")
             }
@@ -1767,125 +1730,125 @@ impl std::fmt::Display for SimpleValue {
     }
 }
 
-impl std::fmt::LowerHex for SimpleValue {
+impl std::fmt::LowerHex for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SimpleValue::Entry(Entry(vn)) => {
+            Value::Entry(Entry(vn)) => {
                 // VarNode doesn't implement LowerHex; fall back to Display
                 write!(f, "{}", vn)
             }
-            SimpleValue::Const(vn) => {
+            Value::Const(vn) => {
                 // Lower-hex for constants: no 0x prefix, lowercase hex digits
                 write!(f, "{:x}", vn.as_ref().offset())
             }
-            SimpleValue::Offset(Offset(vn, off)) => {
+            Value::Offset(Offset(vn, off)) => {
                 write!(f, "offset({:x}, {:x})", vn.0, off.0)
             }
-            SimpleValue::Mul(MulExpr(a, b, _)) => {
+            Value::Mul(MulExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "*")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::Add(AddExpr(a, b, _)) => {
+            Value::Add(AddExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "+")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::Sub(SubExpr(a, b, _)) => {
+            Value::Sub(SubExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "-")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::Or(Or(a, b, _)) => {
+            Value::Or(Or(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "||")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::Xor(XorExpr(a, b, _)) => {
+            Value::Xor(XorExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "^")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::And(AndExpr(a, b, _)) => {
+            Value::And(AndExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "&")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::Load(Load(a, _)) => {
+            Value::Load(Load(a, _)) => {
                 write!(f, "Load({:x})", a.as_ref())
             }
-            SimpleValue::ZeroExtend(ZeroExtend(a, s)) => {
+            Value::ZeroExtend(ZeroExtend(a, s)) => {
                 write!(f, "zext({:x}, {s})", a.as_ref())
             }
-            SimpleValue::SignExtend(SignExtend(a, s)) => {
+            Value::SignExtend(SignExtend(a, s)) => {
                 write!(f, "sext({:x}, {s})", a.as_ref())
             }
-            SimpleValue::Extract(Extract(a, off, s)) => {
+            Value::Extract(Extract(a, off, s)) => {
                 write!(f, "extract({:x}, {off}:{s})", a.as_ref())
             }
-            SimpleValue::IntEqual(IntEqual(a, b)) => {
+            Value::IntEqual(IntEqual(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "==")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::IntSLess(IntSLess(a, b)) => {
+            Value::IntSLess(IntSLess(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "s<")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::IntLess(IntLess(a, b)) => {
+            Value::IntLess(IntLess(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "u<")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::PopCount(PopCount(a)) => {
+            Value::PopCount(PopCount(a)) => {
                 write!(f, "popcount({:x})", a.as_ref())
             }
-            SimpleValue::IntNotEqual(IntNotEqual(a, b)) => {
+            Value::IntNotEqual(IntNotEqual(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "!=")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::IntLessEqual(IntLessEqual(a, b)) => {
+            Value::IntLessEqual(IntLessEqual(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "u<=")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::IntSLessEqual(IntSLessEqual(a, b)) => {
+            Value::IntSLessEqual(IntSLessEqual(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "s<=")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            SimpleValue::IntCarry(IntCarry(a, b)) => {
+            Value::IntCarry(IntCarry(a, b)) => {
                 write!(f, "carry({:x}, {:x})", a.as_ref(), b.as_ref())
             }
-            SimpleValue::IntSCarry(IntSCarry(a, b)) => {
+            Value::IntSCarry(IntSCarry(a, b)) => {
                 write!(f, "scarry({:x}, {:x})", a.as_ref(), b.as_ref())
             }
-            SimpleValue::IntSBorrow(IntSBorrow(a, b)) => {
+            Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow({:x}, {:x})", a.as_ref(), b.as_ref())
             }
-            SimpleValue::Top => write!(f, "⊤"),
+            Value::Top => write!(f, "⊤"),
         }
     }
 }
 
-impl SimpleValue {
+impl Value {
     /// Resolve a VarNode to an existing valuation in the state's direct writes,
     /// to a Const if the VarNode is a constant, or to an Entry if unseen.
-    pub fn from_varnode_or_entry(state: &SimpleValuationState, vn: &VarNode) -> Self {
+    pub fn from_varnode_or_entry(state: &ValuationState, vn: &VarNode) -> Self {
         if vn.is_const() {
             // preserve the size of the incoming varnode
-            SimpleValue::const_from_varnode(vn.clone())
+            Value::const_from_varnode(vn.clone())
         } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
         } else {
-            SimpleValue::Entry(Entry(vn.clone()))
+            Value::Entry(Entry(vn.clone()))
         }
     }
 }
 
-impl JoinSemiLattice for SimpleValue {
+impl JoinSemiLattice for Value {
     fn join(&mut self, _other: &Self) {}
 }
 
