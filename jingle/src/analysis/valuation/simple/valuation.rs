@@ -12,9 +12,11 @@ use crate::analysis::{valuation::SimpleValue, varnode_map::VarNodeMap};
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SimpleValuation {
     pub direct_writes: VarNodeMap<SimpleValue>,
-    /// Note: for now we are making the simplifying assumption
-    /// that all indirect writes happen in one space; this hashmap
-    /// can be keyed by both simpleValue and SpaceIndex to generalize this
+    /// Keyed on the load expression representing the memory location (e.g. `Load(ptr, size)`),
+    /// not the raw pointer. This matches the `SimpleValue::Load` representation used when the
+    /// stored value is read back by a load operation.
+    /// Note: for now we are making the simplifying assumption that all indirect writes happen
+    /// in one space; this map can be keyed by both `SimpleValue` and `SpaceIndex` to generalize.
     pub indirect_writes: BTreeMap<SimpleValue, SimpleValue>,
 }
 
@@ -122,9 +124,10 @@ impl SingleValuationLocation {
         SingleValuationLocation::Direct(vn)
     }
 
-    /// Construct a `SingleValuationLocation` representing an indirect (pointer) location.
-    pub fn new_indirect(ptr: SimpleValue) -> Self {
-        SingleValuationLocation::Indirect(ptr)
+    /// Construct a `SingleValuationLocation` representing an indirect (memory) location.
+    /// `loc` must be a `SimpleValue::Load(...)` expression describing the actual location.
+    pub fn new_indirect(loc: SimpleValue) -> Self {
+        SingleValuationLocation::Indirect(loc)
     }
 
     pub fn direct_covers(&self, other: &Self) -> bool {
@@ -204,10 +207,11 @@ impl SingleValuation {
         }
     }
 
-    /// Construct a `SingleValuation` representing an indirect write (pointer expression).
-    pub fn new_indirect(ptr: SimpleValue, value: SimpleValue) -> Self {
+    /// Construct a `SingleValuation` representing an indirect (memory) write.
+    /// `loc` must be a `SimpleValue::Load(...)` expression describing the actual location.
+    pub fn new_indirect(loc: SimpleValue, value: SimpleValue) -> Self {
         Self {
-            location: SingleValuationLocation::Indirect(ptr),
+            location: SingleValuationLocation::Indirect(loc),
             value,
         }
     }
@@ -261,12 +265,7 @@ impl JingleDisplay for SingleValuationLocation {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result {
         match self {
             SingleValuationLocation::Direct(vn) => vn.fmt_jingle(f, info),
-            SingleValuationLocation::Indirect(ptr_intern) => {
-                // Display indirect locations as a bracketed pointer expression.
-                write!(f, "*[")?;
-                ptr_intern.fmt_jingle(f, info)?;
-                write!(f, "]")
-            }
+            SingleValuationLocation::Indirect(loc_expr) => loc_expr.fmt_jingle(f, info),
         }
     }
 }
@@ -275,9 +274,7 @@ impl Display for SingleValuationLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             SingleValuationLocation::Direct(vn) => write!(f, "{}", vn),
-            SingleValuationLocation::Indirect(ptr_intern) => {
-                write!(f, "*[{}]", ptr_intern)
-            }
+            SingleValuationLocation::Indirect(loc_expr) => write!(f, "{}", loc_expr),
         }
     }
 }
@@ -748,10 +745,14 @@ mod tests {
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
 
-        // Add an indirect write
+        // Add an indirect write (key must be a Load expression)
+        let load_key = SimpleValue::Load(crate::analysis::valuation::simple::value::Load(
+            internment::Intern::new(SimpleValue::const_(100)),
+            8,
+        ));
         valuation
             .indirect_writes
-            .insert(SimpleValue::const_(100), SimpleValue::const_(200));
+            .insert(load_key, SimpleValue::const_(200));
 
         assert_eq!(valuation.len(), 2);
         assert!(!valuation.is_empty());

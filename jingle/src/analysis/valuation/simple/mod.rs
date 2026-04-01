@@ -15,7 +15,8 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 
-use crate::analysis::valuation::simple::value::SimpleValue;
+use crate::analysis::valuation::simple::value::{Load, SimpleValue};
+use internment::Intern;
 
 /// How to merge conflicting valuations for a single varnode when joining states.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -97,17 +98,14 @@ impl SimpleValuationState {
 
         // Match on the operation. Handle stores (indirect) and direct-output ops.
         match op {
-            // Store: record pointer -> value in indirect_writes
+            // Store: record Load(ptr, size) -> value in indirect_writes
             PcodeOperation::Store { output, input } => {
                 let ptr = &output.pointer_location();
-                let val = if input.is_const() {
-                    SimpleValue::const_(input.offset() as i64)
-                } else {
-                    SimpleValue::from_varnode_or_entry(self, input)
-                };
-
+                let val = SimpleValue::from_varnode_or_entry(self, input);
                 let pv = SimpleValue::from_varnode_or_entry(self, ptr);
-                new_state.valuation.add(pv.simplify(), val.simplify());
+                let data_size = input.size();
+                let loc = SimpleValue::Load(Load(Intern::new(pv.simplify()), data_size));
+                new_state.valuation.add(loc, val.simplify());
             }
 
             // Copy
@@ -204,17 +202,14 @@ impl SimpleValuationState {
 
             PcodeOperation::Load { input, .. } => {
                 let ptr = &input.pointer_location();
-
-                // Non-constant pointer: if we have an indirect write recorded for this
-                // pointer expression, use that stored value directly; otherwise emit Load(...)
                 let pv = SimpleValue::from_varnode_or_entry(self, ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    if let Some(v) = self.valuation.indirect_writes.get(&pv.simplify()) {
+                    let load_expr =
+                        SimpleValue::Load(Load(Intern::new(pv.simplify()), output_vn.size()));
+                    if let Some(v) = self.valuation.indirect_writes.get(&load_expr) {
                         new_state.valuation.add(output_vn, v.clone());
                     } else {
-                        new_state
-                            .valuation
-                            .add(output_vn, SimpleValue::load(pv).simplify());
+                        new_state.valuation.add(output_vn, load_expr);
                     }
                 }
             }
