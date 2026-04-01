@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.8...jingle-v0.6.9) - 2026-04-01
+
+### Added
+
+- support zext/sext/extract in valuation ([#221](https://github.com/toolCHAINZ/jingle/pull/221))
+
+### Changed
+
+- renamed Valuation to ValuationSet and SingleValuation to ([#225](https://github.com/toolCHAINZ/jingle/pull/225))
+- removed `Simple` and `Single` prefix from all value-like types ([#224](https://github.com/toolCHAINZ/jingle/pull/224))
+- semantics of SingleValuationLocation::Indirect ([#223](https://github.com/toolCHAINZ/jingle/pull/223))
+
 ## [0.6.8](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.7...jingle-v0.6.8) - 2026-03-25
 
 ### Added
