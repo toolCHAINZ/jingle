@@ -17,7 +17,7 @@ use crate::{
             state::{AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor},
         },
         location::basic::BasicLocationAnalysis,
-        valuation::{SimpleValuationState, SimpleValue},
+        valuation::{ValuationState, Value},
     },
     modeling::machine::{MachineState, cpu::concrete::ConcretePcodeAddress},
     register_strengthen,
@@ -216,10 +216,10 @@ impl LocationState for BasicLocationState {
 }
 
 impl BasicLocationState {
-    pub fn strengthen_from_valuation(&mut self, v: &SimpleValuationState) {
+    pub fn strengthen_from_valuation(&mut self, v: &ValuationState) {
         if let PcodeAddressLattice::Indirect(ivn) = &self.inner {
             if let Some(value) = v.get_value(ivn.pointer_location()) {
-                if matches!(value, SimpleValue::Top) {
+                if matches!(value, Value::Top) {
                     // Top carries no useful info; Indirect(ivn) is more informative.
                     return;
                 }
@@ -259,6 +259,6 @@ impl CfgState for BasicLocationState {
 
 register_strengthen!(
     BasicLocationState,
-    SimpleValuationState,
+    ValuationState,
     BasicLocationState::strengthen_from_valuation
 );

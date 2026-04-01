@@ -2,7 +2,7 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor,
 };
-use crate::analysis::valuation::SimpleValue;
+use crate::analysis::valuation::Value;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
@@ -23,7 +23,7 @@ use std::iter::{empty, once};
 pub enum PcodeAddressLattice {
     Const(ConcretePcodeAddress),
     Indirect(IndirectVarNode),
-    Computed(SimpleValue),
+    Computed(Value),
     Top,
 }
 

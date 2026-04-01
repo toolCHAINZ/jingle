@@ -1,10 +1,8 @@
 mod simple;
-// mod smt;
 
 pub use simple::valuation::{
-    Keys, SimpleValuation, SimpleValuationIter, SimpleValuationIterMut, SingleValuation,
-    SingleValuationLocation, Values, ValuesMut,
+    Keys, Location, SingleValuation, Valuation, ValuationIter, ValuationIterMut, Values, ValuesMut,
 };
 pub use simple::value::*;
-pub use simple::{MergeBehavior, SimpleValuationAnalysis, SimpleValuationState};
+pub use simple::{MergeBehavior, ValuationAnalysis, ValuationState};
 // pub use smt::{SmtVal, SmtValuationAnalysis, SmtValuationState};
