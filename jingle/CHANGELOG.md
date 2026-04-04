@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.9...jingle-v0.6.10) - 2026-04-04
+
+### Added
+
+- make varnode Copy and improve Value ergonomics ([#228](https://github.com/toolCHAINZ/jingle/pull/228))
+
+### Other
+
+- Bump z3 and z3-sys versions ([#226](https://github.com/toolCHAINZ/jingle/pull/226))
+
 ## [0.6.9](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.8...jingle-v0.6.9) - 2026-04-01
 
 ### Added
