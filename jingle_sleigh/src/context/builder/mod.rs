@@ -42,7 +42,7 @@ impl SleighContextBuilder {
         // SleighContext arch info.
         if let Some(pc) = pspec.programcounter {
             if let Some(vn_ref) = context.arch_info().register(&pc.register) {
-                context.set_program_counter_varnode(vn_ref.clone());
+                context.set_program_counter_varnode(*vn_ref);
             }
         }
 
@@ -293,7 +293,7 @@ impl SleighContextBuilder {
                         // If cspec declares a stackpointer, seed arch_info accordingly
                         if let Some(sp) = cspec.stackpointer {
                             if let Some(vn_ref) = context.arch_info().register(&sp.register) {
-                                context.set_stack_pointer_varnode(vn_ref.clone());
+                                context.set_stack_pointer_varnode(*vn_ref);
                                 // Do not break here: continue collecting cspecs and prototypes
                             }
                         }
@@ -307,7 +307,7 @@ impl SleighContextBuilder {
         if context.arch_info().stack_pointer().is_none() {
             if let Some(sp_name) = &lang.stackpointer {
                 if let Some(vn_ref) = context.arch_info().register(sp_name) {
-                    context.set_stack_pointer_varnode(vn_ref.clone());
+                    context.set_stack_pointer_varnode(*vn_ref);
                 }
             }
         }
@@ -534,11 +534,11 @@ mod tests {
         assert_eq!(locs.len(), 2);
         assert_eq!(
             locs[0],
-            crate::context::ParameterLocation::Register(arch.register("ECX").unwrap().clone())
+            crate::context::ParameterLocation::Register(*arch.register("ECX").unwrap())
         );
         assert_eq!(
             locs[1],
-            crate::context::ParameterLocation::Register(arch.register("EDX").unwrap().clone())
+            crate::context::ParameterLocation::Register(*arch.register("EDX").unwrap())
         );
 
         // Requesting a 3rd arg should yield a Stack entry

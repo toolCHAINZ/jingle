@@ -66,7 +66,7 @@ impl Instruction {
                         *call_info = Some(a.clone());
                         for ele in &a.args {
                             if let crate::context::ParameterLocation::Register(vn) = ele {
-                                args.push(vn.clone());
+                                args.push(*vn);
                             }
                         }
                     }
@@ -79,7 +79,7 @@ impl Instruction {
                         *call_info = Some(a.clone());
                         for ele in &a.args {
                             if let crate::context::ParameterLocation::Register(vn) = ele {
-                                inputs.push(vn.clone());
+                                inputs.push(*vn);
                             }
                         }
                     }
@@ -139,7 +139,7 @@ impl Instruction {
                                 if ci.killed_regs.is_empty() {
                                     for regname in &proto.killed_by_call {
                                         if let Some(vn) = arch.register(regname.as_str()) {
-                                            ci.killed_regs.push(vn.clone());
+                                            ci.killed_regs.push(*vn);
                                         }
                                     }
                                 }
@@ -226,7 +226,7 @@ mod tests {
                 args: "".to_string(),
             },
             ops: vec![PcodeOperation::Call {
-                dest: dest.clone(),
+                dest,
                 args: Vec::new(),
                 call_info: None,
             }],
@@ -283,7 +283,7 @@ mod tests {
                 args: "".to_string(),
             },
             ops: vec![PcodeOperation::Call {
-                dest: dest.clone(),
+                dest,
                 args: Vec::new(),
                 call_info: None,
             }],

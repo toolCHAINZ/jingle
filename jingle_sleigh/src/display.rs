@@ -164,10 +164,7 @@ mod tests {
         let output = VarNode::new(0x20, 4u32, 4u32);
         let input = VarNode::new(0x1, 4u32, VarNode::CONST_SPACE_INDEX);
 
-        let op = PcodeOperation::Copy {
-            input: input.clone(),
-            output: output.clone(),
-        };
+        let op = PcodeOperation::Copy { input, output };
 
         // display formatting contains the opcode name and operands
         let s = format!("{}", op.display(&info));

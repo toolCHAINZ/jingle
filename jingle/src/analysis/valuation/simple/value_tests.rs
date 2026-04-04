@@ -847,19 +847,19 @@ fn add_trims_covered_sub_entries() {
 
     // Write a 4-byte entry at offset 4 in space 0
     let small_vn = VarNode::new(4u64, 4u32, 0u32);
-    val.add(small_vn.clone(), Value::const_(0x42));
+    val.add(small_vn, Value::const_(0x42));
 
     // Now write an 8-byte entry at offset 4 in the same space — covers small_vn
     let big_vn = VarNode::new(4u64, 8u32, 0u32);
-    val.add(big_vn.clone(), Value::const_(0x1234));
+    val.add(big_vn, Value::const_(0x1234));
 
     // The small entry should have been removed
     assert!(
-        val.direct_writes.get(&small_vn).is_none(),
+        val.direct_writes.get(small_vn).is_none(),
         "small entry should be trimmed after larger write covers it"
     );
     // The large entry should still be present
-    assert!(val.direct_writes.get(&big_vn).is_some());
+    assert!(val.direct_writes.get(big_vn).is_some());
 }
 
 #[test]
@@ -870,14 +870,14 @@ fn add_does_not_trim_non_covered_entries() {
 
     // Write entries at different offsets in space 0
     let vn_other = VarNode::new(0x100u64, 4u32, 0u32);
-    val.add(vn_other.clone(), Value::const_(0x99));
+    val.add(vn_other, Value::const_(0x99));
 
     // Write at a completely different offset — should not trim vn_other
     let vn_new = VarNode::new(4u64, 8u32, 0u32);
-    val.add(vn_new.clone(), Value::const_(0x1234));
+    val.add(vn_new, Value::const_(0x1234));
 
     assert!(
-        val.direct_writes.get(&vn_other).is_some(),
+        val.direct_writes.get(vn_other).is_some(),
         "unrelated entry should not be trimmed"
     );
 }

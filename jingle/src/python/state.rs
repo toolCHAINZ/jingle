@@ -80,7 +80,7 @@ impl PythonState {
             let pointer = self.state.read_varnode_indirect(&indirect)?;
             let resolved = ResolvedIndirectVarNode {
                 pointer,
-                pointer_location: pointer_location.clone(),
+                pointer_location: *pointer_location,
                 access_size_bytes,
                 pointer_space_idx: pointer_space_index,
             };

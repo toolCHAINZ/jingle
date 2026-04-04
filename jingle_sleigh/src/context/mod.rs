@@ -267,7 +267,7 @@ impl CallingConventionInfo {
                             "register '{reg_name}' not found in arch info"
                         ))
                     })?;
-                    result.push(ParameterLocation::Register(vn.clone()));
+                    result.push(ParameterLocation::Register(*vn));
                 }
             } else if let Some(_space_name) = &pentry.addr_space {
                 let base = pentry.addr_offset.unwrap_or(0) as i64;
@@ -312,7 +312,7 @@ impl CallingConventionInfo {
         for pentry in &proto.output_pentries {
             for reg_name in &pentry.registers {
                 if let Some(vn) = arch.register(reg_name) {
-                    result.push(vn.clone());
+                    result.push(*vn);
                 }
             }
         }
@@ -363,7 +363,7 @@ impl SleighContext {
 
                 for info in ctx.getRegisters() {
                     let vn = VarNode::from(info.varnode);
-                    registers_to_vns.insert(info.name.clone(), vn.clone());
+                    registers_to_vns.insert(info.name.clone(), vn);
                     vns_to_registers.insert(vn, info.name);
                 }
 

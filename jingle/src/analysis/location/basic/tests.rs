@@ -71,7 +71,7 @@ fn test_callind_behavior_branch() {
         BasicLocationState::location(ConcretePcodeAddress::from(0x1000), CallBehavior::Branch);
 
     let ptr = VarNode::new(0x2000, 8u32, 0u32);
-    let ivn = IndirectVarNode::new(&ptr, 8u32, 0u32);
+    let ivn = IndirectVarNode::new(ptr, 8u32, 0u32);
     let callind_op = PcodeOperation::CallInd { input: ivn.clone() };
 
     let successors: Vec<_> = state.transfer(&callind_op).into_iter().collect();
@@ -87,7 +87,7 @@ fn test_callind_behavior_step_over() {
 
     let ptr = VarNode::new(0x2000, 8u32, 0u32);
     let callind_op = PcodeOperation::CallInd {
-        input: IndirectVarNode::new(&ptr, 8u32, 0u32),
+        input: IndirectVarNode::new(ptr, 8u32, 0u32),
     };
 
     let successors: Vec<_> = state.transfer(&callind_op).into_iter().collect();
@@ -103,7 +103,7 @@ fn test_callind_behavior_terminate() {
 
     let ptr = VarNode::new(0x2000, 8u32, 0u32);
     let callind_op = PcodeOperation::CallInd {
-        input: IndirectVarNode::new(&ptr, 8u32, 0u32),
+        input: IndirectVarNode::new(ptr, 8u32, 0u32),
     };
 
     let successors: Vec<_> = state.transfer(&callind_op).into_iter().collect();

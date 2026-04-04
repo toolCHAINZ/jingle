@@ -98,7 +98,7 @@ impl<T> VarNodeMap<T> {
     ///
     /// Preserves the sorted ordering of keys and updates internal indices accordingly.
     pub fn insert(&mut self, vn: VarNode, value: T) -> Option<T> {
-        match self.position_of(&vn) {
+        match self.position_of(vn) {
             Ok(idx) => {
                 // replace existing
                 Some(std::mem::replace(&mut self.data[idx], value))
@@ -142,11 +142,11 @@ impl<T> VarNodeMap<T> {
         let mut to_remove: Vec<VarNode> = Vec::new();
         for (k, v) in self.items() {
             if !f(k, v) {
-                to_remove.push(k.clone());
+                to_remove.push(*k);
             }
         }
         for k in to_remove {
-            self.remove(&k);
+            self.remove(k);
         }
     }
 
@@ -328,16 +328,16 @@ mod tests {
         let vn1 = VarNode::new(0x10, 4u32, 1u32);
         let vn2 = VarNode::new(0x08, 4u32, 1u32);
 
-        assert!(!m.contains(&vn1));
-        assert!(m.insert(vn1.clone(), 100).is_none());
-        assert!(m.contains(&vn1));
-        assert_eq!(m.get(&vn1), Some(&100));
+        assert!(!m.contains(vn1));
+        assert!(m.insert(vn1, 100).is_none());
+        assert!(m.contains(vn1));
+        assert_eq!(m.get(vn1), Some(&100));
 
         // Insert second in a position that should sort before vn1
-        assert!(m.insert(vn2.clone(), 200).is_none());
-        assert!(m.contains(&vn2));
-        assert_eq!(m.get(&vn2), Some(&200));
-        assert_eq!(m.get(&vn1), Some(&100));
+        assert!(m.insert(vn2, 200).is_none());
+        assert!(m.contains(vn2));
+        assert_eq!(m.get(vn2), Some(&200));
+        assert_eq!(m.get(vn1), Some(&100));
         assert_eq!(m.len(), 2);
     }
 
@@ -345,10 +345,10 @@ mod tests {
     fn test_replace_returns_old() {
         let mut m = VarNodeMap::new();
         let vn = VarNode::new(0x0, 8u32, 0u32);
-        assert!(m.insert(vn.clone(), 1).is_none());
-        let old = m.insert(vn.clone(), 2);
+        assert!(m.insert(vn, 1).is_none());
+        let old = m.insert(vn, 2);
         assert_eq!(old, Some(1));
-        assert_eq!(m.get(&vn), Some(&2));
+        assert_eq!(m.get(vn), Some(&2));
     }
 
     #[test]
@@ -358,24 +358,24 @@ mod tests {
         let b = VarNode::new(4, 4u32, 0u32);
         let c = VarNode::new(8, 4u32, 0u32);
 
-        m.insert(b.clone(), "b");
-        m.insert(a.clone(), "a");
-        m.insert(c.clone(), "c");
+        m.insert(b, "b");
+        m.insert(a, "a");
+        m.insert(c, "c");
 
         // ensure all present
-        assert_eq!(m.get(&a), Some(&"a"));
-        assert_eq!(m.get(&b), Some(&"b"));
-        assert_eq!(m.get(&c), Some(&"c"));
+        assert_eq!(m.get(a), Some(&"a"));
+        assert_eq!(m.get(b), Some(&"b"));
+        assert_eq!(m.get(c), Some(&"c"));
 
         // remove middle element (originally b)
-        let removed = m.remove(&b);
+        let removed = m.remove(b);
         assert_eq!(removed, Some("b"));
-        assert!(!m.contains(&b));
+        assert!(!m.contains(b));
         assert_eq!(m.len(), 2);
 
         // remaining entries still retrievable
-        assert_eq!(m.get(&a), Some(&"a"));
-        assert_eq!(m.get(&c), Some(&"c"));
+        assert_eq!(m.get(a), Some(&"a"));
+        assert_eq!(m.get(c), Some(&"c"));
     }
 
     #[test]
@@ -385,9 +385,9 @@ mod tests {
         let v2 = VarNode::new(0x10, 4u32, 0u32);
         let v3 = VarNode::new(0x10, 4u32, 1u32);
 
-        m.insert(v1.clone(), 1);
-        m.insert(v2.clone(), 2);
-        m.insert(v3.clone(), 3);
+        m.insert(v1, 1);
+        m.insert(v2, 2);
+        m.insert(v3, 3);
 
         // iteration should yield keys in sorted order defined by (space_index, offset, size)
         let keys: Vec<(usize, u64, usize)> = m
@@ -411,16 +411,16 @@ mod tests {
         let v1 = VarNode::new(0x10, 4u32, 0u32);
         let v2 = VarNode::new(0x20, 4u32, 0u32);
 
-        m.insert(v1.clone(), 100);
-        m.insert(v2.clone(), 200);
+        m.insert(v1, 100);
+        m.insert(v2, 200);
 
         // Mutate all values using iter_mut
         for (_, value) in m.iter_mut() {
             *value *= 2;
         }
 
-        assert_eq!(m.get(&v1), Some(&200));
-        assert_eq!(m.get(&v2), Some(&400));
+        assert_eq!(m.get(v1), Some(&200));
+        assert_eq!(m.get(v2), Some(&400));
     }
 
     #[test]
@@ -429,8 +429,8 @@ mod tests {
         let v1 = VarNode::new(0x10, 4u32, 0u32);
         let v2 = VarNode::new(0x20, 4u32, 0u32);
 
-        m.insert(v1.clone(), "foo");
-        m.insert(v2.clone(), "bar");
+        m.insert(v1, "foo");
+        m.insert(v2, "bar");
 
         let items: Vec<(VarNode, &str)> = m.into_iter().collect();
         assert_eq!(items.len(), 2);
