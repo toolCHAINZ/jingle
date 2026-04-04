@@ -545,7 +545,11 @@ impl IntoIterator for ValuationSet {
 
     fn into_iter(self) -> Self::IntoIter {
         ValuationIntoIter {
-            direct_entries: self.direct_writes.into_iter().collect::<Vec<_>>().into_iter(),
+            direct_entries: self
+                .direct_writes
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into_iter(),
             indirect_entries: self
                 .indirect_writes
                 .into_iter()
@@ -648,9 +652,7 @@ mod tests {
     fn test_iter_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation
-            .direct_writes
-            .insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42));
 
         // iter() should yield (location, &value) tuples
         let mut count = 0;
@@ -666,9 +668,7 @@ mod tests {
     fn test_iter_mut_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation
-            .direct_writes
-            .insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42));
 
         // iter_mut() should yield (location, &mut value) tuples
         for (loc, val) in valuation.iter_mut() {
@@ -684,9 +684,7 @@ mod tests {
     fn test_into_iter_yields_entries() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation
-            .direct_writes
-            .insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42));
 
         // into_iter() should yield owned SingleValuation entries
         let mut count = 0;
@@ -705,9 +703,7 @@ mod tests {
         assert!(valuation.is_empty());
 
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation
-            .direct_writes
-            .insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42));
 
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
@@ -731,12 +727,8 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation
-            .direct_writes
-            .insert(vn1, Value::const_(42));
-        valuation
-            .direct_writes
-            .insert(vn2, Value::const_(99));
+        valuation.direct_writes.insert(vn1, Value::const_(42));
+        valuation.direct_writes.insert(vn2, Value::const_(99));
 
         let keys: Vec<_> = valuation.keys().collect();
         assert_eq!(keys.len(), 2);
@@ -751,12 +743,8 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation
-            .direct_writes
-            .insert(vn1, Value::const_(42));
-        valuation
-            .direct_writes
-            .insert(vn2, Value::const_(99));
+        valuation.direct_writes.insert(vn1, Value::const_(42));
+        valuation.direct_writes.insert(vn2, Value::const_(99));
 
         let values: Vec<_> = valuation.values().collect();
         assert_eq!(values.len(), 2);
@@ -769,9 +757,7 @@ mod tests {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
 
-        valuation
-            .direct_writes
-            .insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42));
 
         // Mutate all values
         for val in valuation.values_mut() {
@@ -786,9 +772,7 @@ mod tests {
     fn test_display() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation
-            .direct_writes
-            .insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42));
 
         let display_str = format!("{}", valuation);
         assert!(display_str.starts_with("Valuation {"));

@@ -583,10 +583,7 @@ impl Value {
     }
 
     /// Construct an `IntSLessEqual(...)` node from two children.
-    pub fn int_sless_equal(
-        left: impl IntoInternedValue,
-        right: impl IntoInternedValue,
-    ) -> Self {
+    pub fn int_sless_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
         Value::IntSLessEqual(IntSLessEqual(left.into_interned(), right.into_interned()))
     }
 
@@ -1019,13 +1016,11 @@ impl Simplify for Or {
         // Collapse nested duplicates: Or(a, Or(a, b)) -> Or(a, b)
         if let Value::Or(Or(inner_a, inner_b, _)) = &right {
             if inner_a.as_ref() == &left {
-                let inner =
-                    Value::Or(Or(Intern::new(left), *inner_b, right.size())).simplify();
+                let inner = Value::Or(Or(Intern::new(left), *inner_b, right.size())).simplify();
                 return inner;
             }
             if inner_b.as_ref() == &left {
-                let inner =
-                    Value::Or(Or(Intern::new(left), *inner_a, right.size())).simplify();
+                let inner = Value::Or(Or(Intern::new(left), *inner_a, right.size())).simplify();
                 return inner;
             }
         }
