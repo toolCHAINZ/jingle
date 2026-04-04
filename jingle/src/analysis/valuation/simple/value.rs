@@ -13,6 +13,50 @@ use std::{
     ops::{Add, Mul, Sub},
 };
 
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::Value {}
+    impl Sealed for internment::Intern<super::Value> {}
+    impl Sealed for &super::Value {}
+    impl Sealed for &internment::Intern<super::Value> {}
+}
+
+/// Anything that can be used as an operand to a `Value` constructor.
+///
+/// Implemented for:
+/// - `Value` — takes ownership and interns
+/// - `Intern<Value>` — already interned; identity conversion (free copy)
+/// - `&Value` — clones and interns
+///
+/// This trait is sealed; external implementations are not supported.
+pub trait IntoInternedValue: sealed::Sealed {
+    fn into_interned(self) -> Intern<Value>;
+}
+
+impl IntoInternedValue for Value {
+    fn into_interned(self) -> Intern<Value> {
+        Intern::new(self)
+    }
+}
+
+impl IntoInternedValue for Intern<Value> {
+    fn into_interned(self) -> Intern<Value> {
+        self
+    }
+}
+
+impl IntoInternedValue for &Value {
+    fn into_interned(self) -> Intern<Value> {
+        Intern::new(self.clone())
+    }
+}
+
+impl IntoInternedValue for &Intern<Value> {
+    fn into_interned(self) -> Intern<Value> {
+        *self
+    }
+}
+
 trait Simplify {
     fn simplify(&self) -> Value;
 }
@@ -474,21 +518,27 @@ impl Value {
     }
 
     /// Construct an `Or(...)` node from two children. Size is derived from children.
-    pub fn or(left: Value, right: Value) -> Self {
+    pub fn or(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        let left = left.into_interned();
+        let right = right.into_interned();
         let s = std::cmp::max(left.size(), right.size());
-        Value::Or(Or(Intern::new(left), Intern::new(right), s))
+        Value::Or(Or(left, right, s))
     }
 
     /// Construct a `Xor(...)` node from two children. Size is derived from children.
-    pub fn xor(left: Value, right: Value) -> Self {
+    pub fn xor(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        let left = left.into_interned();
+        let right = right.into_interned();
         let s = std::cmp::max(left.size(), right.size());
-        Value::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
+        Value::Xor(XorExpr(left, right, s))
     }
 
     /// Construct an `And(...)` node from two children. Size is derived from children.
-    pub fn and(left: Value, right: Value) -> Self {
+    pub fn and(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        let left = left.into_interned();
+        let right = right.into_interned();
         let s = std::cmp::max(left.size(), right.size());
-        Value::And(AndExpr(Intern::new(left), Intern::new(right), s))
+        Value::And(AndExpr(left, right, s))
     }
 
     /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
@@ -496,75 +546,79 @@ impl Value {
     /// want to construct loads via `make_load_with_size` if available.)
     /// todo: we should _not_ be pulling the size from the child value; it is independent of
     /// pointer size
-    pub fn load(child: Value) -> Self {
+    pub fn load(child: impl IntoInternedValue) -> Self {
+        let child = child.into_interned();
         let s = child.size();
-        Value::Load(Load(Intern::new(child), s))
+        Value::Load(Load(child, s))
     }
 
     /// Construct an `IntEqual(...)` node from two children.
-    pub fn int_equal(left: Value, right: Value) -> Self {
-        Value::IntEqual(IntEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntEqual(IntEqual(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntLess(...)` node from two children.
-    pub fn int_less(left: Value, right: Value) -> Self {
-        Value::IntLess(IntLess(Intern::new(left), Intern::new(right)))
+    pub fn int_less(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntLess(IntLess(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntSLess(...)` node from two children.
-    pub fn int_sless(left: Value, right: Value) -> Self {
-        Value::IntSLess(IntSLess(Intern::new(left), Intern::new(right)))
+    pub fn int_sless(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntSLess(IntSLess(left.into_interned(), right.into_interned()))
     }
 
     /// Construct a `PopCount(...)` node from a child.
-    pub fn popcount(child: Value) -> Self {
-        Value::PopCount(PopCount(Intern::new(child)))
+    pub fn popcount(child: impl IntoInternedValue) -> Self {
+        Value::PopCount(PopCount(child.into_interned()))
     }
 
     /// Construct an `IntNotEqual(...)` node from two children.
-    pub fn int_not_equal(left: Value, right: Value) -> Self {
-        Value::IntNotEqual(IntNotEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_not_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntNotEqual(IntNotEqual(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntLessEqual(...)` node from two children.
-    pub fn int_less_equal(left: Value, right: Value) -> Self {
-        Value::IntLessEqual(IntLessEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_less_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntLessEqual(IntLessEqual(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntSLessEqual(...)` node from two children.
-    pub fn int_sless_equal(left: Value, right: Value) -> Self {
-        Value::IntSLessEqual(IntSLessEqual(Intern::new(left), Intern::new(right)))
+    pub fn int_sless_equal(
+        left: impl IntoInternedValue,
+        right: impl IntoInternedValue,
+    ) -> Self {
+        Value::IntSLessEqual(IntSLessEqual(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntCarry(...)` node from two children.
-    pub fn int_carry(left: Value, right: Value) -> Self {
-        Value::IntCarry(IntCarry(Intern::new(left), Intern::new(right)))
+    pub fn int_carry(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntCarry(IntCarry(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntSCarry(...)` node from two children.
-    pub fn int_scarry(left: Value, right: Value) -> Self {
-        Value::IntSCarry(IntSCarry(Intern::new(left), Intern::new(right)))
+    pub fn int_scarry(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntSCarry(IntSCarry(left.into_interned(), right.into_interned()))
     }
 
     /// Construct an `IntSBorrow(...)` node from two children.
-    pub fn int_sborrow(left: Value, right: Value) -> Self {
-        Value::IntSBorrow(IntSBorrow(Intern::new(left), Intern::new(right)))
+    pub fn int_sborrow(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::IntSBorrow(IntSBorrow(left.into_interned(), right.into_interned()))
     }
 
     /// Construct a `ZeroExtend(...)` node that zero-extends `inner` to `output_size` bytes.
-    pub fn zero_extend(inner: Value, output_size: usize) -> Self {
-        Value::ZeroExtend(ZeroExtend(Intern::new(inner), output_size))
+    pub fn zero_extend(inner: impl IntoInternedValue, output_size: usize) -> Self {
+        Value::ZeroExtend(ZeroExtend(inner.into_interned(), output_size))
     }
 
     /// Construct a `SignExtend(...)` node that sign-extends `inner` to `output_size` bytes.
-    pub fn sign_extend(inner: Value, output_size: usize) -> Self {
-        Value::SignExtend(SignExtend(Intern::new(inner), output_size))
+    pub fn sign_extend(inner: impl IntoInternedValue, output_size: usize) -> Self {
+        Value::SignExtend(SignExtend(inner.into_interned(), output_size))
     }
 
     /// Construct an `Extract(...)` node that extracts `output_size` bytes from `inner`
     /// starting at `byte_offset`.
-    pub fn extract(inner: Value, byte_offset: usize, output_size: usize) -> Self {
-        Value::Extract(Extract(Intern::new(inner), byte_offset, output_size))
+    pub fn extract(inner: impl IntoInternedValue, byte_offset: usize, output_size: usize) -> Self {
+        Value::Extract(Extract(inner.into_interned(), byte_offset, output_size))
     }
 
     // Keep the older helpers (used by some simplifications) for parity:
