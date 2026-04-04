@@ -112,7 +112,7 @@ pub(crate) fn parse_pcode(
         Rule::BRANCHIND => {
             let pairs: Vec<_> = pair.into_inner().collect();
             let vn = helpers::parse_varnode(pairs[0].clone(), info)?;
-            let input = IndirectVarNode::new(vn.clone(), vn.size(), vn.space_index());
+            let input = IndirectVarNode::new(vn, vn.size(), vn.space_index());
             Ok(PcodeOperation::BranchInd { input })
         }
         Rule::CALL => {

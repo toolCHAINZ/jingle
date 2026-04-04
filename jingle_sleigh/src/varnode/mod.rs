@@ -244,7 +244,7 @@ impl IndirectVarNode {
         space: impl Into<VarNodeSpaceIndex>,
     ) -> Self {
         Self {
-            pointer_location: pointer.borrow().clone(),
+            pointer_location: *pointer.borrow(),
             access_size_bytes: size.into(),
             pointer_space_index: space.into(),
         }
@@ -312,7 +312,7 @@ impl GeneralizedVarNode {
 
 impl From<&VarNode> for GeneralizedVarNode {
     fn from(value: &VarNode) -> Self {
-        GeneralizedVarNode::Direct(value.clone())
+        GeneralizedVarNode::Direct(*value)
     }
 }
 

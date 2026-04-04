@@ -656,7 +656,7 @@ impl PcodeOperation {
             BranchInd { .. } => None,
             Call { .. } => None,
             CallInd { .. } => None,
-            CallOther { output, .. } => output.clone().map(GeneralizedVarNode::from),
+            CallOther { output, .. } => (*output).map(GeneralizedVarNode::from),
             Return { .. } => None,
             IntEqual { output, .. } => Some(GeneralizedVarNode::from(output)),
             IntNotEqual { output, .. } => Some(GeneralizedVarNode::from(output)),

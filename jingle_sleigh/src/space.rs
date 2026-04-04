@@ -162,7 +162,7 @@ impl SleighArchInfo {
         let mut vns_to_registers = HashMap::new();
 
         for (varnode, name) in registers {
-            registers_to_vns.insert(name.clone(), varnode.clone());
+            registers_to_vns.insert(name.clone(), varnode);
             vns_to_registers.insert(varnode, name);
         }
 
@@ -203,7 +203,7 @@ impl SleighArchInfo {
         self.info
             .vns_to_registers
             .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .map(|(k, v)| (*k, v.clone()))
     }
 
     pub fn default_code_space_index(&self) -> usize {
@@ -244,15 +244,15 @@ impl SleighArchInfo {
     /// Returns a cloned `VarNode` if the stack pointer varnode is present in the
     /// underlying arch info; otherwise returns `None`.
     pub fn stack_pointer(&self) -> Option<VarNode> {
-        self.info.stack_pointer.clone()
+        self.info.stack_pointer
     }
 
     /// Get the varnode for the program counter, if known.
     ///
-    /// Returns a cloned `VarNode` if the program counter varnode is present in the
+    /// Returns the `VarNode` if the program counter varnode is present in the
     /// underlying arch info; otherwise returns `None`.
     pub fn program_counter(&self) -> Option<VarNode> {
-        self.info.program_counter.clone()
+        self.info.program_counter
     }
 }
 
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn test_sleigh_arch_info_register_name() {
         let rax_vn = VarNode::new(0, 8, 1);
-        let registers = vec![(rax_vn.clone(), "rax".to_string())];
+        let registers = vec![(rax_vn, "rax".to_string())];
 
         let arch_info = SleighArchInfo::new(
             "test:LE:64:default".to_string(),
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn test_sleigh_arch_info_register() {
         let rax_vn = VarNode::new(0, 8, 1);
-        let registers = vec![(rax_vn.clone(), "rax".to_string())];
+        let registers = vec![(rax_vn, "rax".to_string())];
 
         let arch_info = SleighArchInfo::new(
             "test:LE:64:default".to_string(),

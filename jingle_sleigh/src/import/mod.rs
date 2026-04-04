@@ -108,7 +108,7 @@ fn parse_storage(storage: &str, arch: &SleighArchInfo) -> Option<ParameterLocati
     }
 
     let (reg, _size_str) = storage.rsplit_once(':')?;
-    let vn = arch.register(reg)?.clone();
+    let vn = *arch.register(reg)?;
     Some(ParameterLocation::Register(vn))
 }
 
@@ -188,7 +188,7 @@ mod tests {
         let loc = parse_storage("ECX:4", arch).unwrap();
         assert_eq!(
             loc,
-            ParameterLocation::Register(arch.register("ECX").unwrap().clone())
+            ParameterLocation::Register(*arch.register("ECX").unwrap())
         );
     }
 
@@ -226,11 +226,11 @@ mod tests {
         assert_eq!(call_info.args.len(), 2);
         assert_eq!(
             call_info.args[0],
-            ParameterLocation::Register(arch.register("RDI").unwrap().clone())
+            ParameterLocation::Register(*arch.register("RDI").unwrap())
         );
         assert_eq!(
             call_info.args[1],
-            ParameterLocation::Register(arch.register("RSI").unwrap().clone())
+            ParameterLocation::Register(*arch.register("RSI").unwrap())
         );
     }
 
