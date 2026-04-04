@@ -166,7 +166,7 @@ impl From<VarNode> for Location {
 // Allow converting a raw `VarNode` directly into a `Location::Direct`.
 impl From<&VarNode> for Location {
     fn from(vn: &VarNode) -> Self {
-        Location::Direct(vn.clone())
+        Location::Direct(*vn)
     }
 }
 
@@ -225,6 +225,11 @@ impl Valuation {
     pub fn value(&self) -> &Value {
         &self.value
     }
+
+    /// Consume this valuation, returning its (location, value) parts by move.
+    pub fn into_parts(self) -> (Location, Value) {
+        (self.location, self.value)
+    }
 }
 
 /// Add helper methods for mutating a `ValuationSet`.
@@ -253,9 +258,7 @@ impl ValuationSet {
                 self.direct_writes.insert(vn, val);
             }
             Location::Indirect(ptr_intern) => {
-                // indirect_writes keyed by Value
-                let ptr = ptr_intern.clone();
-                self.indirect_writes.insert(ptr, val);
+                self.indirect_writes.insert(ptr_intern, val);
             }
         }
     }
@@ -318,7 +321,7 @@ impl<'a> Iterator for ValuationIter<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_iter.next() {
-                return Some((Location::Direct(vn.clone()), val));
+                return Some((Location::Direct(*vn), val));
             }
             self.direct_done = true;
         }
@@ -368,7 +371,7 @@ impl<'a> Iterator for ValuationIterMut<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_iter.next() {
-                return Some((Location::Direct(vn.clone()), val));
+                return Some((Location::Direct(*vn), val));
             }
             self.direct_done = true;
         }
@@ -409,7 +412,7 @@ impl<'a> Iterator for Keys<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, _)) = self.direct_iter.next() {
-                return Some(Location::Direct(vn.clone()));
+                return Some(Location::Direct(*vn));
             }
             self.direct_done = true;
         }
@@ -506,35 +509,24 @@ impl<'a> Iterator for ValuesMut<'a> {
 /// An owning iterator that consumes a `ValuationSet` and yields `Valuation`
 /// items without borrowing the original `ValuationSet`.
 pub struct ValuationIntoIter {
-    direct_entries: Vec<(VarNode, Value)>,
-    direct_idx: usize,
-    indirect_entries: Vec<(Value, Value)>,
-    indirect_idx: usize,
+    direct_entries: std::vec::IntoIter<(VarNode, Value)>,
+    indirect_entries: std::vec::IntoIter<(Value, Value)>,
+    direct_done: bool,
 }
 
 impl Iterator for ValuationIntoIter {
     type Item = Valuation;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.direct_idx < self.direct_entries.len() {
-            let (vn, val) = &self.direct_entries[self.direct_idx];
-            self.direct_idx += 1;
-            return Some(Valuation {
-                location: Location::Direct(vn.clone()),
-                value: val.clone(),
-            });
+        if !self.direct_done {
+            if let Some((vn, val)) = self.direct_entries.next() {
+                return Some(Valuation::new_direct(vn, val));
+            }
+            self.direct_done = true;
         }
-
-        if self.indirect_idx < self.indirect_entries.len() {
-            let (ptr_intern, val_intern) = &self.indirect_entries[self.indirect_idx];
-            self.indirect_idx += 1;
-            return Some(Valuation {
-                location: Location::Indirect(ptr_intern.clone()),
-                value: val_intern.clone(),
-            });
-        }
-
-        None
+        self.indirect_entries
+            .next()
+            .map(|(ptr, val)| Valuation::new_indirect(ptr, val))
     }
 }
 
@@ -552,22 +544,14 @@ impl IntoIterator for ValuationSet {
     type IntoIter = ValuationIntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        let mut direct_entries: Vec<(VarNode, Value)> = Vec::new();
-        for (vn, val) in self.direct_writes.into_iter() {
-            direct_entries.push((vn, val));
-        }
-
-        // Move indirect entries (pointer expression -> value).
-        let mut indirect_entries: Vec<(Value, Value)> = Vec::new();
-        for (ptr, val) in self.indirect_writes.into_iter() {
-            indirect_entries.push((ptr, val));
-        }
-
         ValuationIntoIter {
-            direct_entries,
-            direct_idx: 0,
-            indirect_entries,
-            indirect_idx: 0,
+            direct_entries: self.direct_writes.into_iter().collect::<Vec<_>>().into_iter(),
+            indirect_entries: self
+                .indirect_writes
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into_iter(),
+            direct_done: false,
         }
     }
 }
@@ -575,16 +559,9 @@ impl IntoIterator for ValuationSet {
 impl From<Vec<Valuation>> for ValuationSet {
     fn from(vs: Vec<Valuation>) -> Self {
         let mut s = ValuationSet::new();
-        for sv in vs.into_iter() {
-            let val = sv.value();
-            match sv.location() {
-                Location::Direct(vn) => {
-                    s.direct_writes.insert(vn.clone(), val.clone());
-                }
-                Location::Indirect(ptr_intern) => {
-                    s.indirect_writes.insert(ptr_intern.clone(), val.clone());
-                }
-            }
+        for sv in vs {
+            let (loc, val) = sv.into_parts();
+            s.add(loc, val);
         }
         s
     }
@@ -599,15 +576,8 @@ impl FromIterator<Valuation> for ValuationSet {
     fn from_iter<T: IntoIterator<Item = Valuation>>(iter: T) -> Self {
         let mut s = ValuationSet::new();
         for sv in iter {
-            let val = sv.value();
-            match sv.location() {
-                Location::Direct(vn) => {
-                    s.direct_writes.insert(vn.clone(), val.clone());
-                }
-                Location::Indirect(ptr_intern) => {
-                    s.indirect_writes.insert(ptr_intern.clone(), val.clone());
-                }
-            }
+            let (loc, val) = sv.into_parts();
+            s.add(loc, val);
         }
         s
     }

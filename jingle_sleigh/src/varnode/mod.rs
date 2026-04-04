@@ -91,7 +91,7 @@ into_vn_types!(usize);
 /// `<space>\[<offset>\]:<size>`. In the case of constants, we simplify this to `<offset>:<size>`.
 /// For registers, we will (soon! (TM)) perform a register lookup and instead show the pretty
 /// architecture-defined register name.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "pyo3", pyclass)]
 pub struct VarNode {
     /// The index at which the relevant space can be found in a [`SleighArchInfo`]

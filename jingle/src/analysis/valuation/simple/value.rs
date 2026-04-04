@@ -837,12 +837,8 @@ impl Simplify for SubExpr {
             Some(a) => {
                 if a < 0 {
                     let new_const = Value::make_const(-a, Value::derive_size_from(&left) as u32);
-                    let add = AddExpr(
-                        Intern::new(left.clone()),
-                        Intern::new(new_const),
-                        left.size(),
-                    )
-                    .simplify();
+                    let size = left.size();
+                    let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
                     return add;
                 }
             }
@@ -970,12 +966,12 @@ impl Simplify for Or {
         if let Value::Or(Or(inner_a, inner_b, _)) = &right {
             if inner_a.as_ref() == &left {
                 let inner =
-                    Value::Or(Or(Intern::new(left.clone()), *inner_b, right.size())).simplify();
+                    Value::Or(Or(Intern::new(left), *inner_b, right.size())).simplify();
                 return inner;
             }
             if inner_b.as_ref() == &left {
                 let inner =
-                    Value::Or(Or(Intern::new(left.clone()), *inner_a, right.size())).simplify();
+                    Value::Or(Or(Intern::new(left), *inner_a, right.size())).simplify();
                 return inner;
             }
         }
@@ -992,8 +988,7 @@ impl Simplify for Or {
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner), s))
-                    .simplify();
+                return Value::Or(Or(*l1, Intern::new(inner), s)).simplify();
             }
             if l1.as_ref() == r2.as_ref() {
                 let inner = Value::Or(Or(
@@ -1003,8 +998,7 @@ impl Simplify for Or {
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Or(Or(Intern::new(l1.as_ref().clone()), Intern::new(inner), s))
-                    .simplify();
+                return Value::Or(Or(*l1, Intern::new(inner), s)).simplify();
             }
             if l2.as_ref() == r1.as_ref() {
                 let inner = Value::Or(Or(
@@ -1014,8 +1008,7 @@ impl Simplify for Or {
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner), s))
-                    .simplify();
+                return Value::Or(Or(*l2, Intern::new(inner), s)).simplify();
             }
             if l2.as_ref() == r2.as_ref() {
                 let inner = Value::Or(Or(
@@ -1025,8 +1018,7 @@ impl Simplify for Or {
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Or(Or(Intern::new(l2.as_ref().clone()), Intern::new(inner), s))
-                    .simplify();
+                return Value::Or(Or(*l2, Intern::new(inner), s)).simplify();
             }
         }
 
@@ -1839,11 +1831,11 @@ impl Value {
     pub fn from_varnode_or_entry(state: &ValuationState, vn: &VarNode) -> Self {
         if vn.is_const() {
             // preserve the size of the incoming varnode
-            Value::const_from_varnode(vn.clone())
+            Value::const_from_varnode(*vn)
         } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
         } else {
-            Value::Entry(Entry(vn.clone()))
+            Value::Entry(Entry(*vn))
         }
     }
 }

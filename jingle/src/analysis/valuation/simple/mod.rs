@@ -368,7 +368,7 @@ impl ValuationState {
                             .map(|s| s._type != SpaceType::IPTR_CONSTANT)
                             .unwrap_or(false);
                         if !keep {
-                            to_remove.push(vn.clone());
+                            to_remove.push(*vn);
                         }
                     }
                     for k in to_remove {
@@ -391,7 +391,7 @@ impl ValuationState {
                         .map(|space| space._type != SpaceType::IPTR_INTERNAL)
                         .unwrap_or(true);
                     if !keep {
-                        to_remove.push(vn.clone());
+                        to_remove.push(*vn);
                     }
                 }
                 for k in to_remove {
@@ -479,11 +479,11 @@ impl JoinSemiLattice for ValuationState {
                         MergeBehavior::Or => {
                             let entry = Value::from_varnode_or_entry(self, key);
                             let or = Value::or(entry, other_val.clone());
-                            self.valuation.add(key.clone(), or.simplify());
+                            self.valuation.add(*key, or.simplify());
                         }
                         MergeBehavior::Top => {
                             // If the other state has a direct write that we don't, we have to assume it could be anything.
-                            self.valuation.add(key.clone(), Value::Top);
+                            self.valuation.add(*key, Value::Top);
                             continue;
                         }
                     }
