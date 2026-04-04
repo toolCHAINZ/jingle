@@ -650,7 +650,7 @@ mod tests {
         let vn = VarNode::new(0x1000, 8u32, 0u32);
         valuation
             .direct_writes
-            .insert(vn.clone(), Value::const_(42));
+            .insert(vn, Value::const_(42));
 
         // iter() should yield (location, &value) tuples
         let mut count = 0;
@@ -668,7 +668,7 @@ mod tests {
         let vn = VarNode::new(0x1000, 8u32, 0u32);
         valuation
             .direct_writes
-            .insert(vn.clone(), Value::const_(42));
+            .insert(vn, Value::const_(42));
 
         // iter_mut() should yield (location, &mut value) tuples
         for (loc, val) in valuation.iter_mut() {
@@ -677,7 +677,7 @@ mod tests {
         }
 
         // Verify mutation worked
-        assert_eq!(valuation.direct_writes.get(&vn), Some(&Value::const_(100)));
+        assert_eq!(valuation.direct_writes.get(vn), Some(&Value::const_(100)));
     }
 
     #[test]
@@ -686,7 +686,7 @@ mod tests {
         let vn = VarNode::new(0x1000, 8u32, 0u32);
         valuation
             .direct_writes
-            .insert(vn.clone(), Value::const_(42));
+            .insert(vn, Value::const_(42));
 
         // into_iter() should yield owned SingleValuation entries
         let mut count = 0;
@@ -707,7 +707,7 @@ mod tests {
         let vn = VarNode::new(0x1000, 8u32, 0u32);
         valuation
             .direct_writes
-            .insert(vn.clone(), Value::const_(42));
+            .insert(vn, Value::const_(42));
 
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
@@ -733,10 +733,10 @@ mod tests {
 
         valuation
             .direct_writes
-            .insert(vn1.clone(), Value::const_(42));
+            .insert(vn1, Value::const_(42));
         valuation
             .direct_writes
-            .insert(vn2.clone(), Value::const_(99));
+            .insert(vn2, Value::const_(99));
 
         let keys: Vec<_> = valuation.keys().collect();
         assert_eq!(keys.len(), 2);
@@ -753,10 +753,10 @@ mod tests {
 
         valuation
             .direct_writes
-            .insert(vn1.clone(), Value::const_(42));
+            .insert(vn1, Value::const_(42));
         valuation
             .direct_writes
-            .insert(vn2.clone(), Value::const_(99));
+            .insert(vn2, Value::const_(99));
 
         let values: Vec<_> = valuation.values().collect();
         assert_eq!(values.len(), 2);
@@ -771,7 +771,7 @@ mod tests {
 
         valuation
             .direct_writes
-            .insert(vn.clone(), Value::const_(42));
+            .insert(vn, Value::const_(42));
 
         // Mutate all values
         for val in valuation.values_mut() {
@@ -779,7 +779,7 @@ mod tests {
         }
 
         // Verify mutation worked
-        assert_eq!(valuation.direct_writes.get(&vn), Some(&Value::const_(1000)));
+        assert_eq!(valuation.direct_writes.get(vn), Some(&Value::const_(1000)));
     }
 
     #[test]
@@ -788,7 +788,7 @@ mod tests {
         let vn = VarNode::new(0x1000, 8u32, 0u32);
         valuation
             .direct_writes
-            .insert(vn.clone(), Value::const_(42));
+            .insert(vn, Value::const_(42));
 
         let display_str = format!("{}", valuation);
         assert!(display_str.starts_with("Valuation {"));

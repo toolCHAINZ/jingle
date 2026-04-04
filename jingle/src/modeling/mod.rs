@@ -188,18 +188,18 @@ pub(crate) trait TranslationContext: ModelingContext {
     fn read_and_track(&mut self, gen_varnode: GeneralizedVarNode) -> Result<BV, JingleError> {
         match gen_varnode {
             GeneralizedVarNode::Direct(d) => {
-                self.track_input(&Direct(d.clone()));
+                self.track_input(&Direct(d));
                 self.get_final_state().read_varnode(&d)
             }
             GeneralizedVarNode::Indirect(indirect) => {
-                self.track_input(&Direct(indirect.pointer_location().clone()));
+                self.track_input(&Direct(*indirect.pointer_location()));
                 let pointer = self
                     .get_final_state()
                     .read_varnode(indirect.pointer_location())?
                     .clone();
                 self.track_input(&Indirect(ResolvedIndirectVarNode {
                     pointer,
-                    pointer_location: indirect.pointer_location().clone(),
+                    pointer_location: *indirect.pointer_location(),
                     access_size_bytes: indirect.access_size_bytes(),
                     pointer_space_idx: indirect.pointer_space_index(),
                 }));
@@ -211,14 +211,14 @@ pub(crate) trait TranslationContext: ModelingContext {
     fn write(&mut self, r#gen: &GeneralizedVarNode, val: BV) -> Result<(), JingleError> {
         match r#gen {
             GeneralizedVarNode::Direct(d) => {
-                self.track_output(&Direct(d.clone()));
+                self.track_output(&Direct(*d));
                 self.get_final_state_mut().write_varnode(d, val)?;
             }
             GeneralizedVarNode::Indirect(indirect) => {
-                let pointer = self.read_and_track(indirect.pointer_location().clone().into())?;
+                let pointer = self.read_and_track((*indirect.pointer_location()).into())?;
                 self.track_output(&Indirect(ResolvedIndirectVarNode {
                     pointer,
-                    pointer_location: indirect.pointer_location().clone(),
+                    pointer_location: *indirect.pointer_location(),
                     access_size_bytes: indirect.access_size_bytes(),
                     pointer_space_idx: indirect.pointer_space_index(),
                 }));
@@ -597,7 +597,7 @@ pub(crate) trait TranslationContext: ModelingContext {
             PcodeOperation::CBranch { input0, input1 } => {
                 self.get_branch_builder()
                     .push_conditional(&BlockConditionalBranchInfo {
-                        condition: input1.clone(),
+                        condition: *input1,
                         destination: input0.into(),
                     });
                 self.read_and_track(input0.into())?;

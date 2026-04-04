@@ -410,13 +410,13 @@ impl MemoryState {
                 match ele {
                     SideEffect::RegisterIncrement(name, amt) => {
                         if let Some(vn) = self.info.register(name).cloned() {
-                            let val = self.read(&vn)?.bvadd(*amt);
+                            let val = self.read(vn)?.bvadd(*amt);
                             self.write(vn, val)?;
                         }
                     }
                     SideEffect::RegisterDecrement(name, amt) => {
                         if let Some(vn) = self.info.register(name).cloned() {
-                            let val = self.read(&vn)?.bvsub(*amt);
+                            let val = self.read(vn)?.bvsub(*amt);
                             self.write(vn, val)?;
                         }
                     }

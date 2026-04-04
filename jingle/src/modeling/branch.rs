@@ -65,7 +65,7 @@ impl BlockEndBehavior {
 impl BranchConstraint {
     pub fn new(last: &VarNode) -> Self {
         Self {
-            last: Fallthrough(last.clone()),
+            last: Fallthrough(*last),
             conditional_branches: Default::default(),
         }
     }

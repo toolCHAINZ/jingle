@@ -372,7 +372,7 @@ impl ValuationState {
                         }
                     }
                     for k in to_remove {
-                        new_state.valuation.direct_writes.remove(&k);
+                        new_state.valuation.direct_writes.remove(k);
                     }
                 }
             }
@@ -395,7 +395,7 @@ impl ValuationState {
                     }
                 }
                 for k in to_remove {
-                    new_state.valuation.direct_writes.remove(&k);
+                    new_state.valuation.direct_writes.remove(k);
                 }
             }
             PcodeOperation::Call { call_info, .. } => {
