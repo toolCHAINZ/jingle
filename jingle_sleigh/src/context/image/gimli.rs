@@ -223,6 +223,37 @@ pub fn map_gimli_architecture<'a>(file: &File<'a, &'a [u8]>) -> Option<&'static 
             Endianness::Little => Some("Xtensa:LE:32:default"),
             Endianness::Big => Some("Xtensa:BE:32:default"),
         },
+        Architecture::Mips => match file.endianness() {
+            Endianness::Little => Some("MIPS:LE:32:default"),
+            Endianness::Big => Some("MIPS:BE:32:default"),
+        },
+        Architecture::Mips64 => match file.endianness() {
+            Endianness::Little => Some("MIPS:LE:64:default"),
+            Endianness::Big => Some("MIPS:BE:64:default"),
+        },
+        Architecture::Riscv32 => Some("RISCV:LE:32:default"),
+        Architecture::Riscv64 => Some("RISCV:LE:64:default"),
+        Architecture::PowerPc => match file.endianness() {
+            Endianness::Little => Some("PowerPC:LE:32:default"),
+            Endianness::Big => Some("PowerPC:BE:32:default"),
+        },
+        Architecture::Sparc => Some("sparc:BE:32:default"),
+        Architecture::Sparc64 => Some("sparc:BE:64:default"),
+        Architecture::M68k => Some("68000:BE:32:default"),
+        Architecture::SuperH => match file.endianness() {
+            Endianness::Little => Some("SuperH4:LE:32:default"),
+            Endianness::Big => Some("SuperH4:BE:32:default"),
+        },
+        Architecture::Avr => Some("avr8:LE:16:default"),
+        Architecture::Msp430 => Some("TI_MSP430:LE:16:default"),
+        Architecture::Bpf => match file.endianness() {
+            Endianness::Little => Some("eBPF:LE:64:default"),
+            Endianness::Big => Some("eBPF:BE:64:default"),
+        },
+        Architecture::S390x => Some("s390:BE:64:default"),
+        Architecture::Sbf => Some("eBPF:LE:64:default"),
+        Architecture::Wasm32 => None, // WebAssembly not supported by Ghidra
+        Architecture::Wasm64 => None, // WebAssembly not supported by Ghidra
         _ => None,
     }
 }
