@@ -395,7 +395,7 @@ impl SmtValuationState {
                         PcodeOperation::Int2Comp { input, .. } => {
                             let a = new_state.get_valuation_or_entry(input);
                             match a {
-                                SmtVal::Val(a) => SmtVal::Val(a.bvnot()),
+                                SmtVal::Val(a) => SmtVal::Val(a.bvneg()),
                                 _ => SmtVal::Top,
                             }
                         }
