@@ -174,6 +174,10 @@ pub struct IntLess(pub Intern<Value>, pub Intern<Value>);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PopCount(pub Intern<Value>);
 
+/// A two's complement operator (INT_2COMP): computes -x = ~x + 1
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Int2CompExpr(pub Intern<Value>, pub usize);
+
 /// An inequality comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct IntNotEqual(pub Intern<Value>, pub Intern<Value>);
@@ -255,6 +259,7 @@ pub enum Value {
     IntEqual(IntEqual),
     IntLess(IntLess),
     PopCount(PopCount),
+    Int2Comp(Int2CompExpr),
 
     IntNotEqual(IntNotEqual),
     IntLessEqual(IntLessEqual),
@@ -315,6 +320,7 @@ impl Value {
                 | Value::IntEqual(_)
                 | Value::IntLess(_)
                 | Value::PopCount(_)
+                | Value::Int2Comp(_)
                 | Value::IntNotEqual(_)
                 | Value::IntLessEqual(_)
                 | Value::IntSLessEqual(_)
@@ -412,6 +418,14 @@ impl Value {
         }
     }
 
+    /// Accessor for `Int2Comp` variant.
+    pub fn as_int_2comp(&self) -> Option<&Int2CompExpr> {
+        match self {
+            Value::Int2Comp(v) => Some(v),
+            _ => None,
+        }
+    }
+
     /// Accessor for `IntNotEqual` variant.
     pub fn as_int_not_equal(&self) -> Option<&IntNotEqual> {
         match self {
@@ -487,6 +501,7 @@ impl Value {
             | Value::IntCarry(_)
             | Value::IntSCarry(_)
             | Value::IntSBorrow(_) => 1,
+            Value::Int2Comp(Int2CompExpr(_, s)) => *s,
             Value::Top => 8, // conservative default
         }
     }
@@ -570,6 +585,13 @@ impl Value {
     /// Construct a `PopCount(...)` node from a child.
     pub fn popcount(child: impl IntoInternedValue) -> Self {
         Value::PopCount(PopCount(child.into_interned()))
+    }
+
+    /// Construct an `Int2Comp(...)` node from a child.
+    pub fn int_2comp(child: impl IntoInternedValue) -> Self {
+        let child = child.into_interned();
+        let s = child.size();
+        Value::Int2Comp(Int2CompExpr(child, s))
     }
 
     /// Construct an `IntNotEqual(...)` node from two children.
@@ -685,12 +707,13 @@ impl Value {
             Value::IntEqual(_) => 15,
             Value::IntLess(_) => 16,
             Value::PopCount(_) => 17,
-            Value::IntNotEqual(_) => 18,
-            Value::IntLessEqual(_) => 19,
-            Value::IntSLessEqual(_) => 20,
-            Value::IntCarry(_) => 21,
-            Value::IntSCarry(_) => 22,
-            Value::IntSBorrow(_) => 23,
+            Value::Int2Comp(_) => 18,
+            Value::IntNotEqual(_) => 19,
+            Value::IntLessEqual(_) => 20,
+            Value::IntSLessEqual(_) => 21,
+            Value::IntCarry(_) => 22,
+            Value::IntSCarry(_) => 23,
+            Value::IntSBorrow(_) => 24,
         }
     }
 }
@@ -712,6 +735,7 @@ impl Simplify for Value {
             Value::IntEqual(expr) => expr.simplify(),
             Value::IntLess(expr) => expr.simplify(),
             Value::PopCount(expr) => expr.simplify(),
+            Value::Int2Comp(expr) => expr.simplify(),
             Value::IntNotEqual(expr) => expr.simplify(),
             Value::IntLessEqual(expr) => expr.simplify(),
             Value::IntSLessEqual(expr) => expr.simplify(),
@@ -1519,6 +1543,31 @@ impl Simplify for IntSBorrow {
     }
 }
 
+impl Simplify for Int2CompExpr {
+    fn simplify(&self) -> Value {
+        let Int2CompExpr(inner_intern, output_size) = self;
+        let inner = inner_intern.as_ref().simplify();
+
+        if matches!(inner, Value::Top) {
+            return Value::Top;
+        }
+
+        // constant folding: compute two's complement = -x
+        if let Some(vn) = inner.as_const() {
+            let value = vn.offset() as i64;
+            let negated = value.wrapping_neg();
+            return Value::make_const(negated, *output_size as u32);
+        }
+
+        // identity: int_2comp(int_2comp(x)) = x
+        if let Value::Int2Comp(Int2CompExpr(inner2, _)) = &inner {
+            return inner2.as_ref().clone();
+        }
+
+        Value::Int2Comp(Int2CompExpr(Intern::new(inner), *output_size))
+    }
+}
+
 fn fmt_operand_jingle(f: &mut Formatter<'_>, v: &Value, info: &SleighArchInfo) -> std::fmt::Result {
     if v.is_compound() {
         write!(f, "(")?;
@@ -1624,6 +1673,11 @@ impl JingleDisplay for Value {
             }
             Value::PopCount(PopCount(a)) => {
                 write!(f, "popcount(")?;
+                a.as_ref().fmt_jingle(f, info)?;
+                write!(f, ")")
+            }
+            Value::Int2Comp(Int2CompExpr(a, _)) => {
+                write!(f, "int_2comp(")?;
                 a.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
@@ -1739,6 +1793,9 @@ impl std::fmt::Display for Value {
             Value::PopCount(PopCount(a)) => {
                 write!(f, "popcount({})", a.as_ref())
             }
+            Value::Int2Comp(Int2CompExpr(a, _)) => {
+                write!(f, "int_2comp({})", a.as_ref())
+            }
             Value::IntNotEqual(IntNotEqual(a, b)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "!=")?;
@@ -1844,6 +1901,9 @@ impl std::fmt::LowerHex for Value {
             }
             Value::PopCount(PopCount(a)) => {
                 write!(f, "popcount({:x})", a.as_ref())
+            }
+            Value::Int2Comp(Int2CompExpr(a, _)) => {
+                write!(f, "int_2comp({:x})", a.as_ref())
             }
             Value::IntNotEqual(IntNotEqual(a, b)) => {
                 fmt_operand_hex(f, a.as_ref())?;
