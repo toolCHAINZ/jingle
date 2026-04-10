@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.11](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.10...jingle-v0.6.11) - 2026-04-10
+
+### Added
+
+- add missing gimli architecture mappings ([#229](https://github.com/toolCHAINZ/jingle/pull/229))
+
 ## [0.6.10](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.9...jingle-v0.6.10) - 2026-04-04
 
 ### Added
