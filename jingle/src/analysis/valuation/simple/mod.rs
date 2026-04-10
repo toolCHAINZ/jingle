@@ -196,7 +196,9 @@ impl ValuationState {
             PcodeOperation::Int2Comp { input, .. } => {
                 let a = Value::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, Value::int_2comp(a).simplify());
+                    new_state
+                        .valuation
+                        .add(output_vn, Value::int_2comp(a).simplify());
                 }
             }
 
