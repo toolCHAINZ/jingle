@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.12](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.11...jingle-v0.6.12) - 2026-04-10
+
+### Added
+
+- interpret 2s complement ([#231](https://github.com/toolCHAINZ/jingle/pull/231))
+
 ## [0.6.11](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.10...jingle-v0.6.11) - 2026-04-10
 
 ### Added
