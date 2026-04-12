@@ -17,6 +17,7 @@ use std::path::Path;
 #[derive(Debug, PartialEq, Eq)]
 pub struct OwnedSection {
     data: Vec<u8>,
+    size: usize,
     perms: Perms,
     base_address: usize,
 }
@@ -25,6 +26,7 @@ impl<'a> From<&'a OwnedSection> for ImageSection<'a> {
     fn from(value: &'a OwnedSection) -> Self {
         ImageSection {
             data: value.data.as_slice(),
+            size: value.size,
             perms: value.perms,
             base_address: value.base_address,
         }
@@ -40,6 +42,7 @@ impl TryFrom<Section<'_, '_>> for OwnedSection {
             .map_err(|_| JingleSleighError::ImageLoadError)?
             .to_vec();
         Ok(OwnedSection {
+            size: value.size() as usize,
             data,
             perms: map_sec_kind(&value.kind()),
             base_address: value.address() as usize,
@@ -55,11 +58,26 @@ pub struct OwnedFile {
 
 impl OwnedFile {
     pub fn new(file: &File) -> Result<Self, JingleSleighError> {
-        let mut sections = vec![];
-        let mut exports = HashMap::new();
-        for x in file.sections().filter(|f| f.kind() == SectionKind::Text) {
-            sections.push(x.try_into()?);
+        let mut candidates: Vec<OwnedSection> = file
+            .sections()
+            .filter_map(|s| s.try_into().ok())
+            .collect();
+        candidates.sort_by_key(|s| s.base_address);
+
+        let mut sections: Vec<OwnedSection> = vec![];
+        for candidate in candidates {
+            let start = candidate.base_address;
+            let end = start + candidate.size;
+            let overlaps = sections.iter().any(|a| {
+                let a_end = a.base_address + a.size;
+                start < a_end && end > a.base_address
+            });
+            if !overlaps {
+                sections.push(candidate);
+            }
         }
+
+        let mut exports = HashMap::new();
         if let Ok(e) = file.exports() {
             for x in e {
                 let location = x.address();
@@ -79,10 +97,14 @@ impl SleighImageCore for OwnedFile {
         output.fill(0);
         let output_start_addr = vn.offset() as usize;
         let output_end_addr = output_start_addr + vn.size();
-        if let Some(x) = self.image_sections().find(|s| {
-            output_start_addr >= s.base_address
-                && output_start_addr < (s.base_address + s.data.len())
-        }) {
+        if let Some(x) = self
+            .image_sections()
+            .filter(|s| s.perms.exec)
+            .find(|s| {
+                output_start_addr >= s.base_address
+                    && output_start_addr < (s.base_address + s.data.len())
+            })
+        {
             let input_start_addr = x.base_address;
             let input_end_addr = input_start_addr + x.data.len();
             let start_addr = max(input_start_addr, output_start_addr);
@@ -102,10 +124,12 @@ impl SleighImageCore for OwnedFile {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
-        self.image_sections().any(|s| {
-            s.base_address <= vn.offset() as usize
-                && (s.base_address + s.data.len()) >= (vn.offset() as usize + vn.size())
-        })
+        self.image_sections()
+            .filter(|s| s.perms.exec)
+            .any(|s| {
+                s.base_address <= vn.offset() as usize
+                    && (s.base_address + s.data.len()) >= (vn.offset() as usize + vn.size())
+            })
     }
 }
 
@@ -165,6 +189,7 @@ impl<'a> ImageSections for File<'a, &'a [u8]> {
             if let Ok(data) = s.data() {
                 Some(ImageSection {
                     data,
+                    size: s.size() as usize,
                     base_address: s.address() as usize,
                     perms: map_sec_kind(&s.kind()),
                 })
