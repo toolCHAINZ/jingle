@@ -146,13 +146,17 @@ pub struct AddExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct SubExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
-/// An expression representing two possible values
+/// An expression representing two possible values (abstract interpretation choice)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Or(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct Choice(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise XOR expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct XorExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+
+/// A bitwise OR expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct OrExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise AND expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -258,8 +262,9 @@ pub enum Value {
     Add(AddExpr),
     Sub(SubExpr),
 
-    Or(Or),
+    Choice(Choice),
     Xor(XorExpr),
+    Or(OrExpr),
     And(AndExpr),
     IntLeftShift(IntLeftShiftExpr),
     IntRightShift(IntRightShiftExpr),
@@ -325,8 +330,9 @@ impl Value {
             Value::Mul(_)
                 | Value::Add(_)
                 | Value::Sub(_)
-                | Value::Or(_)
+                | Value::Choice(_)
                 | Value::Xor(_)
+                | Value::Or(_)
                 | Value::And(_)
                 | Value::IntLeftShift(_)
                 | Value::IntRightShift(_)
@@ -372,10 +378,10 @@ impl Value {
         }
     }
 
-    /// Accessor for `Or` variant.
-    pub fn as_or(&self) -> Option<&Or> {
+    /// Accessor for `Choice` variant.
+    pub fn as_choice(&self) -> Option<&Choice> {
         match self {
-            Value::Or(o) => Some(o),
+            Value::Choice(o) => Some(o),
             _ => None,
         }
     }
@@ -384,6 +390,14 @@ impl Value {
     pub fn as_xor(&self) -> Option<&XorExpr> {
         match self {
             Value::Xor(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `Or` variant (bitwise OR).
+    pub fn as_or(&self) -> Option<&OrExpr> {
+        match self {
+            Value::Or(o) => Some(o),
             _ => None,
         }
     }
@@ -503,8 +517,9 @@ impl Value {
             Value::Mul(MulExpr(_, _, s))
             | Value::Add(AddExpr(_, _, s))
             | Value::Sub(SubExpr(_, _, s))
-            | Value::Or(Or(_, _, s))
+            | Value::Choice(Choice(_, _, s))
             | Value::Xor(XorExpr(_, _, s))
+            | Value::Or(OrExpr(_, _, s))
             | Value::And(AndExpr(_, _, s))
             | Value::IntLeftShift(IntLeftShiftExpr(_, _, s))
             | Value::IntRightShift(IntRightShiftExpr(_, _, s))
@@ -553,12 +568,13 @@ impl Value {
         Value::Const(Const(vn))
     }
 
-    /// Construct an `Or(...)` node from two children. Size is derived from children.
-    pub fn or(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+    /// Construct a `Choice(...)` node from two children. Size is derived from children.
+    /// This represents an abstract interpretation choice between two possible values.
+    pub fn choice(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
         let left = left.into_interned();
         let right = right.into_interned();
         let s = std::cmp::max(left.size(), right.size());
-        Value::Or(Or(left, right, s))
+        Value::Choice(Choice(left, right, s))
     }
 
     /// Construct a `Xor(...)` node from two children. Size is derived from children.
@@ -567,6 +583,14 @@ impl Value {
         let right = right.into_interned();
         let s = std::cmp::max(left.size(), right.size());
         Value::Xor(XorExpr(left, right, s))
+    }
+
+    /// Construct an `Or(...)` node from two children (bitwise OR). Size is derived from children.
+    pub fn or(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        let left = left.into_interned();
+        let right = right.into_interned();
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Or(OrExpr(left, right, s))
     }
 
     /// Construct an `And(...)` node from two children. Size is derived from children.
@@ -691,15 +715,15 @@ impl Value {
         }
     }
 
-    /// Normalize Or operands so that the canonical form has a non-Or on the left
-    /// and an Or on the right when one operand is an Or. This makes simplifications
-    /// like `Or(Or(a,b), c)` and `Or(c, Or(a,b))` handled uniformly.
-    fn normalize_or(left: Value, right: Value) -> (Value, Value) {
-        let left_is_or = matches!(left, Value::Or(_));
-        let right_is_or = matches!(right, Value::Or(_));
+    /// Normalize Choice operands so that the canonical form has a non-Choice on the left
+    /// and a Choice on the right when one operand is a Choice. This makes simplifications
+    /// like `Choice(Choice(a,b), c)` and `Choice(c, Choice(a,b))` handled uniformly.
+    fn normalize_choice(left: Value, right: Value) -> (Value, Value) {
+        let left_is_choice = matches!(left, Value::Choice(_));
+        let right_is_choice = matches!(right, Value::Choice(_));
 
-        // If left is an Or and right is not, swap so the Or is on the right.
-        if left_is_or && !right_is_or {
+        // If left is a Choice and right is not, swap so the Choice is on the right.
+        if left_is_choice && !right_is_choice {
             (right, left)
         } else {
             (left, right)
@@ -716,28 +740,29 @@ impl Value {
             Value::Mul(_) => 3,
             Value::Add(_) => 4,
             Value::Sub(_) => 5,
-            Value::Or(_) => 6,
+            Value::Choice(_) => 6,
             Value::Xor(_) => 7,
-            Value::And(_) => 8,
-            Value::IntLeftShift(_) => 9,
-            Value::IntRightShift(_) => 10,
-            Value::IntSignedRightShift(_) => 11,
-            Value::Load(_) => 12,
-            Value::ZeroExtend(_) => 13,
-            Value::SignExtend(_) => 14,
-            Value::Extract(_) => 15,
-            Value::Top => 16,
-            Value::IntSLess(_) => 17,
-            Value::IntEqual(_) => 18,
-            Value::IntLess(_) => 19,
-            Value::PopCount(_) => 20,
-            Value::Int2Comp(_) => 21,
-            Value::IntNotEqual(_) => 22,
-            Value::IntLessEqual(_) => 23,
-            Value::IntSLessEqual(_) => 24,
-            Value::IntCarry(_) => 25,
-            Value::IntSCarry(_) => 26,
-            Value::IntSBorrow(_) => 27,
+            Value::Or(_) => 8,
+            Value::And(_) => 9,
+            Value::IntLeftShift(_) => 10,
+            Value::IntRightShift(_) => 11,
+            Value::IntSignedRightShift(_) => 12,
+            Value::Load(_) => 13,
+            Value::ZeroExtend(_) => 14,
+            Value::SignExtend(_) => 15,
+            Value::Extract(_) => 16,
+            Value::Top => 17,
+            Value::IntSLess(_) => 18,
+            Value::IntEqual(_) => 19,
+            Value::IntLess(_) => 20,
+            Value::PopCount(_) => 21,
+            Value::Int2Comp(_) => 22,
+            Value::IntNotEqual(_) => 23,
+            Value::IntLessEqual(_) => 24,
+            Value::IntSLessEqual(_) => 25,
+            Value::IntCarry(_) => 26,
+            Value::IntSCarry(_) => 27,
+            Value::IntSBorrow(_) => 28,
         }
     }
 }
@@ -748,8 +773,9 @@ impl Simplify for Value {
             Value::Mul(expr) => expr.simplify(),
             Value::Add(expr) => expr.simplify(),
             Value::Sub(expr) => expr.simplify(),
-            Value::Or(expr) => expr.simplify(),
+            Value::Choice(expr) => expr.simplify(),
             Value::Xor(expr) => expr.simplify(),
+            Value::Or(expr) => expr.simplify(),
             Value::And(expr) => expr.simplify(),
             Value::IntLeftShift(expr) => expr.simplify(),
             Value::IntRightShift(expr) => expr.simplify(),
@@ -807,6 +833,15 @@ impl BitAnd for Value {
     fn bitand(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
         Value::And(AndExpr(Intern::new(self), Intern::new(rhs), s))
+    }
+}
+
+impl std::ops::BitOr for Value {
+    type Output = Value;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let s = std::cmp::max(self.size(), rhs.size());
+        Value::Or(OrExpr(Intern::new(self), Intern::new(rhs), s))
     }
 }
 
@@ -1033,7 +1068,7 @@ impl Simplify for MulExpr {
     }
 }
 
-impl Simplify for Or {
+impl Simplify for Choice {
     fn simplify(&self) -> Value {
         let a_intern = self.0;
         let b_intern = self.1;
@@ -1047,13 +1082,13 @@ impl Simplify for Or {
             return Value::Top;
         }
 
-        // normalize so that if one side is an Or and the other is not, the Or is on the right
-        // (canonical shape: non-Or on left, Or on right)
-        let (mut left, mut right) = Value::normalize_or(a_s, b_s);
+        // normalize so that if one side is a Choice and the other is not, the Choice is on the right
+        // (canonical shape: non-Choice on left, Choice on right)
+        let (mut left, mut right) = Value::normalize_choice(a_s, b_s);
 
-        // If both sides are non-Or, enforce deterministic ordering by variant rank.
-        if !matches!(left, Value::Or(_))
-            && !matches!(right, Value::Or(_))
+        // If both sides are non-Choice, enforce deterministic ordering by variant rank.
+        if !matches!(left, Value::Choice(_))
+            && !matches!(right, Value::Choice(_))
             && Value::variant_rank(&left) > Value::variant_rank(&right)
         {
             std::mem::swap(&mut left, &mut right);
@@ -1064,67 +1099,71 @@ impl Simplify for Or {
             return left;
         }
 
-        // Collapse nested duplicates: Or(a, Or(a, b)) -> Or(a, b)
-        if let Value::Or(Or(inner_a, inner_b, _)) = &right {
+        // Collapse nested duplicates: Choice(a, Choice(a, b)) -> Choice(a, b)
+        if let Value::Choice(Choice(inner_a, inner_b, _)) = &right {
             if inner_a.as_ref() == &left {
-                let inner = Value::Or(Or(Intern::new(left), *inner_b, right.size())).simplify();
+                let inner =
+                    Value::Choice(Choice(Intern::new(left), *inner_b, right.size())).simplify();
                 return inner;
             }
             if inner_b.as_ref() == &left {
-                let inner = Value::Or(Or(Intern::new(left), *inner_a, right.size())).simplify();
+                let inner =
+                    Value::Choice(Choice(Intern::new(left), *inner_a, right.size())).simplify();
                 return inner;
             }
         }
 
-        // Factor common child between two Ors:
-        // Or(Or(a,b), Or(a,c)) -> Or(a, Or(b,c)) and symmetric variants.
-        if let (Value::Or(Or(l1, l2, _)), Value::Or(Or(r1, r2, _))) = (&left, &right) {
+        // Factor common child between two Choices:
+        // Choice(Choice(a,b), Choice(a,c)) -> Choice(a, Choice(b,c)) and symmetric variants.
+        if let (Value::Choice(Choice(l1, l2, _)), Value::Choice(Choice(r1, r2, _))) =
+            (&left, &right)
+        {
             // check all combinations for equal common child
             if l1.as_ref() == r1.as_ref() {
-                let inner = Value::Or(Or(
+                let inner = Value::Choice(Choice(
                     *l2,
                     *r2,
                     std::cmp::max(l2.as_ref().size(), r2.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Or(Or(*l1, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(*l1, Intern::new(inner), s)).simplify();
             }
             if l1.as_ref() == r2.as_ref() {
-                let inner = Value::Or(Or(
+                let inner = Value::Choice(Choice(
                     *l2,
                     *r1,
                     std::cmp::max(l2.as_ref().size(), r1.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Or(Or(*l1, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(*l1, Intern::new(inner), s)).simplify();
             }
             if l2.as_ref() == r1.as_ref() {
-                let inner = Value::Or(Or(
+                let inner = Value::Choice(Choice(
                     *l1,
                     *r2,
                     std::cmp::max(l1.as_ref().size(), r2.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Or(Or(*l2, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(*l2, Intern::new(inner), s)).simplify();
             }
             if l2.as_ref() == r2.as_ref() {
-                let inner = Value::Or(Or(
+                let inner = Value::Choice(Choice(
                     *l1,
                     *r1,
                     std::cmp::max(l1.as_ref().size(), r1.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Or(Or(*l2, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(*l2, Intern::new(inner), s)).simplify();
             }
         }
 
         // default: rebuild with simplified children
         let s = std::cmp::max(left.size(), right.size());
-        Value::Or(Or(Intern::new(left), Intern::new(right), s))
+        Value::Choice(Choice(Intern::new(left), Intern::new(right), s))
     }
 }
 
@@ -1216,6 +1255,54 @@ impl Simplify for AndExpr {
 
         let s = std::cmp::max(left.size(), right.size());
         Value::And(AndExpr(Intern::new(left), Intern::new(right), s))
+    }
+}
+
+impl Simplify for OrExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
+
+        // both const -> fold
+        if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
+            let res = (left_vn.offset() | right_vn.offset()) as i64;
+            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
+            return Value::make_const(res, size as u32);
+        }
+
+        // x | x -> x
+        if left == right {
+            return left;
+        }
+
+        // x | 0 -> x
+        if right.as_const().map(|vn| vn.offset()) == Some(0) {
+            return left;
+        }
+
+        // x | all-ones -> all-ones
+        let all_ones = match left.size() {
+            1 => Some(0xFF_u64),
+            2 => Some(0xFFFF_u64),
+            4 => Some(0xFFFF_FFFF_u64),
+            8 => Some(u64::MAX),
+            _ => None,
+        };
+        if let Some(mask) = all_ones {
+            if right.as_const().map(|vn| vn.offset()) == Some(mask) {
+                let size = Value::derive_size_from(&left);
+                return Value::make_const(mask as i64, size as u32);
+            }
+        }
+
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Or(OrExpr(Intern::new(left), Intern::new(right), s))
     }
 }
 
@@ -1780,7 +1867,7 @@ impl JingleDisplay for Value {
                 write!(f, "-")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            Value::Or(Or(a, b, _)) => {
+            Value::Choice(Choice(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "||")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
@@ -1788,6 +1875,11 @@ impl JingleDisplay for Value {
             Value::Xor(XorExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "^")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            Value::Or(OrExpr(a, b, _)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "|")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
             Value::And(AndExpr(a, b, _)) => {
@@ -1921,7 +2013,7 @@ impl std::fmt::Display for Value {
                 write!(f, "-")?;
                 fmt_operand(f, b.as_ref())
             }
-            Value::Or(Or(a, b, _)) => {
+            Value::Choice(Choice(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "||")?;
                 fmt_operand(f, b.as_ref())
@@ -1929,6 +2021,11 @@ impl std::fmt::Display for Value {
             Value::Xor(XorExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "^")?;
+                fmt_operand(f, b.as_ref())
+            }
+            Value::Or(OrExpr(a, b, _)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "|")?;
                 fmt_operand(f, b.as_ref())
             }
             Value::And(AndExpr(a, b, _)) => {
@@ -2042,7 +2139,7 @@ impl std::fmt::LowerHex for Value {
                 write!(f, "-")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            Value::Or(Or(a, b, _)) => {
+            Value::Choice(Choice(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "||")?;
                 fmt_operand_hex(f, b.as_ref())
@@ -2050,6 +2147,11 @@ impl std::fmt::LowerHex for Value {
             Value::Xor(XorExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "^")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::Or(OrExpr(a, b, _)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "|")?;
                 fmt_operand_hex(f, b.as_ref())
             }
             Value::And(AndExpr(a, b, _)) => {
