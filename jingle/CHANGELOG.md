@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.14](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.13...jingle-v0.6.14) - 2026-04-13
+
+### Added
+
+- add Value impls for pcode shifts ([#236](https://github.com/toolCHAINZ/jingle/pull/236))
+
 ## [0.6.13](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.12...jingle-v0.6.13) - 2026-04-13
 
 ### Other
