@@ -881,3 +881,290 @@ fn add_does_not_trim_non_covered_entries() {
         "unrelated entry should not be trimmed"
     );
 }
+
+// --- IntLeftShift ------------------------------------------------------------
+
+#[test]
+fn left_shift_const_folding() {
+    // 8 << 2 = 32
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::const_(8)),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(32, 8));
+}
+
+#[test]
+fn left_shift_identity_zero() {
+    // expr << 0 = expr
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::entry(vn_a())),
+        Intern::new(Value::const_(0)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::entry(vn_a()));
+}
+
+#[test]
+fn left_shift_overflow() {
+    // Shifting by >= bit width should return 0
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::const_(0xFF)),
+        Intern::new(Value::const_(64)), // 8 bytes * 8 = 64 bits
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0, 8));
+}
+
+#[test]
+fn left_shift_overflow_beyond_size() {
+    // Shifting by more than bit width
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::const_(0xFF)),
+        Intern::new(Value::const_(100)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0, 8));
+}
+
+#[test]
+fn left_shift_with_masking() {
+    // 0xFF << 4 should properly mask overflow bits
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::make_const(0xFF, 1)), // 1 byte
+        Intern::new(Value::const_(4)),
+        1,
+    ))
+    .simplify();
+    // 0xFF << 4 = 0xFF0, masked to 1 byte = 0xF0
+    assert_eq!(result, Value::make_const(0xF0, 1));
+}
+
+#[test]
+fn left_shift_top_left() {
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::Top),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::Top);
+}
+
+#[test]
+fn left_shift_top_right() {
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::const_(8)),
+        Intern::new(Value::Top),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::Top);
+}
+
+#[test]
+fn left_shift_symbolic() {
+    // Non-constant shift should not fold
+    let result = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::entry(vn_a())),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert!(result.as_add().is_none()); // Should NOT be addition
+    // Should remain a left shift operation (not simplified to a different form)
+    let expr = Value::IntLeftShift(IntLeftShiftExpr(
+        Intern::new(Value::entry(vn_a())),
+        Intern::new(Value::const_(2)),
+        8,
+    ));
+    assert_eq!(result, expr);
+}
+
+// --- IntRightShift (unsigned/logical) ----------------------------------------
+
+#[test]
+fn right_shift_const_folding() {
+    // 32 >> 2 = 8
+    let result = Value::IntRightShift(IntRightShiftExpr(
+        Intern::new(Value::const_(32)),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(8, 8));
+}
+
+#[test]
+fn right_shift_identity_zero() {
+    // expr >> 0 = expr
+    let result = Value::IntRightShift(IntRightShiftExpr(
+        Intern::new(Value::entry(vn_a())),
+        Intern::new(Value::const_(0)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::entry(vn_a()));
+}
+
+#[test]
+fn right_shift_overflow() {
+    // Shifting by >= bit width should return 0
+    let result = Value::IntRightShift(IntRightShiftExpr(
+        Intern::new(Value::const_(0xFF)),
+        Intern::new(Value::const_(64)), // 8 bytes * 8 = 64 bits
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0, 8));
+}
+
+#[test]
+fn right_shift_fills_with_zeros() {
+    // Unsigned right shift fills with zeros (logical shift)
+    // 0xF0 >> 4 = 0x0F
+    let result = Value::IntRightShift(IntRightShiftExpr(
+        Intern::new(Value::make_const(0xF0, 1)),
+        Intern::new(Value::const_(4)),
+        1,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0x0F, 1));
+}
+
+#[test]
+fn right_shift_top_left() {
+    let result = Value::IntRightShift(IntRightShiftExpr(
+        Intern::new(Value::Top),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::Top);
+}
+
+#[test]
+fn right_shift_top_right() {
+    let result = Value::IntRightShift(IntRightShiftExpr(
+        Intern::new(Value::const_(8)),
+        Intern::new(Value::Top),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::Top);
+}
+
+// --- IntSignedRightShift (arithmetic) ----------------------------------------
+
+#[test]
+fn signed_right_shift_const_folding_positive() {
+    // 32 s>> 2 = 8 (positive value)
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::const_(32)),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(8, 8));
+}
+
+#[test]
+fn signed_right_shift_const_folding_negative() {
+    // For a 1-byte value: -16 (0xF0) s>> 2 should preserve sign
+    // 0xF0 = binary 11110000, arithmetic shift right by 2 = 11111100 = 0xFC = -4
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::make_const(0xF0u64 as i64, 1)),
+        Intern::new(Value::const_(2)),
+        1,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0xFCu64 as i64, 1));
+}
+
+#[test]
+fn signed_right_shift_identity_zero() {
+    // expr s>> 0 = expr
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::entry(vn_a())),
+        Intern::new(Value::const_(0)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::entry(vn_a()));
+}
+
+#[test]
+fn signed_right_shift_overflow_positive() {
+    // Positive value shifted >= bit width should return 0
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::const_(42)),
+        Intern::new(Value::const_(64)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0, 8));
+}
+
+#[test]
+fn signed_right_shift_overflow_negative() {
+    // Negative value shifted >= bit width should return -1
+    // For 1-byte: 0x80 is -128, shift by 8 or more should give -1 (0xFF)
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::make_const(0x80u64 as i64, 1)),
+        Intern::new(Value::const_(8)),
+        1,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(-1, 1));
+}
+
+#[test]
+fn signed_right_shift_preserves_sign_bit() {
+    // -1 (all bits set) s>> 4 should still be -1
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::make_const(0xFFu64 as i64, 1)),
+        Intern::new(Value::const_(4)),
+        1,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0xFFu64 as i64, 1));
+}
+
+#[test]
+fn signed_right_shift_top_left() {
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::Top),
+        Intern::new(Value::const_(2)),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::Top);
+}
+
+#[test]
+fn signed_right_shift_top_right() {
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::const_(8)),
+        Intern::new(Value::Top),
+        8,
+    ))
+    .simplify();
+    assert_eq!(result, Value::Top);
+}
+
+#[test]
+fn signed_right_shift_small_negative() {
+    // Test a small negative number: -2 (0xFE in 1 byte) s>> 1 = -1 (0xFF)
+    let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
+        Intern::new(Value::make_const(0xFEu64 as i64, 1)),
+        Intern::new(Value::const_(1)),
+        1,
+    ))
+    .simplify();
+    assert_eq!(result, Value::make_const(0xFFu64 as i64, 1));
+}
