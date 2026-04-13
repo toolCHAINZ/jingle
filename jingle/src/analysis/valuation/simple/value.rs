@@ -879,15 +879,7 @@ impl Value {
                 context
                     .direct_writes
                     .get(vn)
-                    .map(|v| {
-                        // If substitution results in the same varnode, return original Entry to avoid cycles
-                        if v.as_entry().map(|e| e.0) == Some(*vn) {
-                            self.clone()
-                        } else {
-                            // Substitute the found value recursively
-                            v.substitute(context)
-                        }
-                    })
+                    .cloned()
                     .unwrap_or_else(|| self.clone())
             }
             Value::Const(_) => self.clone(),
