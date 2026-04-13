@@ -110,6 +110,51 @@ impl ValuationSet {
             }
         };
     }
+
+    /// Interpret this valuation in terms of another valuation (context).
+    ///
+    /// Recursively substitutes `Entry` and Symbolic values in this valuation using
+    /// the mappings from the context valuation. This enables compositional reasoning:
+    /// if `self` states `RAX = RBX` and `context` states `RBX = RCX`, then
+    /// `self.assuming(&context)` produces `RAX = RCX`.
+    ///
+    /// For indirect (memory) locations, both the location key and the value are
+    /// substituted. For example, if `self` has `[Load(RSP + 4)] = 8` and `context`
+    /// has `Load(RSP + 4) = 0xdeadbeef`, then the result has `[0xdeadbeef] = 8`.
+    ///
+    /// Cycles are handled by simplification: if `A = B` in self and `B = A` in context,
+    /// the result simplifies to `A = A`.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let mut val1 = ValuationSet::new();
+    /// val1.add(rax, Value::entry(rbx));  // RAX = RBX
+    ///
+    /// let mut context = ValuationSet::new();
+    /// context.add(rbx, Value::entry(rcx));  // RBX = RCX
+    ///
+    /// let result = val1.assuming(&context);
+    /// // result contains: RAX = RCX
+    /// ```
+    pub fn assuming(&self, context: &ValuationSet) -> ValuationSet {
+        let mut result = ValuationSet::new();
+
+        // Substitute all direct writes
+        for (vn, value) in self.direct_writes.items() {
+            let substituted_value = value.substitute(context);
+            result.add(*vn, substituted_value);
+        }
+
+        // Substitute all indirect writes
+        // Both the key (symbolic expression) and the value need substitution
+        for (sym_expr, value) in &self.indirect_writes {
+            let substituted_key = sym_expr.substitute(context);
+            let substituted_value = value.substitute(context);
+            result.add(substituted_key, substituted_value);
+        }
+
+        result
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -778,5 +823,215 @@ mod tests {
         assert!(display_str.starts_with("Valuation {"));
         assert!(display_str.contains("="));
         assert!(display_str.ends_with("}"));
+    }
+
+    #[test]
+    fn test_assuming_direct_substitution() {
+        // Test: RAX = RBX, assuming RBX = RCX, should produce RAX = RCX
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+        let rcx = VarNode::new(0x3000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx));
+
+        let mut context = ValuationSet::new();
+        context.add(rbx, Value::entry(rcx));
+
+        let result = val1.assuming(&context);
+
+        // Should have RAX = RCX
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::entry(rcx)));
+    }
+
+    #[test]
+    fn test_assuming_chained_substitution() {
+        // Test: RAX = RBX, assuming RBX = RCX and RCX = RDX, should produce RAX = RDX
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+        let rcx = VarNode::new(0x3000, 8u32, 0u32);
+        let rdx = VarNode::new(0x4000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx));
+
+        let mut context = ValuationSet::new();
+        context.add(rbx, Value::entry(rcx));
+        context.add(rcx, Value::entry(rdx));
+
+        let result = val1.assuming(&context);
+
+        // Should have RAX = RDX (chained substitution)
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::entry(rdx)));
+    }
+
+    #[test]
+    fn test_assuming_cycle_handling() {
+        // Test: RAX = RBX, assuming RBX = RAX, should produce RAX = RAX (simplified)
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx));
+
+        let mut context = ValuationSet::new();
+        context.add(rbx, Value::entry(rax));
+
+        let result = val1.assuming(&context);
+
+        // After substitution and simplification, should have RAX = RAX
+        // But since RAX = RAX is tautological, the add() method might optimize it
+        // Let's just check what we get
+        let val = result.direct_writes.get(rax);
+        assert!(val.is_some());
+        // It should be Entry(rax) after substituting Entry(rbx) with Entry(rax)
+        assert_eq!(val, Some(&Value::entry(rax)));
+    }
+
+    #[test]
+    fn test_assuming_indirect_pointer_substitution() {
+        // Test: [Load(RSP+4)] = 8, assuming RSP = 0x1000
+        // Should produce: [Load(0x1004)] = 8
+        let rsp = VarNode::new(0x1000, 8u32, 0u32);
+
+        // Create Load(RSP + 4)
+        let rsp_plus_4 = Value::entry(rsp) + Value::const_(4);
+        let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
+            internment::Intern::new(rsp_plus_4.clone()),
+            8,
+        ));
+
+        let mut val1 = ValuationSet::new();
+        // Add indirect write: [Load(RSP+4)] = 8
+        val1.add(load_expr.clone(), Value::const_(8));
+
+        let mut context = ValuationSet::new();
+        // Add direct write: RSP = 0x1000
+        context.add(rsp, Value::const_(0x1000));
+
+        let result = val1.assuming(&context);
+
+        // The load expression should be substituted:
+        // Load(RSP+4) where RSP is Entry(rsp)
+        // Substitute: Entry(rsp) -> 0x1000
+        // So RSP+4 -> 0x1000 + 4 -> 0x1004 (after simplification)
+        // So Load(RSP+4) -> Load(0x1004)
+        // Result should have [Load(0x1004)] = 8
+
+        let expected_key = Value::Load(crate::analysis::valuation::simple::value::Load(
+            internment::Intern::new(Value::const_(0x1004)),
+            8,
+        ));
+
+        assert_eq!(
+            result.indirect_writes.get(&expected_key),
+            Some(&Value::const_(8))
+        );
+    }
+
+    #[test]
+    fn test_assuming_indirect_value_substitution() {
+        // Test: [Load(0x1000)] = RBX, assuming RBX = 42
+        // Should produce: [Load(0x1000)] = 42
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+
+        let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
+            internment::Intern::new(Value::const_(0x1000)),
+            8,
+        ));
+
+        let mut val1 = ValuationSet::new();
+        // Add indirect write: [Load(0x1000)] = RBX
+        val1.add(load_expr.clone(), Value::entry(rbx));
+
+        let mut context = ValuationSet::new();
+        // Add direct write: RBX = 42
+        context.add(rbx, Value::const_(42));
+
+        let result = val1.assuming(&context);
+
+        // The value should be substituted:
+        // Entry(rbx) -> 42
+        // Result should have [Load(0x1000)] = 42
+
+        assert_eq!(
+            result.indirect_writes.get(&load_expr),
+            Some(&Value::const_(42))
+        );
+    }
+
+    #[test]
+    fn test_assuming_no_context() {
+        // Test: RAX = RBX with empty context should produce RAX = RBX unchanged
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx));
+
+        let context = ValuationSet::new();
+
+        let result = val1.assuming(&context);
+
+        // Should have RAX = RBX unchanged
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::entry(rbx)));
+    }
+
+    #[test]
+    fn test_assuming_expression_substitution() {
+        // Test: RAX = RBX + 4, assuming RBX = 10, should produce RAX = 14
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx) + Value::const_(4));
+
+        let mut context = ValuationSet::new();
+        context.add(rbx, Value::const_(10));
+
+        let result = val1.assuming(&context);
+
+        // Should have RAX = 14 (simplified from 10 + 4)
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(14)));
+    }
+
+    #[test]
+    fn test_assuming_top_propagation() {
+        // Test: RAX = RBX, assuming RBX = Top, should produce RAX = Top
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx));
+
+        let mut context = ValuationSet::new();
+        context.add(rbx, Value::Top);
+
+        let result = val1.assuming(&context);
+
+        // Should have RAX = Top
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::Top));
+    }
+
+    #[test]
+    fn test_assuming_multiple_entries() {
+        // Test multiple valuations being substituted at once
+        let rax = VarNode::new(0x1000, 8u32, 0u32);
+        let rbx = VarNode::new(0x2000, 8u32, 0u32);
+        let rcx = VarNode::new(0x3000, 8u32, 0u32);
+        let rdx = VarNode::new(0x4000, 8u32, 0u32);
+
+        let mut val1 = ValuationSet::new();
+        val1.add(rax, Value::entry(rbx));
+        val1.add(rcx, Value::entry(rdx));
+
+        let mut context = ValuationSet::new();
+        context.add(rbx, Value::const_(100));
+        context.add(rdx, Value::const_(200));
+
+        let result = val1.assuming(&context);
+
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(100)));
+        assert_eq!(result.direct_writes.get(rcx), Some(&Value::const_(200)));
     }
 }
