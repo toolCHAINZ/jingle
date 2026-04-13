@@ -165,9 +165,7 @@ pub trait ImageSections {
         Self: Sized,
     {
         self.image_sections().any(|s| {
-            s.size > 0
-                && addr >= s.base_address as u64
-                && addr < (s.base_address + s.size) as u64
+            s.size > 0 && addr >= s.base_address as u64 && addr < (s.base_address + s.size) as u64
         })
     }
 

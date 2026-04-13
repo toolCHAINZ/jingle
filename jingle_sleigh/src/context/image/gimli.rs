@@ -72,10 +72,8 @@ pub struct OwnedFile {
 
 impl OwnedFile {
     pub fn new(file: &File) -> Result<Self, JingleSleighError> {
-        let mut candidates: Vec<OwnedSection> = file
-            .sections()
-            .filter_map(|s| s.try_into().ok())
-            .collect();
+        let mut candidates: Vec<OwnedSection> =
+            file.sections().filter_map(|s| s.try_into().ok()).collect();
         candidates.sort_by_key(|s| s.base_address);
 
         let mut sections: Vec<OwnedSection> = vec![];
@@ -111,14 +109,10 @@ impl SleighImageCore for OwnedFile {
         output.fill(0);
         let output_start_addr = vn.offset() as usize;
         let output_end_addr = output_start_addr + vn.size();
-        if let Some(x) = self
-            .image_sections()
-            .filter(|s| s.perms.exec)
-            .find(|s| {
-                output_start_addr >= s.base_address
-                    && output_start_addr < (s.base_address + s.data.len())
-            })
-        {
+        if let Some(x) = self.image_sections().filter(|s| s.perms.exec).find(|s| {
+            output_start_addr >= s.base_address
+                && output_start_addr < (s.base_address + s.data.len())
+        }) {
             let input_start_addr = x.base_address;
             let input_end_addr = input_start_addr + x.data.len();
             let start_addr = max(input_start_addr, output_start_addr);
@@ -138,12 +132,10 @@ impl SleighImageCore for OwnedFile {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
-        self.image_sections()
-            .filter(|s| s.perms.exec)
-            .any(|s| {
-                s.base_address <= vn.offset() as usize
-                    && (s.base_address + s.data.len()) >= (vn.offset() as usize + vn.size())
-            })
+        self.image_sections().filter(|s| s.perms.exec).any(|s| {
+            s.base_address <= vn.offset() as usize
+                && (s.base_address + s.data.len()) >= (vn.offset() as usize + vn.size())
+        })
     }
 }
 
