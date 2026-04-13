@@ -21,8 +21,8 @@ use internment::Intern;
 /// How to merge conflicting valuations for a single varnode when joining states.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum MergeBehavior {
-    /// Combine differing valuations into an `Or(...)` expression (higher precision).
-    Or,
+    /// Combine differing valuations into a `Choice(...)` expression (higher precision).
+    Choice,
     /// Converge differing valuations to `Top` (lower precision).
     Top,
 }
@@ -66,7 +66,7 @@ impl ValuationState {
         Self {
             valuation: ValuationSet::new(),
             arch_info,
-            merge_behavior: MergeBehavior::Or,
+            merge_behavior: MergeBehavior::Choice,
         }
     }
 
@@ -153,18 +153,15 @@ impl ValuationState {
                 }
             }
 
-            // This uses the wrong "Or". When we re-add bitor, use that
-            //
-            // PcodeOperation::IntOr { input0, input1, .. }
-            // | PcodeOperation::BoolOr { input0, input1, .. } => {
-            //     let a = Value::from_varnode_or_entry(self, input0);
-            //     let b = Value::from_varnode_or_entry(self, input1);
-            //     if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-            //         new_state
-            //             .valuation
-            //             .add(output_vn, Value::or(a, b).simplify());
-            //     }
-            // }
+            PcodeOperation::IntOr { input0, input1, .. }
+            | PcodeOperation::BoolOr { input0, input1, .. } => {
+                let a = Value::from_varnode_or_entry(self, input0);
+                let b = Value::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state.valuation.add(output_vn, (a | b).simplify());
+                }
+            }
+
             PcodeOperation::IntAnd { input0, input1, .. }
             | PcodeOperation::BoolAnd { input0, input1, .. } => {
                 let a = Value::from_varnode_or_entry(self, input0);
@@ -174,7 +171,6 @@ impl ValuationState {
                 }
             }
 
-            // Shift operations
             PcodeOperation::IntLeftShift { input0, input1, .. } => {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
@@ -498,8 +494,8 @@ impl JoinSemiLattice for ValuationState {
                         *my_val = Value::Top;
                     } else if my_val != other_val {
                         match self.merge_behavior {
-                            MergeBehavior::Or => {
-                                let combined = Value::or(my_val.clone(), other_val.clone());
+                            MergeBehavior::Choice => {
+                                let combined = Value::choice(my_val.clone(), other_val.clone());
                                 *my_val = combined.simplify();
                             }
                             MergeBehavior::Top => {
@@ -510,10 +506,10 @@ impl JoinSemiLattice for ValuationState {
                 }
                 None => {
                     match self.merge_behavior {
-                        MergeBehavior::Or => {
+                        MergeBehavior::Choice => {
                             let entry = Value::from_varnode_or_entry(self, key);
-                            let or = Value::or(entry, other_val.clone());
-                            self.valuation.add(*key, or.simplify());
+                            let choice = Value::choice(entry, other_val.clone());
+                            self.valuation.add(*key, choice.simplify());
                         }
                         MergeBehavior::Top => {
                             // If the other state has a direct write that we don't, we have to assume it could be anything.
@@ -533,8 +529,8 @@ impl JoinSemiLattice for ValuationState {
                         *my_val = Value::Top;
                     } else if my_val != other_val {
                         match self.merge_behavior {
-                            MergeBehavior::Or => {
-                                let combined = Value::or(my_val.clone(), other_val.clone());
+                            MergeBehavior::Choice => {
+                                let combined = Value::choice(my_val.clone(), other_val.clone());
                                 *my_val = combined.simplify();
                             }
                             MergeBehavior::Top => {
