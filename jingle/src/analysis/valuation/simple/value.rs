@@ -861,6 +861,181 @@ impl Value {
     pub fn simplify(&self) -> Value {
         Simplify::simplify(self)
     }
+
+    /// Recursively substitute `Entry` and `Load` values using a context valuation.
+    ///
+    /// For `Entry(vn)`: look up `vn` in `context.direct_writes` and substitute if found.
+    /// For `Load(ptr, size)`: first substitute `ptr`, then look up the result in
+    /// `context.indirect_writes` and substitute if found.
+    /// All other variants recursively substitute their children.
+    ///
+    /// The result is simplified to handle cycles (e.g., A = B and B = A becomes A = A)
+    /// and normalize expressions.
+    pub fn substitute(&self, context: &crate::analysis::valuation::ValuationSet) -> Value {
+        let result = match self {
+            // Base cases: Entry and Const
+            Value::Entry(Entry(vn)) => {
+                // Look up this varnode in context's direct writes
+                context
+                    .direct_writes
+                    .get(vn)
+                    .map(|v| v.substitute(context))
+                    .unwrap_or_else(|| self.clone())
+            }
+            Value::Const(_) => self.clone(),
+            Value::Top => Value::Top,
+
+            // Offset: substitute the base entry
+            Value::Offset(_) => self.clone(),
+
+            // Load: substitute the pointer, then check if the result is in indirect_writes
+            Value::Load(Load(ptr, size)) => {
+                let subst_ptr = ptr.as_ref().substitute(context);
+                // Look up the substituted pointer in indirect writes
+                context
+                    .indirect_writes
+                    .get(&subst_ptr)
+                    .map(|v| v.substitute(context))
+                    .unwrap_or_else(|| Value::Load(Load(Intern::new(subst_ptr), *size)))
+            }
+
+            // Binary operators: substitute both operands
+            Value::Mul(MulExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::Mul(MulExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::Add(AddExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::Add(AddExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::Sub(SubExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::Sub(SubExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::Choice(Choice(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::Choice(Choice(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::Xor(XorExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::Xor(XorExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::Or(OrExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::Or(OrExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::And(AndExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::And(AndExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::IntLeftShift(IntLeftShiftExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntLeftShift(IntLeftShiftExpr(
+                    Intern::new(a_subst),
+                    Intern::new(b_subst),
+                    *s,
+                ))
+            }
+            Value::IntRightShift(IntRightShiftExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntRightShift(IntRightShiftExpr(
+                    Intern::new(a_subst),
+                    Intern::new(b_subst),
+                    *s,
+                ))
+            }
+            Value::IntSignedRightShift(IntSignedRightShiftExpr(a, b, s)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntSignedRightShift(IntSignedRightShiftExpr(
+                    Intern::new(a_subst),
+                    Intern::new(b_subst),
+                    *s,
+                ))
+            }
+
+            // Unary operators: substitute the operand
+            Value::ZeroExtend(ZeroExtend(inner, size)) => {
+                let inner_subst = inner.as_ref().substitute(context);
+                Value::ZeroExtend(ZeroExtend(Intern::new(inner_subst), *size))
+            }
+            Value::SignExtend(SignExtend(inner, size)) => {
+                let inner_subst = inner.as_ref().substitute(context);
+                Value::SignExtend(SignExtend(Intern::new(inner_subst), *size))
+            }
+            Value::Extract(Extract(inner, offset, size)) => {
+                let inner_subst = inner.as_ref().substitute(context);
+                Value::Extract(Extract(Intern::new(inner_subst), *offset, *size))
+            }
+            Value::PopCount(PopCount(inner)) => {
+                let inner_subst = inner.as_ref().substitute(context);
+                Value::PopCount(PopCount(Intern::new(inner_subst)))
+            }
+            Value::Int2Comp(Int2CompExpr(inner, size)) => {
+                let inner_subst = inner.as_ref().substitute(context);
+                Value::Int2Comp(Int2CompExpr(Intern::new(inner_subst), *size))
+            }
+
+            // Comparison operators: substitute both operands
+            Value::IntSLess(IntSLess(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntSLess(IntSLess(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntEqual(IntEqual(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntEqual(IntEqual(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntLess(IntLess(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntLess(IntLess(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntNotEqual(IntNotEqual(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntNotEqual(IntNotEqual(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntLessEqual(IntLessEqual(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntLessEqual(IntLessEqual(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntSLessEqual(IntSLessEqual(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntSLessEqual(IntSLessEqual(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntCarry(IntCarry(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntCarry(IntCarry(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntSCarry(IntSCarry(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntSCarry(IntSCarry(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::IntSBorrow(IntSBorrow(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::IntSBorrow(IntSBorrow(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+        };
+
+        // Simplify the result to handle cycles and normalize expressions
+        result.simplify()
+    }
 }
 
 impl Simplify for AddExpr {
