@@ -56,51 +56,51 @@ pub trait ImageSections {
     fn image_sections(&self) -> ImageSectionIterator<'_>;
 
     /// Returns an iterator over all addresses in the image sections.
-    /// Empty sections are excluded from iteration.
+    /// Zero-size sections are excluded from iteration.
     fn addresses(&self) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
         self.image_sections()
-            .filter(|s| !s.data.is_empty())
-            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+            .filter(|s| s.size > 0)
+            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.size) as u64))
     }
 
     /// Returns an iterator over the address ranges of all sections.
-    /// Empty sections are excluded from iteration.
+    /// Zero-size sections are excluded from iteration.
     fn ranges(&self) -> impl Iterator<Item = Range<u64>> + '_
     where
         Self: Sized,
     {
         self.image_sections()
-            .filter(|s| !s.data.is_empty())
-            .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+            .filter(|s| s.size > 0)
+            .map(|s| (s.base_address as u64)..((s.base_address + s.size) as u64))
     }
 
     /// Returns an iterator over addresses in sections matching the required permissions.
     /// Only sections whose permissions satisfy the required permissions are included.
-    /// Empty sections are excluded from iteration.
+    /// Zero-size sections are excluded from iteration.
     fn addresses_with_perms(&self, required: Perms) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
         self.image_sections()
-            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
-            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+            .filter(move |s| s.size > 0 && s.perms.satisfies(required))
+            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.size) as u64))
     }
 
     /// Returns an iterator over all addresses in the image sections starting from the given address.
-    /// Empty sections are excluded from iteration.
+    /// Zero-size sections are excluded from iteration.
     /// Sections that end before the start address are skipped entirely for efficiency.
     fn addresses_from(&self, start: u64) -> impl Iterator<Item = u64> + '_
     where
         Self: Sized,
     {
         self.image_sections()
-            .filter(|s| !s.data.is_empty())
+            .filter(|s| s.size > 0)
             .filter_map(move |s| {
                 let section_start = s.base_address as u64;
-                let section_end = (s.base_address + s.data.len()) as u64;
+                let section_end = (s.base_address + s.size) as u64;
 
                 // Skip sections that end before start address
                 if section_end <= start {
@@ -118,7 +118,7 @@ pub trait ImageSections {
     /// Returns an iterator over addresses in sections matching the required permissions,
     /// starting from the given address.
     /// Only sections whose permissions satisfy the required permissions are included.
-    /// Empty sections are excluded from iteration.
+    /// Zero-size sections are excluded from iteration.
     /// Sections that end before the start address are skipped entirely for efficiency.
     fn addresses_with_perms_from(
         &self,
@@ -129,10 +129,10 @@ pub trait ImageSections {
         Self: Sized,
     {
         self.image_sections()
-            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
+            .filter(move |s| s.size > 0 && s.perms.satisfies(required))
             .filter_map(move |s| {
                 let section_start = s.base_address as u64;
-                let section_end = (s.base_address + s.data.len()) as u64;
+                let section_end = (s.base_address + s.size) as u64;
 
                 // Skip sections that end before start address
                 if section_end <= start {
@@ -149,25 +149,23 @@ pub trait ImageSections {
 
     /// Returns an iterator over ranges in sections matching the required permissions.
     /// Only sections whose permissions satisfy the required permissions are included.
-    /// Empty sections are excluded from iteration.
+    /// Zero-size sections are excluded from iteration.
     fn ranges_with_perms(&self, required: Perms) -> impl Iterator<Item = Range<u64>> + '_
     where
         Self: Sized,
     {
         self.image_sections()
-            .filter(move |s| !s.data.is_empty() && s.perms.satisfies(required))
-            .map(|s| (s.base_address as u64)..((s.base_address + s.data.len()) as u64))
+            .filter(move |s| s.size > 0 && s.perms.satisfies(required))
+            .map(|s| (s.base_address as u64)..((s.base_address + s.size) as u64))
     }
 
-    /// Check if the given address is present in any (non-empty) section.
+    /// Check if the given address is present in any section with a non-zero declared size.
     fn has_address(&self, addr: u64) -> bool
     where
         Self: Sized,
     {
         self.image_sections().any(|s| {
-            !s.data.is_empty()
-                && addr >= s.base_address as u64
-                && addr < (s.base_address + s.data.len()) as u64
+            s.size > 0 && addr >= s.base_address as u64 && addr < (s.base_address + s.size) as u64
         })
     }
 
@@ -178,9 +176,9 @@ pub trait ImageSections {
     {
         self.image_sections().any(|s| {
             s.perms.read
-                && !s.data.is_empty()
+                && s.size > 0
                 && addr >= s.base_address as u64
-                && addr < (s.base_address + s.data.len()) as u64
+                && addr < (s.base_address + s.size) as u64
         })
     }
 
@@ -191,9 +189,9 @@ pub trait ImageSections {
     {
         self.image_sections().any(|s| {
             s.perms.write
-                && !s.data.is_empty()
+                && s.size > 0
                 && addr >= s.base_address as u64
-                && addr < (s.base_address + s.data.len()) as u64
+                && addr < (s.base_address + s.size) as u64
         })
     }
 
@@ -204,9 +202,9 @@ pub trait ImageSections {
     {
         self.image_sections().any(|s| {
             s.perms.exec
-                && !s.data.is_empty()
+                && s.size > 0
                 && addr >= s.base_address as u64
-                && addr < (s.base_address + s.data.len()) as u64
+                && addr < (s.base_address + s.size) as u64
         })
     }
 }
@@ -293,6 +291,7 @@ impl ImageSections for &[u8] {
     fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
+            size: self.len(),
             base_address: 0,
             perms: Perms {
                 read: true,
@@ -317,6 +316,7 @@ impl ImageSections for Vec<u8> {
     fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(once(ImageSection {
             data: self,
+            size: self.len(),
             base_address: 0,
             perms: Perms {
                 read: true,
@@ -403,6 +403,9 @@ impl Perms {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageSection<'a> {
     pub data: &'a [u8],
+    /// Declared size of the section in the image. May exceed `data.len()` for
+    /// BSS/uninitialized sections, which have no file bytes but occupy a real address range.
+    pub size: usize,
     pub base_address: usize,
     pub perms: Perms,
 }
@@ -500,6 +503,7 @@ mod tests {
         fn image_sections(&self) -> crate::context::image::ImageSectionIterator<'_> {
             crate::context::image::ImageSectionIterator::new(self.sections.iter().map(
                 |(data, base, perms)| ImageSection {
+                    size: data.len(),
                     data: data.as_slice(),
                     base_address: *base,
                     perms: *perms,
@@ -605,6 +609,24 @@ mod tests {
         // Empty section should be excluded even if permissions match
         let addresses: Vec<u64> = img.addresses_with_perms(Perms::RW).collect();
         assert_eq!(addresses.len(), 0);
+    }
+
+    #[test]
+    fn test_bss_section_addresses() {
+        // BSS sections have size > 0 but no file data (data is empty).
+        // They should appear in address iteration using their declared size.
+        let bss = ImageSection {
+            data: &[],
+            size: 3,
+            base_address: 0x4000,
+            perms: Perms::RW,
+        };
+        let iter = crate::context::image::ImageSectionIterator::new(std::iter::once(bss));
+        let addresses: Vec<u64> = iter
+            .filter(|s| s.size > 0 && s.perms.satisfies(Perms::RW))
+            .flat_map(|s| (s.base_address as u64)..((s.base_address + s.size) as u64))
+            .collect();
+        assert_eq!(addresses, vec![0x4000, 0x4001, 0x4002]);
     }
 
     #[test]

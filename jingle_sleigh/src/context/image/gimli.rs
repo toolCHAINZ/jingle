@@ -6,7 +6,8 @@ use crate::context::image::{
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
 use object::{
-    Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionKind,
+    Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionFlags,
+    SectionKind, elf,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -17,6 +18,7 @@ use std::path::Path;
 #[derive(Debug, PartialEq, Eq)]
 pub struct OwnedSection {
     data: Vec<u8>,
+    size: usize,
     perms: Perms,
     base_address: usize,
 }
@@ -25,6 +27,7 @@ impl<'a> From<&'a OwnedSection> for ImageSection<'a> {
     fn from(value: &'a OwnedSection) -> Self {
         ImageSection {
             data: value.data.as_slice(),
+            size: value.size,
             perms: value.perms,
             base_address: value.base_address,
         }
@@ -35,13 +38,27 @@ impl TryFrom<Section<'_, '_>> for OwnedSection {
     type Error = JingleSleighError;
 
     fn try_from(value: Section) -> Result<Self, Self::Error> {
+        let perms = match value.flags() {
+            SectionFlags::Elf { sh_flags } => {
+                if sh_flags & u64::from(elf::SHF_ALLOC) == 0 {
+                    return Err(JingleSleighError::ImageLoadError);
+                }
+                Perms {
+                    read: true,
+                    write: sh_flags & u64::from(elf::SHF_WRITE) != 0,
+                    exec: sh_flags & u64::from(elf::SHF_EXECINSTR) != 0,
+                }
+            }
+            _ => map_sec_kind(&value.kind()),
+        };
         let data = value
             .data()
             .map_err(|_| JingleSleighError::ImageLoadError)?
             .to_vec();
         Ok(OwnedSection {
+            size: value.size() as usize,
             data,
-            perms: map_sec_kind(&value.kind()),
+            perms,
             base_address: value.address() as usize,
         })
     }
@@ -55,11 +72,24 @@ pub struct OwnedFile {
 
 impl OwnedFile {
     pub fn new(file: &File) -> Result<Self, JingleSleighError> {
-        let mut sections = vec![];
-        let mut exports = HashMap::new();
-        for x in file.sections().filter(|f| f.kind() == SectionKind::Text) {
-            sections.push(x.try_into()?);
+        let mut candidates: Vec<OwnedSection> =
+            file.sections().filter_map(|s| s.try_into().ok()).collect();
+        candidates.sort_by_key(|s| s.base_address);
+
+        let mut sections: Vec<OwnedSection> = vec![];
+        for candidate in candidates {
+            let start = candidate.base_address;
+            let end = start + candidate.size;
+            let overlaps = sections.iter().any(|a| {
+                let a_end = a.base_address + a.size;
+                start < a_end && end > a.base_address
+            });
+            if !overlaps {
+                sections.push(candidate);
+            }
         }
+
+        let mut exports = HashMap::new();
         if let Ok(e) = file.exports() {
             for x in e {
                 let location = x.address();
@@ -79,7 +109,7 @@ impl SleighImageCore for OwnedFile {
         output.fill(0);
         let output_start_addr = vn.offset() as usize;
         let output_end_addr = output_start_addr + vn.size();
-        if let Some(x) = self.image_sections().find(|s| {
+        if let Some(x) = self.image_sections().filter(|s| s.perms.exec).find(|s| {
             output_start_addr >= s.base_address
                 && output_start_addr < (s.base_address + s.data.len())
         }) {
@@ -102,7 +132,7 @@ impl SleighImageCore for OwnedFile {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
-        self.image_sections().any(|s| {
+        self.image_sections().filter(|s| s.perms.exec).any(|s| {
             s.base_address <= vn.offset() as usize
                 && (s.base_address + s.data.len()) >= (vn.offset() as usize + vn.size())
         })
@@ -162,15 +192,26 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
 impl<'a> ImageSections for File<'a, &'a [u8]> {
     fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections().filter_map(|s| {
-            if let Ok(data) = s.data() {
-                Some(ImageSection {
-                    data,
-                    base_address: s.address() as usize,
-                    perms: map_sec_kind(&s.kind()),
-                })
-            } else {
-                None
-            }
+            let perms = match s.flags() {
+                SectionFlags::Elf { sh_flags } => {
+                    if sh_flags & u64::from(elf::SHF_ALLOC) == 0 {
+                        return None;
+                    }
+                    Perms {
+                        read: true,
+                        write: sh_flags & u64::from(elf::SHF_WRITE) != 0,
+                        exec: sh_flags & u64::from(elf::SHF_EXECINSTR) != 0,
+                    }
+                }
+                _ => map_sec_kind(&s.kind()),
+            };
+            let data = s.data().ok()?;
+            Some(ImageSection {
+                data,
+                size: s.size() as usize,
+                base_address: s.address() as usize,
+                perms,
+            })
         }))
     }
 }
