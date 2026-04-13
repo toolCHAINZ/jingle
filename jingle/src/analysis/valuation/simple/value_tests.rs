@@ -295,8 +295,14 @@ fn or_canonical_or_on_right() {
     let inner = Value::choice(a, b);
     let result = Value::choice(inner, c).simplify();
     let choice = result.as_choice().expect("expected Choice");
-    assert!(choice.0.as_choice().is_none(), "left child should not be a Choice");
-    assert!(choice.1.as_choice().is_some(), "right child should be a Choice");
+    assert!(
+        choice.0.as_choice().is_none(),
+        "left child should not be a Choice"
+    );
+    assert!(
+        choice.1.as_choice().is_some(),
+        "right child should be a Choice"
+    );
 }
 
 #[test]
