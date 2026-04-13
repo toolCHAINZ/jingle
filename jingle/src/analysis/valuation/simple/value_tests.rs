@@ -1168,4 +1168,3 @@ fn signed_right_shift_small_negative() {
     .simplify();
     assert_eq!(result, Value::make_const(0xFFu64 as i64, 1));
 }
-

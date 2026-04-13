@@ -1339,7 +1339,11 @@ impl Simplify for IntSignedRightShiftExpr {
         }
 
         let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntSignedRightShift(IntSignedRightShiftExpr(Intern::new(a_s), Intern::new(b_s), s))
+        Value::IntSignedRightShift(IntSignedRightShiftExpr(
+            Intern::new(a_s),
+            Intern::new(b_s),
+            s,
+        ))
     }
 }
 
