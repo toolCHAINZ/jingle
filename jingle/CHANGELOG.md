@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.13](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.12...jingle-v0.6.13) - 2026-04-13
+
+### Other
+
+- jingle should only target minor version ([#235](https://github.com/toolCHAINZ/jingle/pull/235))
+
 ## [0.6.12](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.11...jingle-v0.6.12) - 2026-04-10
 
 ### Added
