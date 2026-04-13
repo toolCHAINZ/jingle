@@ -158,6 +158,18 @@ pub struct XorExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AndExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
+/// A left shift expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntLeftShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+
+/// An unsigned right shift expression (logical shift)
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntRightShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+
+/// A signed right shift expression (arithmetic shift)
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct IntSignedRightShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+
 /// A signed comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct IntSLess(pub Intern<Value>, pub Intern<Value>);
@@ -249,6 +261,9 @@ pub enum Value {
     Or(Or),
     Xor(XorExpr),
     And(AndExpr),
+    IntLeftShift(IntLeftShiftExpr),
+    IntRightShift(IntRightShiftExpr),
+    IntSignedRightShift(IntSignedRightShiftExpr),
     Load(Load),
 
     ZeroExtend(ZeroExtend),
@@ -313,6 +328,9 @@ impl Value {
                 | Value::Or(_)
                 | Value::Xor(_)
                 | Value::And(_)
+                | Value::IntLeftShift(_)
+                | Value::IntRightShift(_)
+                | Value::IntSignedRightShift(_)
                 | Value::ZeroExtend(_)
                 | Value::SignExtend(_)
                 | Value::Extract(_)
@@ -487,7 +505,10 @@ impl Value {
             | Value::Sub(SubExpr(_, _, s))
             | Value::Or(Or(_, _, s))
             | Value::Xor(XorExpr(_, _, s))
-            | Value::And(AndExpr(_, _, s)) => *s,
+            | Value::And(AndExpr(_, _, s))
+            | Value::IntLeftShift(IntLeftShiftExpr(_, _, s))
+            | Value::IntRightShift(IntRightShiftExpr(_, _, s))
+            | Value::IntSignedRightShift(IntSignedRightShiftExpr(_, _, s)) => *s,
             Value::Load(Load(_, s)) => *s,
             Value::ZeroExtend(ZeroExtend(_, s)) | Value::SignExtend(SignExtend(_, s)) => *s,
             Value::Extract(Extract(_, _, s)) => *s,
@@ -698,22 +719,25 @@ impl Value {
             Value::Or(_) => 6,
             Value::Xor(_) => 7,
             Value::And(_) => 8,
-            Value::Load(_) => 9,
-            Value::ZeroExtend(_) => 10,
-            Value::SignExtend(_) => 11,
-            Value::Extract(_) => 12,
-            Value::Top => 13,
-            Value::IntSLess(_) => 14,
-            Value::IntEqual(_) => 15,
-            Value::IntLess(_) => 16,
-            Value::PopCount(_) => 17,
-            Value::Int2Comp(_) => 18,
-            Value::IntNotEqual(_) => 19,
-            Value::IntLessEqual(_) => 20,
-            Value::IntSLessEqual(_) => 21,
-            Value::IntCarry(_) => 22,
-            Value::IntSCarry(_) => 23,
-            Value::IntSBorrow(_) => 24,
+            Value::IntLeftShift(_) => 9,
+            Value::IntRightShift(_) => 10,
+            Value::IntSignedRightShift(_) => 11,
+            Value::Load(_) => 12,
+            Value::ZeroExtend(_) => 13,
+            Value::SignExtend(_) => 14,
+            Value::Extract(_) => 15,
+            Value::Top => 16,
+            Value::IntSLess(_) => 17,
+            Value::IntEqual(_) => 18,
+            Value::IntLess(_) => 19,
+            Value::PopCount(_) => 20,
+            Value::Int2Comp(_) => 21,
+            Value::IntNotEqual(_) => 22,
+            Value::IntLessEqual(_) => 23,
+            Value::IntSLessEqual(_) => 24,
+            Value::IntCarry(_) => 25,
+            Value::IntSCarry(_) => 26,
+            Value::IntSBorrow(_) => 27,
         }
     }
 }
@@ -727,6 +751,9 @@ impl Simplify for Value {
             Value::Or(expr) => expr.simplify(),
             Value::Xor(expr) => expr.simplify(),
             Value::And(expr) => expr.simplify(),
+            Value::IntLeftShift(expr) => expr.simplify(),
+            Value::IntRightShift(expr) => expr.simplify(),
+            Value::IntSignedRightShift(expr) => expr.simplify(),
             Value::Load(expr) => expr.simplify(),
             Value::ZeroExtend(expr) => expr.simplify(),
             Value::SignExtend(expr) => expr.simplify(),
@@ -1192,6 +1219,130 @@ impl Simplify for AndExpr {
     }
 }
 
+impl Simplify for IntLeftShiftExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        // both const -> fold
+        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let left_val = left_vn.offset();
+            let shift_amt = right_vn.offset();
+            let size_bits = (left_vn.size() * 8) as u32;
+
+            // If shift amount is >= bit width, result is 0
+            if shift_amt >= size_bits as u64 {
+                let size = Value::derive_size_from(&a_s);
+                return Value::make_const(0, size as u32);
+            }
+
+            let result = left_val.wrapping_shl(shift_amt as u32);
+            let masked = result & mask_for_size(left_vn.size());
+            let size = Value::derive_size_from(&a_s);
+            return Value::make_const(masked as i64, size as u32);
+        }
+
+        // expr << 0 -> expr
+        if b_s.as_const().map(|vn| vn.offset()) == Some(0) {
+            return a_s;
+        }
+
+        let s = std::cmp::max(a_s.size(), b_s.size());
+        Value::IntLeftShift(IntLeftShiftExpr(Intern::new(a_s), Intern::new(b_s), s))
+    }
+}
+
+impl Simplify for IntRightShiftExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        // both const -> fold (unsigned/logical right shift)
+        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let left_val = left_vn.offset();
+            let shift_amt = right_vn.offset();
+            let size_bits = (left_vn.size() * 8) as u32;
+
+            // If shift amount is >= bit width, result is 0
+            if shift_amt >= size_bits as u64 {
+                let size = Value::derive_size_from(&a_s);
+                return Value::make_const(0, size as u32);
+            }
+
+            let result = left_val.wrapping_shr(shift_amt as u32);
+            let size = Value::derive_size_from(&a_s);
+            return Value::make_const(result as i64, size as u32);
+        }
+
+        // expr >> 0 -> expr
+        if b_s.as_const().map(|vn| vn.offset()) == Some(0) {
+            return a_s;
+        }
+
+        let s = std::cmp::max(a_s.size(), b_s.size());
+        Value::IntRightShift(IntRightShiftExpr(Intern::new(a_s), Intern::new(b_s), s))
+    }
+}
+
+impl Simplify for IntSignedRightShiftExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        // both const -> fold (signed/arithmetic right shift)
+        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
+            let left_val = left_vn.offset();
+            let shift_amt = right_vn.offset();
+            let size_bits = (left_vn.size() * 8) as u32;
+
+            // Convert to signed value for arithmetic shift
+            let signed_val = if size_bits < 64 {
+                let sign_bit = 1u64 << (size_bits - 1);
+                if left_val & sign_bit != 0 {
+                    // Negative: sign-extend to i64
+                    (left_val | (u64::MAX << size_bits)) as i64
+                } else {
+                    left_val as i64
+                }
+            } else {
+                left_val as i64
+            };
+
+            // If shift amount is >= bit width, result is all sign bits (0 or -1)
+            if shift_amt >= size_bits as u64 {
+                let result = if signed_val < 0 { -1i64 } else { 0i64 };
+                let size = Value::derive_size_from(&a_s);
+                return Value::make_const(result, size as u32);
+            }
+
+            let result = signed_val.wrapping_shr(shift_amt as u32);
+            let masked = (result as u64) & mask_for_size(left_vn.size());
+            let size = Value::derive_size_from(&a_s);
+            return Value::make_const(masked as i64, size as u32);
+        }
+
+        // expr s>> 0 -> expr
+        if b_s.as_const().map(|vn| vn.offset()) == Some(0) {
+            return a_s;
+        }
+
+        let s = std::cmp::max(a_s.size(), b_s.size());
+        Value::IntSignedRightShift(IntSignedRightShiftExpr(Intern::new(a_s), Intern::new(b_s), s))
+    }
+}
+
 impl Simplify for Load {
     fn simplify(&self) -> Value {
         let a_intern = self.0;
@@ -1640,6 +1791,21 @@ impl JingleDisplay for Value {
                 write!(f, "&")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
+            Value::IntLeftShift(IntLeftShiftExpr(a, b, _)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "<<")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            Value::IntRightShift(IntRightShiftExpr(a, b, _)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, ">>")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            Value::IntSignedRightShift(IntSignedRightShiftExpr(a, b, _)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "s>>")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
             Value::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
             Value::ZeroExtend(ZeroExtend(a, s)) => {
                 write!(f, "zext(")?;
@@ -1766,6 +1932,21 @@ impl std::fmt::Display for Value {
                 write!(f, "&")?;
                 fmt_operand(f, b.as_ref())
             }
+            Value::IntLeftShift(IntLeftShiftExpr(a, b, _)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "<<")?;
+                fmt_operand(f, b.as_ref())
+            }
+            Value::IntRightShift(IntRightShiftExpr(a, b, _)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, ">>")?;
+                fmt_operand(f, b.as_ref())
+            }
+            Value::IntSignedRightShift(IntSignedRightShiftExpr(a, b, _)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "s>>")?;
+                fmt_operand(f, b.as_ref())
+            }
             Value::Load(Load(a, _)) => {
                 // Load(child)
                 write!(f, "Load({})", a.as_ref())
@@ -1870,6 +2051,21 @@ impl std::fmt::LowerHex for Value {
             Value::And(AndExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "&")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::IntLeftShift(IntLeftShiftExpr(a, b, _)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "<<")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::IntRightShift(IntRightShiftExpr(a, b, _)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, ">>")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::IntSignedRightShift(IntSignedRightShiftExpr(a, b, _)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "s>>")?;
                 fmt_operand_hex(f, b.as_ref())
             }
             Value::Load(Load(a, _)) => {

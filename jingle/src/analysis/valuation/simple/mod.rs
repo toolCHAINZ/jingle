@@ -174,14 +174,46 @@ impl ValuationState {
                 }
             }
 
-            // Approximate shifts as addition (conservative)
-            PcodeOperation::IntLeftShift { input0, input1, .. }
-            | PcodeOperation::IntRightShift { input0, input1, .. }
-            | PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
+            // Shift operations
+            PcodeOperation::IntLeftShift { input0, input1, .. } => {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a + b).simplify());
+                    let s = std::cmp::max(a.size(), b.size());
+                    let shift_expr = Value::IntLeftShift(value::IntLeftShiftExpr(
+                        Intern::new(a),
+                        Intern::new(b),
+                        s,
+                    ));
+                    new_state.valuation.add(output_vn, shift_expr.simplify());
+                }
+            }
+
+            PcodeOperation::IntRightShift { input0, input1, .. } => {
+                let a = Value::from_varnode_or_entry(self, input0);
+                let b = Value::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    let s = std::cmp::max(a.size(), b.size());
+                    let shift_expr = Value::IntRightShift(value::IntRightShiftExpr(
+                        Intern::new(a),
+                        Intern::new(b),
+                        s,
+                    ));
+                    new_state.valuation.add(output_vn, shift_expr.simplify());
+                }
+            }
+
+            PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
+                let a = Value::from_varnode_or_entry(self, input0);
+                let b = Value::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    let s = std::cmp::max(a.size(), b.size());
+                    let shift_expr = Value::IntSignedRightShift(value::IntSignedRightShiftExpr(
+                        Intern::new(a),
+                        Intern::new(b),
+                        s,
+                    ));
+                    new_state.valuation.add(output_vn, shift_expr.simplify());
                 }
             }
 
