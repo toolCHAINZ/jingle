@@ -6,7 +6,8 @@ use crate::context::image::{
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
 use object::{
-    Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionKind,
+    Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionFlags,
+    SectionKind, elf,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -37,6 +38,19 @@ impl TryFrom<Section<'_, '_>> for OwnedSection {
     type Error = JingleSleighError;
 
     fn try_from(value: Section) -> Result<Self, Self::Error> {
+        let perms = match value.flags() {
+            SectionFlags::Elf { sh_flags } => {
+                if sh_flags & u64::from(elf::SHF_ALLOC) == 0 {
+                    return Err(JingleSleighError::ImageLoadError);
+                }
+                Perms {
+                    read: true,
+                    write: sh_flags & u64::from(elf::SHF_WRITE) != 0,
+                    exec: sh_flags & u64::from(elf::SHF_EXECINSTR) != 0,
+                }
+            }
+            _ => map_sec_kind(&value.kind()),
+        };
         let data = value
             .data()
             .map_err(|_| JingleSleighError::ImageLoadError)?
@@ -44,7 +58,7 @@ impl TryFrom<Section<'_, '_>> for OwnedSection {
         Ok(OwnedSection {
             size: value.size() as usize,
             data,
-            perms: map_sec_kind(&value.kind()),
+            perms,
             base_address: value.address() as usize,
         })
     }
@@ -186,16 +200,26 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
 impl<'a> ImageSections for File<'a, &'a [u8]> {
     fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections().filter_map(|s| {
-            if let Ok(data) = s.data() {
-                Some(ImageSection {
-                    data,
-                    size: s.size() as usize,
-                    base_address: s.address() as usize,
-                    perms: map_sec_kind(&s.kind()),
-                })
-            } else {
-                None
-            }
+            let perms = match s.flags() {
+                SectionFlags::Elf { sh_flags } => {
+                    if sh_flags & u64::from(elf::SHF_ALLOC) == 0 {
+                        return None;
+                    }
+                    Perms {
+                        read: true,
+                        write: sh_flags & u64::from(elf::SHF_WRITE) != 0,
+                        exec: sh_flags & u64::from(elf::SHF_EXECINSTR) != 0,
+                    }
+                }
+                _ => map_sec_kind(&s.kind()),
+            };
+            let data = s.data().ok()?;
+            Some(ImageSection {
+                data,
+                size: s.size() as usize,
+                base_address: s.address() as usize,
+                perms,
+            })
         }))
     }
 }
