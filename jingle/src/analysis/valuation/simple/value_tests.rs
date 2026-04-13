@@ -222,94 +222,94 @@ fn mul_wrapping() {
     assert_eq!(result, Value::make_const(i64::MAX.wrapping_mul(2), 8));
 }
 
-// --- Or ----------------------------------------------------------------------
+// --- Choice (abstract interpretation) ----------------------------------------
 
 #[test]
 fn or_identical_children() {
     let a = Value::entry(vn_a());
-    let result = Value::or(a.clone(), a).simplify();
+    let result = Value::choice(a.clone(), a).simplify();
     assert_eq!(result, Value::entry(vn_a()));
 }
 
 #[test]
 fn or_top_left() {
     let a = Value::entry(vn_a());
-    let result = Value::or(Value::Top, a).simplify();
+    let result = Value::choice(Value::Top, a).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn or_top_right() {
     let a = Value::entry(vn_a());
-    let result = Value::or(a, Value::Top).simplify();
+    let result = Value::choice(a, Value::Top).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn or_nested_duplicate_inner_left() {
-    // Or(a, Or(a, b))  =>  Or(a, b)
+    // Choice(a, Choice(a, b))  =>  Choice(a, b)
     let a = Value::entry(vn_a());
     let b = Value::entry(vn_b());
-    let inner = Value::or(a.clone(), b.clone());
-    let result = Value::or(a.clone(), inner).simplify();
-    let or = result.as_or().expect("expected Or");
-    assert_eq!(or.0.as_ref(), &a);
-    assert_eq!(or.1.as_ref(), &b);
+    let inner = Value::choice(a.clone(), b.clone());
+    let result = Value::choice(a.clone(), inner).simplify();
+    let choice = result.as_choice().expect("expected Choice");
+    assert_eq!(choice.0.as_ref(), &a);
+    assert_eq!(choice.1.as_ref(), &b);
 }
 
 #[test]
 fn or_nested_duplicate_inner_right() {
-    // Or(a, Or(b, a))  =>  Or(a, b)
+    // Choice(a, Choice(b, a))  =>  Choice(a, b)
     let a = Value::entry(vn_a());
     let b = Value::entry(vn_b());
-    let inner = Value::or(b.clone(), a.clone());
-    let result = Value::or(a.clone(), inner).simplify();
-    let or = result.as_or().expect("expected Or");
-    assert_eq!(or.0.as_ref(), &a);
-    assert_eq!(or.1.as_ref(), &b);
+    let inner = Value::choice(b.clone(), a.clone());
+    let result = Value::choice(a.clone(), inner).simplify();
+    let choice = result.as_choice().expect("expected Choice");
+    assert_eq!(choice.0.as_ref(), &a);
+    assert_eq!(choice.1.as_ref(), &b);
 }
 
 #[test]
 fn or_common_factor_l1_r1() {
-    // Or(Or(a,b), Or(a,c))  =>  Or(a, Or(b,c))
+    // Choice(Choice(a,b), Choice(a,c))  =>  Choice(a, Choice(b,c))
     let a = Value::entry(vn_a());
     let b = Value::entry(vn_b());
     let c = Value::entry(vn_c());
-    let left = Value::or(a.clone(), b.clone());
-    let right = Value::or(a.clone(), c.clone());
-    let result = Value::or(left, right).simplify();
-    let outer = result.as_or().expect("expected outer Or");
+    let left = Value::choice(a.clone(), b.clone());
+    let right = Value::choice(a.clone(), c.clone());
+    let result = Value::choice(left, right).simplify();
+    let outer = result.as_choice().expect("expected outer Choice");
     assert_eq!(outer.0.as_ref(), &a, "common factor should be left child");
-    let inner = outer.1.as_ref().as_or().expect("expected inner Or");
+    let inner = outer.1.as_ref().as_choice().expect("expected inner Choice");
     let inner_vals: Vec<_> = vec![inner.0.as_ref().clone(), inner.1.as_ref().clone()];
-    assert!(inner_vals.contains(&b), "inner Or should contain b");
-    assert!(inner_vals.contains(&c), "inner Or should contain c");
+    assert!(inner_vals.contains(&b), "inner Choice should contain b");
+    assert!(inner_vals.contains(&c), "inner Choice should contain c");
 }
 
 #[test]
 fn or_canonical_or_on_right() {
-    // Or(Or(a,b), c)  =>  non-Or on left, Or on right
+    // Choice(Choice(a,b), c)  =>  non-Choice on left, Choice on right
     let a = Value::entry(vn_a());
     let b = Value::entry(vn_b());
     let c = Value::const_(42);
-    let inner = Value::or(a, b);
-    let result = Value::or(inner, c).simplify();
-    let or = result.as_or().expect("expected Or");
-    assert!(or.0.as_or().is_none(), "left child should not be an Or");
-    assert!(or.1.as_or().is_some(), "right child should be an Or");
+    let inner = Value::choice(a, b);
+    let result = Value::choice(inner, c).simplify();
+    let choice = result.as_choice().expect("expected Choice");
+    assert!(choice.0.as_choice().is_none(), "left child should not be a Choice");
+    assert!(choice.1.as_choice().is_some(), "right child should be a Choice");
 }
 
 #[test]
 fn or_variant_ordering() {
-    // Or(entry, const)  =>  canonical form: const (rank 0) on left, entry (rank 1) on right
-    let result = Value::or(Value::entry(vn_b()), Value::const_(7)).simplify();
-    let or = result.as_or().expect("expected Or");
+    // Choice(entry, const)  =>  canonical form: const (rank 0) on left, entry (rank 1) on right
+    let result = Value::choice(Value::entry(vn_b()), Value::const_(7)).simplify();
+    let choice = result.as_choice().expect("expected Choice");
     assert!(
-        or.0.as_const().is_some(),
+        choice.0.as_const().is_some(),
         "lower-rank const should be on left"
     );
     assert!(
-        or.1.as_entry().is_some(),
+        choice.1.as_entry().is_some(),
         "higher-rank entry should be on right"
     );
 }
@@ -401,6 +401,55 @@ fn and_normalizes_const_to_right() {
     let and = result.as_and().expect("expected And node");
     assert!(and.0.as_entry().is_some(), "expected entry on left");
     assert!(and.1.as_const().is_some(), "expected const on right");
+}
+
+// --- OrExpr (bitwise OR) -----------------------------------------------------
+
+#[test]
+fn or_bitwise_const_folding() {
+    let result = (Value::const_(0b1010) | Value::const_(0b1100)).simplify();
+    assert_eq!(result, Value::make_const(0b1110, 8));
+}
+
+#[test]
+fn or_bitwise_self() {
+    let result = (Value::entry(vn_a()) | Value::entry(vn_a())).simplify();
+    assert_eq!(result, Value::entry(vn_a()));
+}
+
+#[test]
+fn or_bitwise_identity_zero() {
+    let result = (Value::entry(vn_a()) | Value::const_(0)).simplify();
+    assert_eq!(result, Value::entry(vn_a()));
+}
+
+#[test]
+fn or_bitwise_all_ones() {
+    // entry | 0xFF -> 0xFF (for 1-byte values)
+    let vn = VarNode::new(0x100u64, 1u32, 0u32);
+    let entry = Value::entry(vn);
+    let result = (entry | Value::make_const(0xFF_i64, 1)).simplify();
+    assert_eq!(result, Value::make_const(0xFF, 1));
+}
+
+#[test]
+fn or_bitwise_top_propagation() {
+    let result = (Value::Top | Value::entry(vn_a())).simplify();
+    assert_eq!(result, Value::Top);
+}
+
+#[test]
+fn or_bitwise_symbolic_stays_symbolic() {
+    let result = (Value::entry(vn_a()) | Value::entry(vn_b())).simplify();
+    assert!(result.as_or().is_some(), "expected Or node");
+}
+
+#[test]
+fn or_bitwise_normalizes_const_to_right() {
+    let result = (Value::const_(5) | Value::entry(vn_a())).simplify();
+    let or = result.as_or().expect("expected Or node");
+    assert!(or.0.as_entry().is_some(), "expected entry on left");
+    assert!(or.1.as_const().is_some(), "expected const on right");
 }
 
 // --- Load --------------------------------------------------------------------
