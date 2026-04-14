@@ -130,7 +130,7 @@ pub(crate) fn parse_pcode(
             let p = inner.next().unwrap();
             let vn = helpers::parse_varnode(p, info)?;
             let input = IndirectVarNode::new(vn, 0, info.default_code_space_index());
-            Ok(PcodeOperation::CallInd { input })
+            Ok(PcodeOperation::CallInd { input, args: vec![], call_info: None })
         }
         Rule::CALLOTHER => {
             let inner = pair.into_inner();

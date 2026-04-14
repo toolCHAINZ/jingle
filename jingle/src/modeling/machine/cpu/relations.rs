@@ -24,7 +24,7 @@ impl SymbolicPcodeAddress {
                 Ok(SymbolicPcodeAddress { machine, pcode })
             }
             PcodeOperation::BranchInd { input }
-            | PcodeOperation::CallInd { input }
+            | PcodeOperation::CallInd { input, .. }
             | PcodeOperation::Return { input } => {
                 let dest = memory.read(input)?;
                 SymbolicPcodeAddress::try_from_symbolic_dest(&dest)

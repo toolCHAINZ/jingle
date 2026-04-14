@@ -72,7 +72,7 @@ fn test_callind_behavior_branch() {
 
     let ptr = VarNode::new(0x2000, 8u32, 0u32);
     let ivn = IndirectVarNode::new(ptr, 8u32, 0u32);
-    let callind_op = PcodeOperation::CallInd { input: ivn.clone() };
+    let callind_op = PcodeOperation::CallInd { input: ivn.clone(), args: vec![], call_info: None };
 
     let successors: Vec<_> = state.transfer(&callind_op).into_iter().collect();
     assert_eq!(successors.len(), 1);
@@ -88,6 +88,8 @@ fn test_callind_behavior_step_over() {
     let ptr = VarNode::new(0x2000, 8u32, 0u32);
     let callind_op = PcodeOperation::CallInd {
         input: IndirectVarNode::new(ptr, 8u32, 0u32),
+        args: vec![],
+        call_info: None,
     };
 
     let successors: Vec<_> = state.transfer(&callind_op).into_iter().collect();
@@ -104,6 +106,8 @@ fn test_callind_behavior_terminate() {
     let ptr = VarNode::new(0x2000, 8u32, 0u32);
     let callind_op = PcodeOperation::CallInd {
         input: IndirectVarNode::new(ptr, 8u32, 0u32),
+        args: vec![],
+        call_info: None,
     };
 
     let successors: Vec<_> = state.transfer(&callind_op).into_iter().collect();

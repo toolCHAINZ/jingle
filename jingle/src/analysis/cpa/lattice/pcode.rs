@@ -174,7 +174,7 @@ impl AbstractState for PcodeAddressLattice {
         let op = op.borrow();
         match op {
             PcodeOperation::BranchInd { input }
-            | PcodeOperation::CallInd { input }
+            | PcodeOperation::CallInd { input, .. }
             | PcodeOperation::Return { input } => {
                 return once(PcodeAddressLattice::Indirect(input.clone())).into();
             }

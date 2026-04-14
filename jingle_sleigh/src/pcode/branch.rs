@@ -26,7 +26,7 @@ impl PcodeOperation {
             PcodeOperation::Call { dest: input, .. } => Some(Call(*input)),
             PcodeOperation::CBranch { input0, .. } => Some(Conditional(*input0)),
             PcodeOperation::BranchInd { input } => Some(IndirectBranch(input.clone())),
-            PcodeOperation::CallInd { input } => Some(IndirectCall(input.clone())),
+            PcodeOperation::CallInd { input, .. } => Some(IndirectCall(input.clone())),
             PcodeOperation::Return { input } => Some(Return(input.clone())),
             _ => None,
         }

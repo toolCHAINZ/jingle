@@ -457,6 +457,48 @@ impl<N: CfgState, D: ModelTransition<N::Model>> PcodeCfg<N, D> {
     }
 }
 
+impl<N: CfgNode> PcodeCfg<N, PcodeOperation> {
+    /// Enrich any `CallInd` operations whose destination resolves to a known constant by
+    /// injecting call metadata (arguments and clobbered registers) from `func_info`.
+    ///
+    /// Call this after a forward valuation pass and before liveness analysis so that
+    /// the liveness transfer function can account for register arguments and kills at
+    /// indirect call sites whose targets are resolvable.
+    ///
+    /// `valuations` maps each p-code address to the `ValuationState` that holds at that
+    /// point (i.e., the state flowing *into* the instruction).  `func_info` is the
+    /// per-address call-metadata table from [`jingle_sleigh::context::SleighContext::func_info`].
+    pub fn enrich_callind_from_valuation(
+        &mut self,
+        valuations: &HashMap<ConcretePcodeAddress, crate::analysis::valuation::ValuationState>,
+        func_info: &HashMap<u64, jingle_sleigh::context::CallInfo>,
+    ) {
+        for (addr, op) in self.ops.iter_mut() {
+            let PcodeOperation::CallInd { input, call_info, args } = op else {
+                continue;
+            };
+            let Some(val_state) = valuations.get(addr) else {
+                continue;
+            };
+            let Some(value) = val_state.get_value(input.pointer_location()) else {
+                continue;
+            };
+            let Some(resolved) = value.as_const() else {
+                continue;
+            };
+            let Some(info) = func_info.get(&resolved.offset()) else {
+                continue;
+            };
+            *call_info = Some(info.clone());
+            for loc in &info.args {
+                if let jingle_sleigh::ParameterLocation::Register(vn) = loc {
+                    args.push(*vn);
+                }
+            }
+        }
+    }
+}
+
 impl<'op, L: CfgNode> PcodeStore<'op> for PcodeCfg<L, PcodeOperation> {
     fn get_pcode_op_at<T: Borrow<ConcretePcodeAddress>>(
         &'op self,

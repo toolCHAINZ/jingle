@@ -406,7 +406,7 @@ impl ValuationState {
                     }
                 }
             }
-            PcodeOperation::BranchInd { input } | PcodeOperation::CallInd { input } => {
+            PcodeOperation::BranchInd { input } | PcodeOperation::CallInd { input, .. } => {
                 // Clear IPTR_INTERNAL varnodes except the branch target, which must survive
                 // so that strengthen_from_valuation can read it.
                 let branch_target = input.pointer_location();

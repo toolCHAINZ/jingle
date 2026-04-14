@@ -93,7 +93,8 @@ impl Instruction {
             for op in self.ops.iter_mut() {
                 match op {
                     PcodeOperation::Call { call_info, .. }
-                    | PcodeOperation::CallOther { call_info, .. } => {
+                    | PcodeOperation::CallOther { call_info, .. }
+                    | PcodeOperation::CallInd { call_info, .. } => {
                         match call_info {
                             Some(ci) => {
                                 if ci.extrapop.is_none() {
@@ -133,7 +134,8 @@ impl Instruction {
                 for op in self.ops.iter_mut() {
                     match op {
                         PcodeOperation::Call { call_info, .. }
-                        | PcodeOperation::CallOther { call_info, .. } => {
+                        | PcodeOperation::CallOther { call_info, .. }
+                        | PcodeOperation::CallInd { call_info, .. } => {
                             if let Some(ci) = call_info.as_mut() {
                                 // Only populate killed_regs if it's currently empty (do not overwrite overrides)
                                 if ci.killed_regs.is_empty() {

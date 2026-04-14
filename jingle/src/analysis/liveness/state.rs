@@ -102,6 +102,25 @@ pub(crate) fn reads_kill(op: &PcodeOperation) -> (VarNodeSet, VarNodeSet) {
             }
             return (reads, kill);
         }
+        PcodeOperation::CallInd {
+            input,
+            args,
+            call_info,
+        } => {
+            // Pointer varnode must be live when it isn't a resolved constant address.
+            if !input.pointer_location().is_const() {
+                reads.insert(input.pointer_location());
+            }
+            for arg in args {
+                reads.insert(arg);
+            }
+            if let Some(call_info) = call_info {
+                for ele in &call_info.killed_regs {
+                    kill.insert(ele);
+                }
+            }
+            return (reads, kill);
+        }
         _ => {}
     }
 
@@ -170,5 +189,62 @@ impl AbstractState for LivenessState {
         new_live.subtract(&kill);
         new_live.union(&reads);
         std::iter::once(Self { live: new_live }).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reads_kill;
+    use jingle_sleigh::context::{CallInfo, ModelingBehavior, ParameterLocation};
+    use jingle_sleigh::{IndirectVarNode, PcodeOperation, VarNode};
+
+    fn make_callind(
+        ptr: VarNode,
+        args: Vec<VarNode>,
+        call_info: Option<CallInfo>,
+    ) -> PcodeOperation {
+        PcodeOperation::CallInd {
+            input: IndirectVarNode::new(ptr, 0u32, 0u32),
+            args,
+            call_info,
+        }
+    }
+
+    /// A `CallInd` whose pointer_location is a constant (resolved destination) should
+    /// add its `args` to reads and `killed_regs` to kill, but NOT add the constant
+    /// pointer itself to reads.
+    #[test]
+    fn callind_const_ptr_uses_call_info() {
+        let const_ptr = VarNode::new_const(0x1234, 8u32);
+        let arg_reg = VarNode::new(0x10, 8u32, 1u32); // register space
+        let killed_reg = VarNode::new(0x20, 8u32, 1u32);
+
+        let info = CallInfo {
+            args: vec![ParameterLocation::Register(arg_reg)],
+            outputs: None,
+            model_behavior: ModelingBehavior::default(),
+            extrapop: None,
+            killed_regs: vec![killed_reg],
+        };
+
+        let op = make_callind(const_ptr, vec![arg_reg], Some(info));
+        let (reads, kill) = reads_kill(&op);
+
+        assert!(reads.partial_covers(&arg_reg), "arg register should be live");
+        assert!(kill.partial_covers(&killed_reg), "killed register should be in kill set");
+        assert!(!reads.partial_covers(&const_ptr), "constant pointer should NOT be in reads");
+    }
+
+    /// A `CallInd` whose pointer_location is a register (unresolved destination) should
+    /// add the register to reads so it is kept live.
+    #[test]
+    fn callind_register_ptr_marks_pointer_live() {
+        let reg_ptr = VarNode::new(0x10, 8u32, 1u32); // register space, not const
+
+        let op = make_callind(reg_ptr, vec![], None);
+        let (reads, kill) = reads_kill(&op);
+
+        assert!(reads.partial_covers(&reg_ptr), "register pointer should be live");
+        assert_eq!(kill.varnodes().count(), 0, "no kills expected without call_info");
     }
 }
