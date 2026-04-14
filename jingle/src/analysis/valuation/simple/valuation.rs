@@ -708,14 +708,14 @@ mod tests {
     fn test_iter_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42, 8));
 
         // iter() should yield (location, &value) tuples
         let mut count = 0;
         for (loc, val) in valuation.iter() {
             count += 1;
             assert!(matches!(loc, Location::Direct(_)));
-            assert_eq!(*val, Value::const_(42));
+            assert_eq!(*val, Value::const_(42, 8));
         }
         assert_eq!(count, 1);
     }
@@ -724,30 +724,33 @@ mod tests {
     fn test_iter_mut_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42, 8));
 
         // iter_mut() should yield (location, &mut value) tuples
         for (loc, val) in valuation.iter_mut() {
             assert!(matches!(loc, Location::Direct(_)));
-            *val = Value::const_(100);
+            *val = Value::const_(100, 8);
         }
 
         // Verify mutation worked
-        assert_eq!(valuation.direct_writes.get(vn), Some(&Value::const_(100)));
+        assert_eq!(
+            valuation.direct_writes.get(vn),
+            Some(&Value::const_(100, 8))
+        );
     }
 
     #[test]
     fn test_into_iter_yields_entries() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42, 8));
 
         // into_iter() should yield owned SingleValuation entries
         let mut count = 0;
         for entry in valuation {
             count += 1;
             assert!(matches!(entry.location, Location::Direct(_)));
-            assert_eq!(entry.value, Value::const_(42));
+            assert_eq!(entry.value, Value::const_(42, 8));
         }
         assert_eq!(count, 1);
     }
@@ -759,19 +762,19 @@ mod tests {
         assert!(valuation.is_empty());
 
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42, 8));
 
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
 
         // Add an indirect write (key must be a Load expression)
         let load_key = Value::Load(crate::analysis::valuation::simple::value::Load(
-            internment::Intern::new(Value::const_(100)),
+            internment::Intern::new(Value::const_(100, 8)),
             8,
         ));
         valuation
             .indirect_writes
-            .insert(load_key, Value::const_(200));
+            .insert(load_key, Value::const_(200, 8));
 
         assert_eq!(valuation.len(), 2);
         assert!(!valuation.is_empty());
@@ -783,8 +786,8 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn1, Value::const_(42));
-        valuation.direct_writes.insert(vn2, Value::const_(99));
+        valuation.direct_writes.insert(vn1, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn2, Value::const_(99, 8));
 
         let keys: Vec<_> = valuation.keys().collect();
         assert_eq!(keys.len(), 2);
@@ -799,13 +802,13 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn1, Value::const_(42));
-        valuation.direct_writes.insert(vn2, Value::const_(99));
+        valuation.direct_writes.insert(vn1, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn2, Value::const_(99, 8));
 
         let values: Vec<_> = valuation.values().collect();
         assert_eq!(values.len(), 2);
-        assert!(values.contains(&&Value::const_(42)));
-        assert!(values.contains(&&Value::const_(99)));
+        assert!(values.contains(&&Value::const_(42, 8)));
+        assert!(values.contains(&&Value::const_(99, 8)));
     }
 
     #[test]
@@ -813,22 +816,25 @@ mod tests {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42, 8));
 
         // Mutate all values
         for val in valuation.values_mut() {
-            *val = Value::const_(1000);
+            *val = Value::const_(1000, 8);
         }
 
         // Verify mutation worked
-        assert_eq!(valuation.direct_writes.get(vn), Some(&Value::const_(1000)));
+        assert_eq!(
+            valuation.direct_writes.get(vn),
+            Some(&Value::const_(1000, 8))
+        );
     }
 
     #[test]
     fn test_display() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42));
+        valuation.direct_writes.insert(vn, Value::const_(42, 8));
 
         let display_str = format!("{}", valuation);
         assert!(display_str.starts_with("Valuation {"));
@@ -906,7 +912,7 @@ mod tests {
         let rsp = VarNode::new(0x1000, 8u32, 0u32);
 
         // Create Load(RSP + 4)
-        let rsp_plus_4 = Value::entry(rsp) + Value::const_(4);
+        let rsp_plus_4 = Value::entry(rsp) + Value::const_(4, 8);
         let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
             internment::Intern::new(rsp_plus_4.clone()),
             8,
@@ -914,11 +920,11 @@ mod tests {
 
         let mut val1 = ValuationSet::new();
         // Add indirect write: [Load(RSP+4)] = 8
-        val1.add(load_expr.clone(), Value::const_(8));
+        val1.add(load_expr.clone(), Value::const_(8, 8));
 
         let mut context = ValuationSet::new();
         // Add direct write: RSP = 0x1000
-        context.add(rsp, Value::const_(0x1000));
+        context.add(rsp, Value::const_(0x1000, 8));
 
         let result = val1.assuming(&context);
 
@@ -930,13 +936,13 @@ mod tests {
         // Result should have [Load(0x1004)] = 8
 
         let expected_key = Value::Load(crate::analysis::valuation::simple::value::Load(
-            internment::Intern::new(Value::const_(0x1004)),
+            internment::Intern::new(Value::const_(0x1004, 8)),
             8,
         ));
 
         assert_eq!(
             result.indirect_writes.get(&expected_key),
-            Some(&Value::const_(8))
+            Some(&Value::const_(8, 8))
         );
     }
 
@@ -947,7 +953,7 @@ mod tests {
         let rbx = VarNode::new(0x2000, 8u32, 0u32);
 
         let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
-            internment::Intern::new(Value::const_(0x1000)),
+            internment::Intern::new(Value::const_(0x1000, 8)),
             8,
         ));
 
@@ -957,7 +963,7 @@ mod tests {
 
         let mut context = ValuationSet::new();
         // Add direct write: RBX = 42
-        context.add(rbx, Value::const_(42));
+        context.add(rbx, Value::const_(42, 8));
 
         let result = val1.assuming(&context);
 
@@ -967,7 +973,7 @@ mod tests {
 
         assert_eq!(
             result.indirect_writes.get(&load_expr),
-            Some(&Value::const_(42))
+            Some(&Value::const_(42, 8))
         );
     }
 
@@ -995,15 +1001,15 @@ mod tests {
         let rbx = VarNode::new(0x2000, 8u32, 0u32);
 
         let mut val1 = ValuationSet::new();
-        val1.add(rax, Value::entry(rbx) + Value::const_(4));
+        val1.add(rax, Value::entry(rbx) + Value::const_(4, 8));
 
         let mut context = ValuationSet::new();
-        context.add(rbx, Value::const_(10));
+        context.add(rbx, Value::const_(10, 8));
 
         let result = val1.assuming(&context);
 
         // Should have RAX = 14 (simplified from 10 + 4)
-        assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(14)));
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(14, 8)));
     }
 
     #[test]
@@ -1037,12 +1043,12 @@ mod tests {
         val1.add(rcx, Value::entry(rdx));
 
         let mut context = ValuationSet::new();
-        context.add(rbx, Value::const_(100));
-        context.add(rdx, Value::const_(200));
+        context.add(rbx, Value::const_(100, 8));
+        context.add(rdx, Value::const_(200, 8));
 
         let result = val1.assuming(&context);
 
-        assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(100)));
-        assert_eq!(result.direct_writes.get(rcx), Some(&Value::const_(200)));
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(100, 8)));
+        assert_eq!(result.direct_writes.get(rcx), Some(&Value::const_(200, 8)));
     }
 }

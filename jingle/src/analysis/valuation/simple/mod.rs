@@ -111,7 +111,7 @@ impl ValuationState {
             // Copy
             PcodeOperation::Copy { input, .. } => {
                 let result = if input.is_const() {
-                    Value::const_(input.offset() as i64)
+                    Value::const_(input.offset() as i64, input.size())
                 } else {
                     Value::from_varnode_or_entry(self, input)
                 };
@@ -214,7 +214,7 @@ impl ValuationState {
             }
 
             PcodeOperation::IntNegate { input, .. } => {
-                let a = Value::const_(0);
+                let a = Value::const_(0, input.size());
                 let b = Value::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, (a - b).simplify());

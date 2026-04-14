@@ -557,9 +557,9 @@ impl Value {
     /// Construct a `Const(...)` from a raw i64 value.
     /// We create a `VarNode` in the constant space with a default size of 8 bytes
     /// (64-bit) unless callers use `make_const` to specify a size explicitly.
-    pub fn const_(v: i64) -> Self {
+    pub fn const_(v: i64, size: usize) -> Self {
         // default to 8-byte sized constant
-        let vn = VarNode::new_const(v as u64, 8u32);
+        let vn = VarNode::new_const(v as u64, size as u32);
         Value::Const(Const(vn))
     }
 
@@ -601,15 +601,10 @@ impl Value {
         Value::And(AndExpr(left, right, s))
     }
 
-    /// Construct a `Load(...)` node from a child. Size is taken from the child by default.
-    /// (In practice the output varnode size often dictates the load size; callers may
-    /// want to construct loads via `make_load_with_size` if available.)
-    /// todo: we should _not_ be pulling the size from the child value; it is independent of
-    /// pointer size
-    pub fn load(child: impl IntoInternedValue) -> Self {
+    /// Construct a `Load(...)` node from a child.
+    pub fn load(child: impl IntoInternedValue, size: usize) -> Self {
         let child = child.into_interned();
-        let s = child.size();
-        Value::Load(Load(child, s))
+        Value::Load(Load(child, size))
     }
 
     /// Construct an `IntEqual(...)` node from two children.
@@ -894,8 +889,8 @@ impl Value {
                 // Look up the substituted pointer in indirect writes
                 context
                     .indirect_writes
-                    .get(&Value::load(&subst_ptr))
-                    .cloned()
+                    .get(&Value::load(&subst_ptr, *size))
+                    .map(|v| v.substitute(context))
                     .unwrap_or_else(|| Value::Load(Load(Intern::new(subst_ptr), *size)))
             }
 
@@ -1077,10 +1072,9 @@ impl Simplify for AddExpr {
                     let inner_right_const = inner_right_vn.offset() as i64;
                     let right_const = right_vn.offset() as i64;
                     let res = inner_right_const.wrapping_add(right_const);
-                    let size = std::cmp::max(
-                        left_inner_left.as_ref().size(),
-                        Value::derive_size_from(&Value::make_const(res, 8u32)),
-                    );
+
+                    let size =
+                        std::cmp::max(left_inner_left.as_ref().size(), inner_right_vn.size());
                     let new_const = Value::make_const(res, size as u32);
                     return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }
