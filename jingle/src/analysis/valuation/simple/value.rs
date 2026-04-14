@@ -894,8 +894,8 @@ impl Value {
                 // Look up the substituted pointer in indirect writes
                 context
                     .indirect_writes
-                    .get(&subst_ptr)
-                    .map(|v| v.substitute(context))
+                    .get(&Value::load(&subst_ptr))
+                    .cloned()
                     .unwrap_or_else(|| Value::Load(Load(Intern::new(subst_ptr), *size)))
             }
 

@@ -1,7 +1,8 @@
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
-use crate::display::JingleDisplay;
+use crate::{analysis::valuation::Load, display::JingleDisplay};
+use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use std::fmt::{Display, Formatter};
 
@@ -17,6 +18,9 @@ pub struct ValuationSet {
     /// stored value is read back by a load operation.
     /// Note: for now we are making the simplifying assumption that all indirect writes happen
     /// in one space; this map can be keyed by both `Value` and `SpaceIndex` to generalize.
+    // todo: this should be more structured and probably just explicitly hold Loads
+    //  anything downstream needing to express something more general should just use its
+    //  own type instead of making the function of this type ambiguous
     pub indirect_writes: BTreeMap<Value, Value>,
 }
 
@@ -148,7 +152,14 @@ impl ValuationSet {
         // Substitute all indirect writes
         // Both the key (symbolic expression) and the value need substitution
         for (sym_expr, value) in &self.indirect_writes {
-            let substituted_key = sym_expr.substitute(context);
+            let substituted_key = match sym_expr {
+                // in practice, this will always be hit
+                Value::Load(Load(ptr, size)) => {
+                    let sub_ptr = ptr.substitute(context);
+                    Value::Load(Load(Intern::new(sub_ptr), *size))
+                }
+                a => a.substitute(context),
+            };
             let substituted_value = value.substitute(context);
             result.add(substituted_key, substituted_value);
         }
