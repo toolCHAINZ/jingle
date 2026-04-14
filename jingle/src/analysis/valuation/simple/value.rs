@@ -1073,10 +1073,8 @@ impl Simplify for AddExpr {
                     let right_const = right_vn.offset() as i64;
                     let res = inner_right_const.wrapping_add(right_const);
 
-                    let size = std::cmp::max(
-                        left_inner_left.as_ref().size(),
-                        inner_right_vn.size(),
-                    );
+                    let size =
+                        std::cmp::max(left_inner_left.as_ref().size(), inner_right_vn.size());
                     let new_const = Value::make_const(res, size as u32);
                     return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
                 }

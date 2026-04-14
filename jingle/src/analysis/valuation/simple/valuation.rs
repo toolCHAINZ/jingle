@@ -733,7 +733,10 @@ mod tests {
         }
 
         // Verify mutation worked
-        assert_eq!(valuation.direct_writes.get(vn), Some(&Value::const_(100, 8)));
+        assert_eq!(
+            valuation.direct_writes.get(vn),
+            Some(&Value::const_(100, 8))
+        );
     }
 
     #[test]
@@ -821,7 +824,10 @@ mod tests {
         }
 
         // Verify mutation worked
-        assert_eq!(valuation.direct_writes.get(vn), Some(&Value::const_(1000, 8)));
+        assert_eq!(
+            valuation.direct_writes.get(vn),
+            Some(&Value::const_(1000, 8))
+        );
     }
 
     #[test]
