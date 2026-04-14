@@ -18,31 +18,31 @@ fn vn_c() -> VarNode {
 
 #[test]
 fn add_const_folding() {
-    let result = (Value::const_(3) + Value::const_(4)).simplify();
+    let result = (Value::const_(3, 8) + Value::const_(4, 8)).simplify();
     assert_eq!(result, Value::make_const(7, 8));
 }
 
 #[test]
 fn add_identity_zero() {
-    let result = (Value::entry(vn_a()) + Value::const_(0)).simplify();
+    let result = (Value::entry(vn_a()) + Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::entry(vn_a()));
 }
 
 #[test]
 fn add_top_left() {
-    let result = (Value::Top + Value::const_(1)).simplify();
+    let result = (Value::Top + Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn add_top_right() {
-    let result = (Value::const_(1) + Value::Top).simplify();
+    let result = (Value::const_(1, 8) + Value::Top).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn add_normalizes_const_to_right() {
-    let result = (Value::const_(5) + Value::entry(vn_a())).simplify();
+    let result = (Value::const_(5, 8) + Value::entry(vn_a())).simplify();
     let add = result.as_add().expect("expected Add node");
     assert!(add.0.as_entry().is_some(), "expected entry on left");
     assert!(add.1.as_const().is_some(), "expected const on right");
@@ -50,8 +50,8 @@ fn add_normalizes_const_to_right() {
 
 #[test]
 fn add_nested_const_folding() {
-    let inner = Value::entry(vn_a()) + Value::const_(10);
-    let result = (inner + Value::const_(5)).simplify();
+    let inner = Value::entry(vn_a()) + Value::const_(10, 8);
+    let result = (inner + Value::const_(5, 8)).simplify();
     let add = result.as_add().expect("expected Add node");
     assert_eq!(add.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(add.1.as_ref().as_const_value(), Some(15));
@@ -59,8 +59,8 @@ fn add_nested_const_folding() {
 
 #[test]
 fn add_sub_interaction_positive() {
-    let inner = Value::entry(vn_a()) - Value::const_(10);
-    let result = (inner + Value::const_(3)).simplify();
+    let inner = Value::entry(vn_a()) - Value::const_(10, 8);
+    let result = (inner + Value::const_(3, 8)).simplify();
     let sub = result.as_sub().expect("expected Sub node");
     assert_eq!(sub.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(sub.1.as_ref().as_const_value(), Some(7));
@@ -68,8 +68,8 @@ fn add_sub_interaction_positive() {
 
 #[test]
 fn add_sub_interaction_negative() {
-    let inner = Value::entry(vn_a()) - Value::const_(3);
-    let result = (inner + Value::const_(10)).simplify();
+    let inner = Value::entry(vn_a()) - Value::const_(3, 8);
+    let result = (inner + Value::const_(10, 8)).simplify();
     let add = result.as_add().expect("expected Add node");
     assert_eq!(add.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(add.1.as_ref().as_const_value(), Some(7));
@@ -77,13 +77,13 @@ fn add_sub_interaction_negative() {
 
 #[test]
 fn add_wrapping_overflow() {
-    let result = (Value::const_(i64::MAX) + Value::const_(1)).simplify();
+    let result = (Value::const_(i64::MAX, 8) + Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::make_const(i64::MIN, 8));
 }
 
 #[test]
 fn add_negative_const() {
-    let result = (Value::const_(-5) + Value::const_(3)).simplify();
+    let result = (Value::const_(-5, 8) + Value::const_(3, 8)).simplify();
     assert_eq!(result, Value::make_const(-2, 8));
 }
 
@@ -97,20 +97,20 @@ fn add_double_top() {
 
 #[test]
 fn sub_const_folding() {
-    let result = (Value::const_(10) - Value::const_(3)).simplify();
+    let result = (Value::const_(10, 8) - Value::const_(3, 8)).simplify();
     assert_eq!(result, Value::make_const(7, 8));
 }
 
 #[test]
 fn sub_identity_zero() {
-    let result = (Value::entry(vn_a()) - Value::const_(0)).simplify();
+    let result = (Value::entry(vn_a()) - Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::entry(vn_a()));
 }
 
 #[test]
 fn sub_negative_const() {
     // entry - (-5)  =>  entry + 5
-    let result = (Value::entry(vn_a()) - Value::const_(-5)).simplify();
+    let result = (Value::entry(vn_a()) - Value::const_(-5, 8)).simplify();
     let add = result.as_add().expect("expected Add node");
     assert_eq!(add.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(add.1.as_ref().as_const_value(), Some(5));
@@ -124,21 +124,21 @@ fn sub_self() {
 
 #[test]
 fn sub_top_left() {
-    let result = (Value::Top - Value::const_(1)).simplify();
+    let result = (Value::Top - Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn sub_top_right() {
-    let result = (Value::const_(1) - Value::Top).simplify();
+    let result = (Value::const_(1, 8) - Value::Top).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn sub_nested_add_const_positive() {
     // (entry + 10) - 3  =>  entry + 7
-    let inner = Value::entry(vn_a()) + Value::const_(10);
-    let result = (inner - Value::const_(3)).simplify();
+    let inner = Value::entry(vn_a()) + Value::const_(10, 8);
+    let result = (inner - Value::const_(3, 8)).simplify();
     let add = result.as_add().expect("expected Add node");
     assert_eq!(add.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(add.1.as_ref().as_const_value(), Some(7));
@@ -147,8 +147,8 @@ fn sub_nested_add_const_positive() {
 #[test]
 fn sub_nested_add_const_negative() {
     // (entry + 3) - 10  =>  entry - 7
-    let inner = Value::entry(vn_a()) + Value::const_(3);
-    let result = (inner - Value::const_(10)).simplify();
+    let inner = Value::entry(vn_a()) + Value::const_(3, 8);
+    let result = (inner - Value::const_(10, 8)).simplify();
     let sub = result.as_sub().expect("expected Sub node");
     assert_eq!(sub.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(sub.1.as_ref().as_const_value(), Some(7));
@@ -157,8 +157,8 @@ fn sub_nested_add_const_negative() {
 #[test]
 fn sub_nested_sub_const() {
     // (entry - 3) - 4  =>  entry - 7
-    let inner = Value::entry(vn_a()) - Value::const_(3);
-    let result = (inner - Value::const_(4)).simplify();
+    let inner = Value::entry(vn_a()) - Value::const_(3, 8);
+    let result = (inner - Value::const_(4, 8)).simplify();
     let sub = result.as_sub().expect("expected Sub node");
     assert_eq!(sub.0.as_ref(), &Value::entry(vn_a()));
     assert_eq!(sub.1.as_ref().as_const_value(), Some(7));
@@ -166,7 +166,7 @@ fn sub_nested_sub_const() {
 
 #[test]
 fn sub_wrapping_underflow() {
-    let result = (Value::const_(i64::MIN) - Value::const_(1)).simplify();
+    let result = (Value::const_(i64::MIN, 8) - Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::make_const(i64::MAX, 8));
 }
 
@@ -174,37 +174,37 @@ fn sub_wrapping_underflow() {
 
 #[test]
 fn mul_const_folding() {
-    let result = (Value::const_(6) * Value::const_(7)).simplify();
+    let result = (Value::const_(6, 8) * Value::const_(7, 8)).simplify();
     assert_eq!(result, Value::make_const(42, 8));
 }
 
 #[test]
 fn mul_identity_one() {
-    let result = (Value::entry(vn_a()) * Value::const_(1)).simplify();
+    let result = (Value::entry(vn_a()) * Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::entry(vn_a()));
 }
 
 #[test]
 fn mul_zero() {
-    let result = (Value::entry(vn_a()) * Value::const_(0)).simplify();
+    let result = (Value::entry(vn_a()) * Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 8));
 }
 
 #[test]
 fn mul_top_left() {
-    let result = (Value::Top * Value::const_(5)).simplify();
+    let result = (Value::Top * Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn mul_top_right() {
-    let result = (Value::const_(5) * Value::Top).simplify();
+    let result = (Value::const_(5, 8) * Value::Top).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn mul_normalizes_const_to_right() {
-    let result = (Value::const_(3) * Value::entry(vn_a())).simplify();
+    let result = (Value::const_(3, 8) * Value::entry(vn_a())).simplify();
     let mul = result.as_mul().expect("expected Mul node");
     assert!(mul.0.as_entry().is_some(), "expected entry on left");
     assert!(mul.1.as_const().is_some(), "expected const on right");
@@ -212,13 +212,13 @@ fn mul_normalizes_const_to_right() {
 
 #[test]
 fn mul_negative() {
-    let result = (Value::const_(-3) * Value::const_(4)).simplify();
+    let result = (Value::const_(-3, 8) * Value::const_(4, 8)).simplify();
     assert_eq!(result, Value::make_const(-12, 8));
 }
 
 #[test]
 fn mul_wrapping() {
-    let result = (Value::const_(i64::MAX) * Value::const_(2)).simplify();
+    let result = (Value::const_(i64::MAX, 8) * Value::const_(2, 8)).simplify();
     assert_eq!(result, Value::make_const(i64::MAX.wrapping_mul(2), 8));
 }
 
@@ -291,7 +291,7 @@ fn or_canonical_or_on_right() {
     // Choice(Choice(a,b), c)  =>  non-Choice on left, Choice on right
     let a = Value::entry(vn_a());
     let b = Value::entry(vn_b());
-    let c = Value::const_(42);
+    let c = Value::const_(42, 8);
     let inner = Value::choice(a, b);
     let result = Value::choice(inner, c).simplify();
     let choice = result.as_choice().expect("expected Choice");
@@ -308,7 +308,7 @@ fn or_canonical_or_on_right() {
 #[test]
 fn or_variant_ordering() {
     // Choice(entry, const)  =>  canonical form: const (rank 0) on left, entry (rank 1) on right
-    let result = Value::choice(Value::entry(vn_b()), Value::const_(7)).simplify();
+    let result = Value::choice(Value::entry(vn_b()), Value::const_(7, 8)).simplify();
     let choice = result.as_choice().expect("expected Choice");
     assert!(
         choice.0.as_const().is_some(),
@@ -324,7 +324,7 @@ fn or_variant_ordering() {
 
 #[test]
 fn xor_const_folding() {
-    let result = (Value::const_(0b1010) ^ Value::const_(0b1100)).simplify();
+    let result = (Value::const_(0b1010, 8) ^ Value::const_(0b1100, 8)).simplify();
     assert_eq!(result, Value::make_const(0b0110, 8));
 }
 
@@ -336,7 +336,7 @@ fn xor_self() {
 
 #[test]
 fn xor_identity_zero() {
-    let result = (Value::entry(vn_a()) ^ Value::const_(0)).simplify();
+    let result = (Value::entry(vn_a()) ^ Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::entry(vn_a()));
 }
 
@@ -348,7 +348,7 @@ fn xor_top_propagation() {
 
 #[test]
 fn xor_normalizes_const_to_right() {
-    let result = (Value::const_(5) ^ Value::entry(vn_a())).simplify();
+    let result = (Value::const_(5, 8) ^ Value::entry(vn_a())).simplify();
     let xor = result.as_xor().expect("expected Xor node");
     assert!(xor.0.as_entry().is_some(), "expected entry on left");
     assert!(xor.1.as_const().is_some(), "expected const on right");
@@ -356,7 +356,7 @@ fn xor_normalizes_const_to_right() {
 
 #[test]
 fn xor_double_const() {
-    let result = (Value::const_(0xFF) ^ Value::const_(0xFF)).simplify();
+    let result = (Value::const_(0xFF, 8) ^ Value::const_(0xFF, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 8));
 }
 
@@ -364,7 +364,7 @@ fn xor_double_const() {
 
 #[test]
 fn and_const_folding() {
-    let result = (Value::const_(0b1010) & Value::const_(0b1100)).simplify();
+    let result = (Value::const_(0b1010, 8) & Value::const_(0b1100, 8)).simplify();
     assert_eq!(result, Value::make_const(0b1000, 8));
 }
 
@@ -376,7 +376,7 @@ fn and_self() {
 
 #[test]
 fn and_zero() {
-    let result = (Value::entry(vn_a()) & Value::const_(0)).simplify();
+    let result = (Value::entry(vn_a()) & Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 8));
 }
 
@@ -403,7 +403,7 @@ fn and_symbolic_stays_symbolic() {
 
 #[test]
 fn and_normalizes_const_to_right() {
-    let result = (Value::const_(5) & Value::entry(vn_a())).simplify();
+    let result = (Value::const_(5, 8) & Value::entry(vn_a())).simplify();
     let and = result.as_and().expect("expected And node");
     assert!(and.0.as_entry().is_some(), "expected entry on left");
     assert!(and.1.as_const().is_some(), "expected const on right");
@@ -413,7 +413,7 @@ fn and_normalizes_const_to_right() {
 
 #[test]
 fn or_bitwise_const_folding() {
-    let result = (Value::const_(0b1010) | Value::const_(0b1100)).simplify();
+    let result = (Value::const_(0b1010, 8) | Value::const_(0b1100, 8)).simplify();
     assert_eq!(result, Value::make_const(0b1110, 8));
 }
 
@@ -425,7 +425,7 @@ fn or_bitwise_self() {
 
 #[test]
 fn or_bitwise_identity_zero() {
-    let result = (Value::entry(vn_a()) | Value::const_(0)).simplify();
+    let result = (Value::entry(vn_a()) | Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::entry(vn_a()));
 }
 
@@ -452,7 +452,7 @@ fn or_bitwise_symbolic_stays_symbolic() {
 
 #[test]
 fn or_bitwise_normalizes_const_to_right() {
-    let result = (Value::const_(5) | Value::entry(vn_a())).simplify();
+    let result = (Value::const_(5, 8) | Value::entry(vn_a())).simplify();
     let or = result.as_or().expect("expected Or node");
     assert!(or.0.as_entry().is_some(), "expected entry on left");
     assert!(or.1.as_const().is_some(), "expected const on right");
@@ -462,15 +462,15 @@ fn or_bitwise_normalizes_const_to_right() {
 
 #[test]
 fn load_top_propagation() {
-    let result = Value::load(Value::Top).simplify();
+    let result = Value::load(Value::Top, 8).simplify();
     assert_eq!(result, Value::Top);
 }
 
 #[test]
 fn load_simplifies_child() {
     // load(5 + 3)  =>  Load(const_8, _)
-    let child = Value::const_(5) + Value::const_(3);
-    let result = Value::load(child).simplify();
+    let child = Value::const_(5, 8) + Value::const_(3, 8);
+    let result = Value::load(child, 8).simplify();
     let load = result.as_load().expect("expected Load");
     assert_eq!(load.0.as_ref().as_const_value(), Some(8));
 }
@@ -488,13 +488,13 @@ fn load_preserves_size() {
 
 #[test]
 fn int_equal_const_folding_true() {
-    let result = Value::int_equal(Value::const_(5), Value::const_(5)).simplify();
+    let result = Value::int_equal(Value::const_(5, 8), Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
 #[test]
 fn int_equal_const_folding_false() {
-    let result = Value::int_equal(Value::const_(5), Value::const_(6)).simplify();
+    let result = Value::int_equal(Value::const_(5, 8), Value::const_(6, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 1));
 }
 
@@ -506,7 +506,7 @@ fn int_equal_self() {
 
 #[test]
 fn int_equal_top() {
-    let result = Value::int_equal(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_equal(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -515,13 +515,13 @@ fn int_equal_top() {
 #[test]
 fn int_less_const_folding_true() {
     // unsigned: 3 < 5
-    let result = Value::int_less(Value::const_(3), Value::const_(5)).simplify();
+    let result = Value::int_less(Value::const_(3, 8), Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
 #[test]
 fn int_less_const_folding_false() {
-    let result = Value::int_less(Value::const_(5), Value::const_(3)).simplify();
+    let result = Value::int_less(Value::const_(5, 8), Value::const_(3, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 1));
 }
 
@@ -533,7 +533,7 @@ fn int_less_self() {
 
 #[test]
 fn int_less_top() {
-    let result = Value::int_less(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_less(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -542,13 +542,13 @@ fn int_less_top() {
 #[test]
 fn int_sless_const_folding_true() {
     // signed: -1 < 0
-    let result = Value::int_sless(Value::const_(-1), Value::const_(0)).simplify();
+    let result = Value::int_sless(Value::const_(-1, 8), Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
 #[test]
 fn int_sless_const_folding_false() {
-    let result = Value::int_sless(Value::const_(5), Value::const_(3)).simplify();
+    let result = Value::int_sless(Value::const_(5, 8), Value::const_(3, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 1));
 }
 
@@ -560,7 +560,7 @@ fn int_sless_self() {
 
 #[test]
 fn int_sless_top() {
-    let result = Value::int_sless(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_sless(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -568,13 +568,13 @@ fn int_sless_top() {
 
 #[test]
 fn int_not_equal_const_folding_true() {
-    let result = Value::int_not_equal(Value::const_(3), Value::const_(5)).simplify();
+    let result = Value::int_not_equal(Value::const_(3, 8), Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
 #[test]
 fn int_not_equal_const_folding_false() {
-    let result = Value::int_not_equal(Value::const_(5), Value::const_(5)).simplify();
+    let result = Value::int_not_equal(Value::const_(5, 8), Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 1));
 }
 
@@ -586,7 +586,7 @@ fn int_not_equal_self() {
 
 #[test]
 fn int_not_equal_top() {
-    let result = Value::int_not_equal(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_not_equal(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -594,13 +594,13 @@ fn int_not_equal_top() {
 
 #[test]
 fn int_less_equal_const_true_less() {
-    let result = Value::int_less_equal(Value::const_(3), Value::const_(5)).simplify();
+    let result = Value::int_less_equal(Value::const_(3, 8), Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
 #[test]
 fn int_less_equal_const_true_equal() {
-    let result = Value::int_less_equal(Value::const_(5), Value::const_(5)).simplify();
+    let result = Value::int_less_equal(Value::const_(5, 8), Value::const_(5, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
@@ -612,7 +612,7 @@ fn int_less_equal_self() {
 
 #[test]
 fn int_less_equal_top() {
-    let result = Value::int_less_equal(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_less_equal(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -621,13 +621,13 @@ fn int_less_equal_top() {
 #[test]
 fn int_sless_equal_const_true() {
     // signed: -1 <= 0
-    let result = Value::int_sless_equal(Value::const_(-1), Value::const_(0)).simplify();
+    let result = Value::int_sless_equal(Value::const_(-1, 8), Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
 }
 
 #[test]
 fn int_sless_equal_const_false() {
-    let result = Value::int_sless_equal(Value::const_(5), Value::const_(3)).simplify();
+    let result = Value::int_sless_equal(Value::const_(5, 8), Value::const_(3, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 1));
 }
 
@@ -639,7 +639,7 @@ fn int_sless_equal_self() {
 
 #[test]
 fn int_sless_equal_top() {
-    let result = Value::int_sless_equal(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_sless_equal(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -674,7 +674,7 @@ fn int_carry_64bit_overflow() {
 
 #[test]
 fn int_carry_top() {
-    let result = Value::int_carry(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_carry(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -707,7 +707,7 @@ fn int_scarry_negative_no_overflow() {
 
 #[test]
 fn int_scarry_top() {
-    let result = Value::int_scarry(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_scarry(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -739,7 +739,7 @@ fn int_sborrow_overflow() {
 
 #[test]
 fn int_sborrow_top() {
-    let result = Value::int_sborrow(Value::Top, Value::const_(1)).simplify();
+    let result = Value::int_sborrow(Value::Top, Value::const_(1, 8)).simplify();
     assert_eq!(result, Value::Top);
 }
 
@@ -747,7 +747,7 @@ fn int_sborrow_top() {
 
 #[test]
 fn popcount_zero() {
-    let result = Value::popcount(Value::const_(0)).simplify();
+    let result = Value::popcount(Value::const_(0, 8)).simplify();
     assert_eq!(result, Value::make_const(0, 1));
 }
 
@@ -768,7 +768,7 @@ fn popcount_top() {
 
 #[test]
 fn leaf_values_unchanged() {
-    assert_eq!(Value::const_(5).simplify(), Value::const_(5));
+    assert_eq!(Value::const_(5, 8).simplify(), Value::const_(5, 8));
     assert_eq!(Value::entry(vn_a()).simplify(), Value::entry(vn_a()));
     assert_eq!(Value::Top.simplify(), Value::Top);
 }
@@ -777,7 +777,7 @@ fn leaf_values_unchanged() {
 fn dispatch_delegates_to_variant() {
     let expr = AddExpr(
         Intern::new(Value::entry(vn_a())),
-        Intern::new(Value::const_(0)),
+        Intern::new(Value::const_(0, 8)),
         8,
     );
     let via_variant = Value::Add(expr.clone()).simplify();
@@ -902,11 +902,11 @@ fn add_trims_covered_sub_entries() {
 
     // Write a 4-byte entry at offset 4 in space 0
     let small_vn = VarNode::new(4u64, 4u32, 0u32);
-    val.add(small_vn, Value::const_(0x42));
+    val.add(small_vn, Value::const_(0x42, 8));
 
     // Now write an 8-byte entry at offset 4 in the same space — covers small_vn
     let big_vn = VarNode::new(4u64, 8u32, 0u32);
-    val.add(big_vn, Value::const_(0x1234));
+    val.add(big_vn, Value::const_(0x1234, 8));
 
     // The small entry should have been removed
     assert!(
@@ -925,11 +925,11 @@ fn add_does_not_trim_non_covered_entries() {
 
     // Write entries at different offsets in space 0
     let vn_other = VarNode::new(0x100u64, 4u32, 0u32);
-    val.add(vn_other, Value::const_(0x99));
+    val.add(vn_other, Value::const_(0x99, 8));
 
     // Write at a completely different offset — should not trim vn_other
     let vn_new = VarNode::new(4u64, 8u32, 0u32);
-    val.add(vn_new, Value::const_(0x1234));
+    val.add(vn_new, Value::const_(0x1234, 8));
 
     assert!(
         val.direct_writes.get(vn_other).is_some(),
@@ -943,8 +943,8 @@ fn add_does_not_trim_non_covered_entries() {
 fn left_shift_const_folding() {
     // 8 << 2 = 32
     let result = Value::IntLeftShift(IntLeftShiftExpr(
-        Intern::new(Value::const_(8)),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(8, 8)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -956,7 +956,7 @@ fn left_shift_identity_zero() {
     // expr << 0 = expr
     let result = Value::IntLeftShift(IntLeftShiftExpr(
         Intern::new(Value::entry(vn_a())),
-        Intern::new(Value::const_(0)),
+        Intern::new(Value::const_(0, 8)),
         8,
     ))
     .simplify();
@@ -967,8 +967,8 @@ fn left_shift_identity_zero() {
 fn left_shift_overflow() {
     // Shifting by >= bit width should return 0
     let result = Value::IntLeftShift(IntLeftShiftExpr(
-        Intern::new(Value::const_(0xFF)),
-        Intern::new(Value::const_(64)), // 8 bytes * 8 = 64 bits
+        Intern::new(Value::const_(0xFF, 8)),
+        Intern::new(Value::const_(64, 8)), // 8 bytes * 8 = 64 bits
         8,
     ))
     .simplify();
@@ -979,8 +979,8 @@ fn left_shift_overflow() {
 fn left_shift_overflow_beyond_size() {
     // Shifting by more than bit width
     let result = Value::IntLeftShift(IntLeftShiftExpr(
-        Intern::new(Value::const_(0xFF)),
-        Intern::new(Value::const_(100)),
+        Intern::new(Value::const_(0xFF, 8)),
+        Intern::new(Value::const_(100, 8)),
         8,
     ))
     .simplify();
@@ -992,7 +992,7 @@ fn left_shift_with_masking() {
     // 0xFF << 4 should properly mask overflow bits
     let result = Value::IntLeftShift(IntLeftShiftExpr(
         Intern::new(Value::make_const(0xFF, 1)), // 1 byte
-        Intern::new(Value::const_(4)),
+        Intern::new(Value::const_(4, 8)),
         1,
     ))
     .simplify();
@@ -1004,7 +1004,7 @@ fn left_shift_with_masking() {
 fn left_shift_top_left() {
     let result = Value::IntLeftShift(IntLeftShiftExpr(
         Intern::new(Value::Top),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -1014,7 +1014,7 @@ fn left_shift_top_left() {
 #[test]
 fn left_shift_top_right() {
     let result = Value::IntLeftShift(IntLeftShiftExpr(
-        Intern::new(Value::const_(8)),
+        Intern::new(Value::const_(8, 8)),
         Intern::new(Value::Top),
         8,
     ))
@@ -1027,7 +1027,7 @@ fn left_shift_symbolic() {
     // Non-constant shift should not fold
     let result = Value::IntLeftShift(IntLeftShiftExpr(
         Intern::new(Value::entry(vn_a())),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -1035,7 +1035,7 @@ fn left_shift_symbolic() {
     // Should remain a left shift operation (not simplified to a different form)
     let expr = Value::IntLeftShift(IntLeftShiftExpr(
         Intern::new(Value::entry(vn_a())),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ));
     assert_eq!(result, expr);
@@ -1047,8 +1047,8 @@ fn left_shift_symbolic() {
 fn right_shift_const_folding() {
     // 32 >> 2 = 8
     let result = Value::IntRightShift(IntRightShiftExpr(
-        Intern::new(Value::const_(32)),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(32, 8)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -1060,7 +1060,7 @@ fn right_shift_identity_zero() {
     // expr >> 0 = expr
     let result = Value::IntRightShift(IntRightShiftExpr(
         Intern::new(Value::entry(vn_a())),
-        Intern::new(Value::const_(0)),
+        Intern::new(Value::const_(0, 8)),
         8,
     ))
     .simplify();
@@ -1071,8 +1071,8 @@ fn right_shift_identity_zero() {
 fn right_shift_overflow() {
     // Shifting by >= bit width should return 0
     let result = Value::IntRightShift(IntRightShiftExpr(
-        Intern::new(Value::const_(0xFF)),
-        Intern::new(Value::const_(64)), // 8 bytes * 8 = 64 bits
+        Intern::new(Value::const_(0xFF, 8)),
+        Intern::new(Value::const_(64, 8)), // 8 bytes * 8 = 64 bits
         8,
     ))
     .simplify();
@@ -1085,7 +1085,7 @@ fn right_shift_fills_with_zeros() {
     // 0xF0 >> 4 = 0x0F
     let result = Value::IntRightShift(IntRightShiftExpr(
         Intern::new(Value::make_const(0xF0, 1)),
-        Intern::new(Value::const_(4)),
+        Intern::new(Value::const_(4, 8)),
         1,
     ))
     .simplify();
@@ -1096,7 +1096,7 @@ fn right_shift_fills_with_zeros() {
 fn right_shift_top_left() {
     let result = Value::IntRightShift(IntRightShiftExpr(
         Intern::new(Value::Top),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -1106,7 +1106,7 @@ fn right_shift_top_left() {
 #[test]
 fn right_shift_top_right() {
     let result = Value::IntRightShift(IntRightShiftExpr(
-        Intern::new(Value::const_(8)),
+        Intern::new(Value::const_(8, 8)),
         Intern::new(Value::Top),
         8,
     ))
@@ -1120,8 +1120,8 @@ fn right_shift_top_right() {
 fn signed_right_shift_const_folding_positive() {
     // 32 s>> 2 = 8 (positive value)
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
-        Intern::new(Value::const_(32)),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(32, 8)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -1134,7 +1134,7 @@ fn signed_right_shift_const_folding_negative() {
     // 0xF0 = binary 11110000, arithmetic shift right by 2 = 11111100 = 0xFC = -4
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
         Intern::new(Value::make_const(0xF0u64 as i64, 1)),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(2, 8)),
         1,
     ))
     .simplify();
@@ -1146,7 +1146,7 @@ fn signed_right_shift_identity_zero() {
     // expr s>> 0 = expr
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
         Intern::new(Value::entry(vn_a())),
-        Intern::new(Value::const_(0)),
+        Intern::new(Value::const_(0, 8)),
         8,
     ))
     .simplify();
@@ -1157,8 +1157,8 @@ fn signed_right_shift_identity_zero() {
 fn signed_right_shift_overflow_positive() {
     // Positive value shifted >= bit width should return 0
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
-        Intern::new(Value::const_(42)),
-        Intern::new(Value::const_(64)),
+        Intern::new(Value::const_(42, 8)),
+        Intern::new(Value::const_(64, 8)),
         8,
     ))
     .simplify();
@@ -1171,7 +1171,7 @@ fn signed_right_shift_overflow_negative() {
     // For 1-byte: 0x80 is -128, shift by 8 or more should give -1 (0xFF)
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
         Intern::new(Value::make_const(0x80u64 as i64, 1)),
-        Intern::new(Value::const_(8)),
+        Intern::new(Value::const_(8, 8)),
         1,
     ))
     .simplify();
@@ -1183,7 +1183,7 @@ fn signed_right_shift_preserves_sign_bit() {
     // -1 (all bits set) s>> 4 should still be -1
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
         Intern::new(Value::make_const(0xFFu64 as i64, 1)),
-        Intern::new(Value::const_(4)),
+        Intern::new(Value::const_(4, 8)),
         1,
     ))
     .simplify();
@@ -1194,7 +1194,7 @@ fn signed_right_shift_preserves_sign_bit() {
 fn signed_right_shift_top_left() {
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
         Intern::new(Value::Top),
-        Intern::new(Value::const_(2)),
+        Intern::new(Value::const_(2, 8)),
         8,
     ))
     .simplify();
@@ -1204,7 +1204,7 @@ fn signed_right_shift_top_left() {
 #[test]
 fn signed_right_shift_top_right() {
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
-        Intern::new(Value::const_(8)),
+        Intern::new(Value::const_(8, 8)),
         Intern::new(Value::Top),
         8,
     ))
@@ -1217,7 +1217,7 @@ fn signed_right_shift_small_negative() {
     // Test a small negative number: -2 (0xFE in 1 byte) s>> 1 = -1 (0xFF)
     let result = Value::IntSignedRightShift(IntSignedRightShiftExpr(
         Intern::new(Value::make_const(0xFEu64 as i64, 1)),
-        Intern::new(Value::const_(1)),
+        Intern::new(Value::const_(1, 8)),
         1,
     ))
     .simplify();
