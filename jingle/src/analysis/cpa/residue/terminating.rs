@@ -54,17 +54,26 @@ where
         self.terminating_indices.insert(dest_idx);
     }
 
-    /// Handle state merging by tracking the source as non-terminating.
+    /// Handle state merging by tracking the source as non-terminating and the
+    /// merged-into state as potentially terminating.
     ///
-    /// The source state produced a transition, so it's not terminating.
+    /// The source state produced a transition, so it is not terminating.
+    /// The merged-into state is re-marked as a terminal candidate: if it later
+    /// produces successors those `new_state` calls will remove it; if the step
+    /// bound fires during re-processing and it produces nothing, it stays as a
+    /// terminal state in the output.
     fn merged_state(
         &mut self,
         source_idx: usize,
-        _merged_idx: usize,
+        merged_idx: usize,
         _op: &Option<crate::analysis::pcode_store::PcodeOpRef<'a>>,
     ) {
-        // The source state has successors, so it's not terminating
+        // The source state has successors, so it's not terminating.
         self.terminating_indices.remove(&source_idx);
+        // The merged-into state may now produce no further successors (e.g. the
+        // step bound fires), so treat it as a terminal candidate until proven
+        // otherwise by a subsequent `new_state` call.
+        self.terminating_indices.insert(merged_idx);
     }
 
     fn new() -> Self {

@@ -108,12 +108,11 @@ impl PartialOrd for BoundedBranchState {
 
 impl JoinSemiLattice for BoundedBranchState {
     fn join(&mut self, other: &Self) {
-        // For our lattice ordering (where smaller counts are considered "greater"),
-        // the join must produce an element that is >= both operands. Given that
-        // ordering, we must choose the minimum of the counts so the joined state
-        // does not become \"worse\" (i.e., have larger counts) than its components.
-        self.instruction_count = self.instruction_count.min(other.instruction_count);
-        self.branch_count = self.branch_count.min(other.branch_count);
+        // Higher counts are "greater" in this lattice (more steps explored = larger
+        // element), so join takes the max of each count field.
+        self.instruction_count = self.instruction_count.max(other.instruction_count);
+        self.branch_count = self.branch_count.max(other.branch_count);
+        self.ops = self.ops.max(other.ops);
 
         // Merge configured bounds permissively: if either side is unbounded (None),
         // the joined state should be unbounded (None). If both sides have a bound,
@@ -128,9 +127,6 @@ impl JoinSemiLattice for BoundedBranchState {
             (Some(a), Some(b)) => Some(a.max(b)),
             _ => None,
         };
-        self.instruction_count = self.instruction_count.max(other.instruction_count);
-        self.branch_count = self.branch_count.max(other.branch_count);
-        self.ops = self.ops.max(other.ops);
     }
 }
 
