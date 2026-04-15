@@ -69,6 +69,8 @@ pub fn load_from_ghidra_xml<P: AsRef<Path>>(
 
         let outputs = cc_info.return_varnodes(&arch, convention_name).ok();
 
+        let return_address = cc_info.return_address_location(&arch, convention_name);
+
         let args: Vec<ParameterLocation> = func
             .parameters
             .unwrap_or_default()
@@ -82,6 +84,7 @@ pub fn load_from_ghidra_xml<P: AsRef<Path>>(
             model_behavior: ModelingBehavior::default(),
             extrapop,
             killed_regs,
+            return_address,
         };
 
         ctx.add_call_metadata(addr, call_info);

@@ -94,6 +94,31 @@ impl SleighContextBuilder {
             space: Option<String>,
         }
 
+        /// A `<varnode space="..." offset="..." size="..."/>` element.
+        /// Used inside `<returnaddress>` for stack-based return address storage.
+        #[derive(Debug, Deserialize)]
+        struct CSpecVarnode {
+            /// Address space name (e.g. `"stack"`). Captured for documentation; the element
+            /// always appears inside `<returnaddress>` where only stack spaces are valid.
+            #[serde(rename = "@space")]
+            _space: Option<String>,
+            #[serde(rename = "@offset")]
+            offset: Option<String>,
+            #[serde(rename = "@size")]
+            size: Option<String>,
+        }
+
+        /// The `<returnaddress>` element from a `.cspec` file.
+        /// Contains either a `<register name="..."/>` child (link-register architectures)
+        /// or a `<varnode .../>` child (stack-based architectures like x86).
+        #[derive(Debug, Deserialize)]
+        struct CSpecReturnAddress {
+            #[serde(rename = "register")]
+            register: Option<CSpecRegister>,
+            #[serde(rename = "varnode")]
+            varnode: Option<CSpecVarnode>,
+        }
+
         #[derive(Debug, Deserialize)]
         #[allow(unused)]
         struct CSpecPentry {
@@ -146,7 +171,10 @@ impl SleighContextBuilder {
             killedbycall: Option<CSpecKilledOrUnaffected>,
             #[serde(rename = "unaffected")]
             unaffected: Option<CSpecKilledOrUnaffected>,
-        }
+            /// Per-prototype return address override (rare; e.g. x86gcc `__unspecified_proto`).
+            #[serde(rename = "returnaddress")]
+            returnaddress: Option<CSpecReturnAddress>,
+}
 
         #[derive(Debug, Deserialize)]
         #[allow(unused)]
@@ -164,12 +192,36 @@ impl SleighContextBuilder {
             default_proto: Option<CSpecProtoContainer>,
             #[serde(rename = "prototype")]
             prototype: Option<Vec<CSpecPrototypeFull>>,
+            /// Top-level return address declaration (the common case; outside any `<prototype>`).
+            #[serde(rename = "returnaddress")]
+            returnaddress: Option<CSpecReturnAddress>,
         }
 
         // accumulators
         let mut compiler_specs_acc: Vec<crate::context::CompilerSpecInfo> = Vec::new();
         let mut call_convs_acc: Vec<crate::context::PrototypeInfo> = Vec::new();
         let mut default_proto_acc: Option<crate::context::PrototypeInfo> = None;
+        let mut global_return_address_acc: Option<crate::context::ReturnAddressLocation> = None;
+
+        /// Resolve a `CSpecReturnAddress` to a `ParameterLocation` using arch register info.
+        ///
+        /// - `<register name="ra"/>` → `ParameterLocation::Register(ra_varnode)`
+        /// - `<varnode space="stack" offset="0" size="8"/>` → `ParameterLocation::Stack { offset: 0, size: 8 }`
+        fn resolve_return_address(
+            ra: CSpecReturnAddress,
+            arch: &crate::space::SleighArchInfo,
+        ) -> Option<crate::context::ReturnAddressLocation> {
+            if let Some(reg) = ra.register {
+                let vn = arch.register(&reg.name)?;
+                return Some(crate::context::ParameterLocation::Register(*vn));
+            }
+            if let Some(vn) = ra.varnode {
+                let offset = vn.offset.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+                let size = vn.size.and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+                return Some(crate::context::ParameterLocation::Stack { offset, size });
+            }
+            None
+        }
 
         for comp in &lang.compiler {
             let cspec_path = path.join(&comp.spec);
@@ -280,6 +332,9 @@ impl SleighContextBuilder {
                                     output_pentries,
                                     killed_by_call: killed,
                                     unaffected,
+                                    return_address: p
+                                        .returnaddress
+                                        .and_then(|ra| resolve_return_address(ra, context.arch_info())),
                                 };
 
                                 // set default prototype if none yet
@@ -295,6 +350,14 @@ impl SleighContextBuilder {
                             if let Some(vn_ref) = context.arch_info().register(&sp.register) {
                                 context.set_stack_pointer_varnode(*vn_ref);
                                 // Do not break here: continue collecting cspecs and prototypes
+                            }
+                        }
+
+                        // Capture the top-level <returnaddress> (first one wins across cspecs).
+                        if global_return_address_acc.is_none() {
+                            if let Some(ra) = cspec.returnaddress {
+                                global_return_address_acc =
+                                    resolve_return_address(ra, context.arch_info());
                             }
                         }
                     }
@@ -323,6 +386,7 @@ impl SleighContextBuilder {
                 default_compiler_spec: default_comp_spec,
                 call_conventions: call_convs_acc,
                 default_calling_convention: default_proto_acc,
+                global_return_address: global_return_address_acc,
             }),
         };
         context.set_calling_convention_info(cc_info);
@@ -611,7 +675,7 @@ mod tests {
     }
 
     #[test]
-    fn test_x64_stack_and_pc() {
+    fn test_x64_stack() {
         // Explicit test against the canonical x86_64 language used elsewhere in the tests.
         let builder =
             SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
@@ -631,5 +695,78 @@ mod tests {
         // Sanity-check: sizes should be > 0; x86_64 registers will typically be 8 bytes.
         assert!(sp.size() > 0);
         assert!(pc.size() > 0);
+    }
+
+    /// x86-64 gcc cspec: `<varnode space="stack" offset="0" size="8"/>` inside `<returnaddress>`.
+    /// We expect `global_return_address` to be `Stack { offset: 0, size: 8 }`.
+    #[test]
+    fn test_return_address_x86_64_stack_based() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
+        let cc = ctx.calling_convention_info();
+
+        let ra = cc.global_return_address();
+        assert!(
+            ra.is_some(),
+            "Expected a global_return_address for x86-64 gcc cspec"
+        );
+        assert!(
+            matches!(ra.unwrap(), crate::context::ParameterLocation::Stack { offset: 0, size: 8 }),
+            "Expected Stack {{ offset: 0, size: 8 }} for x86-64 return address, got {ra:?}"
+        );
+    }
+
+    /// RISC-V 64 cspec: `<register name="ra"/>` inside `<returnaddress>`.
+    /// We expect `global_return_address` to be `Register(ra_varnode)`.
+    #[test]
+    fn test_return_address_riscv64_register_based() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        // Build for the 64-bit RISC-V language; skip if not present in this installation.
+        let ctx = match builder.build("RISCV:LE:64:RV64IC") {
+            Ok(c) => c,
+            Err(_) => return, // language not installed, skip
+        };
+        let cc = ctx.calling_convention_info();
+        let arch = ctx.arch_info();
+
+        let ra = cc.global_return_address();
+        assert!(
+            ra.is_some(),
+            "Expected a global_return_address for RISC-V 64 cspec"
+        );
+        let ra_vn = arch.register("ra").expect("Expected 'ra' register in RISC-V arch");
+        assert_eq!(
+            ra.unwrap(),
+            &crate::context::ParameterLocation::Register(*ra_vn),
+            "Expected Register(ra) for RISC-V 64 return address"
+        );
+    }
+
+    /// `return_address_location` should surface `global_return_address` for x86-64.
+    #[test]
+    fn test_return_address_location_method_x86_64() {
+        let builder =
+            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+                .unwrap();
+        let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
+        let cc = ctx.calling_convention_info();
+        let arch = ctx.arch_info();
+
+        // Both None (default) and named conventions should surface the global return address.
+        let ra_default = cc.return_address_location(arch, None);
+        let ra_stdcall = cc.return_address_location(arch, Some("__stdcall"));
+
+        assert!(
+            ra_default.is_some(),
+            "return_address_location(None) should return Some for x86-64"
+        );
+        assert_eq!(
+            ra_default, ra_stdcall,
+            "Named and default conventions should yield the same return address on x86-64"
+        );
     }
 }

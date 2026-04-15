@@ -52,6 +52,8 @@ impl Instruction {
         let default_extrapop: Option<i32> = cc_info
             .default_calling_convention()
             .and_then(|p| p.extrapop);
+        // Global return address from the compiler spec.
+        let default_return_address = cc_info.global_return_address().cloned();
 
         // First pass: apply ModelingMetadata overrides (function and callother signatures)
         for op in self.ops.iter_mut() {
@@ -111,6 +113,7 @@ impl Instruction {
                                     model_behavior: crate::context::ModelingBehavior::default(),
                                     extrapop: Some(def_ep),
                                     killed_regs: Vec::new(),
+                                    return_address: None,
                                 };
                                 *call_info = Some(new_ci);
                             }
@@ -147,6 +150,25 @@ impl Instruction {
                         }
                         _ => {}
                     }
+                }
+            }
+        }
+
+        // Third pass: propagate default_return_address to CallInfo entries that lack one.
+        // Per-site overrides (set via func_info / callother_info) are preserved because we
+        // only fill in the field when it is currently `None`.
+        if let Some(ref ra) = default_return_address {
+            for op in self.ops.iter_mut() {
+                match op {
+                    PcodeOperation::Call { call_info, .. }
+                    | PcodeOperation::CallOther { call_info, .. } => {
+                        if let Some(ci) = call_info.as_mut() {
+                            if ci.return_address.is_none() {
+                                ci.return_address = Some(ra.clone());
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
