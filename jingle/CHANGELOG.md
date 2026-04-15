@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.15](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.14...jingle-v0.6.15) - 2026-04-15
+
+### Added
+
+- add recursive substitution for Entry and symbolic values in valuation context ([#240](https://github.com/toolCHAINZ/jingle/pull/240))
+- or expressions ([#238](https://github.com/toolCHAINZ/jingle/pull/238))
+
+### Fixed
+
+- fix termination thing ([#246](https://github.com/toolCHAINZ/jingle/pull/246))
+- correct assumed sizes of loads and consts ([#245](https://github.com/toolCHAINZ/jingle/pull/245))
+- make assuming properly handle loads ([#243](https://github.com/toolCHAINZ/jingle/pull/243))
+- fix ([#242](https://github.com/toolCHAINZ/jingle/pull/242))
+- fix recursive valuation ([#241](https://github.com/toolCHAINZ/jingle/pull/241))
+
 ## [0.6.14](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.13...jingle-v0.6.14) - 2026-04-13
 
 ### Added
