@@ -458,6 +458,119 @@ fn or_bitwise_normalizes_const_to_right() {
     assert!(or.1.as_const().is_some(), "expected const on right");
 }
 
+// --- BoolExpr ----------------------------------------------------------------
+
+#[test]
+fn bool_negate_const_zero() {
+    let result = Value::bool_negate(Value::const_(0, 1)).simplify();
+    assert_eq!(result, Value::make_const(1, 1));
+}
+
+#[test]
+fn bool_negate_const_one() {
+    let result = Value::bool_negate(Value::const_(1, 1)).simplify();
+    assert_eq!(result, Value::make_const(0, 1));
+}
+
+#[test]
+fn bool_negate_nonzero_const_is_false() {
+    let result = Value::bool_negate(Value::const_(5, 1)).simplify();
+    assert_eq!(result, Value::make_const(0, 1));
+}
+
+#[test]
+fn bool_negate_double_negation_on_boolean_value() {
+    let flag = Value::int_equal(Value::entry(vn_a()), Value::entry(vn_b()));
+    let inner = Value::bool_negate(flag.clone());
+    let result = Value::bool_negate(inner).simplify();
+    assert_eq!(result, flag.simplify());
+}
+
+#[test]
+fn bool_and_const_folding() {
+    let result = Value::bool_and(Value::const_(1, 1), Value::const_(5, 1)).simplify();
+    assert_eq!(result, Value::make_const(1, 1));
+}
+
+#[test]
+fn bool_and_zero_short_circuit() {
+    let result = Value::bool_and(Value::entry(vn_a()), Value::const_(0, 1)).simplify();
+    assert_eq!(result, Value::make_const(0, 1));
+}
+
+#[test]
+fn bool_and_true_identity_for_boolean_value() {
+    let flag = Value::int_equal(Value::entry(vn_a()), Value::entry(vn_b()));
+    let result = Value::bool_and(flag.clone(), Value::const_(1, 1)).simplify();
+    assert_eq!(result, flag.simplify());
+}
+
+#[test]
+fn bool_or_const_folding() {
+    let result = Value::bool_or(Value::const_(0, 1), Value::const_(2, 1)).simplify();
+    assert_eq!(result, Value::make_const(1, 1));
+}
+
+#[test]
+fn bool_or_false_identity_for_boolean_value() {
+    let flag = Value::int_less(Value::entry(vn_a()), Value::entry(vn_b()));
+    let result = Value::bool_or(flag.clone(), Value::const_(0, 1)).simplify();
+    assert_eq!(result, flag.simplify());
+}
+
+#[test]
+fn bool_or_true_short_circuit() {
+    let result = Value::bool_or(Value::entry(vn_a()), Value::const_(1, 1)).simplify();
+    assert_eq!(result, Value::make_const(1, 1));
+}
+
+#[test]
+fn bool_xor_const_folding() {
+    let result = Value::bool_xor(Value::const_(1, 1), Value::const_(0, 1)).simplify();
+    assert_eq!(result, Value::make_const(1, 1));
+}
+
+#[test]
+fn bool_xor_self_boolean_value_is_false() {
+    let flag = Value::int_equal(Value::entry(vn_a()), Value::entry(vn_b()));
+    let result = Value::bool_xor(flag.clone(), flag).simplify();
+    assert_eq!(result, Value::make_const(0, 1));
+}
+
+#[test]
+fn bool_xor_true_flips_boolean_value() {
+    let flag = Value::int_equal(Value::entry(vn_a()), Value::entry(vn_b()));
+    let result = Value::bool_xor(flag.clone(), Value::const_(1, 1)).simplify();
+    let expr = result.as_bool_negate().expect("expected BoolNegate node");
+    assert_eq!(expr.0.as_ref(), &flag.simplify());
+}
+
+#[test]
+fn bool_ops_top_propagate() {
+    assert_eq!(Value::bool_negate(Value::Top).simplify(), Value::Top);
+    assert_eq!(
+        Value::bool_and(Value::Top, Value::const_(1, 1)).simplify(),
+        Value::Top
+    );
+    assert_eq!(
+        Value::bool_or(Value::Top, Value::const_(0, 1)).simplify(),
+        Value::Top
+    );
+    assert_eq!(
+        Value::bool_xor(Value::Top, Value::const_(1, 1)).simplify(),
+        Value::Top
+    );
+}
+
+#[test]
+fn substitute_bool_nodes_and_simplifies() {
+    let mut context = crate::analysis::valuation::simple::valuation::ValuationSet::new();
+    context.direct_writes.insert(vn_a(), Value::const_(0, 1));
+    let expr = Value::bool_negate(Value::entry(vn_a()));
+
+    assert_eq!(expr.substitute(&context), Value::const_(1, 1));
+}
+
 // --- Load --------------------------------------------------------------------
 
 #[test]
