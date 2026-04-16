@@ -162,6 +162,22 @@ pub struct OrExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AndExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
+/// A boolean negate expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct BoolNegateExpr(pub Intern<Value>);
+
+/// A boolean AND expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct BoolAndExpr(pub Intern<Value>, pub Intern<Value>);
+
+/// A boolean OR expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct BoolOrExpr(pub Intern<Value>, pub Intern<Value>);
+
+/// A boolean XOR expression
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct BoolXorExpr(pub Intern<Value>, pub Intern<Value>);
+
 /// A left shift expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct IntLeftShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
@@ -266,6 +282,10 @@ pub enum Value {
     Xor(XorExpr),
     Or(OrExpr),
     And(AndExpr),
+    BoolNegate(BoolNegateExpr),
+    BoolAnd(BoolAndExpr),
+    BoolOr(BoolOrExpr),
+    BoolXor(BoolXorExpr),
     IntLeftShift(IntLeftShiftExpr),
     IntRightShift(IntRightShiftExpr),
     IntSignedRightShift(IntSignedRightShiftExpr),
@@ -334,6 +354,10 @@ impl Value {
                 | Value::Xor(_)
                 | Value::Or(_)
                 | Value::And(_)
+                | Value::BoolNegate(_)
+                | Value::BoolAnd(_)
+                | Value::BoolOr(_)
+                | Value::BoolXor(_)
                 | Value::IntLeftShift(_)
                 | Value::IntRightShift(_)
                 | Value::IntSignedRightShift(_)
@@ -406,6 +430,38 @@ impl Value {
     pub fn as_and(&self) -> Option<&AndExpr> {
         match self {
             Value::And(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `BoolNegate` variant.
+    pub fn as_bool_negate(&self) -> Option<&BoolNegateExpr> {
+        match self {
+            Value::BoolNegate(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `BoolAnd` variant.
+    pub fn as_bool_and(&self) -> Option<&BoolAndExpr> {
+        match self {
+            Value::BoolAnd(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `BoolOr` variant.
+    pub fn as_bool_or(&self) -> Option<&BoolOrExpr> {
+        match self {
+            Value::BoolOr(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Accessor for `BoolXor` variant.
+    pub fn as_bool_xor(&self) -> Option<&BoolXorExpr> {
+        match self {
+            Value::BoolXor(v) => Some(v),
             _ => None,
         }
     }
@@ -524,6 +580,7 @@ impl Value {
             | Value::IntLeftShift(IntLeftShiftExpr(_, _, s))
             | Value::IntRightShift(IntRightShiftExpr(_, _, s))
             | Value::IntSignedRightShift(IntSignedRightShiftExpr(_, _, s)) => *s,
+            Value::BoolNegate(_) | Value::BoolAnd(_) | Value::BoolOr(_) | Value::BoolXor(_) => 1,
             Value::Load(Load(_, s)) => *s,
             Value::ZeroExtend(ZeroExtend(_, s)) | Value::SignExtend(SignExtend(_, s)) => *s,
             Value::Extract(Extract(_, _, s)) => *s,
@@ -599,6 +656,26 @@ impl Value {
         let right = right.into_interned();
         let s = std::cmp::max(left.size(), right.size());
         Value::And(AndExpr(left, right, s))
+    }
+
+    /// Construct a `BoolNegate(...)` node from a child.
+    pub fn bool_negate(child: impl IntoInternedValue) -> Self {
+        Value::BoolNegate(BoolNegateExpr(child.into_interned()))
+    }
+
+    /// Construct a `BoolAnd(...)` node from two children.
+    pub fn bool_and(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::BoolAnd(BoolAndExpr(left.into_interned(), right.into_interned()))
+    }
+
+    /// Construct a `BoolOr(...)` node from two children.
+    pub fn bool_or(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::BoolOr(BoolOrExpr(left.into_interned(), right.into_interned()))
+    }
+
+    /// Construct a `BoolXor(...)` node from two children.
+    pub fn bool_xor(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
+        Value::BoolXor(BoolXorExpr(left.into_interned(), right.into_interned()))
     }
 
     /// Construct a `Load(...)` node from a child.
@@ -739,26 +816,64 @@ impl Value {
             Value::Xor(_) => 7,
             Value::Or(_) => 8,
             Value::And(_) => 9,
-            Value::IntLeftShift(_) => 10,
-            Value::IntRightShift(_) => 11,
-            Value::IntSignedRightShift(_) => 12,
-            Value::Load(_) => 13,
-            Value::ZeroExtend(_) => 14,
-            Value::SignExtend(_) => 15,
-            Value::Extract(_) => 16,
-            Value::Top => 17,
-            Value::IntSLess(_) => 18,
-            Value::IntEqual(_) => 19,
-            Value::IntLess(_) => 20,
-            Value::PopCount(_) => 21,
-            Value::Int2Comp(_) => 22,
-            Value::IntNotEqual(_) => 23,
-            Value::IntLessEqual(_) => 24,
-            Value::IntSLessEqual(_) => 25,
-            Value::IntCarry(_) => 26,
-            Value::IntSCarry(_) => 27,
-            Value::IntSBorrow(_) => 28,
+            Value::BoolNegate(_) => 10,
+            Value::BoolAnd(_) => 11,
+            Value::BoolOr(_) => 12,
+            Value::BoolXor(_) => 13,
+            Value::IntLeftShift(_) => 14,
+            Value::IntRightShift(_) => 15,
+            Value::IntSignedRightShift(_) => 16,
+            Value::Load(_) => 17,
+            Value::ZeroExtend(_) => 18,
+            Value::SignExtend(_) => 19,
+            Value::Extract(_) => 20,
+            Value::Top => 21,
+            Value::IntSLess(_) => 22,
+            Value::IntEqual(_) => 23,
+            Value::IntLess(_) => 24,
+            Value::PopCount(_) => 25,
+            Value::Int2Comp(_) => 26,
+            Value::IntNotEqual(_) => 27,
+            Value::IntLessEqual(_) => 28,
+            Value::IntSLessEqual(_) => 29,
+            Value::IntCarry(_) => 30,
+            Value::IntSCarry(_) => 31,
+            Value::IntSBorrow(_) => 32,
         }
+    }
+
+    fn as_boolean_const(&self) -> Option<bool> {
+        self.as_const().and_then(|vn| {
+            if vn.size() == 1 {
+                Some(vn.offset() != 0)
+            } else {
+                None
+            }
+        })
+    }
+
+    fn is_boolean_valued(&self) -> bool {
+        match self {
+            Value::Const(Const(vn)) => vn.size() == 1,
+            Value::BoolNegate(_)
+            | Value::BoolAnd(_)
+            | Value::BoolOr(_)
+            | Value::BoolXor(_)
+            | Value::IntSLess(_)
+            | Value::IntEqual(_)
+            | Value::IntLess(_)
+            | Value::IntNotEqual(_)
+            | Value::IntLessEqual(_)
+            | Value::IntSLessEqual(_)
+            | Value::IntCarry(_)
+            | Value::IntSCarry(_)
+            | Value::IntSBorrow(_) => true,
+            _ => false,
+        }
+    }
+
+    fn bool_const(value: bool) -> Self {
+        Value::make_const(value as i64, 1)
     }
 }
 
@@ -772,6 +887,10 @@ impl Simplify for Value {
             Value::Xor(expr) => expr.simplify(),
             Value::Or(expr) => expr.simplify(),
             Value::And(expr) => expr.simplify(),
+            Value::BoolNegate(expr) => expr.simplify(),
+            Value::BoolAnd(expr) => expr.simplify(),
+            Value::BoolOr(expr) => expr.simplify(),
+            Value::BoolXor(expr) => expr.simplify(),
             Value::IntLeftShift(expr) => expr.simplify(),
             Value::IntRightShift(expr) => expr.simplify(),
             Value::IntSignedRightShift(expr) => expr.simplify(),
@@ -929,6 +1048,25 @@ impl Value {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
                 Value::And(AndExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+            }
+            Value::BoolNegate(BoolNegateExpr(a)) => {
+                let a_subst = a.as_ref().substitute(context);
+                Value::BoolNegate(BoolNegateExpr(Intern::new(a_subst)))
+            }
+            Value::BoolAnd(BoolAndExpr(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::BoolAnd(BoolAndExpr(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::BoolOr(BoolOrExpr(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::BoolOr(BoolOrExpr(Intern::new(a_subst), Intern::new(b_subst)))
+            }
+            Value::BoolXor(BoolXorExpr(a, b)) => {
+                let a_subst = a.as_ref().substitute(context);
+                let b_subst = b.as_ref().substitute(context);
+                Value::BoolXor(BoolXorExpr(Intern::new(a_subst), Intern::new(b_subst)))
             }
             Value::IntLeftShift(IntLeftShiftExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
@@ -1140,13 +1278,11 @@ impl Simplify for SubExpr {
             Some(0) => {
                 return left;
             }
-            Some(a) => {
-                if a < 0 {
-                    let new_const = Value::make_const(-a, Value::derive_size_from(&left) as u32);
-                    let size = left.size();
-                    let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
-                    return add;
-                }
+            Some(a) if a < 0 => {
+                let new_const = Value::make_const(-a, Value::derive_size_from(&left) as u32);
+                let size = left.size();
+                let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
+                return add;
             }
             _ => {}
         }
@@ -1472,6 +1608,129 @@ impl Simplify for OrExpr {
 
         let s = std::cmp::max(left.size(), right.size());
         Value::Or(OrExpr(Intern::new(left), Intern::new(right), s))
+    }
+}
+
+impl Simplify for BoolNegateExpr {
+    fn simplify(&self) -> Value {
+        let inner = self.0.as_ref().simplify();
+
+        if matches!(inner, Value::Top) {
+            return Value::Top;
+        }
+
+        if let Some(value) = inner.as_boolean_const() {
+            return Value::bool_const(!value);
+        }
+
+        if let Value::BoolNegate(BoolNegateExpr(inner2)) = &inner {
+            if inner2.as_ref().is_boolean_valued() {
+                return inner2.as_ref().clone();
+            }
+        }
+
+        Value::BoolNegate(BoolNegateExpr(Intern::new(inner)))
+    }
+}
+
+impl Simplify for BoolAndExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
+
+        if let (Some(left_b), Some(right_b)) = (left.as_boolean_const(), right.as_boolean_const()) {
+            return Value::bool_const(left_b && right_b);
+        }
+
+        if left == right && left.is_boolean_valued() {
+            return left;
+        }
+
+        if let Some(false) = right.as_boolean_const() {
+            return Value::bool_const(false);
+        }
+
+        if let Some(true) = right.as_boolean_const() {
+            if left.is_boolean_valued() {
+                return left;
+            }
+        }
+
+        Value::BoolAnd(BoolAndExpr(Intern::new(left), Intern::new(right)))
+    }
+}
+
+impl Simplify for BoolOrExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
+
+        if let (Some(left_b), Some(right_b)) = (left.as_boolean_const(), right.as_boolean_const()) {
+            return Value::bool_const(left_b || right_b);
+        }
+
+        if left == right && left.is_boolean_valued() {
+            return left;
+        }
+
+        if let Some(false) = right.as_boolean_const() {
+            if left.is_boolean_valued() {
+                return left;
+            }
+        }
+
+        if let Some(true) = right.as_boolean_const() {
+            return Value::bool_const(true);
+        }
+
+        Value::BoolOr(BoolOrExpr(Intern::new(left), Intern::new(right)))
+    }
+}
+
+impl Simplify for BoolXorExpr {
+    fn simplify(&self) -> Value {
+        let a_s = self.0.as_ref().simplify();
+        let b_s = self.1.as_ref().simplify();
+
+        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
+            return Value::Top;
+        }
+
+        let (left, right) = Value::normalize_commutative(a_s, b_s);
+
+        if let (Some(left_b), Some(right_b)) = (left.as_boolean_const(), right.as_boolean_const()) {
+            return Value::bool_const(left_b ^ right_b);
+        }
+
+        if left == right && left.is_boolean_valued() {
+            return Value::bool_const(false);
+        }
+
+        if let Some(false) = right.as_boolean_const() {
+            if left.is_boolean_valued() {
+                return left;
+            }
+        }
+
+        if let Some(true) = right.as_boolean_const() {
+            if left.is_boolean_valued() {
+                return Value::bool_negate(left).simplify();
+            }
+        }
+
+        Value::BoolXor(BoolXorExpr(Intern::new(left), Intern::new(right)))
     }
 }
 
@@ -2056,6 +2315,25 @@ impl JingleDisplay for Value {
                 write!(f, "&")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
+            Value::BoolNegate(BoolNegateExpr(a)) => {
+                write!(f, "!")?;
+                fmt_operand_jingle(f, a.as_ref(), info)
+            }
+            Value::BoolAnd(BoolAndExpr(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "&&")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            Value::BoolOr(BoolOrExpr(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "||")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
+            Value::BoolXor(BoolXorExpr(a, b)) => {
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, "^^")?;
+                fmt_operand_jingle(f, b.as_ref(), info)
+            }
             Value::IntLeftShift(IntLeftShiftExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
                 write!(f, "<<")?;
@@ -2202,6 +2480,25 @@ impl std::fmt::Display for Value {
                 write!(f, "&")?;
                 fmt_operand(f, b.as_ref())
             }
+            Value::BoolNegate(BoolNegateExpr(a)) => {
+                write!(f, "!")?;
+                fmt_operand(f, a.as_ref())
+            }
+            Value::BoolAnd(BoolAndExpr(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "&&")?;
+                fmt_operand(f, b.as_ref())
+            }
+            Value::BoolOr(BoolOrExpr(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "||")?;
+                fmt_operand(f, b.as_ref())
+            }
+            Value::BoolXor(BoolXorExpr(a, b)) => {
+                fmt_operand(f, a.as_ref())?;
+                write!(f, "^^")?;
+                fmt_operand(f, b.as_ref())
+            }
             Value::IntLeftShift(IntLeftShiftExpr(a, b, _)) => {
                 fmt_operand(f, a.as_ref())?;
                 write!(f, "<<")?;
@@ -2326,6 +2623,25 @@ impl std::fmt::LowerHex for Value {
             Value::And(AndExpr(a, b, _)) => {
                 fmt_operand_hex(f, a.as_ref())?;
                 write!(f, "&")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::BoolNegate(BoolNegateExpr(a)) => {
+                write!(f, "!")?;
+                fmt_operand_hex(f, a.as_ref())
+            }
+            Value::BoolAnd(BoolAndExpr(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "&&")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::BoolOr(BoolOrExpr(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "||")?;
+                fmt_operand_hex(f, b.as_ref())
+            }
+            Value::BoolXor(BoolXorExpr(a, b)) => {
+                fmt_operand_hex(f, a.as_ref())?;
+                write!(f, "^^")?;
                 fmt_operand_hex(f, b.as_ref())
             }
             Value::IntLeftShift(IntLeftShiftExpr(a, b, _)) => {

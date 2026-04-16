@@ -136,8 +136,7 @@ impl ValuationState {
                 }
             }
 
-            PcodeOperation::IntXor { input0, input1, .. }
-            | PcodeOperation::BoolXor { input0, input1, .. } => {
+            PcodeOperation::IntXor { input0, input1, .. } => {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
@@ -153,8 +152,7 @@ impl ValuationState {
                 }
             }
 
-            PcodeOperation::IntOr { input0, input1, .. }
-            | PcodeOperation::BoolOr { input0, input1, .. } => {
+            PcodeOperation::IntOr { input0, input1, .. } => {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
@@ -162,12 +160,50 @@ impl ValuationState {
                 }
             }
 
-            PcodeOperation::IntAnd { input0, input1, .. }
-            | PcodeOperation::BoolAnd { input0, input1, .. } => {
+            PcodeOperation::IntAnd { input0, input1, .. } => {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, (a & b).simplify());
+                }
+            }
+
+            PcodeOperation::BoolNegate { input, .. } => {
+                let a = Value::from_varnode_or_entry(self, input);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, Value::bool_negate(a).simplify());
+                }
+            }
+
+            PcodeOperation::BoolAnd { input0, input1, .. } => {
+                let a = Value::from_varnode_or_entry(self, input0);
+                let b = Value::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, Value::bool_and(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::BoolOr { input0, input1, .. } => {
+                let a = Value::from_varnode_or_entry(self, input0);
+                let b = Value::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, Value::bool_or(a, b).simplify());
+                }
+            }
+
+            PcodeOperation::BoolXor { input0, input1, .. } => {
+                let a = Value::from_varnode_or_entry(self, input0);
+                let b = Value::from_varnode_or_entry(self, input1);
+                if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
+                    new_state
+                        .valuation
+                        .add(output_vn, Value::bool_xor(a, b).simplify());
                 }
             }
 
@@ -387,23 +423,23 @@ impl ValuationState {
         match op {
             PcodeOperation::Branch { input }
             | PcodeOperation::CBranch { input0: input, .. }
-            | PcodeOperation::Fallthrough { input } => {
-                if !input.is_const() {
-                    // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
-                    let mut to_remove: Vec<VarNode> = Vec::new();
-                    for (vn, _) in new_state.valuation.direct_writes.items() {
-                        let keep = self
-                            .arch_info
-                            .get_space(vn.space_index())
-                            .map(|s| s._type != SpaceType::IPTR_CONSTANT)
-                            .unwrap_or(false);
-                        if !keep {
-                            to_remove.push(*vn);
-                        }
+            | PcodeOperation::Fallthrough { input }
+                if !input.is_const() =>
+            {
+                // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
+                let mut to_remove: Vec<VarNode> = Vec::new();
+                for (vn, _) in new_state.valuation.direct_writes.items() {
+                    let keep = self
+                        .arch_info
+                        .get_space(vn.space_index())
+                        .map(|s| s._type != SpaceType::IPTR_CONSTANT)
+                        .unwrap_or(false);
+                    if !keep {
+                        to_remove.push(*vn);
                     }
-                    for k in to_remove {
-                        new_state.valuation.direct_writes.remove(k);
-                    }
+                }
+                for k in to_remove {
+                    new_state.valuation.direct_writes.remove(k);
                 }
             }
             PcodeOperation::BranchInd { input } | PcodeOperation::CallInd { input } => {
@@ -594,5 +630,102 @@ impl IntoState<ValuationAnalysis> for ConcretePcodeAddress {
             arch_info: c.arch_info.clone(),
             merge_behavior: c.merge_behavior,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jingle_sleigh::{SleighEndianness, SpaceInfo, SpaceType};
+
+    fn test_arch() -> SleighArchInfo {
+        SleighArchInfo::new(
+            "test:LE:64:default".to_string(),
+            std::iter::empty(),
+            vec![
+                SpaceInfo {
+                    name: "const".to_string(),
+                    index: 0,
+                    index_size_bytes: 8,
+                    word_size_bytes: 1,
+                    _type: SpaceType::IPTR_CONSTANT,
+                    endianness: SleighEndianness::Little,
+                },
+                SpaceInfo {
+                    name: "register".to_string(),
+                    index: 1,
+                    index_size_bytes: 8,
+                    word_size_bytes: 1,
+                    _type: SpaceType::IPTR_PROCESSOR,
+                    endianness: SleighEndianness::Little,
+                },
+            ]
+            .into_iter(),
+            1,
+            vec![],
+        )
+    }
+
+    fn reg(offset: u64, size: usize) -> VarNode {
+        VarNode::new(offset, size, 1)
+    }
+
+    #[test]
+    fn transfer_bool_negate_folds_constant() {
+        let state = ValuationState::new(test_arch());
+        let out = reg(0x10, 1);
+        let op = PcodeOperation::BoolNegate {
+            output: out,
+            input: VarNode::new_const(0, 1),
+        };
+
+        let next = state.transfer_impl(&op);
+
+        assert_eq!(next.get_value(&out), Some(&Value::const_(1, 1)));
+    }
+
+    #[test]
+    fn transfer_bool_and_uses_boolean_value_node() {
+        let state = ValuationState::new(test_arch());
+        let out = reg(0x10, 1);
+        let left = reg(0x20, 8);
+        let right = reg(0x30, 8);
+        let op = PcodeOperation::BoolAnd {
+            output: out,
+            input0: left,
+            input1: right,
+        };
+
+        let next = state.transfer_impl(&op);
+        let value = next.get_value(&out).expect("expected output valuation");
+        let expr = value.as_bool_and().expect("expected BoolAnd node");
+
+        assert_eq!(expr.0.as_ref(), &Value::entry(left));
+        assert_eq!(expr.1.as_ref(), &Value::entry(right));
+    }
+
+    #[test]
+    fn transfer_bool_xor_folds_to_bool_negate_when_rhs_true() {
+        let mut state = ValuationState::new(test_arch());
+        let out = reg(0x10, 1);
+        let flag = reg(0x20, 1);
+        state.valuation.add(
+            flag,
+            Value::int_equal(Value::entry(reg(0x30, 8)), Value::entry(reg(0x40, 8))),
+        );
+        let op = PcodeOperation::BoolXor {
+            output: out,
+            input0: flag,
+            input1: VarNode::new_const(1, 1),
+        };
+
+        let next = state.transfer_impl(&op);
+        let value = next.get_value(&out).expect("expected output valuation");
+        let expr = value.as_bool_negate().expect("expected BoolNegate node");
+
+        assert_eq!(
+            expr.0.as_ref(),
+            &Value::int_equal(Value::entry(reg(0x30, 8)), Value::entry(reg(0x40, 8))).simplify()
+        );
     }
 }
