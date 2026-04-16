@@ -68,6 +68,11 @@ impl Default for ModelingBehavior {
     }
 }
 
+/// Where the return address is saved by the calling convention.
+/// Reuses `ParameterLocation` because the two variants (register and stack slot)
+/// cover both forms that appear in `.cspec` files.
+pub type ReturnAddressLocation = ParameterLocation;
+
 /// A naive representation of the effects of a function
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "pyo3", pyclass)]
@@ -86,6 +91,11 @@ pub struct CallInfo {
     /// This is populated from calling-convention prototype `killedbycall` lists
     /// when available and enriched during instruction postprocessing.
     pub killed_regs: Vec<VarNode>,
+    /// Where the return address is stored by the calling convention.
+    /// `Register` for link-register architectures (e.g. RISC-V `ra`, ARM `lr`);
+    /// `Stack` for stack-based conventions (e.g. x86-64: `stack[0]` 8 bytes).
+    /// `None` when the information was not available from the compiler spec.
+    pub return_address: Option<ReturnAddressLocation>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -150,6 +160,9 @@ pub struct PrototypeInfo {
     pub killed_by_call: Vec<String>,
     /// Registers / varnodes listed as unaffected by the call.
     pub unaffected: Vec<String>,
+    /// Per-prototype return address location (from a `<returnaddress>` child of this
+    /// `<prototype>`). Overrides the compiler-spec global when present.
+    pub return_address: Option<ReturnAddressLocation>,
 }
 
 #[derive(Clone, Debug)]
@@ -172,6 +185,11 @@ pub(crate) struct CallingConventionInfoInner {
     pub(crate) default_compiler_spec: Option<CompilerSpecInfo>,
     pub(crate) call_conventions: Vec<PrototypeInfo>,
     pub(crate) default_calling_convention: Option<PrototypeInfo>,
+    /// Return address location declared at the compiler-spec level (outside any `<prototype>`).
+    /// This is the common case (e.g., `<varnode space="stack" offset="0" size="8"/>` for x86-64,
+    /// `<register name="ra"/>` for RISC-V). Per-prototype overrides stored in `PrototypeInfo`
+    /// take priority over this field.
+    pub(crate) global_return_address: Option<ReturnAddressLocation>,
 }
 
 #[derive(Clone, Debug)]
@@ -193,6 +211,7 @@ impl CallingConventionInfo {
                 default_compiler_spec: None,
                 call_conventions: Vec::new(),
                 default_calling_convention: None,
+                global_return_address: None,
             }),
         }
     }
@@ -211,6 +230,35 @@ impl CallingConventionInfo {
 
     pub fn default_calling_convention(&self) -> Option<&PrototypeInfo> {
         self.info.default_calling_convention.as_ref()
+    }
+
+    /// Returns the compiler-spec-level return address location (outside any `<prototype>`).
+    pub fn global_return_address(&self) -> Option<&ReturnAddressLocation> {
+        self.info.global_return_address.as_ref()
+    }
+
+    /// Resolves the return address location for the named convention (or the default if `None`).
+    ///
+    /// Resolution order:
+    /// 1. `PrototypeInfo.return_address` for the matched prototype (per-prototype override).
+    /// 2. `global_return_address` from the compiler spec level.
+    /// 3. `None` when neither source has an entry.
+    pub fn return_address_location(
+        &self,
+        arch: &SleighArchInfo,
+        convention: Option<&str>,
+    ) -> Option<ReturnAddressLocation> {
+        // Per-prototype override takes priority.
+        if let Ok(proto) = self.find_convention(convention) {
+            if proto.return_address.is_some() {
+                return proto.return_address.clone();
+            }
+        }
+        // Fall back to the compiler-spec-level declaration.
+        // The global entry is already resolved to a ParameterLocation (register varnode
+        // resolved at parse time), so no arch lookup is needed here.
+        let _ = arch; // arch is available for future use (e.g. dynamic resolution)
+        self.info.global_return_address.clone()
     }
 
     fn find_convention(&self, name: Option<&str>) -> Result<&PrototypeInfo, JingleSleighError> {
