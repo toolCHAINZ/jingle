@@ -174,7 +174,7 @@ impl SleighContextBuilder {
             /// Per-prototype return address override (rare; e.g. x86gcc `__unspecified_proto`).
             #[serde(rename = "returnaddress")]
             returnaddress: Option<CSpecReturnAddress>,
-}
+        }
 
         #[derive(Debug, Deserialize)]
         #[allow(unused)]
@@ -332,9 +332,9 @@ impl SleighContextBuilder {
                                     output_pentries,
                                     killed_by_call: killed,
                                     unaffected,
-                                    return_address: p
-                                        .returnaddress
-                                        .and_then(|ra| resolve_return_address(ra, context.arch_info())),
+                                    return_address: p.returnaddress.and_then(|ra| {
+                                        resolve_return_address(ra, context.arch_info())
+                                    }),
                                 };
 
                                 // set default prototype if none yet
@@ -713,7 +713,10 @@ mod tests {
             "Expected a global_return_address for x86-64 gcc cspec"
         );
         assert!(
-            matches!(ra.unwrap(), crate::context::ParameterLocation::Stack { offset: 0, size: 8 }),
+            matches!(
+                ra.unwrap(),
+                crate::context::ParameterLocation::Stack { offset: 0, size: 8 }
+            ),
             "Expected Stack {{ offset: 0, size: 8 }} for x86-64 return address, got {ra:?}"
         );
     }
@@ -738,7 +741,9 @@ mod tests {
             ra.is_some(),
             "Expected a global_return_address for RISC-V 64 cspec"
         );
-        let ra_vn = arch.register("ra").expect("Expected 'ra' register in RISC-V arch");
+        let ra_vn = arch
+            .register("ra")
+            .expect("Expected 'ra' register in RISC-V arch");
         assert_eq!(
             ra.unwrap(),
             &crate::context::ParameterLocation::Register(*ra_vn),

@@ -293,6 +293,7 @@ mod tests {
             outputs: None,
             model_behavior: crate::context::ModelingBehavior::default(),
             extrapop: Some(override_extrapop),
+            return_address: None,
             killed_regs: Vec::new(),
         };
         ctx.metadata.add_call_def(override_addr, call_info_override);
