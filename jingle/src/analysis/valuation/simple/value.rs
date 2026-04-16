@@ -580,10 +580,7 @@ impl Value {
             | Value::IntLeftShift(IntLeftShiftExpr(_, _, s))
             | Value::IntRightShift(IntRightShiftExpr(_, _, s))
             | Value::IntSignedRightShift(IntSignedRightShiftExpr(_, _, s)) => *s,
-            Value::BoolNegate(_)
-            | Value::BoolAnd(_)
-            | Value::BoolOr(_)
-            | Value::BoolXor(_) => 1,
+            Value::BoolNegate(_) | Value::BoolAnd(_) | Value::BoolOr(_) | Value::BoolXor(_) => 1,
             Value::Load(Load(_, s)) => *s,
             Value::ZeroExtend(ZeroExtend(_, s)) | Value::SignExtend(SignExtend(_, s)) => *s,
             Value::Extract(Extract(_, _, s)) => *s,
