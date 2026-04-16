@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.7](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.6...jingle_sleigh-v0.5.7) - 2026-04-16
+
+### Added
+
+- add global return address support in calling conventions ([#247](https://github.com/toolCHAINZ/jingle/pull/247))
+
 ## [0.5.6](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.5...jingle_sleigh-v0.5.6) - 2026-04-13
 
 ### Fixed
