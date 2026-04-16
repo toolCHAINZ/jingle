@@ -423,8 +423,8 @@ impl ValuationState {
         match op {
             PcodeOperation::Branch { input }
             | PcodeOperation::CBranch { input0: input, .. }
-            | PcodeOperation::Fallthrough { input } => {
-                if !input.is_const() {
+            | PcodeOperation::Fallthrough { input }
+                if !input.is_const() => {
                     // VarNodeMap doesn't provide `retain`; collect keys to remove and remove them.
                     let mut to_remove: Vec<VarNode> = Vec::new();
                     for (vn, _) in new_state.valuation.direct_writes.items() {
@@ -441,7 +441,6 @@ impl ValuationState {
                         new_state.valuation.direct_writes.remove(k);
                     }
                 }
-            }
             PcodeOperation::BranchInd { input } | PcodeOperation::CallInd { input } => {
                 // Clear IPTR_INTERNAL varnodes except the branch target, which must survive
                 // so that strengthen_from_valuation can read it.

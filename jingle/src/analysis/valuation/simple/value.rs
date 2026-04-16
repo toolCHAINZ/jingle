@@ -1278,14 +1278,13 @@ impl Simplify for SubExpr {
             Some(0) => {
                 return left;
             }
-            Some(a) => {
-                if a < 0 {
+            Some(a)
+                if a < 0 => {
                     let new_const = Value::make_const(-a, Value::derive_size_from(&left) as u32);
                     let size = left.size();
                     let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
                     return add;
                 }
-            }
             _ => {}
         }
 
