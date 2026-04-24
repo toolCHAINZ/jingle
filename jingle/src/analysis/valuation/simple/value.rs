@@ -321,6 +321,20 @@ impl Value {
         }
     }
 
+    pub fn as_zext(&self) -> Option<&ZeroExtend> {
+        match self {
+            Value::ZeroExtend(vn_intern) => Some(vn_intern),
+            _ => None,
+        }
+    }
+
+    pub fn as_sext(&self) -> Option<&SignExtend> {
+        match self {
+            Value::SignExtend(vn_intern) => Some(vn_intern),
+            _ => None,
+        }
+    }
+
     /// Legacy-style convenience: return the constant value as `i64` (signed).
     /// This preserves the previous numeric-as-`as_const()` behavior for callers
     /// that want the value directly.
@@ -1968,6 +1982,51 @@ impl Simplify for Extract {
         // identity: extracting the full value at offset 0 is a no-op
         if *byte_offset == 0 && inner.size() == *output_size {
             return inner;
+        }
+
+        if *byte_offset == 0 {
+            if let Some(e) = inner.as_entry() {
+                // this is just a smaller version of the same varnode
+                let vn = e.deref().clone();
+                let vn = VarNode::new(vn.offset(), *output_size, vn.space_index());
+                return Value::entry(vn);
+            }
+
+            if let Some(e) = inner.as_offset() {
+                // this is just a smaller version of the same varnode
+                let new_size = VarNode::new_const(e.1.0.offset(), *output_size);
+                return Value::offset(e.0.0, new_size);
+            }
+
+            if let Some(ZeroExtend(val, size)) = inner.as_zext() {
+                if *output_size == val.size() {
+                    // this exactly undoes the zero extension
+                    return val.as_ref().clone();
+                } else if *output_size < val.size() {
+                    // the output extraction size is less than the original size; this is just an extraction
+                    return Value::extract(val, 0, *output_size);
+                } else if output_size <= size {
+                    // the output size is bigger than the original but less
+                    return Value::zero_extend(val, *output_size);
+                }
+            }
+
+            if let Some(AddExpr(left, right, size)) = inner.as_add(){
+                let left = Value::extract(left, 0, *output_size).simplify();
+                let right = Value::extract(right, 0, *output_size).simplify();
+                return left + right;
+            }
+
+            if let Some(SignExtend(val, size)) = inner.as_sext() {
+                // this is definitionally a no-op
+                if *output_size == val.size() {
+                    return val.as_ref().clone();
+                } else if *output_size < val.size() {
+                    return Value::extract(val, 0, *output_size);
+                } else if output_size <= size {
+                    return Value::sign_extend(val, *output_size);
+                }
+            }
         }
 
         // constant folding
