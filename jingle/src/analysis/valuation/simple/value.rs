@@ -1867,10 +1867,6 @@ impl Simplify for Load {
         let a_intern = self.0;
         let a_s = a_intern.as_ref().simplify();
 
-        if matches!(a_s, Value::Top) {
-            return Value::Top;
-        }
-
         // keep the same size as recorded on this Load node
         Value::Load(Load(Intern::new(a_s), self.1))
     }
