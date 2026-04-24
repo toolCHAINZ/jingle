@@ -1987,7 +1987,7 @@ impl Simplify for Extract {
         if *byte_offset == 0 {
             if let Some(e) = inner.as_entry() {
                 // this is just a smaller version of the same varnode
-                let vn = e.deref().clone();
+                let vn = *e.deref();
                 let vn = VarNode::new(vn.offset(), *output_size, vn.space_index());
                 return Value::entry(vn);
             }
@@ -2011,7 +2011,7 @@ impl Simplify for Extract {
                 }
             }
 
-            if let Some(AddExpr(left, right, size)) = inner.as_add(){
+            if let Some(AddExpr(left, right, _size)) = inner.as_add() {
                 let left = Value::extract(left, 0, *output_size).simplify();
                 let right = Value::extract(right, 0, *output_size).simplify();
                 return left + right;
