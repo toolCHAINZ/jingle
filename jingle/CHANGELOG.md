@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.17](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.16...jingle-v0.6.17) - 2026-04-24
+
+### Added
+
+- add additional simplification cases to Value::Extract ([#253](https://github.com/toolCHAINZ/jingle/pull/253))
+
+### Fixed
+
+- don't collapse Load(T) to T ([#251](https://github.com/toolCHAINZ/jingle/pull/251))
+
 ## [0.6.16](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.15...jingle-v0.6.16) - 2026-04-16
 
 ### Added
