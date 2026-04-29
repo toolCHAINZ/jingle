@@ -1643,6 +1643,32 @@ impl Simplify for BoolNegateExpr {
             }
         }
 
+        match &inner {
+            Value::IntEqual(IntEqual(a, b)) => {
+                return Value::IntNotEqual(IntNotEqual(*a, *b));
+            }
+            Value::IntNotEqual(IntNotEqual(a, b)) => {
+                return Value::IntEqual(IntEqual(*a, *b));
+            }
+            Value::IntLess(IntLess(a, b)) => {
+                // !(a < b) == b <= a
+                return Value::IntLessEqual(IntLessEqual(*b, *a));
+            }
+            Value::IntLessEqual(IntLessEqual(a, b)) => {
+                // !(a <= b) == b < a
+                return Value::IntLess(IntLess(*b, *a));
+            }
+            Value::IntSLess(IntSLess(a, b)) => {
+                // !(a <s b) == b <=s a
+                return Value::IntSLessEqual(IntSLessEqual(*b, *a));
+            }
+            Value::IntSLessEqual(IntSLessEqual(a, b)) => {
+                // !(a <=s b) == b <s a
+                return Value::IntSLess(IntSLess(*b, *a));
+            }
+            _ => {}
+        }
+
         Value::BoolNegate(BoolNegateExpr(Intern::new(inner)))
     }
 }
