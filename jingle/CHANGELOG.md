@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.18](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.17...jingle-v0.6.18) - 2026-04-29
+
+### Added
+
+- simplify comparisons wrapped in BoolNegate ([#254](https://github.com/toolCHAINZ/jingle/pull/254))
+
 ## [0.6.17](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.16...jingle-v0.6.17) - 2026-04-24
 
 ### Added
