@@ -721,11 +721,10 @@ mod tests {
 
         let next = state.transfer_impl(&op);
         let value = next.get_value(&out).expect("expected output valuation");
-        let expr = value.as_bool_negate().expect("expected BoolNegate node");
 
         assert_eq!(
-            expr.0.as_ref(),
-            &Value::int_equal(Value::entry(reg(0x30, 8)), Value::entry(reg(0x40, 8))).simplify()
+            *value,
+            Value::int_not_equal(Value::entry(reg(0x30, 8)), Value::entry(reg(0x40, 8))).simplify()
         );
     }
 }

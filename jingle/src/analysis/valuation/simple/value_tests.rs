@@ -487,6 +487,54 @@ fn bool_negate_double_negation_on_boolean_value() {
 }
 
 #[test]
+fn bool_negate_int_equal_becomes_not_equal() {
+    let a = Value::entry(vn_a());
+    let b = Value::entry(vn_b());
+    let result = Value::bool_negate(Value::int_equal(a.clone(), b.clone())).simplify();
+    assert_eq!(result, Value::int_not_equal(a, b).simplify());
+}
+
+#[test]
+fn bool_negate_int_not_equal_becomes_equal() {
+    let a = Value::entry(vn_a());
+    let b = Value::entry(vn_b());
+    let result = Value::bool_negate(Value::int_not_equal(a.clone(), b.clone())).simplify();
+    assert_eq!(result, Value::int_equal(a, b).simplify());
+}
+
+#[test]
+fn bool_negate_int_less_becomes_less_equal_swapped() {
+    let a = Value::entry(vn_a());
+    let b = Value::entry(vn_b());
+    let result = Value::bool_negate(Value::int_less(a.clone(), b.clone())).simplify();
+    assert_eq!(result, Value::int_less_equal(b, a).simplify());
+}
+
+#[test]
+fn bool_negate_int_less_equal_becomes_less_swapped() {
+    let a = Value::entry(vn_a());
+    let b = Value::entry(vn_b());
+    let result = Value::bool_negate(Value::int_less_equal(a.clone(), b.clone())).simplify();
+    assert_eq!(result, Value::int_less(b, a).simplify());
+}
+
+#[test]
+fn bool_negate_int_sless_becomes_sless_equal_swapped() {
+    let a = Value::entry(vn_a());
+    let b = Value::entry(vn_b());
+    let result = Value::bool_negate(Value::int_sless(a.clone(), b.clone())).simplify();
+    assert_eq!(result, Value::int_sless_equal(b, a).simplify());
+}
+
+#[test]
+fn bool_negate_int_sless_equal_becomes_sless_swapped() {
+    let a = Value::entry(vn_a());
+    let b = Value::entry(vn_b());
+    let result = Value::bool_negate(Value::int_sless_equal(a.clone(), b.clone())).simplify();
+    assert_eq!(result, Value::int_sless(b, a).simplify());
+}
+
+#[test]
 fn bool_and_const_folding() {
     let result = Value::bool_and(Value::const_(1, 1), Value::const_(5, 1)).simplify();
     assert_eq!(result, Value::make_const(1, 1));
@@ -541,8 +589,10 @@ fn bool_xor_self_boolean_value_is_false() {
 fn bool_xor_true_flips_boolean_value() {
     let flag = Value::int_equal(Value::entry(vn_a()), Value::entry(vn_b()));
     let result = Value::bool_xor(flag.clone(), Value::const_(1, 1)).simplify();
-    let expr = result.as_bool_negate().expect("expected BoolNegate node");
-    assert_eq!(expr.0.as_ref(), &flag.simplify());
+    assert_eq!(
+        result,
+        Value::int_not_equal(Value::entry(vn_a()), Value::entry(vn_b())).simplify()
+    );
 }
 
 #[test]
