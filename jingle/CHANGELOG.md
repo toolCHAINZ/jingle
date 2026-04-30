@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.19](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.18...jingle-v0.6.19) - 2026-04-30
+
+### Added
+
+- remove Clone bound on JingleDisplay ([#256](https://github.com/toolCHAINZ/jingle/pull/256))
+
 ## [0.6.18](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.17...jingle-v0.6.18) - 2026-04-29
 
 ### Added
