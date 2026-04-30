@@ -65,7 +65,7 @@ impl PythonState {
         pointer: PythonResolvedVarNode,
         access_size_bytes: usize,
     ) -> PyResult<PythonResolvedVarNode> {
-        if let ResolvedVarnode::Direct(pointer_location) = pointer.inner.inner() {
+        if let ResolvedVarnode::Direct(pointer_location) = &pointer.inner {
             let pointer_space_index = self
                 .state
                 .arch_info()
@@ -104,7 +104,7 @@ impl PythonState {
     pub fn read_varnode(&self, varnode: &PythonResolvedVarNode) -> PyResult<Py<PyAny>> {
         Python::attach(|py| {
             self.state
-                .read_resolved(varnode.inner.inner())?
+                .read_resolved(&varnode.inner)?
                 .try_into_python(py)
         })
     }
