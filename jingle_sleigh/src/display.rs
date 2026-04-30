@@ -9,13 +9,13 @@ use std::fmt::{Display, Formatter};
 /// Types that implement this trait can produce a human-friendly representation
 /// that may depend on architecture-specific information (register names, space
 /// names, endianness, etc).
-pub trait JingleDisplay: Sized + Clone {
+pub trait JingleDisplay: Sized {
     fn fmt_jingle(&self, f: &mut Formatter<'_>, info: &SleighArchInfo) -> std::fmt::Result;
 
-    fn display<T: AsRef<SleighArchInfo>>(&self, info: T) -> JingleDisplayWrapper<Self> {
+    fn display<'a, T: AsRef<SleighArchInfo>>(&'a self, info: T) -> JingleDisplayWrapper<'a, Self> {
         JingleDisplayWrapper {
             info: info.as_ref().clone(),
-            inner: self.clone(),
+            inner: self,
         }
     }
 }
@@ -23,14 +23,14 @@ pub trait JingleDisplay: Sized + Clone {
 /// A small helper that bundles a value with Sleigh arch info so it implements
 /// `std::fmt::Display` by forwarding to `fmt_jingle`.
 #[derive(Clone)]
-pub struct JingleDisplayWrapper<T> {
+pub struct JingleDisplayWrapper<'a, T> {
     info: SleighArchInfo,
-    inner: T,
+    inner: &'a T,
 }
 
-impl<T> JingleDisplayWrapper<T> {
+impl<'a, T> JingleDisplayWrapper<'a, T> {
     pub fn inner(&self) -> &T {
-        &self.inner
+        self.inner
     }
 
     pub fn info(&self) -> &SleighArchInfo {
@@ -38,7 +38,7 @@ impl<T> JingleDisplayWrapper<T> {
     }
 }
 
-impl<T: JingleDisplay> Display for JingleDisplayWrapper<T> {
+impl<'a, T: JingleDisplay> Display for JingleDisplayWrapper<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt_jingle(f, &self.info)
     }
