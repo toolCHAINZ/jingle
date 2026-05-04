@@ -222,7 +222,7 @@ impl Location {
     pub fn as_value(&self) -> Value {
         match self {
             Self::Indirect(v) => v.clone(),
-            Self::Direct(v) => Value::entry(v.clone()),
+            Self::Direct(v) => Value::entry(*v),
         }
     }
 }

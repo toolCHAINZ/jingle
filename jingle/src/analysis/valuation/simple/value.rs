@@ -973,11 +973,9 @@ impl Simplify for Value {
             Value::IntCarry(expr) => expr.simplify(),
             Value::IntSCarry(expr) => expr.simplify(),
             Value::IntSBorrow(expr) => expr.simplify(),
-            Value::Entry(_)
-            | Value::Offset(_)
-            | Value::Const(_)
-            | Value::Bind(_)
-            | Value::Top => self.clone(),
+            Value::Entry(_) | Value::Offset(_) | Value::Const(_) | Value::Bind(_) | Value::Top => {
+                self.clone()
+            }
         }
     }
 }
