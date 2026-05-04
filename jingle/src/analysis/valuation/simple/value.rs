@@ -16,7 +16,7 @@ use std::{
 
 /// Global atomic counter used exclusively by [`Value::fresh_unique`] to mint
 /// monotonically-increasing, globally-unique identifiers.
-static UNIQUE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static BIND_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 mod sealed {
     pub trait Sealed {}
@@ -261,9 +261,9 @@ pub struct Extract(pub Intern<Value>, pub usize, pub usize);
 /// is via [`Value::fresh_unique`], which draws a monotonically-increasing id
 /// from a shared atomic counter.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Unique(u64, usize);
+pub struct Bind(u64, usize);
 
-impl Unique {
+impl Bind {
     /// The globally-unique numeric identifier for this value.
     pub fn id(&self) -> u64 {
         self.0
@@ -335,7 +335,7 @@ pub enum Value {
 
     /// A globally-unique opaque value. Construct exclusively via
     /// [`Value::fresh_unique`]; cloning an existing `Unique` preserves the id.
-    Unique(Unique),
+    Bind(Bind),
 
     Top,
 }
@@ -388,9 +388,9 @@ impl Value {
     }
 
     /// Accessor for the `Unique` variant.
-    pub fn as_unique(&self) -> Option<&Unique> {
+    pub fn as_unique(&self) -> Option<&Bind> {
         match self {
-            Value::Unique(u) => Some(u),
+            Value::Bind(u) => Some(u),
             _ => None,
         }
     }
@@ -646,7 +646,7 @@ impl Value {
             | Value::IntSCarry(_)
             | Value::IntSBorrow(_) => 1,
             Value::Int2Comp(Int2CompExpr(_, s)) => *s,
-            Value::Unique(u) => u.size(),
+            Value::Bind(u) => u.size(),
             Value::Top => 8, // conservative default
         }
     }
@@ -677,15 +677,15 @@ impl Value {
         Value::Const(Const(vn))
     }
 
-    /// Construct a fresh [`Value::Unique`] with the given size in bytes.
+    /// Construct a fresh [`Value::Bind`] with the given size in bytes.
     ///
     /// Each call draws the next value from a shared global [`AtomicU64`] counter,
     /// so the returned id is guaranteed to be unique within the process lifetime.
-    /// The only other way to obtain a `Value::Unique` is by cloning an existing one,
+    /// The only other way to obtain a `Value::Bind` is by cloning an existing one,
     /// which preserves the original id.
-    pub fn fresh_unique(size: usize) -> Self {
-        let id = UNIQUE_COUNTER.fetch_add(1, Ordering::Relaxed);
-        Value::Unique(Unique(id, size))
+    pub fn fresh_bind(size: usize) -> Self {
+        let id = BIND_COUNTER.fetch_add(1, Ordering::Relaxed);
+        Value::Bind(Bind(id, size))
     }
 
     /// Construct a `Choice(...)` node from two children. Size is derived from children.
@@ -902,7 +902,7 @@ impl Value {
             Value::IntCarry(_) => 30,
             Value::IntSCarry(_) => 31,
             Value::IntSBorrow(_) => 32,
-            Value::Unique(_) => 33,
+            Value::Bind(_) => 33,
         }
     }
 
@@ -976,7 +976,7 @@ impl Simplify for Value {
             Value::Entry(_)
             | Value::Offset(_)
             | Value::Const(_)
-            | Value::Unique(_)
+            | Value::Bind(_)
             | Value::Top => self.clone(),
         }
     }
@@ -1068,7 +1068,7 @@ impl Value {
             Value::Top => Value::Top,
 
             // Unique: opaque leaf — preserve identity, never substituted
-            Value::Unique(_) => self.clone(),
+            Value::Bind(_) => self.clone(),
 
             // Offset: substitute the base entry
             Value::Offset(_) => self.clone(),
@@ -2564,7 +2564,7 @@ impl JingleDisplay for Value {
                 b.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
-            Value::Unique(u) => write!(f, "unique({}, {})", u.id(), u.size()),
+            Value::Bind(u) => write!(f, "unique({}, {})", u.id(), u.size()),
             Value::Top => write!(f, "⊤"),
         }
     }
@@ -2707,7 +2707,7 @@ impl std::fmt::Display for Value {
             Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow({}, {})", a.as_ref(), b.as_ref())
             }
-            Value::Unique(u) => write!(f, "unique({}, {})", u.id(), u.size()),
+            Value::Bind(u) => write!(f, "unique({}, {})", u.id(), u.size()),
             Value::Top => {
                 // Special top symbol
                 write!(f, "⊤")
@@ -2856,7 +2856,7 @@ impl std::fmt::LowerHex for Value {
             Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow({:x}, {:x})", a.as_ref(), b.as_ref())
             }
-            Value::Unique(u) => write!(f, "unique({:x}, {})", u.id(), u.size()),
+            Value::Bind(u) => write!(f, "unique({:x}, {})", u.id(), u.size()),
             Value::Top => write!(f, "⊤"),
         }
     }
