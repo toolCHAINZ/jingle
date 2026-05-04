@@ -210,6 +210,21 @@ impl Location {
     pub fn is_indirect(&self) -> bool {
         matches!(self, Self::Indirect(_))
     }
+
+    pub fn size(&self) -> Option<usize> {
+        match self {
+            Self::Direct(vn) => Some(vn.size()),
+            Self::Indirect(Value::Load(load)) => Some(load.1),
+            _ => None,
+        }
+    }
+
+    pub fn as_value(&self) -> Value {
+        match self {
+            Self::Indirect(v) => v.clone(),
+            Self::Direct(v) => Value::entry(v.clone()),
+        }
+    }
 }
 
 // Allow converting a raw `VarNode` directly into a `Location::Direct`.
