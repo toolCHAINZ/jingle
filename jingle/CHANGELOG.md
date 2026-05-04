@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.20](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.19...jingle-v0.6.20) - 2026-05-04
+
+### Added
+
+- add "bind" value ([#258](https://github.com/toolCHAINZ/jingle/pull/258))
+
 ## [0.6.19](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.18...jingle-v0.6.19) - 2026-04-30
 
 ### Added
