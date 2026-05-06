@@ -36,7 +36,7 @@ pyo3 = { version = "0.27.2", optional = true, default-features = false, features
 petgraph = "0.8.2"
 inventory = "0.3.21"
 itertools = "0.14.0"
-internment = "0.8.6"
+internment = { version = "0.8.6", features = ["serde"] }
 
 [features]
 default = []

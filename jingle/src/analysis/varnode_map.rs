@@ -1,3 +1,4 @@
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{borrow::Borrow, cmp::Ordering};
 
 use jingle_sleigh::VarNode;
@@ -175,6 +176,24 @@ impl<T> VarNodeMap<T> {
 impl<T> Default for VarNodeMap<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T: Serialize> Serialize for VarNodeMap<T> {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let pairs: Vec<(&VarNode, &T)> = self.items().collect();
+        pairs.serialize(s)
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for VarNodeMap<T> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let pairs: Vec<(VarNode, T)> = Vec::deserialize(d)?;
+        let mut map = VarNodeMap::new();
+        for (vn, val) in pairs {
+            map.insert(vn, val);
+        }
+        Ok(map)
     }
 }
 

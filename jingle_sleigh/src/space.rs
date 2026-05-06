@@ -83,7 +83,7 @@ impl From<SharedPtr<AddrSpaceHandle>> for SpaceInfo {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A convenient cache of information about a sleigh context
 pub(crate) struct SleighArchInfoInner {
     /// The language ID for this architecture (e.g., "x86:LE:64:default")
@@ -131,7 +131,7 @@ impl std::fmt::Debug for SleighArchInfoInner {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SleighArchInfo {
     pub(crate) info: Arc<SleighArchInfoInner>,
 }
