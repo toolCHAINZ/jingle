@@ -2112,7 +2112,8 @@ impl Simplify for Extract {
 
         // constant folding
         if let Some(vn) = inner.as_const() {
-            let shifted = vn.offset() >> (byte_offset * 8);
+            let shift_amt = byte_offset.saturating_mul(8) as u32;
+            let shifted = vn.offset().checked_shr(shift_amt).unwrap_or(0);
             let masked = shifted & mask_for_size(*output_size);
             return Value::make_const(masked as i64, *output_size as u32);
         }
