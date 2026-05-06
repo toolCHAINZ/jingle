@@ -4,13 +4,37 @@ use std::collections::BTreeMap;
 use crate::{analysis::valuation::Load, display::JingleDisplay};
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
 use crate::analysis::{valuation::Value, varnode_map::VarNodeMap};
 
+mod btreemap_as_vec {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::collections::BTreeMap;
+
+    pub fn serialize<K, V, S>(map: &BTreeMap<K, V>, s: S) -> Result<S::Ok, S::Error>
+    where
+        K: Serialize + Ord,
+        V: Serialize,
+        S: Serializer,
+    {
+        map.iter().collect::<Vec<_>>().serialize(s)
+    }
+
+    pub fn deserialize<'de, K, V, D>(d: D) -> Result<BTreeMap<K, V>, D::Error>
+    where
+        K: Deserialize<'de> + Ord,
+        V: Deserialize<'de>,
+        D: Deserializer<'de>,
+    {
+        Ok(Vec::<(K, V)>::deserialize(d)?.into_iter().collect())
+    }
+}
+
 /// A container holding both direct writes (varnode -> value) and indirect writes
 /// ([pointer expression] -> value) produced by stores.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ValuationSet {
     pub direct_writes: VarNodeMap<Value>,
     /// Keyed on the load expression representing the memory location (e.g. `Load(ptr, size)`),
@@ -21,6 +45,7 @@ pub struct ValuationSet {
     // todo: this should be more structured and probably just explicitly hold Loads
     //  anything downstream needing to express something more general should just use its
     //  own type instead of making the function of this type ambiguous
+    #[serde(with = "btreemap_as_vec")]
     pub indirect_writes: BTreeMap<Value, Value>,
 }
 

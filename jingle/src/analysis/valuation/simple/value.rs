@@ -4,6 +4,7 @@ use crate::{
 };
 use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
     ops::{BitAnd, BitXor, Deref},
@@ -67,7 +68,7 @@ trait Simplify {
 }
 
 /// An entry value of a direct location
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Entry(VarNode);
 
 impl Deref for Entry {
@@ -79,7 +80,7 @@ impl Deref for Entry {
 }
 
 /// A constant value
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Const(VarNode);
 
 impl From<VarNode> for Const {
@@ -105,7 +106,7 @@ impl Deref for Const {
 ///
 /// For example, `Offset(r1, 4:8)` refers to the range of 8 bytes that begins
 /// 4 bytes after the address pointed to by r1.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Offset(Intern<Entry>, Intern<Const>);
 
 impl Offset {
@@ -140,119 +141,119 @@ impl Offset {
 }
 
 /// A multiplication expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MulExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// An addition expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AddExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A subtraction expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SubExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// An expression representing two possible values (abstract interpretation choice)
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Choice(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise XOR expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct XorExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise OR expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct OrExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A bitwise AND expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AndExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A boolean negate expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BoolNegateExpr(pub Intern<Value>);
 
 /// A boolean AND expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BoolAndExpr(pub Intern<Value>, pub Intern<Value>);
 
 /// A boolean OR expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BoolOrExpr(pub Intern<Value>, pub Intern<Value>);
 
 /// A boolean XOR expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BoolXorExpr(pub Intern<Value>, pub Intern<Value>);
 
 /// A left shift expression
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntLeftShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// An unsigned right shift expression (logical shift)
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntRightShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A signed right shift expression (arithmetic shift)
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntSignedRightShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
 
 /// A signed comparison operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntSLess(pub Intern<Value>, pub Intern<Value>);
 
 /// An equality comparison operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// An unsigned comparison operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntLess(pub Intern<Value>, pub Intern<Value>);
 
 /// A PopCount operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PopCount(pub Intern<Value>);
 
 /// A two's complement operator (INT_2COMP): computes -x = ~x + 1
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Int2CompExpr(pub Intern<Value>, pub usize);
 
 /// An inequality comparison operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntNotEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// An unsigned less-than-or-equal comparison operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntLessEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// A signed less-than-or-equal comparison operator
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntSLessEqual(pub Intern<Value>, pub Intern<Value>);
 
 /// Unsigned addition carry-out
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntCarry(pub Intern<Value>, pub Intern<Value>);
 
 /// Signed addition overflow (SCARRY)
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntSCarry(pub Intern<Value>, pub Intern<Value>);
 
 /// Signed subtraction overflow (SBORROW)
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IntSBorrow(pub Intern<Value>, pub Intern<Value>);
 
 /// A load of a certain size from a pointer with a certain value
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Load(pub Intern<Value>, pub usize);
 
 /// A zero-extension of the inner value to `output_size` bytes
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ZeroExtend(pub Intern<Value>, pub usize);
 
 /// A sign-extension of the inner value to `output_size` bytes
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SignExtend(pub Intern<Value>, pub usize);
 
 /// Extraction of `output_size` bytes from the inner value starting at `byte_offset`
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Extract(pub Intern<Value>, pub usize, pub usize);
 
 /// A globally-unique opaque value with an associated size in bytes.
@@ -260,7 +261,7 @@ pub struct Extract(pub Intern<Value>, pub usize, pub usize);
 /// The only way to create a fresh `Unique` (other than cloning an existing one)
 /// is via [`Value::fresh_unique`], which draws a monotonically-increasing id
 /// from a shared atomic counter.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Bind(u64, usize);
 
 impl Bind {
@@ -288,7 +289,7 @@ impl AsRef<VarNode> for Entry {
 }
 
 /// Symbolic valuation built from varnodes and constants (constants are interned VarNodes).
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Value {
     /// A direct entry referencing an existing non-const varnode
     Entry(Entry),
