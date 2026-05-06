@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.21](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.20...jingle-v0.6.21) - 2026-05-06
+
+### Fixed
+
+- use saturating operator for value shift op ([#260](https://github.com/toolCHAINZ/jingle/pull/260))
+
 ## [0.6.20](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.19...jingle-v0.6.20) - 2026-05-04
 
 ### Added
