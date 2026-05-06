@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.9](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.8...jingle_sleigh-v0.5.9) - 2026-05-06
+
+### Added
+
+- add srde impls for value types ([#263](https://github.com/toolCHAINZ/jingle/pull/263))
+
 ## [0.5.8](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.7...jingle_sleigh-v0.5.8) - 2026-04-30
 
 ### Added

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.22](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.21...jingle-v0.6.22) - 2026-05-06
+
+### Added
+
+- add srde impls for value types ([#263](https://github.com/toolCHAINZ/jingle/pull/263))
+
+### Fixed
+
+- rename as_unique to as_bind and update display ([#262](https://github.com/toolCHAINZ/jingle/pull/262))
+
 ## [0.6.21](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.20...jingle-v0.6.21) - 2026-05-06
 
 ### Fixed
