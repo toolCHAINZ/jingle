@@ -389,7 +389,7 @@ impl Value {
     }
 
     /// Accessor for the `Unique` variant.
-    pub fn as_unique(&self) -> Option<&Bind> {
+    pub fn as_bind(&self) -> Option<&Bind> {
         match self {
             Value::Bind(u) => Some(u),
             _ => None,
@@ -2564,7 +2564,7 @@ impl JingleDisplay for Value {
                 b.as_ref().fmt_jingle(f, info)?;
                 write!(f, ")")
             }
-            Value::Bind(u) => write!(f, "unique({}, {})", u.id(), u.size()),
+            Value::Bind(u) => write!(f, "bind({}, {})", u.id(), u.size()),
             Value::Top => write!(f, "⊤"),
         }
     }
@@ -2707,7 +2707,7 @@ impl std::fmt::Display for Value {
             Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow({}, {})", a.as_ref(), b.as_ref())
             }
-            Value::Bind(u) => write!(f, "unique({}, {})", u.id(), u.size()),
+            Value::Bind(u) => write!(f, "bind({}, {})", u.id(), u.size()),
             Value::Top => {
                 // Special top symbol
                 write!(f, "⊤")
@@ -2856,7 +2856,7 @@ impl std::fmt::LowerHex for Value {
             Value::IntSBorrow(IntSBorrow(a, b)) => {
                 write!(f, "sborrow({:x}, {:x})", a.as_ref(), b.as_ref())
             }
-            Value::Bind(u) => write!(f, "unique({:x}, {})", u.id(), u.size()),
+            Value::Bind(u) => write!(f, "bind({:x}, {})", u.id(), u.size()),
             Value::Top => write!(f, "⊤"),
         }
     }
