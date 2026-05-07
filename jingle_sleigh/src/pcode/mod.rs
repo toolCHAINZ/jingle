@@ -406,14 +406,14 @@ impl PcodeOperation {
                 vec![input.into()]
             }
             Call { dest, .. } => {
-                let mut b = vec![GeneralizedVarNode::from(dest)];
+                let b = vec![GeneralizedVarNode::from(dest)];
                 b
             }
             CallInd { input, .. } => {
                 vec![input.into()]
             }
             CallOther { inputs, .. } => {
-                let mut args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
+                let args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
 
                 args
             }

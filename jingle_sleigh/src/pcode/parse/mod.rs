@@ -260,20 +260,3 @@ pub(crate) fn parse_pcode(
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::VarNode;
-    use crate::context::SleighContextBuilder;
-    use crate::tests::SLEIGH_ARCH;
-
-    fn make_info() -> SleighArchInfo {
-        // Initialize a real sleigh context (as other tests in this crate do) and take its arch info.
-        // The path here mirrors other tests in the repo which expect a local Ghidra checkout at this path.
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        sleigh.arch_info().clone()
-    }
-}
