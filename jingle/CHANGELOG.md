@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.23](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.22...jingle-v0.6.23) - 2026-05-07
+
+### Other
+
+- remove pcode operations that should never appear in low pcode ([#265](https://github.com/toolCHAINZ/jingle/pull/265))
+
 ## [0.6.22](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.21...jingle-v0.6.22) - 2026-05-06
 
 ### Added
