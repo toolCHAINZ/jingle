@@ -19,12 +19,9 @@ use crate::GeneralizedVarNode;
 use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
 use crate::varnode::{IndirectVarNode, VarNode};
-#[cfg(feature = "pyo3")]
-use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter, LowerHex};
 
-#[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PcodeOperation {
     Copy {
