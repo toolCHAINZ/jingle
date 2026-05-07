@@ -42,8 +42,8 @@ impl Iterator for SleighContextInstructionIterator<'_> {
             .lock()
             .unwrap()
             .get_one_instruction(self.offset)
-            .map(Instruction::from)
-            .ok()?;
+            .ok()
+            .and_then(|a| Instruction::try_from(a).ok())?;
         // Pass the full SleighContext so Instruction::postprocess can consult
         // calling-convention defaults and other context-wide metadata.
         instr.postprocess(self.sleigh);

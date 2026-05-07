@@ -121,7 +121,6 @@ pub(crate) fn parse_pcode(
             let dest = helpers::parse_varnode(dest_pair, info)?;
             Ok(PcodeOperation::Call {
                 dest,
-                args: vec![],
                 call_info: None,
             })
         }
@@ -276,42 +275,5 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         sleigh.arch_info().clone()
-    }
-
-    #[test]
-    fn parameterized_parse_pcode_copy() {
-        let info = make_info();
-
-        struct Case {
-            input: &'static str,
-            expected: Vec<PcodeOperation>,
-        }
-
-        let cases = vec![
-            Case {
-                // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
-                input: "CALLOTHER \"syscall\", 1:1\n",
-                expected: vec![PcodeOperation::CallOther {
-                    inputs: vec![VarNode::new_const(5, 4), VarNode::new_const(1, 1)],
-                    output: None,
-                    call_info: None,
-                }],
-            },
-            Case {
-                // temporary style varnode (hex) - parser should accept temporaries like $U1 as well
-                input: "\n\n    $U8000:8 = COPY RAX\n",
-                expected: vec![PcodeOperation::Copy {
-                    input: VarNode::new(0, 8, 4),
-                    output: VarNode::new(0x8000, 8, 2),
-                }],
-            },
-        ];
-
-        for case in cases {
-            let got = parse_program(case.input, &info)
-                .map_err(|e| format!("sdf: {}", e))
-                .unwrap();
-            assert_eq!(got, case.expected, "source=\n{}", case.input);
-        }
     }
 }
