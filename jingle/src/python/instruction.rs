@@ -1,5 +1,5 @@
+use crate::sleigh::Instruction;
 use crate::sleigh::context::loaded::LoadedSleighContext;
-use crate::sleigh::{Instruction, PcodeOperation};
 use jingle_sleigh::SleighArchInfo;
 use jingle_sleigh::display::JingleDisplay;
 use pyo3::{pyclass, pymethods};
@@ -43,9 +43,5 @@ impl PythonInstruction {
             "{} {}",
             self.instruction.disassembly.mnemonic, self.instruction.disassembly.args
         )
-    }
-
-    fn pcode(&self) -> Vec<PcodeOperation> {
-        self.instruction.ops.clone()
     }
 }

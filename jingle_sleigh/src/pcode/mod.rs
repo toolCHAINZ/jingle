@@ -8,24 +8,20 @@ use crate::pcode::PcodeOperation::{
     BoolAnd, BoolNegate, BoolOr, BoolXor, Branch, BranchInd, CBranch, CPoolRef, Call, CallInd,
     CallOther, Cast, Copy, Extract, Fallthrough, Float2Float, FloatAbs, FloatAdd, FloatCeil,
     FloatDiv, FloatEqual, FloatFloor, FloatLess, FloatLessEqual, FloatMult, FloatNaN, FloatNeg,
-    FloatNotEqual, FloatRound, FloatSqrt, FloatSub, FloatTrunc, Indirect, Insert, Int2Comp,
-    Int2Float, IntAdd, IntAnd, IntCarry, IntDiv, IntEqual, IntLeftShift, IntLess, IntLessEqual,
-    IntMult, IntNegate, IntNotEqual, IntOr, IntRem, IntRightShift, IntSExt, IntSignedBorrow,
-    IntSignedCarry, IntSignedDiv, IntSignedLess, IntSignedLessEqual, IntSignedRem,
-    IntSignedRightShift, IntSub, IntXor, IntZExt, Load, LzCount, MultiEqual, New, Piece, PopCount,
-    PtrAdd, PtrSub, Return, SegmentOp, Store, SubPiece,
+    FloatNotEqual, FloatRound, FloatSqrt, FloatSub, FloatTrunc, Insert, Int2Comp, Int2Float,
+    IntAdd, IntAnd, IntCarry, IntDiv, IntEqual, IntLeftShift, IntLess, IntLessEqual, IntMult,
+    IntNegate, IntNotEqual, IntOr, IntRem, IntRightShift, IntSExt, IntSignedBorrow, IntSignedCarry,
+    IntSignedDiv, IntSignedLess, IntSignedLessEqual, IntSignedRem, IntSignedRightShift, IntSub,
+    IntXor, IntZExt, Load, LzCount, New, Piece, PopCount, PtrAdd, PtrSub, Return, Store, SubPiece,
 };
 
 use crate::GeneralizedVarNode;
 use crate::ffi::instruction::bridge::RawPcodeOp;
 pub use crate::ffi::opcode::OpCode;
 use crate::varnode::{IndirectVarNode, VarNode};
-#[cfg(feature = "pyo3")]
-use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter, LowerHex};
 
-#[cfg_attr(feature = "pyo3", pyclass)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PcodeOperation {
     Copy {
@@ -59,8 +55,7 @@ pub enum PcodeOperation {
     },
     Call {
         dest: VarNode,
-        args: Vec<VarNode>,
-        call_info: Option<CallInfo>,
+        call_info: Option<Box<CallInfo>>,
     },
     /// We're only dealing with raw pcode so this can only have one input
     CallInd {
@@ -69,7 +64,7 @@ pub enum PcodeOperation {
     CallOther {
         output: Option<VarNode>,
         inputs: Vec<VarNode>,
-        call_info: Option<CallInfo>,
+        call_info: Option<Box<CallInfo>>,
     },
     Return {
         input: IndirectVarNode,
@@ -299,17 +294,6 @@ pub enum PcodeOperation {
         output: VarNode,
         input: VarNode,
     },
-    MultiEqual {
-        input0: VarNode,
-        input1: VarNode,
-        inputs: Vec<VarNode>,
-        output: VarNode,
-    },
-    Indirect {
-        output: VarNode,
-        input0: VarNode,
-        input1: VarNode,
-    },
     Piece {
         output: VarNode,
         input0: VarNode,
@@ -329,20 +313,12 @@ pub enum PcodeOperation {
         input0: VarNode,
         input1: VarNode,
         /// Must be a constant
-        input2: VarNode,
+        input2: u16,
     },
     PtrSub {
         output: VarNode,
         input0: VarNode,
         input1: VarNode,
-    },
-    /// This opcode is undocumented; recovered the shape of it from the ghidra
-    /// source, but have not put any effort into determining how it works
-    SegmentOp {
-        output: VarNode,
-        input0: VarNode,
-        input1: VarNode,
-        input2: VarNode,
     },
     CPoolRef {
         input0: VarNode,
@@ -360,17 +336,17 @@ pub enum PcodeOperation {
         input0: VarNode,
         input1: VarNode,
         /// Must be a constant
-        position: VarNode,
+        position: u8,
         /// Must be a constant
-        size: VarNode,
+        size: u8,
     },
     Extract {
         output: VarNode,
         input0: VarNode,
         /// Must be a constant
-        position: VarNode,
+        position: u8,
         /// Must be a constant
-        size: VarNode,
+        size: u8,
     },
     PopCount {
         input: VarNode,
@@ -426,32 +402,16 @@ impl PcodeOperation {
             BranchInd { input, .. } => {
                 vec![input.into()]
             }
-            Call { args, dest, .. } => {
-                let mut b = vec![GeneralizedVarNode::from(dest)];
-                b.extend(args.iter().map(GeneralizedVarNode::from));
+            Call { dest, .. } => {
+                let b = vec![GeneralizedVarNode::from(dest)];
                 b
             }
             CallInd { input, .. } => {
                 vec![input.into()]
             }
-            CallOther {
-                inputs, call_info, ..
-            } => {
-                let mut args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
-                if let Some(a) = call_info {
-                    let b: Vec<_> = a
-                        .args
-                        .iter()
-                        .filter_map(|loc| {
-                            if let crate::context::ParameterLocation::Register(vn) = loc {
-                                Some(GeneralizedVarNode::from(vn))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    args.extend_from_slice(b.as_slice());
-                }
+            CallOther { inputs, .. } => {
+                let args: Vec<_> = inputs.iter().map(|i| i.into()).collect();
+
                 args
             }
             Return { input, .. } => {
@@ -601,12 +561,6 @@ impl PcodeOperation {
             FloatRound { input, .. } => {
                 vec![input.into()]
             }
-            MultiEqual { input0, input1, .. } => {
-                vec![input0.into(), input1.into()]
-            }
-            Indirect { input0, input1, .. } => {
-                vec![input0.into(), input1.into()]
-            }
             Piece { input0, input1, .. } => {
                 vec![input0.into(), input1.into()]
             }
@@ -620,9 +574,6 @@ impl PcodeOperation {
                 vec![input0.into(), input1.into()]
             }
             PtrSub { input0, input1, .. } => {
-                vec![input0.into(), input1.into()]
-            }
-            SegmentOp { input0, input1, .. } => {
                 vec![input0.into(), input1.into()]
             }
             CPoolRef { input0, input1, .. } => {
@@ -706,14 +657,11 @@ impl PcodeOperation {
             FloatCeil { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatFloor { output, .. } => Some(GeneralizedVarNode::from(output)),
             FloatRound { output, .. } => Some(GeneralizedVarNode::from(output)),
-            MultiEqual { output, .. } => Some(GeneralizedVarNode::from(output)),
-            Indirect { output, .. } => Some(GeneralizedVarNode::from(output)),
             Piece { output, .. } => Some(GeneralizedVarNode::from(output)),
             SubPiece { output, .. } => Some(GeneralizedVarNode::from(output)),
             Cast { output, .. } => Some(GeneralizedVarNode::from(output)),
             PtrAdd { output, .. } => Some(GeneralizedVarNode::from(output)),
             PtrSub { output, .. } => Some(GeneralizedVarNode::from(output)),
-            SegmentOp { output, .. } => Some(GeneralizedVarNode::from(output)),
             CPoolRef { output, .. } => Some(GeneralizedVarNode::from(output)),
             New { output, .. } => Some(GeneralizedVarNode::from(output)),
             Insert { output, .. } => Some(GeneralizedVarNode::from(output)),
@@ -724,8 +672,9 @@ impl PcodeOperation {
     }
 }
 
-impl From<RawPcodeOp> for PcodeOperation {
-    fn from(value: RawPcodeOp) -> Self {
+impl TryFrom<RawPcodeOp> for PcodeOperation {
+    type Error = ();
+    fn try_from(value: RawPcodeOp) -> Result<Self, Self::Error> {
         macro_rules! one_in {
             ($op:tt) => {
                 $op {
@@ -771,7 +720,7 @@ impl From<RawPcodeOp> for PcodeOperation {
                 }
             };
         }
-        match value.op {
+        let o = match value.op {
             OpCode::CPUI_COPY => one_in_one_out!(Copy),
             OpCode::CPUI_LOAD => {
                 let space_id = value.inputs[0].offset;
@@ -811,7 +760,6 @@ impl From<RawPcodeOp> for PcodeOperation {
             OpCode::CPUI_CALL => Call {
                 dest: VarNode::from(&value.inputs[0]),
                 call_info: None,
-                args: vec![],
             },
             OpCode::CPUI_CALLIND => one_in_indirect!(CallInd),
             OpCode::CPUI_CALLOTHER => {
@@ -876,14 +824,6 @@ impl From<RawPcodeOp> for PcodeOperation {
             OpCode::CPUI_FLOAT_CEIL => one_in_one_out!(FloatCeil),
             OpCode::CPUI_FLOAT_FLOOR => one_in_one_out!(FloatFloor),
             OpCode::CPUI_FLOAT_ROUND => one_in_one_out!(FloatRound),
-            OpCode::CPUI_MULTIEQUAL => MultiEqual {
-                output: VarNode::from(value.output),
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                // todo: actually parse out extra args. This never happens in raw pcode so punting for now.
-                inputs: Vec::new(),
-            },
-            OpCode::CPUI_INDIRECT => two_in_one_out!(Indirect),
             OpCode::CPUI_PIECE => two_in_one_out!(Piece),
             OpCode::CPUI_SUBPIECE => two_in_one_out!(SubPiece),
             OpCode::CPUI_CAST => one_in_one_out!(Cast),
@@ -891,21 +831,12 @@ impl From<RawPcodeOp> for PcodeOperation {
                 output: VarNode::from(value.output),
                 input0: VarNode::from(&value.inputs[0]),
                 input1: VarNode::from(&value.inputs[1]),
-                input2: VarNode::from(&value.inputs[2]),
+                input2: value.inputs[2].offset as u16,
             },
             OpCode::CPUI_PTRSUB => PtrSub {
                 output: VarNode::from(value.output),
                 input0: VarNode::from(&value.inputs[0]),
                 input1: VarNode::from(&value.inputs[1]),
-            },
-            OpCode::CPUI_SEGMENTOP => SegmentOp {
-                output: VarNode::from(value.output),
-                //todo: based on ghidra source, we likely want to extract some other piece
-                // of info here from the FFI object for input0's address space instead of
-                // storing the varnode
-                input0: VarNode::from(&value.inputs[0]),
-                input1: VarNode::from(&value.inputs[1]),
-                input2: VarNode::from(&value.inputs[2]),
             },
             OpCode::CPUI_CPOOLREF => CPoolRef {
                 output: VarNode::from(value.output),
@@ -923,20 +854,21 @@ impl From<RawPcodeOp> for PcodeOperation {
                 output: VarNode::from(value.output),
                 input0: VarNode::from(&value.inputs[0]),
                 input1: VarNode::from(&value.inputs[1]),
-                position: VarNode::from(&value.inputs[2]),
-                size: VarNode::from(&value.inputs[3]),
+                position: value.inputs[2].offset as u8,
+                size: value.inputs[3].offset as u8,
             },
             OpCode::CPUI_EXTRACT => Extract {
                 output: VarNode::from(value.output),
                 input0: VarNode::from(&value.inputs[0]),
-                position: VarNode::from(&value.inputs[1]),
-                size: VarNode::from(&value.inputs[2]),
+                position: value.inputs[1].offset as u8,
+                size: value.inputs[2].offset as u8,
             },
             OpCode::CPUI_POPCOUNT => one_in_one_out!(PopCount),
             OpCode::CPUI_LZCOUNT => one_in_one_out!(LzCount),
             // Sleigh should not be emitting any other values.
             _ => unreachable!(),
-        }
+        };
+        Ok(o)
     }
 }
 
@@ -1006,14 +938,11 @@ impl From<&PcodeOperation> for OpCode {
             FloatCeil { .. } => OpCode::CPUI_FLOAT_CEIL,
             FloatFloor { .. } => OpCode::CPUI_FLOAT_FLOOR,
             FloatRound { .. } => OpCode::CPUI_FLOAT_ROUND,
-            MultiEqual { .. } => OpCode::CPUI_MULTIEQUAL,
-            Indirect { .. } => OpCode::CPUI_INDIRECT,
             Piece { .. } => OpCode::CPUI_PIECE,
             SubPiece { .. } => OpCode::CPUI_SUBPIECE,
             Cast { .. } => OpCode::CPUI_CAST,
             PtrAdd { .. } => OpCode::CPUI_PTRADD,
             PtrSub { .. } => OpCode::CPUI_PTRSUB,
-            SegmentOp { .. } => OpCode::CPUI_SEGMENTOP,
             CPoolRef { .. } => OpCode::CPUI_CPOOLREF,
             New { .. } => OpCode::CPUI_NEW,
             Insert { .. } => OpCode::CPUI_INSERT,

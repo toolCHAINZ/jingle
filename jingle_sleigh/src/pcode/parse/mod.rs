@@ -121,7 +121,6 @@ pub(crate) fn parse_pcode(
             let dest = helpers::parse_varnode(dest_pair, info)?;
             Ok(PcodeOperation::Call {
                 dest,
-                args: vec![],
                 call_info: None,
             })
         }
@@ -258,60 +257,6 @@ pub(crate) fn parse_pcode(
                 "Unhandled pcode rule in parser: {:?}",
                 a
             )))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::VarNode;
-    use crate::context::SleighContextBuilder;
-    use crate::tests::SLEIGH_ARCH;
-
-    fn make_info() -> SleighArchInfo {
-        // Initialize a real sleigh context (as other tests in this crate do) and take its arch info.
-        // The path here mirrors other tests in the repo which expect a local Ghidra checkout at this path.
-        let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
-        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
-        sleigh.arch_info().clone()
-    }
-
-    #[test]
-    fn parameterized_parse_pcode_copy() {
-        let info = make_info();
-
-        struct Case {
-            input: &'static str,
-            expected: Vec<PcodeOperation>,
-        }
-
-        let cases = vec![
-            Case {
-                // format: <const_or_varnode>:<size> = COPY <const_or_varnode>:<size>
-                input: "CALLOTHER \"syscall\", 1:1\n",
-                expected: vec![PcodeOperation::CallOther {
-                    inputs: vec![VarNode::new_const(5, 4), VarNode::new_const(1, 1)],
-                    output: None,
-                    call_info: None,
-                }],
-            },
-            Case {
-                // temporary style varnode (hex) - parser should accept temporaries like $U1 as well
-                input: "\n\n    $U8000:8 = COPY RAX\n",
-                expected: vec![PcodeOperation::Copy {
-                    input: VarNode::new(0, 8, 4),
-                    output: VarNode::new(0x8000, 8, 2),
-                }],
-            },
-        ];
-
-        for case in cases {
-            let got = parse_program(case.input, &info)
-                .map_err(|e| format!("sdf: {}", e))
-                .unwrap();
-            assert_eq!(got, case.expected, "source=\n{}", case.input);
         }
     }
 }

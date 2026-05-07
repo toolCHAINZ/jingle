@@ -903,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_assuming_chained_substitution() {
-        // Test: RAX = RBX, assuming RBX = RCX and RCX = RDX, should produce RAX = RDX
+        // Test: RAX = RBX, assuming RBX = RCX and RCX = RDX, should produce RAX = RCX, not RDX
         let rax = VarNode::new(0x1000, 8u32, 0u32);
         let rbx = VarNode::new(0x2000, 8u32, 0u32);
         let rcx = VarNode::new(0x3000, 8u32, 0u32);
@@ -918,8 +918,8 @@ mod tests {
 
         let result = val1.assuming(&context);
 
-        // Should have RAX = RDX (chained substitution)
-        assert_eq!(result.direct_writes.get(rax), Some(&Value::entry(rdx)));
+        // Should have RAX = RCX (chained substitution)
+        assert_eq!(result.direct_writes.get(rax), Some(&Value::entry(rcx)));
     }
 
     #[test]

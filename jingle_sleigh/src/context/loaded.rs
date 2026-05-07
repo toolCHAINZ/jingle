@@ -78,8 +78,8 @@ impl<'a> LoadedSleighContext<'a> {
             .lock()
             .unwrap()
             .get_one_instruction(offset)
-            .map(Instruction::from)
-            .ok()?;
+            .ok()
+            .and_then(|a| Instruction::try_from(a).ok())?;
         // Pass the full SleighContext so postprocess can consult calling-convention defaults
         // (e.g., extrapop) and apply them to CALL / CALLOTHER operations when no per-site
         // override is present in the ModelingMetadata.

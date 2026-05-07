@@ -16,7 +16,6 @@ fn test_call_behavior_branch() {
 
     let call_op = PcodeOperation::Call {
         dest: VarNode::new(0x2000, 8u32, 0u32),
-        args: vec![],
         call_info: None,
     };
 
@@ -35,7 +34,6 @@ fn test_call_behavior_step_over() {
 
     let call_op = PcodeOperation::Call {
         dest: VarNode::new(0x2000, 8u32, 0u32),
-        args: vec![],
         call_info: None,
     };
 
@@ -53,7 +51,6 @@ fn test_call_behavior_terminate() {
 
     let call_op = PcodeOperation::Call {
         dest: VarNode::new(0x2000, 8u32, 0u32),
-        args: vec![],
         call_info: None,
     };
 

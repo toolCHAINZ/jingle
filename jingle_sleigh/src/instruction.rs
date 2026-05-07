@@ -61,16 +61,10 @@ impl Instruction {
                 PcodeOperation::Call {
                     dest: input,
                     call_info,
-                    args,
                 } => {
                     // Apply per-address function signature metadata if available
                     if let Some(a) = m.func_info.get(&input.offset()) {
-                        *call_info = Some(a.clone());
-                        for ele in &a.args {
-                            if let crate::context::ParameterLocation::Register(vn) = ele {
-                                args.push(*vn);
-                            }
-                        }
+                        *call_info = Some(Box::new(a.clone()));
                     }
                 }
                 PcodeOperation::CallOther {
@@ -78,7 +72,7 @@ impl Instruction {
                 } => {
                     // Apply per-signature callother metadata if available
                     if let Some(a) = m.callother_info.get(inputs) {
-                        *call_info = Some(a.clone());
+                        *call_info = Some(Box::new(a.clone()));
                         for ele in &a.args {
                             if let crate::context::ParameterLocation::Register(vn) = ele {
                                 inputs.push(*vn);
@@ -115,7 +109,7 @@ impl Instruction {
                                     killed_regs: Vec::new(),
                                     return_address: None,
                                 };
-                                *call_info = Some(new_ci);
+                                *call_info = Some(Box::new(new_ci));
                             }
                         }
                     }
@@ -185,15 +179,23 @@ impl Instruction {
     }
 }
 
-impl From<InstructionFFI> for Instruction {
-    fn from(value: InstructionFFI) -> Self {
-        let ops = value.ops.into_iter().map(PcodeOperation::from).collect();
-        Instruction {
-            disassembly: value.disassembly,
+impl TryFrom<InstructionFFI> for Instruction {
+    type Error = ();
+    fn try_from(value: InstructionFFI) -> Result<Self, Self::Error> {
+        let disassembly = value.disassembly;
+        let length = value.length;
+        let address = value.address;
+        let ops: Vec<PcodeOperation> = value
+            .ops
+            .into_iter()
+            .map(PcodeOperation::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Instruction {
+            disassembly,
             ops,
-            length: value.length,
-            address: value.address,
-        }
+            length,
+            address,
+        })
     }
 }
 
@@ -249,7 +251,6 @@ mod tests {
             },
             ops: vec![PcodeOperation::Call {
                 dest,
-                args: Vec::new(),
                 call_info: None,
             }],
             length: 5,
@@ -307,7 +308,6 @@ mod tests {
             },
             ops: vec![PcodeOperation::Call {
                 dest,
-                args: Vec::new(),
                 call_info: None,
             }],
             length: 5,
@@ -367,7 +367,6 @@ mod tests {
             },
             ops: vec![PcodeOperation::Call {
                 dest,
-                args: Vec::new(),
                 call_info: None,
             }],
             length: 5,

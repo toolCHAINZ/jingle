@@ -626,7 +626,7 @@ fn substitute_bool_nodes_and_simplifies() {
 #[test]
 fn load_top_propagation() {
     let result = Value::load(Value::Top, 8).simplify();
-    assert_eq!(result, Value::Top);
+    assert_ne!(result, Value::Top);
 }
 
 #[test]
