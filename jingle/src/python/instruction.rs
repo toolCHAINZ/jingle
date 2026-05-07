@@ -1,5 +1,5 @@
-use crate::sleigh::context::loaded::LoadedSleighContext;
 use crate::sleigh::Instruction;
+use crate::sleigh::context::loaded::LoadedSleighContext;
 use jingle_sleigh::SleighArchInfo;
 use jingle_sleigh::display::JingleDisplay;
 use pyo3::{pyclass, pymethods};
