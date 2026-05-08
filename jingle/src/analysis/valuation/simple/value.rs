@@ -2493,7 +2493,9 @@ impl JingleDisplay for Value {
                     .ok_or(std::fmt::Error)?
                     .name
                     .as_str();
-                write!(f, "*[{name}]:{}:{size}", a.as_ref().display(info))
+                write!(f, "*[{name}]")?;
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, ":{size}")
             }
             Value::ZeroExtend(ZeroExtend(a, s)) => {
                 write!(f, "zext(")?;
@@ -2662,7 +2664,9 @@ impl std::fmt::Display for Value {
             }
             Value::Load(Load(a, size, space)) => {
                 // Load(child)
-                write!(f, "*[({space})]{}:{size}", a.as_ref())
+                write!(f, "*[{space}]")?;
+                fmt_operand(f, a.as_ref())?;
+                write!(f, ":{size}")
             }
             Value::ZeroExtend(ZeroExtend(a, s)) => write!(f, "zext({}, {s})", a.as_ref()),
             Value::SignExtend(SignExtend(a, s)) => write!(f, "sext({}, {s})", a.as_ref()),
