@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.26](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.25...jingle-v0.6.26) - 2026-05-08
+
+### Fixed
+
+- interpret callother output as Value::Top ([#272](https://github.com/toolCHAINZ/jingle/pull/272))
+
 ## [0.6.25](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.24...jingle-v0.6.25) - 2026-05-08
 
 ### Fixed
