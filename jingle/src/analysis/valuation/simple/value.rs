@@ -242,7 +242,7 @@ pub struct IntSBorrow(pub Intern<Value>, pub Intern<Value>);
 
 /// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Load(pub Intern<Value>, pub usize);
+pub struct Load(pub Intern<Value>, pub usize, pub u8);
 
 /// A zero-extension of the inner value to `output_size` bytes
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -633,7 +633,7 @@ impl Value {
             | Value::IntRightShift(IntRightShiftExpr(_, _, s))
             | Value::IntSignedRightShift(IntSignedRightShiftExpr(_, _, s)) => *s,
             Value::BoolNegate(_) | Value::BoolAnd(_) | Value::BoolOr(_) | Value::BoolXor(_) => 1,
-            Value::Load(Load(_, s)) => *s,
+            Value::Load(Load(_, s, _)) => *s,
             Value::ZeroExtend(ZeroExtend(_, s)) | Value::SignExtend(SignExtend(_, s)) => *s,
             Value::Extract(Extract(_, _, s)) => *s,
             Value::IntSLess(_)
@@ -743,9 +743,9 @@ impl Value {
     }
 
     /// Construct a `Load(...)` node from a child.
-    pub fn load(child: impl IntoInternedValue, size: usize) -> Self {
+    pub fn load(child: impl IntoInternedValue, size: usize, space: u8) -> Self {
         let child = child.into_interned();
-        Value::Load(Load(child, size))
+        Value::Load(Load(child, size, space))
     }
 
     /// Construct an `IntEqual(...)` node from two children.
@@ -1073,14 +1073,14 @@ impl Value {
             Value::Offset(_) => self.clone(),
 
             // Load: substitute the pointer, then check if the result is in indirect_writes
-            Value::Load(Load(ptr, size)) => {
+            Value::Load(Load(ptr, size, space)) => {
                 let subst_ptr = ptr.as_ref().substitute(context);
                 // Look up the substituted pointer in indirect writes
                 context
                     .indirect_writes
-                    .get(&Value::load(&subst_ptr, *size))
+                    .get(&Value::load(&subst_ptr, *size, *space))
                     .map(|v| v.substitute(context))
-                    .unwrap_or_else(|| Value::Load(Load(Intern::new(subst_ptr), *size)))
+                    .unwrap_or_else(|| Value::Load(Load(Intern::new(subst_ptr), *size, *space)))
             }
 
             // Binary operators: substitute both operands
@@ -1964,7 +1964,7 @@ impl Simplify for Load {
         let a_s = a_intern.as_ref().simplify();
 
         // keep the same size as recorded on this Load node
-        Value::Load(Load(Intern::new(a_s), self.1))
+        Value::Load(Load(Intern::new(a_s), self.1, self.2))
     }
 }
 
@@ -2487,7 +2487,16 @@ impl JingleDisplay for Value {
                 write!(f, "s>>")?;
                 fmt_operand_jingle(f, b.as_ref(), info)
             }
-            Value::Load(Load(a, _)) => write!(f, "Load({})", a.as_ref().display(info)),
+            Value::Load(Load(a, size, space)) => {
+                let name = info
+                    .get_space(*space as usize)
+                    .ok_or(std::fmt::Error)?
+                    .name
+                    .as_str();
+                write!(f, "*[{name}]")?;
+                fmt_operand_jingle(f, a.as_ref(), info)?;
+                write!(f, ":{size}")
+            }
             Value::ZeroExtend(ZeroExtend(a, s)) => {
                 write!(f, "zext(")?;
                 a.as_ref().fmt_jingle(f, info)?;
@@ -2653,9 +2662,11 @@ impl std::fmt::Display for Value {
                 write!(f, "s>>")?;
                 fmt_operand(f, b.as_ref())
             }
-            Value::Load(Load(a, _)) => {
+            Value::Load(Load(a, size, space)) => {
                 // Load(child)
-                write!(f, "Load({})", a.as_ref())
+                write!(f, "*[{space}]")?;
+                fmt_operand(f, a.as_ref())?;
+                write!(f, ":{size}")
             }
             Value::ZeroExtend(ZeroExtend(a, s)) => write!(f, "zext({}, {s})", a.as_ref()),
             Value::SignExtend(SignExtend(a, s)) => write!(f, "sext({}, {s})", a.as_ref()),
@@ -2799,8 +2810,8 @@ impl std::fmt::LowerHex for Value {
                 write!(f, "s>>")?;
                 fmt_operand_hex(f, b.as_ref())
             }
-            Value::Load(Load(a, _)) => {
-                write!(f, "Load({:x})", a.as_ref())
+            Value::Load(Load(a, size, space)) => {
+                write!(f, "*[{space:x}]{:x}:{size:x}", a.as_ref())
             }
             Value::ZeroExtend(ZeroExtend(a, s)) => {
                 write!(f, "zext({:x}, {s})", a.as_ref())

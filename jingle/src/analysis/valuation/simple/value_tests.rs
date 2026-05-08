@@ -625,7 +625,7 @@ fn substitute_bool_nodes_and_simplifies() {
 
 #[test]
 fn load_top_propagation() {
-    let result = Value::load(Value::Top, 8).simplify();
+    let result = Value::load(Value::Top, 8, 1).simplify();
     assert_ne!(result, Value::Top);
 }
 
@@ -633,7 +633,7 @@ fn load_top_propagation() {
 fn load_simplifies_child() {
     // load(5 + 3)  =>  Load(const_8, _)
     let child = Value::const_(5, 8) + Value::const_(3, 8);
-    let result = Value::load(child, 8).simplify();
+    let result = Value::load(child, 8, 1).simplify();
     let load = result.as_load().expect("expected Load");
     assert_eq!(load.0.as_ref().as_const_value(), Some(8));
 }
@@ -641,7 +641,7 @@ fn load_simplifies_child() {
 #[test]
 fn load_preserves_size() {
     let child = Value::entry(vn_a());
-    let node = Value::Load(Load(Intern::new(child), 4));
+    let node = Value::Load(Load(Intern::new(child), 4, 1));
     let result = node.simplify();
     let load = result.as_load().expect("expected Load");
     assert_eq!(load.1, 4);
