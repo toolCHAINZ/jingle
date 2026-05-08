@@ -179,9 +179,9 @@ impl ValuationSet {
         for (sym_expr, value) in &self.indirect_writes {
             let substituted_key = match sym_expr {
                 // in practice, this will always be hit
-                Value::Load(Load(ptr, size)) => {
+                Value::Load(Load(ptr, size, space)) => {
                     let sub_ptr = ptr.substitute(context);
-                    Value::Load(Load(Intern::new(sub_ptr), *size))
+                    Value::Load(Load(Intern::new(sub_ptr), *size, *space))
                 }
                 a => a.substitute(context),
             };
@@ -813,6 +813,7 @@ mod tests {
         let load_key = Value::Load(crate::analysis::valuation::simple::value::Load(
             internment::Intern::new(Value::const_(100, 8)),
             8,
+            1,
         ));
         valuation
             .indirect_writes
@@ -958,6 +959,7 @@ mod tests {
         let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
             internment::Intern::new(rsp_plus_4.clone()),
             8,
+            1,
         ));
 
         let mut val1 = ValuationSet::new();
@@ -980,6 +982,7 @@ mod tests {
         let expected_key = Value::Load(crate::analysis::valuation::simple::value::Load(
             internment::Intern::new(Value::const_(0x1004, 8)),
             8,
+            1,
         ));
 
         assert_eq!(
@@ -997,6 +1000,7 @@ mod tests {
         let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
             internment::Intern::new(Value::const_(0x1000, 8)),
             8,
+            1,
         ));
 
         let mut val1 = ValuationSet::new();

@@ -104,7 +104,11 @@ impl ValuationState {
                 let val = Value::from_varnode_or_entry(self, input);
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 let data_size = input.size();
-                let loc = Value::Load(Load(Intern::new(pv.simplify()), data_size));
+                let loc = Value::Load(Load(
+                    Intern::new(pv.simplify()),
+                    data_size,
+                    output.pointer_space_index() as u8,
+                ));
                 new_state.valuation.add(loc, val);
             }
 
@@ -260,7 +264,11 @@ impl ValuationState {
                 let ptr = &input.pointer_location();
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    let load_expr = Value::Load(Load(Intern::new(pv.simplify()), output_vn.size()));
+                    let load_expr = Value::Load(Load(
+                        Intern::new(pv.simplify()),
+                        output_vn.size(),
+                        input.pointer_space_index() as u8,
+                    ));
                     if let Some(v) = self.valuation.indirect_writes.get(&load_expr) {
                         new_state.valuation.add(output_vn, v.clone());
                     } else {
