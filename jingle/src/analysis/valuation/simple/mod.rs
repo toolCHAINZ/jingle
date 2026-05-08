@@ -459,6 +459,11 @@ impl ValuationState {
                     }
                 }
             }
+            PcodeOperation::CallOther {
+                output: Some(a), ..
+            } => {
+                new_state.valuation.add(a, Value::Top);
+            }
             _ => {}
         }
 
