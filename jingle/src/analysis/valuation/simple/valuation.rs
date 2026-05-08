@@ -336,7 +336,9 @@ impl ValuationSet {
     /// `VarNode` for direct locations or a `Value` for indirect locations) and any
     /// `value` that can be converted into a `Value`.
     ///
-    /// Values are simplified before insertion to keep stored representations normalized.
+    /// This is the single point where values are simplified before insertion.
+    /// Callers must **not** pre-simplify values passed to this method; doing so
+    /// causes redundant intern-arena acquisitions with no benefit.
     pub fn add<L, V>(&mut self, loc: L, value: V)
     where
         L: Into<Location>,

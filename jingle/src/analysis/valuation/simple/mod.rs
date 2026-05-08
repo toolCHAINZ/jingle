@@ -105,7 +105,7 @@ impl ValuationState {
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 let data_size = input.size();
                 let loc = Value::Load(Load(Intern::new(pv.simplify()), data_size));
-                new_state.valuation.add(loc, val.simplify());
+                new_state.valuation.add(loc, val);
             }
 
             // Copy
@@ -116,7 +116,7 @@ impl ValuationState {
                     Value::from_varnode_or_entry(self, input)
                 };
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, result.simplify());
+                    new_state.valuation.add(output_vn, result);
                 }
             }
 
@@ -124,7 +124,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a + b).simplify());
+                    new_state.valuation.add(output_vn, a + b);
                 }
             }
 
@@ -132,7 +132,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a - b).simplify());
+                    new_state.valuation.add(output_vn, a - b);
                 }
             }
 
@@ -140,7 +140,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a ^ b).simplify());
+                    new_state.valuation.add(output_vn, a ^ b);
                 }
             }
 
@@ -148,7 +148,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a * b).simplify());
+                    new_state.valuation.add(output_vn, a * b);
                 }
             }
 
@@ -156,7 +156,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a | b).simplify());
+                    new_state.valuation.add(output_vn, a | b);
                 }
             }
 
@@ -164,16 +164,14 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a & b).simplify());
+                    new_state.valuation.add(output_vn, a & b);
                 }
             }
 
             PcodeOperation::BoolNegate { input, .. } => {
                 let a = Value::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::bool_negate(a).simplify());
+                    new_state.valuation.add(output_vn, Value::bool_negate(a));
                 }
             }
 
@@ -181,9 +179,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::bool_and(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::bool_and(a, b));
                 }
             }
 
@@ -191,9 +187,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::bool_or(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::bool_or(a, b));
                 }
             }
 
@@ -201,9 +195,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::bool_xor(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::bool_xor(a, b));
                 }
             }
 
@@ -217,7 +209,7 @@ impl ValuationState {
                         Intern::new(b),
                         s,
                     ));
-                    new_state.valuation.add(output_vn, shift_expr.simplify());
+                    new_state.valuation.add(output_vn, shift_expr);
                 }
             }
 
@@ -231,7 +223,7 @@ impl ValuationState {
                         Intern::new(b),
                         s,
                     ));
-                    new_state.valuation.add(output_vn, shift_expr.simplify());
+                    new_state.valuation.add(output_vn, shift_expr);
                 }
             }
 
@@ -245,7 +237,7 @@ impl ValuationState {
                         Intern::new(b),
                         s,
                     ));
-                    new_state.valuation.add(output_vn, shift_expr.simplify());
+                    new_state.valuation.add(output_vn, shift_expr);
                 }
             }
 
@@ -253,16 +245,14 @@ impl ValuationState {
                 let a = Value::const_(0, input.size());
                 let b = Value::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, (a - b).simplify());
+                    new_state.valuation.add(output_vn, a - b);
                 }
             }
 
             PcodeOperation::Int2Comp { input, .. } => {
                 let a = Value::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_2comp(a).simplify());
+                    new_state.valuation.add(output_vn, Value::int_2comp(a));
                 }
             }
 
@@ -285,7 +275,7 @@ impl ValuationState {
                     let out_size = output_vn.size();
                     new_state
                         .valuation
-                        .add(output_vn, Value::zero_extend(v, out_size).simplify());
+                        .add(output_vn, Value::zero_extend(v, out_size));
                 }
             }
 
@@ -295,7 +285,7 @@ impl ValuationState {
                     let out_size = output_vn.size();
                     new_state
                         .valuation
-                        .add(output_vn, Value::sign_extend(v, out_size).simplify());
+                        .add(output_vn, Value::sign_extend(v, out_size));
                 }
             }
 
@@ -304,10 +294,9 @@ impl ValuationState {
                 let byte_offset = input1.offset() as usize;
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let out_size = output_vn.size();
-                    new_state.valuation.add(
-                        output_vn,
-                        Value::extract(v, byte_offset, out_size).simplify(),
-                    );
+                    new_state
+                        .valuation
+                        .add(output_vn, Value::extract(v, byte_offset, out_size));
                 }
             }
 
@@ -315,9 +304,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_equal(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::int_equal(a, b));
                 }
             }
 
@@ -325,9 +312,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_sless(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::int_sless(a, b));
                 }
             }
 
@@ -335,18 +320,14 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_less(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::int_less(a, b));
                 }
             }
 
             PcodeOperation::PopCount { input, .. } => {
                 let a = Value::from_varnode_or_entry(self, input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::popcount(a).simplify());
+                    new_state.valuation.add(output_vn, Value::popcount(a));
                 }
             }
 
@@ -356,7 +337,7 @@ impl ValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
-                        .add(output_vn, Value::int_not_equal(a, b).simplify());
+                        .add(output_vn, Value::int_not_equal(a, b));
                 }
             }
 
@@ -366,7 +347,7 @@ impl ValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
-                        .add(output_vn, Value::int_less_equal(a, b).simplify());
+                        .add(output_vn, Value::int_less_equal(a, b));
                 }
             }
 
@@ -376,7 +357,7 @@ impl ValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
-                        .add(output_vn, Value::int_sless_equal(a, b).simplify());
+                        .add(output_vn, Value::int_sless_equal(a, b));
                 }
             }
 
@@ -384,9 +365,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_carry(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::int_carry(a, b));
                 }
             }
 
@@ -394,9 +373,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_scarry(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::int_scarry(a, b));
                 }
             }
 
@@ -404,9 +381,7 @@ impl ValuationState {
                 let a = Value::from_varnode_or_entry(self, input0);
                 let b = Value::from_varnode_or_entry(self, input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state
-                        .valuation
-                        .add(output_vn, Value::int_sborrow(a, b).simplify());
+                    new_state.valuation.add(output_vn, Value::int_sborrow(a, b));
                 }
             }
 
@@ -545,7 +520,7 @@ impl JoinSemiLattice for ValuationState {
                         MergeBehavior::Choice => {
                             let entry = Value::from_varnode_or_entry(self, key);
                             let choice = Value::choice(entry, other_val.clone());
-                            self.valuation.add(*key, choice.simplify());
+                            self.valuation.add(*key, choice);
                         }
                         MergeBehavior::Top => {
                             // If the other state has a direct write that we don't, we have to assume it could be anything.
