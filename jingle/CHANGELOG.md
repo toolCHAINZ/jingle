@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.27](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.26...jingle-v0.6.27) - 2026-05-12
+
+### Fixed
+
+- prevent panic on wrapping subtraction ([#274](https://github.com/toolCHAINZ/jingle/pull/274))
+
 ## [0.6.26](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.25...jingle-v0.6.26) - 2026-05-08
 
 ### Fixed
