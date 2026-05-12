@@ -1349,7 +1349,8 @@ impl Simplify for SubExpr {
                 return left;
             }
             Some(a) if a < 0 => {
-                let new_const = Value::make_const(a.wrapping_neg(), Value::derive_size_from(&left) as u32);
+                let new_const =
+                    Value::make_const(a.wrapping_neg(), Value::derive_size_from(&left) as u32);
                 let size = left.size();
                 let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
                 return add;
