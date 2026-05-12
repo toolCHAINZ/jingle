@@ -1300,7 +1300,7 @@ impl Simplify for AddExpr {
 
                     // If res is negative, create Add instead of Sub to avoid infinite loop
                     if res < 0 {
-                        let new_const = Value::make_const(-res, size as u32);
+                        let new_const = Value::make_const(res.wrapping_neg(), size as u32);
                         return AddExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
                         let new_const = Value::make_const(res, size as u32);
@@ -1349,7 +1349,8 @@ impl Simplify for SubExpr {
                 return left;
             }
             Some(a) if a < 0 => {
-                let new_const = Value::make_const(-a, Value::derive_size_from(&left) as u32);
+                let new_const =
+                    Value::make_const(a.wrapping_neg(), Value::derive_size_from(&left) as u32);
                 let size = left.size();
                 let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
                 return add;
@@ -1374,7 +1375,7 @@ impl Simplify for SubExpr {
 
                     // res = a - b (net constant); positive → Add, negative → Sub with -res
                     if res < 0 {
-                        let new_const = Value::make_const(-res, size as u32);
+                        let new_const = Value::make_const(res.wrapping_neg(), size as u32);
                         return SubExpr(*expr, Intern::new(new_const), size).simplify();
                     } else {
                         let new_const = Value::make_const(res, size as u32);
