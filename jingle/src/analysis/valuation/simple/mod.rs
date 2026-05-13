@@ -447,18 +447,7 @@ impl ValuationState {
                     new_state.valuation.direct_writes.remove(k);
                 }
             }
-            PcodeOperation::Call { call_info, .. } => {
-                if let Some(a) = call_info.iter().flat_map(|a| a.extrapop).next() {
-                    if let Some(stack) = self.arch_info.stack_pointer() {
-                        let stack_value = Value::from_varnode_or_entry(self, &stack);
-                        let shift_vn = VarNode::new_const(a as u64, stack.size());
-
-                        new_state
-                            .valuation
-                            .add(stack, stack_value + Value::const_from_varnode(shift_vn));
-                    }
-                }
-            }
+            PcodeOperation::Call { .. } => {}
             PcodeOperation::CallOther {
                 output: Some(a), ..
             } => {
