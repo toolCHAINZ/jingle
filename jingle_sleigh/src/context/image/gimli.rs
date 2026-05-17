@@ -192,10 +192,8 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
         let Some(vn_end) = vn.offset().checked_add(vn.size() as u64) else {
             return false;
         };
-        self.sections().any(|s| {
-            s.address() <= vn.offset()
-                && s.address().saturating_add(s.size()) >= vn_end
-        })
+        self.sections()
+            .any(|s| s.address() <= vn.offset() && s.address().saturating_add(s.size()) >= vn_end)
     }
 }
 
