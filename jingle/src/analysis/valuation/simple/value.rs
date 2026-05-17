@@ -2883,6 +2883,16 @@ impl Value {
             Value::const_from_varnode(*vn)
         } else if let Some(v) = state.valuation.direct_writes.get(vn) {
             v.clone()
+        } else if let Some((wider_vn, wider_val)) = state
+            .valuation
+            .direct_writes
+            .items()
+            .find(|(w, _)| w.covers(vn) && *w != vn)
+        {
+            // A wider register covers this varnode (e.g. RAX was written after EAX was evicted by
+            // the write). Emit an Extract so simplify() can reduce extract(zext(x, 8), 0, 4) → x.
+            let byte_offset = (vn.offset() - wider_vn.offset()) as usize;
+            Value::extract(wider_val.clone(), byte_offset, vn.size())
         } else {
             Value::Entry(Entry(*vn))
         }

@@ -704,4 +704,65 @@ mod tests {
             Value::int_not_equal(Value::entry(reg(0x30, 8)), Value::entry(reg(0x40, 8))).simplify()
         );
     }
+
+    #[test]
+    fn transfer_read_sub_register_after_wider_zext_write() {
+        // EAX is written, then RAX = INT_ZEXT EAX (evicts EAX), then ZF = (EAX == 0).
+        // ZF must reflect the computed EAX value, not Entry(EAX).
+        let mut state = ValuationState::new(test_arch());
+        let eax = reg(0x0, 4);
+        let rax = reg(0x0, 8);
+        let zf = reg(0x100, 1);
+        let src = reg(0x200, 4);
+
+        state
+            .valuation
+            .add(eax, Value::entry(src) + Value::const_(1, 4));
+
+        // RAX = INT_ZEXT EAX — this evicts EAX from direct_writes
+        state = state.transfer_impl(&PcodeOperation::IntZExt {
+            input: eax,
+            output: rax,
+        });
+        assert!(
+            state.get_value(&eax).is_none(),
+            "EAX should be evicted after RAX write"
+        );
+
+        // ZF = (EAX == 0)
+        state = state.transfer_impl(&PcodeOperation::IntEqual {
+            output: zf,
+            input0: eax,
+            input1: VarNode::new_const(0, 4),
+        });
+
+        let expected =
+            Value::int_equal(Value::entry(src) + Value::const_(1, 4), Value::const_(0, 4))
+                .simplify();
+        assert_eq!(*state.get_value(&zf).expect("ZF should be set"), expected);
+    }
+
+    #[test]
+    fn transfer_read_sub_register_nonzero_byte_offset() {
+        // Write a 4-byte register at offset 0, then read the upper 2 bytes (offset 2).
+        // The result should be extract(wider_val, 2, 2), not Entry(upper).
+        let mut state = ValuationState::new(test_arch());
+        let wide = reg(0x0, 4);
+        let upper = reg(0x2, 2); // bytes [2..4] of wide
+        let out = reg(0x100, 1);
+        let src = reg(0x200, 4);
+
+        state.valuation.add(wide, Value::entry(src));
+
+        state = state.transfer_impl(&PcodeOperation::IntEqual {
+            output: out,
+            input0: upper,
+            input1: VarNode::new_const(0, 2),
+        });
+
+        let expected =
+            Value::int_equal(Value::extract(Value::entry(src), 2, 2), Value::const_(0, 2))
+                .simplify();
+        assert_eq!(*state.get_value(&out).expect("out should be set"), expected);
+    }
 }
