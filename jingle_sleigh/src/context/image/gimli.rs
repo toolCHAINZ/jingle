@@ -108,13 +108,15 @@ impl SleighImageCore for OwnedFile {
         let mut written = 0;
         output.fill(0);
         let output_start_addr = vn.offset() as usize;
-        let output_end_addr = output_start_addr + vn.size();
+        let Some(output_end_addr) = output_start_addr.checked_add(vn.size()) else {
+            return 0;
+        };
         if let Some(x) = self.image_sections().filter(|s| s.perms.exec).find(|s| {
             output_start_addr >= s.base_address
-                && output_start_addr < (s.base_address + s.data.len())
+                && output_start_addr < s.base_address.saturating_add(s.data.len())
         }) {
             let input_start_addr = x.base_address;
-            let input_end_addr = input_start_addr + x.data.len();
+            let input_end_addr = input_start_addr.saturating_add(x.data.len());
             let start_addr = max(input_start_addr, output_start_addr);
             let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
             if end_addr > start_addr {
@@ -132,9 +134,12 @@ impl SleighImageCore for OwnedFile {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
+        let Some(vn_end) = (vn.offset() as usize).checked_add(vn.size()) else {
+            return false;
+        };
         self.image_sections().filter(|s| s.perms.exec).any(|s| {
             s.base_address <= vn.offset() as usize
-                && (s.base_address + s.data.len()) >= (vn.offset() as usize + vn.size())
+                && s.base_address.saturating_add(s.data.len()) >= vn_end
         })
     }
 }
@@ -156,14 +161,16 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
         let mut written = 0;
         output.fill(0);
         let output_start_addr = vn.offset() as usize;
-        let output_end_addr = output_start_addr + vn.size();
+        let Some(output_end_addr) = output_start_addr.checked_add(vn.size()) else {
+            return 0;
+        };
         if let Some(x) = self.sections().find(|s| {
             output_start_addr >= s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize
         }) {
             if let Ok(data) = x.data() {
                 let input_start_addr = x.address() as usize;
-                let input_end_addr = input_start_addr + data.len();
+                let input_end_addr = input_start_addr.saturating_add(data.len());
                 let start_addr = max(input_start_addr, output_start_addr);
                 let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
                 if end_addr > start_addr {
@@ -182,9 +189,12 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
     }
 
     fn has_full_range(&self, vn: &VarNode) -> bool {
+        let Some(vn_end) = vn.offset().checked_add(vn.size() as u64) else {
+            return false;
+        };
         self.sections().any(|s| {
             s.address() <= vn.offset()
-                && (s.address() + s.size()) >= (vn.offset() + vn.size() as u64)
+                && s.address().saturating_add(s.size()) >= vn_end
         })
     }
 }
