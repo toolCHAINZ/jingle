@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.11](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.10...jingle_sleigh-v0.5.11) - 2026-05-17
+
+### Other
+
+- Fix image load wrapping add ([#280](https://github.com/toolCHAINZ/jingle/pull/280))
+
 ## [0.5.10](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.9...jingle_sleigh-v0.5.10) - 2026-05-07
 
 ### Other
