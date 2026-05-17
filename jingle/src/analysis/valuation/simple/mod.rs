@@ -736,11 +736,9 @@ mod tests {
             input1: VarNode::new_const(0, 4),
         });
 
-        let expected = Value::int_equal(
-            Value::entry(src) + Value::const_(1, 4),
-            Value::const_(0, 4),
-        )
-        .simplify();
+        let expected =
+            Value::int_equal(Value::entry(src) + Value::const_(1, 4), Value::const_(0, 4))
+                .simplify();
         assert_eq!(*state.get_value(&zf).expect("ZF should be set"), expected);
     }
 
@@ -762,11 +760,9 @@ mod tests {
             input1: VarNode::new_const(0, 2),
         });
 
-        let expected = Value::int_equal(
-            Value::extract(Value::entry(src), 2, 2),
-            Value::const_(0, 2),
-        )
-        .simplify();
+        let expected =
+            Value::int_equal(Value::extract(Value::entry(src), 2, 2), Value::const_(0, 2))
+                .simplify();
         assert_eq!(*state.get_value(&out).expect("out should be set"), expected);
     }
 }
