@@ -81,12 +81,18 @@ impl<'a> ImageFFI<'a> {
         if addr.space_index() != self.space_index as usize {
             return 0;
         }
+        if addr.offset() < self.base_offset {
+            return 0;
+        }
         let adjusted = self.adjust_varnode_vma(&addr);
         self.provider.load(&adjusted, out)
     }
 
     pub(crate) fn has_range(&self, vn: &VarNode) -> bool {
         if vn.space_index() != self.space_index as usize {
+            return false;
+        }
+        if vn.offset() < self.base_offset {
             return false;
         }
         self.provider.has_full_range(&self.adjust_varnode_vma(vn))
