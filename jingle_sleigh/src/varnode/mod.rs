@@ -194,7 +194,7 @@ impl From<&VarNode> for Range<usize> {
     fn from(value: &VarNode) -> Self {
         Range {
             start: value.offset as usize,
-            end: value.offset as usize + value.size,
+            end: (value.offset as usize).saturating_add(value.size()),
         }
     }
 }
