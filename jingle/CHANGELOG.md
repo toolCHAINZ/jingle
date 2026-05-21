@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.30](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.29...jingle-v0.6.30) - 2026-05-21
+
+### Fixed
+
+- rewrite maybe-written values to top on merge ([#283](https://github.com/toolCHAINZ/jingle/pull/283))
+- use i64 for offset math ([#281](https://github.com/toolCHAINZ/jingle/pull/281))
+
 ## [0.6.29](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.28...jingle-v0.6.29) - 2026-05-17
 
 ### Fixed
