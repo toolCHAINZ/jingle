@@ -785,7 +785,9 @@ mod tests {
 
         let mut self_state = ValuationState::new_with_behavior(arch.clone(), MergeBehavior::Top);
         let mut other_state = ValuationState::new_with_behavior(arch, MergeBehavior::Top);
-        other_state.valuation.add(load_key.clone(), Value::entry(rax));
+        other_state
+            .valuation
+            .add(load_key.clone(), Value::entry(rax));
 
         self_state.join(&other_state);
 
