@@ -130,10 +130,10 @@ impl Offset {
         if self.base_vn() != other.base_vn() {
             return false;
         }
-        let self_start = self.offset().as_ref().offset();
-        let self_end = self_start + self.offset().as_ref().size() as u64;
-        let other_start = other.offset().as_ref().offset();
-        let other_end = other_start + other.offset().as_ref().size() as u64;
+        let self_start = self.offset().as_ref().offset() as i64;
+        let self_end = self_start + self.offset().as_ref().size() as i64;
+        let other_start = other.offset().as_ref().offset() as i64;
+        let other_end = other_start + other.offset().as_ref().size() as i64;
 
         // Check if the ranges [self_start, self_end) and [other_start, other_end) overlap
         !(self_end <= other_start || other_end <= self_start)
