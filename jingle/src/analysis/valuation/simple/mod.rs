@@ -552,9 +552,16 @@ impl JoinSemiLattice for ValuationState {
                         }
                     }
                 }
-                None => {
-                    self.valuation.add(key.clone(), other_val.clone());
-                }
+                None => match self.merge_behavior {
+                    MergeBehavior::Choice => {
+                        let choice = Value::choice(key.clone(), other_val.clone());
+                        self.valuation.add(key.clone(), choice);
+                    }
+                    MergeBehavior::Top => {
+                        // One branch writes, the other doesn't — result is unknown.
+                        self.valuation.add(key.clone(), Value::Top);
+                    }
+                },
             }
         }
     }
@@ -764,5 +771,58 @@ mod tests {
             Value::int_equal(Value::extract(Value::entry(src), 2, 2), Value::const_(0, 2))
                 .simplify();
         assert_eq!(*state.get_value(&out).expect("out should be set"), expected);
+    }
+
+    #[test]
+    fn join_indirect_write_missing_in_self_top_behavior_becomes_top() {
+        // One branch writes RAX to *[addr]:8; the other branch writes nothing there.
+        // With MergeBehavior::Top, the merged result should be Top.
+        let arch = test_arch();
+        let addr_reg = reg(0x1000, 8);
+        let rax = reg(0x2000, 8);
+
+        let load_key = Value::load(Value::entry(addr_reg), 8, 1);
+
+        let mut self_state = ValuationState::new_with_behavior(arch.clone(), MergeBehavior::Top);
+        let mut other_state = ValuationState::new_with_behavior(arch, MergeBehavior::Top);
+        other_state
+            .valuation
+            .add(load_key.clone(), Value::entry(rax));
+
+        self_state.join(&other_state);
+
+        assert_eq!(
+            self_state.valuation.indirect_writes.get(&load_key),
+            Some(&Value::Top),
+        );
+    }
+
+    #[test]
+    fn join_indirect_write_missing_in_self_choice_behavior_becomes_choice() {
+        // One branch writes a constant to *[addr]:8; the other branch writes nothing there.
+        // With MergeBehavior::Choice, the merged result should be Choice(load_key, written_value).
+        let arch = test_arch();
+        let addr_reg = reg(0x1000, 8);
+
+        let load_key = Value::load(Value::entry(addr_reg), 8, 1);
+        let written = Value::const_(0x42, 8);
+
+        let mut self_state = ValuationState::new_with_behavior(arch.clone(), MergeBehavior::Choice);
+        let mut other_state = ValuationState::new_with_behavior(arch, MergeBehavior::Choice);
+        other_state.valuation.add(load_key.clone(), written.clone());
+
+        self_state.join(&other_state);
+
+        let result = self_state
+            .valuation
+            .indirect_writes
+            .get(&load_key)
+            .expect("should have an entry after join");
+        let choice = result.as_choice().expect("expected a Choice node");
+        assert!(
+            (choice.0.as_ref() == &load_key && choice.1.as_ref() == &written)
+                || (choice.1.as_ref() == &load_key && choice.0.as_ref() == &written),
+            "expected Choice(load_key, written) in any order, got {result:?}",
+        );
     }
 }
