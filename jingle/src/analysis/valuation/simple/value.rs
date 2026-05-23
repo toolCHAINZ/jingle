@@ -288,6 +288,18 @@ impl AsRef<VarNode> for Entry {
     }
 }
 
+impl From<VarNode> for Entry {
+    fn from(vn: VarNode) -> Self {
+        Self(vn)
+    }
+}
+
+impl Bind {
+    pub fn from_id_size(id: u64, size: usize) -> Self {
+        Self(id, size)
+    }
+}
+
 /// Symbolic valuation built from varnodes and constants (constants are interned VarNodes).
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Value {
