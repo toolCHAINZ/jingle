@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.31](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.30...jingle-v0.6.31) - 2026-05-23
+
+### Added
+
+- allow accessing location state as mut ([#284](https://github.com/toolCHAINZ/jingle/pull/284))
+
 ## [0.6.30](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.29...jingle-v0.6.30) - 2026-05-21
 
 ### Fixed
