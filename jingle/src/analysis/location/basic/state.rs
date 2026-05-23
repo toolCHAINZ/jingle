@@ -66,6 +66,10 @@ impl BasicLocationState {
     pub fn inner(&self) -> &PcodeAddressLattice {
         &self.inner
     }
+
+    pub fn inner_mut(&mut self) -> &mut PcodeAddressLattice {
+        &mut self.inner
+    }
 }
 
 impl IntoState<BasicLocationAnalysis> for ConcretePcodeAddress {
