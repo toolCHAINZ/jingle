@@ -2,9 +2,9 @@ use crate::{
     analysis::{cpa::lattice::JoinSemiLattice, valuation::ValuationState},
     display::JingleDisplay,
 };
-use internment::Intern;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::{
     borrow::Borrow,
     ops::{BitAnd, BitXor, Deref},
@@ -22,44 +22,45 @@ static BIND_COUNTER: AtomicU64 = AtomicU64::new(0);
 mod sealed {
     pub trait Sealed {}
     impl Sealed for super::Value {}
-    impl Sealed for internment::Intern<super::Value> {}
+    impl Sealed for std::sync::Arc<super::Value> {}
     impl Sealed for &super::Value {}
-    impl Sealed for &internment::Intern<super::Value> {}
+    impl Sealed for &std::sync::Arc<super::Value> {}
 }
 
 /// Anything that can be used as an operand to a `Value` constructor.
 ///
 /// Implemented for:
-/// - `Value` — takes ownership and interns
-/// - `Intern<Value>` — already interned; identity conversion (free copy)
-/// - `&Value` — clones and interns
+/// - `Value` — takes ownership and wraps in `Arc`
+/// - `Arc<Value>` — already wrapped; identity conversion (cheap clone)
+/// - `&Value` — clones and wraps in `Arc`
+/// - `&Arc<Value>` — increments reference count
 ///
 /// This trait is sealed; external implementations are not supported.
-pub trait IntoInternedValue: sealed::Sealed {
-    fn into_interned(self) -> Intern<Value>;
+pub trait IntoArcValue: sealed::Sealed {
+    fn into_arc(self) -> Arc<Value>;
 }
 
-impl IntoInternedValue for Value {
-    fn into_interned(self) -> Intern<Value> {
-        Intern::new(self)
+impl IntoArcValue for Value {
+    fn into_arc(self) -> Arc<Value> {
+        Arc::new(self)
     }
 }
 
-impl IntoInternedValue for Intern<Value> {
-    fn into_interned(self) -> Intern<Value> {
+impl IntoArcValue for Arc<Value> {
+    fn into_arc(self) -> Arc<Value> {
         self
     }
 }
 
-impl IntoInternedValue for &Value {
-    fn into_interned(self) -> Intern<Value> {
-        Intern::new(self.clone())
+impl IntoArcValue for &Value {
+    fn into_arc(self) -> Arc<Value> {
+        Arc::new(self.clone())
     }
 }
 
-impl IntoInternedValue for &Intern<Value> {
-    fn into_interned(self) -> Intern<Value> {
-        *self
+impl IntoArcValue for &Arc<Value> {
+    fn into_arc(self) -> Arc<Value> {
+        Arc::clone(self)
     }
 }
 
@@ -68,7 +69,7 @@ trait Simplify {
 }
 
 /// An entry value of a direct location
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Entry(VarNode);
 
 impl Deref for Entry {
@@ -80,7 +81,7 @@ impl Deref for Entry {
 }
 
 /// A constant value
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Const(VarNode);
 
 impl From<VarNode> for Const {
@@ -106,23 +107,20 @@ impl Deref for Const {
 ///
 /// For example, `Offset(r1, 4:8)` refers to the range of 8 bytes that begins
 /// 4 bytes after the address pointed to by r1.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Offset(Intern<Entry>, Intern<Const>);
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Offset(Entry, Const);
 
 impl Offset {
     pub fn new(base: impl Borrow<Entry>, offset: impl Borrow<Const>) -> Self {
-        Self(
-            Intern::new(base.borrow().clone()),
-            Intern::new(offset.borrow().clone()),
-        )
+        Self(base.borrow().clone(), offset.borrow().clone())
     }
 
     pub fn base_vn(&self) -> &Entry {
-        self.0.as_ref()
+        &self.0
     }
 
     pub fn offset(&self) -> &Const {
-        self.1.as_ref()
+        &self.1
     }
 
     pub fn overlaps(&self, other: &Self) -> bool {
@@ -142,119 +140,119 @@ impl Offset {
 
 /// A multiplication expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct MulExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct MulExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// An addition expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct AddExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct AddExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A subtraction expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SubExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct SubExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// An expression representing two possible values (abstract interpretation choice)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Choice(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct Choice(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A bitwise XOR expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct XorExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct XorExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A bitwise OR expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct OrExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct OrExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A bitwise AND expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct AndExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct AndExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A boolean negate expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct BoolNegateExpr(pub Intern<Value>);
+pub struct BoolNegateExpr(pub Arc<Value>);
 
 /// A boolean AND expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct BoolAndExpr(pub Intern<Value>, pub Intern<Value>);
+pub struct BoolAndExpr(pub Arc<Value>, pub Arc<Value>);
 
 /// A boolean OR expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct BoolOrExpr(pub Intern<Value>, pub Intern<Value>);
+pub struct BoolOrExpr(pub Arc<Value>, pub Arc<Value>);
 
 /// A boolean XOR expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct BoolXorExpr(pub Intern<Value>, pub Intern<Value>);
+pub struct BoolXorExpr(pub Arc<Value>, pub Arc<Value>);
 
 /// A left shift expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntLeftShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct IntLeftShiftExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// An unsigned right shift expression (logical shift)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntRightShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct IntRightShiftExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A signed right shift expression (arithmetic shift)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntSignedRightShiftExpr(pub Intern<Value>, pub Intern<Value>, pub usize);
+pub struct IntSignedRightShiftExpr(pub Arc<Value>, pub Arc<Value>, pub usize);
 
 /// A signed comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntSLess(pub Intern<Value>, pub Intern<Value>);
+pub struct IntSLess(pub Arc<Value>, pub Arc<Value>);
 
 /// An equality comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntEqual(pub Intern<Value>, pub Intern<Value>);
+pub struct IntEqual(pub Arc<Value>, pub Arc<Value>);
 
 /// An unsigned comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntLess(pub Intern<Value>, pub Intern<Value>);
+pub struct IntLess(pub Arc<Value>, pub Arc<Value>);
 
 /// A PopCount operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct PopCount(pub Intern<Value>);
+pub struct PopCount(pub Arc<Value>);
 
 /// A two's complement operator (INT_2COMP): computes -x = ~x + 1
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Int2CompExpr(pub Intern<Value>, pub usize);
+pub struct Int2CompExpr(pub Arc<Value>, pub usize);
 
 /// An inequality comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntNotEqual(pub Intern<Value>, pub Intern<Value>);
+pub struct IntNotEqual(pub Arc<Value>, pub Arc<Value>);
 
 /// An unsigned less-than-or-equal comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntLessEqual(pub Intern<Value>, pub Intern<Value>);
+pub struct IntLessEqual(pub Arc<Value>, pub Arc<Value>);
 
 /// A signed less-than-or-equal comparison operator
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntSLessEqual(pub Intern<Value>, pub Intern<Value>);
+pub struct IntSLessEqual(pub Arc<Value>, pub Arc<Value>);
 
 /// Unsigned addition carry-out
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntCarry(pub Intern<Value>, pub Intern<Value>);
+pub struct IntCarry(pub Arc<Value>, pub Arc<Value>);
 
 /// Signed addition overflow (SCARRY)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntSCarry(pub Intern<Value>, pub Intern<Value>);
+pub struct IntSCarry(pub Arc<Value>, pub Arc<Value>);
 
 /// Signed subtraction overflow (SBORROW)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct IntSBorrow(pub Intern<Value>, pub Intern<Value>);
+pub struct IntSBorrow(pub Arc<Value>, pub Arc<Value>);
 
 /// A load of a certain size from a pointer with a certain value
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Load(pub Intern<Value>, pub usize, pub u8);
+pub struct Load(pub Arc<Value>, pub usize, pub u8);
 
 /// A zero-extension of the inner value to `output_size` bytes
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ZeroExtend(pub Intern<Value>, pub usize);
+pub struct ZeroExtend(pub Arc<Value>, pub usize);
 
 /// A sign-extension of the inner value to `output_size` bytes
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SignExtend(pub Intern<Value>, pub usize);
+pub struct SignExtend(pub Arc<Value>, pub usize);
 
 /// Extraction of `output_size` bytes from the inner value starting at `byte_offset`
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Extract(pub Intern<Value>, pub usize, pub usize);
+pub struct Extract(pub Arc<Value>, pub usize, pub usize);
 
 /// A globally-unique opaque value with an associated size in bytes.
 ///
@@ -633,7 +631,7 @@ impl Value {
         match self {
             Value::Entry(Entry(vn)) => vn.size(),
             Value::Const(vn) => vn.as_ref().size(),
-            Value::Offset(Offset(_, vn)) => vn.as_ref().0.size(),
+            Value::Offset(Offset(_, vn)) => vn.0.size(),
             Value::Mul(MulExpr(_, _, s))
             | Value::Add(AddExpr(_, _, s))
             | Value::Sub(SubExpr(_, _, s))
@@ -673,7 +671,7 @@ impl Value {
 
     /// Construct an `Entry(...)` from a `VarNode`.
     pub fn offset(vn: VarNode, offset: VarNode) -> Self {
-        Value::Offset(Offset(Intern::new(Entry(vn)), Intern::new(Const(offset))))
+        Value::Offset(Offset(Entry(vn), Const(offset)))
     }
 
     /// Construct a `Const(...)` from a raw i64 value.
@@ -703,134 +701,134 @@ impl Value {
 
     /// Construct a `Choice(...)` node from two children. Size is derived from children.
     /// This represents an abstract interpretation choice between two possible values.
-    pub fn choice(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        let left = left.into_interned();
-        let right = right.into_interned();
+    pub fn choice(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        let left = left.into_arc();
+        let right = right.into_arc();
         let s = std::cmp::max(left.size(), right.size());
         Value::Choice(Choice(left, right, s))
     }
 
     /// Construct a `Xor(...)` node from two children. Size is derived from children.
-    pub fn xor(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        let left = left.into_interned();
-        let right = right.into_interned();
+    pub fn xor(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        let left = left.into_arc();
+        let right = right.into_arc();
         let s = std::cmp::max(left.size(), right.size());
         Value::Xor(XorExpr(left, right, s))
     }
 
     /// Construct an `Or(...)` node from two children (bitwise OR). Size is derived from children.
-    pub fn or(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        let left = left.into_interned();
-        let right = right.into_interned();
+    pub fn or(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        let left = left.into_arc();
+        let right = right.into_arc();
         let s = std::cmp::max(left.size(), right.size());
         Value::Or(OrExpr(left, right, s))
     }
 
     /// Construct an `And(...)` node from two children. Size is derived from children.
-    pub fn and(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        let left = left.into_interned();
-        let right = right.into_interned();
+    pub fn and(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        let left = left.into_arc();
+        let right = right.into_arc();
         let s = std::cmp::max(left.size(), right.size());
         Value::And(AndExpr(left, right, s))
     }
 
     /// Construct a `BoolNegate(...)` node from a child.
-    pub fn bool_negate(child: impl IntoInternedValue) -> Self {
-        Value::BoolNegate(BoolNegateExpr(child.into_interned()))
+    pub fn bool_negate(child: impl IntoArcValue) -> Self {
+        Value::BoolNegate(BoolNegateExpr(child.into_arc()))
     }
 
     /// Construct a `BoolAnd(...)` node from two children.
-    pub fn bool_and(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::BoolAnd(BoolAndExpr(left.into_interned(), right.into_interned()))
+    pub fn bool_and(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::BoolAnd(BoolAndExpr(left.into_arc(), right.into_arc()))
     }
 
     /// Construct a `BoolOr(...)` node from two children.
-    pub fn bool_or(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::BoolOr(BoolOrExpr(left.into_interned(), right.into_interned()))
+    pub fn bool_or(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::BoolOr(BoolOrExpr(left.into_arc(), right.into_arc()))
     }
 
     /// Construct a `BoolXor(...)` node from two children.
-    pub fn bool_xor(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::BoolXor(BoolXorExpr(left.into_interned(), right.into_interned()))
+    pub fn bool_xor(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::BoolXor(BoolXorExpr(left.into_arc(), right.into_arc()))
     }
 
     /// Construct a `Load(...)` node from a child.
-    pub fn load(child: impl IntoInternedValue, size: usize, space: u8) -> Self {
-        let child = child.into_interned();
+    pub fn load(child: impl IntoArcValue, size: usize, space: u8) -> Self {
+        let child = child.into_arc();
         Value::Load(Load(child, size, space))
     }
 
     /// Construct an `IntEqual(...)` node from two children.
-    pub fn int_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntEqual(IntEqual(left.into_interned(), right.into_interned()))
+    pub fn int_equal(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntEqual(IntEqual(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntLess(...)` node from two children.
-    pub fn int_less(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntLess(IntLess(left.into_interned(), right.into_interned()))
+    pub fn int_less(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntLess(IntLess(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntSLess(...)` node from two children.
-    pub fn int_sless(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntSLess(IntSLess(left.into_interned(), right.into_interned()))
+    pub fn int_sless(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntSLess(IntSLess(left.into_arc(), right.into_arc()))
     }
 
     /// Construct a `PopCount(...)` node from a child.
-    pub fn popcount(child: impl IntoInternedValue) -> Self {
-        Value::PopCount(PopCount(child.into_interned()))
+    pub fn popcount(child: impl IntoArcValue) -> Self {
+        Value::PopCount(PopCount(child.into_arc()))
     }
 
     /// Construct an `Int2Comp(...)` node from a child.
-    pub fn int_2comp(child: impl IntoInternedValue) -> Self {
-        let child = child.into_interned();
+    pub fn int_2comp(child: impl IntoArcValue) -> Self {
+        let child = child.into_arc();
         let s = child.size();
         Value::Int2Comp(Int2CompExpr(child, s))
     }
 
     /// Construct an `IntNotEqual(...)` node from two children.
-    pub fn int_not_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntNotEqual(IntNotEqual(left.into_interned(), right.into_interned()))
+    pub fn int_not_equal(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntNotEqual(IntNotEqual(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntLessEqual(...)` node from two children.
-    pub fn int_less_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntLessEqual(IntLessEqual(left.into_interned(), right.into_interned()))
+    pub fn int_less_equal(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntLessEqual(IntLessEqual(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntSLessEqual(...)` node from two children.
-    pub fn int_sless_equal(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntSLessEqual(IntSLessEqual(left.into_interned(), right.into_interned()))
+    pub fn int_sless_equal(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntSLessEqual(IntSLessEqual(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntCarry(...)` node from two children.
-    pub fn int_carry(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntCarry(IntCarry(left.into_interned(), right.into_interned()))
+    pub fn int_carry(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntCarry(IntCarry(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntSCarry(...)` node from two children.
-    pub fn int_scarry(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntSCarry(IntSCarry(left.into_interned(), right.into_interned()))
+    pub fn int_scarry(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntSCarry(IntSCarry(left.into_arc(), right.into_arc()))
     }
 
     /// Construct an `IntSBorrow(...)` node from two children.
-    pub fn int_sborrow(left: impl IntoInternedValue, right: impl IntoInternedValue) -> Self {
-        Value::IntSBorrow(IntSBorrow(left.into_interned(), right.into_interned()))
+    pub fn int_sborrow(left: impl IntoArcValue, right: impl IntoArcValue) -> Self {
+        Value::IntSBorrow(IntSBorrow(left.into_arc(), right.into_arc()))
     }
 
     /// Construct a `ZeroExtend(...)` node that zero-extends `inner` to `output_size` bytes.
-    pub fn zero_extend(inner: impl IntoInternedValue, output_size: usize) -> Self {
-        Value::ZeroExtend(ZeroExtend(inner.into_interned(), output_size))
+    pub fn zero_extend(inner: impl IntoArcValue, output_size: usize) -> Self {
+        Value::ZeroExtend(ZeroExtend(inner.into_arc(), output_size))
     }
 
     /// Construct a `SignExtend(...)` node that sign-extends `inner` to `output_size` bytes.
-    pub fn sign_extend(inner: impl IntoInternedValue, output_size: usize) -> Self {
-        Value::SignExtend(SignExtend(inner.into_interned(), output_size))
+    pub fn sign_extend(inner: impl IntoArcValue, output_size: usize) -> Self {
+        Value::SignExtend(SignExtend(inner.into_arc(), output_size))
     }
 
     /// Construct an `Extract(...)` node that extracts `output_size` bytes from `inner`
     /// starting at `byte_offset`.
-    pub fn extract(inner: impl IntoInternedValue, byte_offset: usize, output_size: usize) -> Self {
-        Value::Extract(Extract(inner.into_interned(), byte_offset, output_size))
+    pub fn extract(inner: impl IntoArcValue, byte_offset: usize, output_size: usize) -> Self {
+        Value::Extract(Extract(inner.into_arc(), byte_offset, output_size))
     }
 
     // Keep the older helpers (used by some simplifications) for parity:
@@ -998,7 +996,7 @@ impl Mul for Value {
 
     fn mul(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        Value::Mul(MulExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Mul(MulExpr(Arc::new(self), Arc::new(rhs), s))
     }
 }
 
@@ -1007,7 +1005,7 @@ impl Add for Value {
 
     fn add(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        Value::Add(AddExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Add(AddExpr(Arc::new(self), Arc::new(rhs), s))
     }
 }
 
@@ -1016,7 +1014,7 @@ impl BitXor for Value {
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        Value::Xor(XorExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Xor(XorExpr(Arc::new(self), Arc::new(rhs), s))
     }
 }
 
@@ -1025,7 +1023,7 @@ impl BitAnd for Value {
 
     fn bitand(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        Value::And(AndExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::And(AndExpr(Arc::new(self), Arc::new(rhs), s))
     }
 }
 
@@ -1034,7 +1032,7 @@ impl std::ops::BitOr for Value {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        Value::Or(OrExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Or(OrExpr(Arc::new(self), Arc::new(rhs), s))
     }
 }
 
@@ -1043,7 +1041,7 @@ impl Sub for Value {
 
     fn sub(self, rhs: Self) -> Self::Output {
         let s = std::cmp::max(self.size(), rhs.size());
-        Value::Sub(SubExpr(Intern::new(self), Intern::new(rhs), s))
+        Value::Sub(SubExpr(Arc::new(self), Arc::new(rhs), s))
     }
 }
 
@@ -1092,88 +1090,80 @@ impl Value {
                     .indirect_writes
                     .get(&Value::load(&subst_ptr, *size, *space))
                     .map(|v| v.substitute(context))
-                    .unwrap_or_else(|| Value::Load(Load(Intern::new(subst_ptr), *size, *space)))
+                    .unwrap_or_else(|| Value::Load(Load(Arc::new(subst_ptr), *size, *space)))
             }
 
             // Binary operators: substitute both operands
             Value::Mul(MulExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::Mul(MulExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::Mul(MulExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::Add(AddExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::Add(AddExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::Add(AddExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::Sub(SubExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::Sub(SubExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::Sub(SubExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::Choice(Choice(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::Choice(Choice(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::Choice(Choice(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::Xor(XorExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::Xor(XorExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::Xor(XorExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::Or(OrExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::Or(OrExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::Or(OrExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::And(AndExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::And(AndExpr(Intern::new(a_subst), Intern::new(b_subst), *s))
+                Value::And(AndExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::BoolNegate(BoolNegateExpr(a)) => {
                 let a_subst = a.as_ref().substitute(context);
-                Value::BoolNegate(BoolNegateExpr(Intern::new(a_subst)))
+                Value::BoolNegate(BoolNegateExpr(Arc::new(a_subst)))
             }
             Value::BoolAnd(BoolAndExpr(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::BoolAnd(BoolAndExpr(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::BoolAnd(BoolAndExpr(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::BoolOr(BoolOrExpr(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::BoolOr(BoolOrExpr(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::BoolOr(BoolOrExpr(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::BoolXor(BoolXorExpr(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::BoolXor(BoolXorExpr(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::BoolXor(BoolXorExpr(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntLeftShift(IntLeftShiftExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntLeftShift(IntLeftShiftExpr(
-                    Intern::new(a_subst),
-                    Intern::new(b_subst),
-                    *s,
-                ))
+                Value::IntLeftShift(IntLeftShiftExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::IntRightShift(IntRightShiftExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntRightShift(IntRightShiftExpr(
-                    Intern::new(a_subst),
-                    Intern::new(b_subst),
-                    *s,
-                ))
+                Value::IntRightShift(IntRightShiftExpr(Arc::new(a_subst), Arc::new(b_subst), *s))
             }
             Value::IntSignedRightShift(IntSignedRightShiftExpr(a, b, s)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
                 Value::IntSignedRightShift(IntSignedRightShiftExpr(
-                    Intern::new(a_subst),
-                    Intern::new(b_subst),
+                    Arc::new(a_subst),
+                    Arc::new(b_subst),
                     *s,
                 ))
             }
@@ -1181,70 +1171,70 @@ impl Value {
             // Unary operators: substitute the operand
             Value::ZeroExtend(ZeroExtend(inner, size)) => {
                 let inner_subst = inner.as_ref().substitute(context);
-                Value::ZeroExtend(ZeroExtend(Intern::new(inner_subst), *size))
+                Value::ZeroExtend(ZeroExtend(Arc::new(inner_subst), *size))
             }
             Value::SignExtend(SignExtend(inner, size)) => {
                 let inner_subst = inner.as_ref().substitute(context);
-                Value::SignExtend(SignExtend(Intern::new(inner_subst), *size))
+                Value::SignExtend(SignExtend(Arc::new(inner_subst), *size))
             }
             Value::Extract(Extract(inner, offset, size)) => {
                 let inner_subst = inner.as_ref().substitute(context);
-                Value::Extract(Extract(Intern::new(inner_subst), *offset, *size))
+                Value::Extract(Extract(Arc::new(inner_subst), *offset, *size))
             }
             Value::PopCount(PopCount(inner)) => {
                 let inner_subst = inner.as_ref().substitute(context);
-                Value::PopCount(PopCount(Intern::new(inner_subst)))
+                Value::PopCount(PopCount(Arc::new(inner_subst)))
             }
             Value::Int2Comp(Int2CompExpr(inner, size)) => {
                 let inner_subst = inner.as_ref().substitute(context);
-                Value::Int2Comp(Int2CompExpr(Intern::new(inner_subst), *size))
+                Value::Int2Comp(Int2CompExpr(Arc::new(inner_subst), *size))
             }
 
             // Comparison operators: substitute both operands
             Value::IntSLess(IntSLess(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntSLess(IntSLess(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntSLess(IntSLess(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntEqual(IntEqual(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntEqual(IntEqual(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntEqual(IntEqual(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntLess(IntLess(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntLess(IntLess(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntLess(IntLess(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntNotEqual(IntNotEqual(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntNotEqual(IntNotEqual(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntNotEqual(IntNotEqual(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntLessEqual(IntLessEqual(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntLessEqual(IntLessEqual(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntLessEqual(IntLessEqual(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntSLessEqual(IntSLessEqual(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntSLessEqual(IntSLessEqual(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntSLessEqual(IntSLessEqual(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntCarry(IntCarry(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntCarry(IntCarry(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntCarry(IntCarry(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntSCarry(IntSCarry(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntSCarry(IntSCarry(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntSCarry(IntSCarry(Arc::new(a_subst), Arc::new(b_subst)))
             }
             Value::IntSBorrow(IntSBorrow(a, b)) => {
                 let a_subst = a.as_ref().substitute(context);
                 let b_subst = b.as_ref().substitute(context);
-                Value::IntSBorrow(IntSBorrow(Intern::new(a_subst), Intern::new(b_subst)))
+                Value::IntSBorrow(IntSBorrow(Arc::new(a_subst), Arc::new(b_subst)))
             }
         };
 
@@ -1255,8 +1245,8 @@ impl Value {
 
 impl Simplify for AddExpr {
     fn simplify(&self) -> Value {
-        let a_intern = self.0;
-        let b_intern = self.1;
+        let a_intern = &self.0;
+        let b_intern = &self.1;
 
         // simplify children first
         let a_s = a_intern.as_ref().simplify();
@@ -1296,7 +1286,7 @@ impl Simplify for AddExpr {
                     let size =
                         std::cmp::max(left_inner_left.as_ref().size(), inner_right_vn.size());
                     let new_const = Value::make_const(res, size as u32);
-                    return AddExpr(*left_inner_left, Intern::new(new_const), size).simplify();
+                    return AddExpr(left_inner_left.clone(), Arc::new(new_const), size).simplify();
                 }
             }
         }
@@ -1313,10 +1303,10 @@ impl Simplify for AddExpr {
                     // If res is negative, create Add instead of Sub to avoid infinite loop
                     if res < 0 {
                         let new_const = Value::make_const(res.wrapping_neg(), size as u32);
-                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                        return AddExpr(expr.clone(), Arc::new(new_const), size).simplify();
                     } else {
                         let new_const = Value::make_const(res, size as u32);
-                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                        return SubExpr(expr.clone(), Arc::new(new_const), size).simplify();
                     }
                 }
             }
@@ -1324,14 +1314,14 @@ impl Simplify for AddExpr {
 
         // default: rebuild with simplified children; size is max of children
         let s = std::cmp::max(left.size(), right.size());
-        Value::Add(AddExpr(Intern::new(left), Intern::new(right), s))
+        Value::Add(AddExpr(Arc::new(left), Arc::new(right), s))
     }
 }
 
 impl Simplify for SubExpr {
     fn simplify(&self) -> Value {
-        let a_intern = self.0;
-        let b_intern = self.1;
+        let a_intern = &self.0;
+        let b_intern = &self.1;
 
         let a_s = a_intern.as_ref().simplify();
         let b_s = b_intern.as_ref().simplify();
@@ -1364,7 +1354,7 @@ impl Simplify for SubExpr {
                 let new_const =
                     Value::make_const(a.wrapping_neg(), Value::derive_size_from(&left) as u32);
                 let size = left.size();
-                let add = AddExpr(Intern::new(left), Intern::new(new_const), size).simplify();
+                let add = AddExpr(Arc::new(left), Arc::new(new_const), size).simplify();
                 return add;
             }
             _ => {}
@@ -1388,10 +1378,10 @@ impl Simplify for SubExpr {
                     // res = a - b (net constant); positive → Add, negative → Sub with -res
                     if res < 0 {
                         let new_const = Value::make_const(res.wrapping_neg(), size as u32);
-                        return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                        return SubExpr(expr.clone(), Arc::new(new_const), size).simplify();
                     } else {
                         let new_const = Value::make_const(res, size as u32);
-                        return AddExpr(*expr, Intern::new(new_const), size).simplify();
+                        return AddExpr(expr.clone(), Arc::new(new_const), size).simplify();
                     }
                 }
             }
@@ -1406,20 +1396,20 @@ impl Simplify for SubExpr {
                     let res = a_val.wrapping_add(b_val);
                     let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
                     let new_const = Value::make_const(res, size as u32);
-                    return SubExpr(*expr, Intern::new(new_const), size).simplify();
+                    return SubExpr(expr.clone(), Arc::new(new_const), size).simplify();
                 }
             }
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        Value::Sub(SubExpr(Intern::new(left), Intern::new(right), s))
+        Value::Sub(SubExpr(Arc::new(left), Arc::new(right), s))
     }
 }
 
 impl Simplify for MulExpr {
     fn simplify(&self) -> Value {
-        let a_intern = self.0;
-        let b_intern = self.1;
+        let a_intern = &self.0;
+        let b_intern = &self.1;
 
         let a_s = a_intern.as_ref().simplify();
         let b_s = b_intern.as_ref().simplify();
@@ -1452,14 +1442,14 @@ impl Simplify for MulExpr {
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        Value::Mul(MulExpr(Intern::new(left), Intern::new(right), s))
+        Value::Mul(MulExpr(Arc::new(left), Arc::new(right), s))
     }
 }
 
 impl Simplify for Choice {
     fn simplify(&self) -> Value {
-        let a_intern = self.0;
-        let b_intern = self.1;
+        let a_intern = &self.0;
+        let b_intern = &self.1;
 
         // simplify children first
         let a_s = a_intern.as_ref().simplify();
@@ -1491,12 +1481,12 @@ impl Simplify for Choice {
         if let Value::Choice(Choice(inner_a, inner_b, _)) = &right {
             if inner_a.as_ref() == &left {
                 let inner =
-                    Value::Choice(Choice(Intern::new(left), *inner_b, right.size())).simplify();
+                    Value::Choice(Choice(Arc::new(left), inner_b.clone(), right.size())).simplify();
                 return inner;
             }
             if inner_b.as_ref() == &left {
                 let inner =
-                    Value::Choice(Choice(Intern::new(left), *inner_a, right.size())).simplify();
+                    Value::Choice(Choice(Arc::new(left), inner_a.clone(), right.size())).simplify();
                 return inner;
             }
         }
@@ -1509,56 +1499,56 @@ impl Simplify for Choice {
             // check all combinations for equal common child
             if l1.as_ref() == r1.as_ref() {
                 let inner = Value::Choice(Choice(
-                    *l2,
-                    *r2,
+                    l2.clone(),
+                    r2.clone(),
                     std::cmp::max(l2.as_ref().size(), r2.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Choice(Choice(*l1, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(l1.clone(), Arc::new(inner), s)).simplify();
             }
             if l1.as_ref() == r2.as_ref() {
                 let inner = Value::Choice(Choice(
-                    *l2,
-                    *r1,
+                    l2.clone(),
+                    r1.clone(),
                     std::cmp::max(l2.as_ref().size(), r1.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Choice(Choice(*l1, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(l1.clone(), Arc::new(inner), s)).simplify();
             }
             if l2.as_ref() == r1.as_ref() {
                 let inner = Value::Choice(Choice(
-                    *l1,
-                    *r2,
+                    l1.clone(),
+                    r2.clone(),
                     std::cmp::max(l1.as_ref().size(), r2.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Choice(Choice(*l2, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(l2.clone(), Arc::new(inner), s)).simplify();
             }
             if l2.as_ref() == r2.as_ref() {
                 let inner = Value::Choice(Choice(
-                    *l1,
-                    *r1,
+                    l1.clone(),
+                    r1.clone(),
                     std::cmp::max(l1.as_ref().size(), r1.as_ref().size()),
                 ))
                 .simplify();
                 let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Choice(Choice(*l2, Intern::new(inner), s)).simplify();
+                return Value::Choice(Choice(l2.clone(), Arc::new(inner), s)).simplify();
             }
         }
 
         // default: rebuild with simplified children
         let s = std::cmp::max(left.size(), right.size());
-        Value::Choice(Choice(Intern::new(left), Intern::new(right), s))
+        Value::Choice(Choice(Arc::new(left), Arc::new(right), s))
     }
 }
 
 impl Simplify for XorExpr {
     fn simplify(&self) -> Value {
-        let a_intern = self.0;
-        let b_intern = self.1;
+        let a_intern = &self.0;
+        let b_intern = &self.1;
 
         // simplify children first
         let a_s = a_intern.as_ref().simplify();
@@ -1594,7 +1584,7 @@ impl Simplify for XorExpr {
 
         // default: rebuild with simplified children
         let s = std::cmp::max(left.size(), right.size());
-        Value::Xor(XorExpr(Intern::new(left), Intern::new(right), s))
+        Value::Xor(XorExpr(Arc::new(left), Arc::new(right), s))
     }
 }
 
@@ -1642,7 +1632,7 @@ impl Simplify for AndExpr {
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        Value::And(AndExpr(Intern::new(left), Intern::new(right), s))
+        Value::And(AndExpr(Arc::new(left), Arc::new(right), s))
     }
 }
 
@@ -1690,7 +1680,7 @@ impl Simplify for OrExpr {
         }
 
         let s = std::cmp::max(left.size(), right.size());
-        Value::Or(OrExpr(Intern::new(left), Intern::new(right), s))
+        Value::Or(OrExpr(Arc::new(left), Arc::new(right), s))
     }
 }
 
@@ -1714,31 +1704,31 @@ impl Simplify for BoolNegateExpr {
 
         match &inner {
             Value::IntEqual(IntEqual(a, b)) => {
-                return Value::IntNotEqual(IntNotEqual(*a, *b));
+                return Value::IntNotEqual(IntNotEqual(a.clone(), b.clone()));
             }
             Value::IntNotEqual(IntNotEqual(a, b)) => {
-                return Value::IntEqual(IntEqual(*a, *b));
+                return Value::IntEqual(IntEqual(a.clone(), b.clone()));
             }
             Value::IntLess(IntLess(a, b)) => {
                 // !(a < b) == b <= a
-                return Value::IntLessEqual(IntLessEqual(*b, *a));
+                return Value::IntLessEqual(IntLessEqual(b.clone(), a.clone()));
             }
             Value::IntLessEqual(IntLessEqual(a, b)) => {
                 // !(a <= b) == b < a
-                return Value::IntLess(IntLess(*b, *a));
+                return Value::IntLess(IntLess(b.clone(), a.clone()));
             }
             Value::IntSLess(IntSLess(a, b)) => {
                 // !(a <s b) == b <=s a
-                return Value::IntSLessEqual(IntSLessEqual(*b, *a));
+                return Value::IntSLessEqual(IntSLessEqual(b.clone(), a.clone()));
             }
             Value::IntSLessEqual(IntSLessEqual(a, b)) => {
                 // !(a <=s b) == b <s a
-                return Value::IntSLess(IntSLess(*b, *a));
+                return Value::IntSLess(IntSLess(b.clone(), a.clone()));
             }
             _ => {}
         }
 
-        Value::BoolNegate(BoolNegateExpr(Intern::new(inner)))
+        Value::BoolNegate(BoolNegateExpr(Arc::new(inner)))
     }
 }
 
@@ -1771,7 +1761,7 @@ impl Simplify for BoolAndExpr {
             }
         }
 
-        Value::BoolAnd(BoolAndExpr(Intern::new(left), Intern::new(right)))
+        Value::BoolAnd(BoolAndExpr(Arc::new(left), Arc::new(right)))
     }
 }
 
@@ -1804,7 +1794,7 @@ impl Simplify for BoolOrExpr {
             return Value::bool_const(true);
         }
 
-        Value::BoolOr(BoolOrExpr(Intern::new(left), Intern::new(right)))
+        Value::BoolOr(BoolOrExpr(Arc::new(left), Arc::new(right)))
     }
 }
 
@@ -1839,7 +1829,7 @@ impl Simplify for BoolXorExpr {
             }
         }
 
-        Value::BoolXor(BoolXorExpr(Intern::new(left), Intern::new(right)))
+        Value::BoolXor(BoolXorExpr(Arc::new(left), Arc::new(right)))
     }
 }
 
@@ -1876,7 +1866,7 @@ impl Simplify for IntLeftShiftExpr {
         }
 
         let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntLeftShift(IntLeftShiftExpr(Intern::new(a_s), Intern::new(b_s), s))
+        Value::IntLeftShift(IntLeftShiftExpr(Arc::new(a_s), Arc::new(b_s), s))
     }
 }
 
@@ -1912,7 +1902,7 @@ impl Simplify for IntRightShiftExpr {
         }
 
         let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntRightShift(IntRightShiftExpr(Intern::new(a_s), Intern::new(b_s), s))
+        Value::IntRightShift(IntRightShiftExpr(Arc::new(a_s), Arc::new(b_s), s))
     }
 }
 
@@ -1963,21 +1953,17 @@ impl Simplify for IntSignedRightShiftExpr {
         }
 
         let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntSignedRightShift(IntSignedRightShiftExpr(
-            Intern::new(a_s),
-            Intern::new(b_s),
-            s,
-        ))
+        Value::IntSignedRightShift(IntSignedRightShiftExpr(Arc::new(a_s), Arc::new(b_s), s))
     }
 }
 
 impl Simplify for Load {
     fn simplify(&self) -> Value {
-        let a_intern = self.0;
+        let a_intern = &self.0;
         let a_s = a_intern.as_ref().simplify();
 
         // keep the same size as recorded on this Load node
-        Value::Load(Load(Intern::new(a_s), self.1, self.2))
+        Value::Load(Load(Arc::new(a_s), self.1, self.2))
     }
 }
 
@@ -2013,11 +1999,11 @@ impl Simplify for ZeroExtend {
         // chain: zext(zext(x, s1), s2) where s2 >= s1 → zext(x, s2)
         if let Value::ZeroExtend(ZeroExtend(inner2, s1)) = &inner {
             if *output_size >= *s1 {
-                return ZeroExtend(*inner2, *output_size).simplify();
+                return ZeroExtend(inner2.clone(), *output_size).simplify();
             }
         }
 
-        Value::ZeroExtend(ZeroExtend(Intern::new(inner), *output_size))
+        Value::ZeroExtend(ZeroExtend(Arc::new(inner), *output_size))
     }
 }
 
@@ -2057,11 +2043,11 @@ impl Simplify for SignExtend {
         // chain: sext(sext(x, s1), s2) where s2 >= s1 → sext(x, s2)
         if let Value::SignExtend(SignExtend(inner2, s1)) = &inner {
             if *output_size >= *s1 {
-                return SignExtend(*inner2, *output_size).simplify();
+                return SignExtend(inner2.clone(), *output_size).simplify();
             }
         }
 
-        Value::SignExtend(SignExtend(Intern::new(inner), *output_size))
+        Value::SignExtend(SignExtend(Arc::new(inner), *output_size))
     }
 }
 
@@ -2132,7 +2118,7 @@ impl Simplify for Extract {
             return Value::make_const(masked as i64, *output_size as u32);
         }
 
-        Value::Extract(Extract(Intern::new(inner), *byte_offset, *output_size))
+        Value::Extract(Extract(Arc::new(inner), *byte_offset, *output_size))
     }
 }
 
@@ -2154,7 +2140,7 @@ impl Simplify for IntEqual {
             return Value::make_const(1, 1);
         }
 
-        Value::IntEqual(IntEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntEqual(IntEqual(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2176,7 +2162,7 @@ impl Simplify for IntLess {
             return Value::make_const(0, 1);
         }
 
-        Value::IntLess(IntLess(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntLess(IntLess(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2198,7 +2184,7 @@ impl Simplify for IntSLess {
             return Value::make_const(0, 1);
         }
 
-        Value::IntSLess(IntSLess(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSLess(IntSLess(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2215,7 +2201,7 @@ impl Simplify for PopCount {
             return Value::make_const(result, 1);
         }
 
-        Value::PopCount(PopCount(Intern::new(a_s)))
+        Value::PopCount(PopCount(Arc::new(a_s)))
     }
 }
 
@@ -2237,7 +2223,7 @@ impl Simplify for IntNotEqual {
             return Value::make_const(0, 1);
         }
 
-        Value::IntNotEqual(IntNotEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntNotEqual(IntNotEqual(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2259,7 +2245,7 @@ impl Simplify for IntLessEqual {
             return Value::make_const(1, 1);
         }
 
-        Value::IntLessEqual(IntLessEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntLessEqual(IntLessEqual(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2281,7 +2267,7 @@ impl Simplify for IntSLessEqual {
             return Value::make_const(1, 1);
         }
 
-        Value::IntSLessEqual(IntSLessEqual(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSLessEqual(IntSLessEqual(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2300,7 +2286,7 @@ impl Simplify for IntCarry {
             return Value::make_const((carry != 0) as i64, 1);
         }
 
-        Value::IntCarry(IntCarry(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntCarry(IntCarry(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2328,7 +2314,7 @@ impl Simplify for IntSCarry {
             return Value::make_const(overflow as i64, 1);
         }
 
-        Value::IntSCarry(IntSCarry(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSCarry(IntSCarry(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2360,7 +2346,7 @@ impl Simplify for IntSBorrow {
             return Value::make_const(0, 1);
         }
 
-        Value::IntSBorrow(IntSBorrow(Intern::new(a_s), Intern::new(b_s)))
+        Value::IntSBorrow(IntSBorrow(Arc::new(a_s), Arc::new(b_s)))
     }
 }
 
@@ -2385,7 +2371,7 @@ impl Simplify for Int2CompExpr {
             return inner2.as_ref().clone();
         }
 
-        Value::Int2Comp(Int2CompExpr(Intern::new(inner), *output_size))
+        Value::Int2Comp(Int2CompExpr(Arc::new(inner), *output_size))
     }
 }
 
@@ -2424,12 +2410,7 @@ impl JingleDisplay for Value {
                 write!(f, "{:#x}", vn.as_ref().offset())
             }
             Value::Offset(Offset(vn, con)) => {
-                write!(
-                    f,
-                    "offset({},{})",
-                    vn.as_ref().0.display(info),
-                    con.as_ref().0.display(info)
-                )
+                write!(f, "offset({},{})", vn.display(info), con.display(info))
             }
             Value::Mul(MulExpr(a, b, _)) => {
                 fmt_operand_jingle(f, a.as_ref(), info)?;
