@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
 use crate::{analysis::valuation::Load, display::JingleDisplay};
-use std::sync::Arc;
+use std::rc::Rc;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -181,7 +181,7 @@ impl ValuationSet {
                 // in practice, this will always be hit
                 Value::Load(Load(ptr, size, space)) => {
                     let sub_ptr = ptr.substitute(context);
-                    Value::Load(Load(Arc::new(sub_ptr), *size, *space))
+                    Value::Load(Load(Rc::new(sub_ptr), *size, *space))
                 }
                 a => a.substitute(context),
             };
@@ -811,7 +811,7 @@ mod tests {
 
         // Add an indirect write (key must be a Load expression)
         let load_key = Value::Load(crate::analysis::valuation::simple::value::Load(
-            Arc::new(Value::const_(100, 8)),
+            Rc::new(Value::const_(100, 8)),
             8,
             1,
         ));
@@ -957,7 +957,7 @@ mod tests {
         // Create Load(RSP + 4)
         let rsp_plus_4 = Value::entry(rsp) + Value::const_(4, 8);
         let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
-            Arc::new(rsp_plus_4.clone()),
+            Rc::new(rsp_plus_4.clone()),
             8,
             1,
         ));
@@ -980,7 +980,7 @@ mod tests {
         // Result should have [Load(0x1004)] = 8
 
         let expected_key = Value::Load(crate::analysis::valuation::simple::value::Load(
-            Arc::new(Value::const_(0x1004, 8)),
+            Rc::new(Value::const_(0x1004, 8)),
             8,
             1,
         ));
@@ -998,7 +998,7 @@ mod tests {
         let rbx = VarNode::new(0x2000, 8u32, 0u32);
 
         let load_expr = Value::Load(crate::analysis::valuation::simple::value::Load(
-            Arc::new(Value::const_(0x1000, 8)),
+            Rc::new(Value::const_(0x1000, 8)),
             8,
             1,
         ));

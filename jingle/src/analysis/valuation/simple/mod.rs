@@ -16,7 +16,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 
 use crate::analysis::valuation::simple::value::{Load, Value};
-use std::sync::Arc;
+use std::rc::Rc;
 
 /// How to merge conflicting valuations for a single varnode when joining states.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -105,7 +105,7 @@ impl ValuationState {
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 let data_size = input.size();
                 let loc = Value::Load(Load(
-                    Arc::new(pv.simplify()),
+                    Rc::new(pv.simplify()),
                     data_size,
                     output.pointer_space_index() as u8,
                 ));
@@ -209,7 +209,7 @@ impl ValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
                     let shift_expr =
-                        Value::IntLeftShift(value::IntLeftShiftExpr(Arc::new(a), Arc::new(b), s));
+                        Value::IntLeftShift(value::IntLeftShiftExpr(Rc::new(a), Rc::new(b), s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
@@ -220,7 +220,7 @@ impl ValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
                     let shift_expr =
-                        Value::IntRightShift(value::IntRightShiftExpr(Arc::new(a), Arc::new(b), s));
+                        Value::IntRightShift(value::IntRightShiftExpr(Rc::new(a), Rc::new(b), s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
@@ -231,8 +231,8 @@ impl ValuationState {
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
                     let shift_expr = Value::IntSignedRightShift(value::IntSignedRightShiftExpr(
-                        Arc::new(a),
-                        Arc::new(b),
+                        Rc::new(a),
+                        Rc::new(b),
                         s,
                     ));
                     new_state.valuation.add(output_vn, shift_expr);
@@ -259,7 +259,7 @@ impl ValuationState {
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let load_expr = Value::Load(Load(
-                        Arc::new(pv.simplify()),
+                        Rc::new(pv.simplify()),
                         output_vn.size(),
                         input.pointer_space_index() as u8,
                     ));
