@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.32](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.31...jingle-v0.6.32) - 2026-05-24
+
+### Other
+
+- use rc instead of intern for Value ([#286](https://github.com/toolCHAINZ/jingle/pull/286))
+
 ## [0.6.31](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.30...jingle-v0.6.31) - 2026-05-23
 
 ### Added
