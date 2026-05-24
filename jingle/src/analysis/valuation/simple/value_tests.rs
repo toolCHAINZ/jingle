@@ -1,6 +1,6 @@
 use super::*;
-use std::rc::Rc;
 use jingle_sleigh::VarNode;
+use std::rc::Rc;
 
 fn vn_a() -> VarNode {
     VarNode::new(0x100u64, 8u32, 0u32)

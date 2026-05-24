@@ -112,7 +112,7 @@ pub struct Offset(Entry, Const);
 
 impl Offset {
     pub fn new(base: impl Borrow<Entry>, offset: impl Borrow<Const>) -> Self {
-        Self(base.borrow().clone(), offset.borrow().clone())
+        Self(*base.borrow(), *offset.borrow())
     }
 
     pub fn base_vn(&self) -> &Entry {

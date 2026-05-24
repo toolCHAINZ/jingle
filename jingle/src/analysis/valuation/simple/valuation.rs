@@ -2,10 +2,10 @@ use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
 use crate::{analysis::valuation::Load, display::JingleDisplay};
-use std::rc::Rc;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 use crate::analysis::{valuation::Value, varnode_map::VarNodeMap};
 
