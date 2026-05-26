@@ -1412,7 +1412,10 @@ fn insert_bytes_symbolic_parent_produces_or_expression() {
     let parent = Value::entry(vn_a()); // vn_a() is size 8
     let sub = Value::const_(0x49, 1);
     let result = Value::insert_bytes(parent, sub, 0).simplify();
-    assert!(result.as_or().is_some(), "expected Or node for symbolic parent");
+    assert!(
+        result.as_or().is_some(),
+        "expected Or node for symbolic parent"
+    );
     assert_eq!(result.size(), 8);
 }
 

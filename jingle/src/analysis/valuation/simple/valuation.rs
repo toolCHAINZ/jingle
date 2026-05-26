@@ -1146,7 +1146,10 @@ mod tests {
         vs.add(child, Value::const_(0x49, 1));
 
         // insert_bytes at byte_offset=1: 0xAABBCCDD & 0xFFFF00FF | 0x4900 = 0xAABB49DD
-        let parent_val = vs.direct_writes.get(parent).expect("parent must be present");
+        let parent_val = vs
+            .direct_writes
+            .get(parent)
+            .expect("parent must be present");
         assert_eq!(*parent_val, Value::const_(0xAABB49DD_u64 as i64, 4));
     }
 
@@ -1178,9 +1181,6 @@ mod tests {
         vs.add(rax, Value::const_(0x1234, 8));
 
         assert_eq!(vs.direct_writes.len(), 1);
-        assert_eq!(
-            vs.direct_writes.get(rax),
-            Some(&Value::const_(0x1234, 8))
-        );
+        assert_eq!(vs.direct_writes.get(rax), Some(&Value::const_(0x1234, 8)));
     }
 }
