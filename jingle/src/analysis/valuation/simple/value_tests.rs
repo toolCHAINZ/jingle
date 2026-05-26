@@ -934,9 +934,8 @@ fn dispatch_delegates_to_variant() {
         Rc::new(Value::const_(0, 8)),
         8,
     );
-    let via_variant = Value::Add(expr.clone()).simplify();
-    let via_expr = expr.simplify();
-    assert_eq!(via_variant, via_expr);
+    let result = Value::Add(expr).simplify();
+    assert_eq!(result, Value::entry(vn_a()));
 }
 
 // --- ZeroExtend --------------------------------------------------------------

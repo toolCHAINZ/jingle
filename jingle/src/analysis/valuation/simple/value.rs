@@ -59,10 +59,10 @@ impl IntoRcValue for &Rc<Value> {
 }
 
 trait Simplify {
-    fn simplify(&self) -> Value;
-
-    /// Rc-aware simplify. Returns `Rc::clone(outer)` when the node is unchanged,
-    /// avoiding new heap allocations for unchanged subtrees.
+    /// Simplify a Value ast with standard methods like constant folding
+    ///
+    /// Returns `Rc::clone(outer)` when the node is unchanged, avoiding new
+    /// heap allocations for already-simplified subtrees.
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value>;
 }
 
@@ -989,49 +989,6 @@ impl Value {
     }
 }
 
-impl Simplify for Value {
-    fn simplify(&self) -> Value {
-        match self {
-            Value::Mul(expr) => expr.simplify(),
-            Value::Add(expr) => expr.simplify(),
-            Value::Sub(expr) => expr.simplify(),
-            Value::Choice(expr) => expr.simplify(),
-            Value::Xor(expr) => expr.simplify(),
-            Value::Or(expr) => expr.simplify(),
-            Value::And(expr) => expr.simplify(),
-            Value::BoolNegate(expr) => expr.simplify(),
-            Value::BoolAnd(expr) => expr.simplify(),
-            Value::BoolOr(expr) => expr.simplify(),
-            Value::BoolXor(expr) => expr.simplify(),
-            Value::IntLeftShift(expr) => expr.simplify(),
-            Value::IntRightShift(expr) => expr.simplify(),
-            Value::IntSignedRightShift(expr) => expr.simplify(),
-            Value::Load(expr) => expr.simplify(),
-            Value::ZeroExtend(expr) => expr.simplify(),
-            Value::SignExtend(expr) => expr.simplify(),
-            Value::Extract(expr) => expr.simplify(),
-            Value::IntSLess(expr) => expr.simplify(),
-            Value::IntEqual(expr) => expr.simplify(),
-            Value::IntLess(expr) => expr.simplify(),
-            Value::PopCount(expr) => expr.simplify(),
-            Value::Int2Comp(expr) => expr.simplify(),
-            Value::IntNotEqual(expr) => expr.simplify(),
-            Value::IntLessEqual(expr) => expr.simplify(),
-            Value::IntSLessEqual(expr) => expr.simplify(),
-            Value::IntCarry(expr) => expr.simplify(),
-            Value::IntSCarry(expr) => expr.simplify(),
-            Value::IntSBorrow(expr) => expr.simplify(),
-            Value::Entry(_) | Value::Offset(_) | Value::Const(_) | Value::Bind(_) | Value::Top => {
-                self.clone()
-            }
-        }
-    }
-
-    fn simplify_rc(outer: &Rc<Value>, _inner: &Self) -> Rc<Value> {
-        Value::simplify_shared(outer)
-    }
-}
-
 impl Mul for Value {
     type Output = Value;
 
@@ -1087,11 +1044,12 @@ impl Sub for Value {
 }
 
 impl Value {
-    /// Inherent simplify method so callers don't need the `Simplify` trait in scope.
-    /// This delegates to the same per-variant simplifiers that the `Simplify`
-    /// implementations provide for the individual AST node structs.
+    #[cfg(test)]
     pub fn simplify(&self) -> Value {
-        Simplify::simplify(self)
+        let rc = Rc::new(self.clone());
+        let simplified = Value::simplify_shared(&rc);
+        drop(rc);
+        Rc::try_unwrap(simplified).unwrap_or_else(|r| (*r).clone())
     }
 
     /// Rc-aware simplify: returns the original `rc` when no rewrite is needed,
@@ -1138,13 +1096,6 @@ impl Value {
 }
 
 impl Simplify for AddExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Add(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let AddExpr(a_intern, b_intern, _) = inner;
 
@@ -1215,13 +1166,6 @@ impl Simplify for AddExpr {
 }
 
 impl Simplify for SubExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Sub(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let SubExpr(a_intern, b_intern, _) = inner;
 
@@ -1300,13 +1244,6 @@ impl Simplify for SubExpr {
 }
 
 impl Simplify for MulExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Mul(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let MulExpr(a_intern, b_intern, _) = inner;
 
@@ -1344,13 +1281,6 @@ impl Simplify for MulExpr {
 }
 
 impl Simplify for Choice {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Choice(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let Choice(a_intern, b_intern, _) = inner;
 
@@ -1434,13 +1364,6 @@ impl Simplify for Choice {
 }
 
 impl Simplify for XorExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Xor(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let XorExpr(a_intern, b_intern, _) = inner;
 
@@ -1478,13 +1401,6 @@ impl Simplify for XorExpr {
 }
 
 impl Simplify for AndExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::And(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let AndExpr(a_intern, b_intern, _) = inner;
 
@@ -1535,13 +1451,6 @@ impl Simplify for AndExpr {
 }
 
 impl Simplify for OrExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Or(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let OrExpr(a_intern, b_intern, _) = inner;
 
@@ -1592,13 +1501,6 @@ impl Simplify for OrExpr {
 }
 
 impl Simplify for BoolNegateExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::BoolNegate(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let BoolNegateExpr(child_intern) = inner;
         let new_child = Value::simplify_shared(child_intern);
@@ -1647,13 +1549,6 @@ impl Simplify for BoolNegateExpr {
 }
 
 impl Simplify for BoolAndExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::BoolAnd(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let BoolAndExpr(a_intern, b_intern) = inner;
 
@@ -1694,13 +1589,6 @@ impl Simplify for BoolAndExpr {
 }
 
 impl Simplify for BoolOrExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::BoolOr(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let BoolOrExpr(a_intern, b_intern) = inner;
 
@@ -1741,13 +1629,6 @@ impl Simplify for BoolOrExpr {
 }
 
 impl Simplify for BoolXorExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::BoolXor(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let BoolXorExpr(a_intern, b_intern) = inner;
 
@@ -1791,13 +1672,6 @@ impl Simplify for BoolXorExpr {
 }
 
 impl Simplify for IntLeftShiftExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntLeftShift(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntLeftShiftExpr(a_intern, b_intern, _) = inner;
 
@@ -1834,13 +1708,6 @@ impl Simplify for IntLeftShiftExpr {
 }
 
 impl Simplify for IntRightShiftExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntRightShift(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntRightShiftExpr(a_intern, b_intern, _) = inner;
 
@@ -1876,13 +1743,6 @@ impl Simplify for IntRightShiftExpr {
 }
 
 impl Simplify for IntSignedRightShiftExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntSignedRightShift(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntSignedRightShiftExpr(a_intern, b_intern, _) = inner;
 
@@ -1931,13 +1791,6 @@ impl Simplify for IntSignedRightShiftExpr {
 }
 
 impl Simplify for Load {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Load(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let Load(child_intern, size, space) = inner;
         let new_child = Value::simplify_shared(child_intern);
@@ -1958,13 +1811,6 @@ fn mask_for_size(size_bytes: usize) -> u64 {
 }
 
 impl Simplify for ZeroExtend {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::ZeroExtend(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let ZeroExtend(child_intern, output_size) = inner;
         let new_child = Value::simplify_shared(child_intern);
@@ -1998,13 +1844,6 @@ impl Simplify for ZeroExtend {
 }
 
 impl Simplify for SignExtend {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::SignExtend(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let SignExtend(child_intern, output_size) = inner;
         let new_child = Value::simplify_shared(child_intern);
@@ -2050,13 +1889,6 @@ impl Simplify for SignExtend {
 }
 
 impl Simplify for Extract {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Extract(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let Extract(child_intern, byte_offset, output_size) = inner;
         let new_child = Value::simplify_shared(child_intern);
@@ -2137,13 +1969,6 @@ impl Simplify for Extract {
 }
 
 impl Simplify for IntEqual {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntEqual(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntEqual(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2165,13 +1990,6 @@ impl Simplify for IntEqual {
 }
 
 impl Simplify for IntLess {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntLess(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntLess(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2193,13 +2011,6 @@ impl Simplify for IntLess {
 }
 
 impl Simplify for IntSLess {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntSLess(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntSLess(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2224,13 +2035,6 @@ impl Simplify for IntSLess {
 }
 
 impl Simplify for PopCount {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::PopCount(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let PopCount(child_intern) = inner;
         let new_child = Value::simplify_shared(child_intern);
@@ -2248,13 +2052,6 @@ impl Simplify for PopCount {
 }
 
 impl Simplify for IntNotEqual {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntNotEqual(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntNotEqual(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2276,13 +2073,6 @@ impl Simplify for IntNotEqual {
 }
 
 impl Simplify for IntLessEqual {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntLessEqual(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntLessEqual(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2304,13 +2094,6 @@ impl Simplify for IntLessEqual {
 }
 
 impl Simplify for IntSLessEqual {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntSLessEqual(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntSLessEqual(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2335,13 +2118,6 @@ impl Simplify for IntSLessEqual {
 }
 
 impl Simplify for IntCarry {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntCarry(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntCarry(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2362,13 +2138,6 @@ impl Simplify for IntCarry {
 }
 
 impl Simplify for IntSCarry {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntSCarry(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntSCarry(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2398,13 +2167,6 @@ impl Simplify for IntSCarry {
 }
 
 impl Simplify for IntSBorrow {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::IntSBorrow(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let IntSBorrow(a_intern, b_intern) = inner;
         let new_a = Value::simplify_shared(a_intern);
@@ -2437,13 +2199,6 @@ impl Simplify for IntSBorrow {
 }
 
 impl Simplify for Int2CompExpr {
-    fn simplify(&self) -> Value {
-        let outer = Rc::new(Value::Int2Comp(self.clone()));
-        let r = Self::simplify_rc(&outer, self);
-        drop(outer);
-        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
-    }
-
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let Int2CompExpr(child_intern, output_size) = inner;
         let new_child = Value::simplify_shared(child_intern);
