@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.33](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.32...jingle-v0.6.33) - 2026-05-26
+
+### Fixed
+
+- valuation set respects sub-register writes ([#288](https://github.com/toolCHAINZ/jingle/pull/288))
+
 ## [0.6.32](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.31...jingle-v0.6.32) - 2026-05-24
 
 ### Other
