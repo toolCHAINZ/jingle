@@ -1386,3 +1386,44 @@ fn signed_right_shift_small_negative() {
     .simplify();
     assert_eq!(result, Value::make_const(0xFFu64 as i64, 1));
 }
+
+// --- insert_bytes ------------------------------------------------------------
+
+#[test]
+fn insert_bytes_at_offset_zero_replaces_low_byte() {
+    let parent = Value::const_(0x1122334455667788_u64 as i64, 8);
+    let sub = Value::const_(0x49, 1);
+    let result = Value::insert_bytes(parent, sub, 0).simplify();
+    // 0x1122334455667788 & ~0xFF | 0x49 = 0x1122334455667749
+    assert_eq!(result, Value::make_const(0x1122334455667749_u64 as i64, 8));
+}
+
+#[test]
+fn insert_bytes_at_nonzero_offset() {
+    let parent = Value::const_(0xAABBCCDD_u64 as i64, 4);
+    let sub = Value::const_(0x49, 1);
+    let result = Value::insert_bytes(parent, sub, 1).simplify();
+    // 0xAABBCCDD & 0xFFFF00FF | 0x4900 = 0xAABB49DD
+    assert_eq!(result, Value::make_const(0xAABB49DD_u64 as i64, 4));
+}
+
+#[test]
+fn insert_bytes_symbolic_parent_produces_or_expression() {
+    let parent = Value::entry(vn_a()); // vn_a() is size 8
+    let sub = Value::const_(0x49, 1);
+    let result = Value::insert_bytes(parent, sub, 0).simplify();
+    assert!(
+        result.as_or().is_some(),
+        "expected Or node for symbolic parent"
+    );
+    assert_eq!(result.size(), 8);
+}
+
+#[test]
+fn insert_bytes_multi_byte_sub_at_offset_2() {
+    let parent = Value::const_(0x00000000, 4);
+    let sub = Value::const_(0xBEEF_u64 as i64, 2);
+    let result = Value::insert_bytes(parent, sub, 2).simplify();
+    // zero_extend(0xBEEF, 4) << 16 = 0xBEEF0000
+    assert_eq!(result, Value::make_const(0xBEEF0000_u64 as i64, 4));
+}

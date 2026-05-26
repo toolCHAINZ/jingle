@@ -831,6 +831,57 @@ impl Value {
         Value::Extract(Extract(inner.into_rc(), byte_offset, output_size))
     }
 
+    /// Construct an `IntLeftShift(...)` node shifting `inner` left by `shift_amount` bits.
+    /// `output_size` is the size in bytes of the result.
+    pub fn int_left_shift(
+        inner: impl IntoRcValue,
+        shift_amount: impl IntoRcValue,
+        output_size: usize,
+    ) -> Self {
+        Value::IntLeftShift(IntLeftShiftExpr(
+            inner.into_rc(),
+            shift_amount.into_rc(),
+            output_size,
+        ))
+    }
+
+    /// Construct a value representing `parent` with `sub`'s bytes inserted at `byte_offset`.
+    ///
+    /// Semantics: `(parent & keep_mask) | (zero_extend(sub, parent_size) << (byte_offset * 8))`
+    ///
+    /// `parent` must strictly cover `sub`: `parent.size() > sub.size()` and
+    /// `byte_offset + sub.size() <= parent.size()`.
+    pub fn insert_bytes(
+        parent: impl IntoRcValue,
+        sub: impl IntoRcValue,
+        byte_offset: usize,
+    ) -> Self {
+        let parent_rc = parent.into_rc();
+        let sub_rc = sub.into_rc();
+        let parent_size = parent_rc.size();
+        let sub_size = sub_rc.size();
+        let sub_bits = sub_size * 8;
+
+        // Safe: sub strictly smaller than parent, so sub_bits < parent_size * 8 ≤ 64.
+        let clear_mask_bits: u64 = ((1u64 << sub_bits) - 1) << (byte_offset * 8);
+        let keep_mask_bits: u64 = !clear_mask_bits;
+        let mask_val = Value::const_(keep_mask_bits as i64, parent_size);
+
+        let cleared_parent = Value::and(parent_rc, mask_val);
+        let extended_sub = Value::zero_extend(sub_rc, parent_size);
+        let shifted_sub = if byte_offset > 0 {
+            Value::int_left_shift(
+                extended_sub,
+                Value::const_((byte_offset * 8) as i64, parent_size),
+                parent_size,
+            )
+        } else {
+            extended_sub
+        };
+
+        Value::or(cleared_parent, shifted_sub)
+    }
+
     // Keep the older helpers (used by some simplifications) for parity:
 
     /// Create a constant Value with the given value and size (in bytes).
