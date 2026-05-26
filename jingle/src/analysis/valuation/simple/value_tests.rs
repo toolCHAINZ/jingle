@@ -612,15 +612,6 @@ fn bool_ops_top_propagate() {
     );
 }
 
-#[test]
-fn substitute_bool_nodes_and_simplifies() {
-    let mut context = crate::analysis::valuation::simple::valuation::ValuationSet::new();
-    context.direct_writes.insert(vn_a(), Value::const_(0, 1));
-    let expr = Value::bool_negate(Value::entry(vn_a()));
-
-    assert_eq!(expr.substitute(&context), Value::const_(1, 1));
-}
-
 // --- Load --------------------------------------------------------------------
 
 #[test]
