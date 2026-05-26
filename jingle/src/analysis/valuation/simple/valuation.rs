@@ -353,6 +353,26 @@ impl ValuationSet {
                 // sub-regions (e.g. register[4:4]) that fall within it.
                 self.direct_writes
                     .retain(|existing, _| !vn.covers(existing) || existing == &vn);
+
+                // When writing a sub-register, update any parent registers that cover it so
+                // they reflect the partial write. E.g., writing AL must splice the new byte
+                // into the stored RAX value. Collect first to avoid borrow conflicts.
+                let parents: Vec<(VarNode, Value)> = self
+                    .direct_writes
+                    .items()
+                    .filter(|(existing, _)| existing.covers(&vn) && *existing != &vn)
+                    .map(|(parent_vn, parent_val)| {
+                        let byte_offset = (vn.offset() - parent_vn.offset()) as usize;
+                        let merged =
+                            Value::insert_bytes(parent_val.clone(), val.clone(), byte_offset);
+                        (*parent_vn, merged.simplify())
+                    })
+                    .collect();
+
+                for (parent_vn, merged_val) in parents {
+                    self.direct_writes.insert(parent_vn, merged_val);
+                }
+
                 self.direct_writes.insert(vn, val);
             }
             Location::Indirect(ptr_intern) => {
@@ -1096,5 +1116,71 @@ mod tests {
 
         assert_eq!(result.direct_writes.get(rax), Some(&Value::const_(100, 8)));
         assert_eq!(result.direct_writes.get(rcx), Some(&Value::const_(200, 8)));
+    }
+
+    #[test]
+    fn sub_register_write_updates_parent() {
+        let rax = VarNode::new(0x0u64, 8u32, 0u32);
+        let al = VarNode::new(0x0u64, 1u32, 0u32);
+
+        let mut vs = ValuationSet::new();
+        vs.add(rax, Value::const_(0x1122334455667788_u64 as i64, 8));
+        vs.add(al, Value::const_(0x49, 1));
+
+        // RAX low byte replaced: 0x11223344556677_88 → 0x11223344556677_49
+        let rax_val = vs.direct_writes.get(rax).expect("RAX must be present");
+        assert_eq!(*rax_val, Value::const_(0x1122334455667749_u64 as i64, 8));
+
+        let al_val = vs.direct_writes.get(al).expect("AL must be present");
+        assert_eq!(*al_val, Value::const_(0x49, 1));
+    }
+
+    #[test]
+    fn sub_register_write_at_nonzero_byte_offset_updates_parent() {
+        // parent at offset 0 size 4, child at offset 1 size 1 (second byte)
+        let parent = VarNode::new(0x0u64, 4u32, 0u32);
+        let child = VarNode::new(0x1u64, 1u32, 0u32);
+
+        let mut vs = ValuationSet::new();
+        vs.add(parent, Value::const_(0xAABBCCDD_u64 as i64, 4));
+        vs.add(child, Value::const_(0x49, 1));
+
+        // insert_bytes at byte_offset=1: 0xAABBCCDD & 0xFFFF00FF | 0x4900 = 0xAABB49DD
+        let parent_val = vs.direct_writes.get(parent).expect("parent must be present");
+        assert_eq!(*parent_val, Value::const_(0xAABB49DD_u64 as i64, 4));
+    }
+
+    #[test]
+    fn sub_register_write_with_symbolic_parent_stores_expression() {
+        let rax_vn = VarNode::new(0x100u64, 8u32, 0u32);
+        let rbx_vn = VarNode::new(0x200u64, 8u32, 0u32);
+        let al_vn = VarNode::new(0x100u64, 1u32, 0u32);
+
+        let mut vs = ValuationSet::new();
+        vs.add(rax_vn, Value::entry(rbx_vn));
+        vs.add(al_vn, Value::const_(0x49, 1));
+
+        let rax_val = vs.direct_writes.get(rax_vn).expect("RAX must be present");
+        assert!(
+            rax_val.as_or().is_some(),
+            "expected Or expression when parent was symbolic, got: {:?}",
+            rax_val
+        );
+        assert_eq!(rax_val.size(), 8);
+    }
+
+    #[test]
+    fn full_register_overwrite_does_not_trigger_upward_propagation() {
+        let rax = VarNode::new(0x0u64, 8u32, 0u32);
+
+        let mut vs = ValuationSet::new();
+        vs.add(rax, Value::const_(0xDEAD, 8));
+        vs.add(rax, Value::const_(0x1234, 8));
+
+        assert_eq!(vs.direct_writes.len(), 1);
+        assert_eq!(
+            vs.direct_writes.get(rax),
+            Some(&Value::const_(0x1234, 8))
+        );
     }
 }
