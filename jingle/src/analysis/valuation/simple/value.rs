@@ -52,12 +52,6 @@ impl IntoRcValue for Rc<Value> {
     }
 }
 
-impl IntoRcValue for &Value {
-    fn into_rc(self) -> Rc<Value> {
-        Rc::new(self.clone())
-    }
-}
-
 impl IntoRcValue for &Rc<Value> {
     fn into_rc(self) -> Rc<Value> {
         Rc::clone(self)
@@ -1136,12 +1130,13 @@ impl Value {
             // Load: substitute the pointer, then check if the result is in indirect_writes
             Value::Load(Load(ptr, size, space)) => {
                 let subst_ptr = ptr.as_ref().substitute(context);
+                let ptr = Rc::new(subst_ptr);
                 // Look up the substituted pointer in indirect writes
                 context
                     .indirect_writes
-                    .get(&Value::load(&subst_ptr, *size, *space))
+                    .get(&Value::load(&ptr, *size, *space))
                     .map(|v| v.substitute(context))
-                    .unwrap_or_else(|| Value::Load(Load(Rc::new(subst_ptr), *size, *space)))
+                    .unwrap_or_else(|| Value::Load(Load(ptr, *size, *space)))
             }
 
             // Binary operators: substitute both operands
