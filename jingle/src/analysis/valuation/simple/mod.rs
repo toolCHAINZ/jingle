@@ -105,7 +105,7 @@ impl ValuationState {
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 let data_size = input.size();
                 let loc = Value::Load(Load(
-                    Rc::new(pv.simplify()),
+                    Value::simplify_shared(&Rc::new(pv)),
                     data_size,
                     output.pointer_space_index() as u8,
                 ));
@@ -259,7 +259,7 @@ impl ValuationState {
                 let pv = Value::from_varnode_or_entry(self, ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let load_expr = Value::Load(Load(
-                        Rc::new(pv.simplify()),
+                        Value::simplify_shared(&Rc::new(pv)),
                         output_vn.size(),
                         input.pointer_space_index() as u8,
                     ));
@@ -502,8 +502,10 @@ impl JoinSemiLattice for ValuationState {
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined = Value::choice(my_val.clone(), other_val.clone());
-                                *my_val = combined.simplify();
+                                let combined_rc = Rc::new(Value::choice(my_val.clone(), other_val.clone()));
+                                let simplified = Value::simplify_shared(&combined_rc);
+                                drop(combined_rc);
+                                *my_val = Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone());
                             }
                             MergeBehavior::Top => {
                                 *my_val = Value::Top;
@@ -537,8 +539,10 @@ impl JoinSemiLattice for ValuationState {
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined = Value::choice(my_val.clone(), other_val.clone());
-                                *my_val = combined.simplify();
+                                let combined_rc = Rc::new(Value::choice(my_val.clone(), other_val.clone()));
+                                let simplified = Value::simplify_shared(&combined_rc);
+                                drop(combined_rc);
+                                *my_val = Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone());
                             }
                             MergeBehavior::Top => {
                                 *my_val = Value::Top;

@@ -60,6 +60,10 @@ impl IntoRcValue for &Rc<Value> {
 
 trait Simplify {
     fn simplify(&self) -> Value;
+
+    /// Rc-aware simplify. Returns `Rc::clone(outer)` when the node is unchanged,
+    /// avoiding new heap allocations for unchanged subtrees.
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value>;
 }
 
 /// An entry value of a direct location
@@ -892,32 +896,20 @@ impl Value {
         if s == 0 { 8 } else { s }
     }
 
-    /// Normalize commutative operands so that constants (if present) are on the right.
-    /// Returns (left, right) possibly swapped.
-    fn normalize_commutative(left: Value, right: Value) -> (Value, Value) {
-        let left_is_const = left.as_const().is_some();
-        let right_is_const = right.as_const().is_some();
-
-        // If left is const and right is not, swap them so constant is on right.
-        if left_is_const && !right_is_const {
-            (right, left)
+    fn normalize_commutative_rc(left: Rc<Value>, right: Rc<Value>) -> (Rc<Value>, Rc<Value>, bool) {
+        if left.as_ref().as_const().is_some() && right.as_ref().as_const().is_none() {
+            (right, left, true)
         } else {
-            (left, right)
+            (left, right, false)
         }
     }
 
-    /// Normalize Choice operands so that the canonical form has a non-Choice on the left
-    /// and a Choice on the right when one operand is a Choice. This makes simplifications
-    /// like `Choice(Choice(a,b), c)` and `Choice(c, Choice(a,b))` handled uniformly.
-    fn normalize_choice(left: Value, right: Value) -> (Value, Value) {
-        let left_is_choice = matches!(left, Value::Choice(_));
-        let right_is_choice = matches!(right, Value::Choice(_));
-
-        // If left is a Choice and right is not, swap so the Choice is on the right.
-        if left_is_choice && !right_is_choice {
-            (right, left)
+    fn normalize_choice_rc(left: Rc<Value>, right: Rc<Value>) -> (Rc<Value>, Rc<Value>, bool) {
+        if matches!(left.as_ref(), Value::Choice(_)) && !matches!(right.as_ref(), Value::Choice(_))
+        {
+            (right, left, true)
         } else {
-            (left, right)
+            (left, right, false)
         }
     }
 
@@ -1034,6 +1026,10 @@ impl Simplify for Value {
             }
         }
     }
+
+    fn simplify_rc(outer: &Rc<Value>, _inner: &Self) -> Rc<Value> {
+        Value::simplify_shared(outer)
+    }
 }
 
 impl Mul for Value {
@@ -1098,384 +1094,426 @@ impl Value {
         Simplify::simplify(self)
     }
 
+    /// Rc-aware simplify: returns the original `rc` when no rewrite is needed,
+    /// avoiding heap allocations for unchanged subtrees.
+    pub(crate) fn simplify_shared(rc: &Rc<Self>) -> Rc<Self> {
+        match rc.as_ref() {
+            Value::Entry(_)
+            | Value::Const(_)
+            | Value::Top
+            | Value::Bind(_)
+            | Value::Offset(_) => Rc::clone(rc),
+            Value::Add(expr) => AddExpr::simplify_rc(rc, expr),
+            Value::Sub(expr) => SubExpr::simplify_rc(rc, expr),
+            Value::Mul(expr) => MulExpr::simplify_rc(rc, expr),
+            Value::Choice(expr) => Choice::simplify_rc(rc, expr),
+            Value::Xor(expr) => XorExpr::simplify_rc(rc, expr),
+            Value::And(expr) => AndExpr::simplify_rc(rc, expr),
+            Value::Or(expr) => OrExpr::simplify_rc(rc, expr),
+            Value::BoolNegate(expr) => BoolNegateExpr::simplify_rc(rc, expr),
+            Value::BoolAnd(expr) => BoolAndExpr::simplify_rc(rc, expr),
+            Value::BoolOr(expr) => BoolOrExpr::simplify_rc(rc, expr),
+            Value::BoolXor(expr) => BoolXorExpr::simplify_rc(rc, expr),
+            Value::IntLeftShift(expr) => IntLeftShiftExpr::simplify_rc(rc, expr),
+            Value::IntRightShift(expr) => IntRightShiftExpr::simplify_rc(rc, expr),
+            Value::IntSignedRightShift(expr) => IntSignedRightShiftExpr::simplify_rc(rc, expr),
+            Value::Load(expr) => Load::simplify_rc(rc, expr),
+            Value::ZeroExtend(expr) => ZeroExtend::simplify_rc(rc, expr),
+            Value::SignExtend(expr) => SignExtend::simplify_rc(rc, expr),
+            Value::Extract(expr) => Extract::simplify_rc(rc, expr),
+            Value::IntSLess(expr) => IntSLess::simplify_rc(rc, expr),
+            Value::IntEqual(expr) => IntEqual::simplify_rc(rc, expr),
+            Value::IntLess(expr) => IntLess::simplify_rc(rc, expr),
+            Value::PopCount(expr) => PopCount::simplify_rc(rc, expr),
+            Value::Int2Comp(expr) => Int2CompExpr::simplify_rc(rc, expr),
+            Value::IntNotEqual(expr) => IntNotEqual::simplify_rc(rc, expr),
+            Value::IntLessEqual(expr) => IntLessEqual::simplify_rc(rc, expr),
+            Value::IntSLessEqual(expr) => IntSLessEqual::simplify_rc(rc, expr),
+            Value::IntCarry(expr) => IntCarry::simplify_rc(rc, expr),
+            Value::IntSCarry(expr) => IntSCarry::simplify_rc(rc, expr),
+            Value::IntSBorrow(expr) => IntSBorrow::simplify_rc(rc, expr),
+        }
+    }
+
 }
 
 impl Simplify for AddExpr {
     fn simplify(&self) -> Value {
-        let a_intern = &self.0;
-        let b_intern = &self.1;
+        let outer = Rc::new(Value::Add(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        // simplify children first
-        let a_s = a_intern.as_ref().simplify();
-        let b_s = b_intern.as_ref().simplify();
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let AddExpr(a_intern, b_intern, _) = inner;
 
-        // if any child is Top, the result is Top
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // both const -> fold using signed wrapping arithmetic consistent with prior behavior
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
+        if let (Some(a_vn), Some(b_vn)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
             let a = a_vn.offset() as i64;
             let b = b_vn.offset() as i64;
             let res = a.wrapping_add(b);
-            let size = Value::derive_size_from(&a_s).max(Value::derive_size_from(&b_s));
-            return Value::make_const(res, size as u32);
+            let size = Value::derive_size_from(new_a.as_ref())
+                .max(Value::derive_size_from(new_b.as_ref()));
+            return Rc::new(Value::make_const(res, size as u32));
         }
 
-        // normalization: ensure constants are on the right
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        // expr + 0 -> expr
-        // expr + (- |a|) -> expr - a
-        if let Some(0) = right.as_const().map(|vn| vn.offset() as i64) {
+        if let Some(0) = right.as_ref().as_const().map(|vn| vn.offset() as i64) {
             return left;
         }
 
         // ((expr + #a) + #b) -> (expr + #(a + b))
-        if let Value::Add(AddExpr(left_inner_left, left_inner_right, _)) = &left {
-            if let Some(inner_right_vn) = left_inner_right.as_ref().as_const() {
-                if let Some(right_vn) = right.as_const() {
-                    let inner_right_const = inner_right_vn.offset() as i64;
-                    let right_const = right_vn.offset() as i64;
-                    let res = inner_right_const.wrapping_add(right_const);
-
-                    let size =
-                        std::cmp::max(left_inner_left.as_ref().size(), inner_right_vn.size());
-                    let new_const = Value::make_const(res, size as u32);
-                    return AddExpr(left_inner_left.clone(), Rc::new(new_const), size).simplify();
+        if let Value::Add(AddExpr(lli, llr, _)) = left.as_ref() {
+            if let Some(inner_c) = llr.as_ref().as_const() {
+                if let Some(outer_c) = right.as_ref().as_const() {
+                    let res = (inner_c.offset() as i64).wrapping_add(outer_c.offset() as i64);
+                    let size = lli.as_ref().size().max(inner_c.size());
+                    let new_c = Rc::new(Value::make_const(res, size as u32));
+                    let rebuilt = Rc::new(Value::Add(AddExpr(Rc::clone(lli), new_c, size)));
+                    return Value::simplify_shared(&rebuilt);
                 }
             }
         }
 
         // ((expr - #a) + #b) -> (expr - #(a - b)) or (expr + #(b - a))
-        if let Value::Sub(SubExpr(expr, a, _)) = &left {
+        if let Value::Sub(SubExpr(expr, a, _)) = left.as_ref() {
             if let Some(a_vn) = a.as_ref().as_const() {
-                if let Some(b_vn) = right.as_const() {
+                if let Some(b_vn) = right.as_ref().as_const() {
                     let a_const = a_vn.offset() as i64;
                     let b = b_vn.offset() as i64;
                     let res = a_const.wrapping_sub(b);
-                    let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
-
-                    // If res is negative, create Add instead of Sub to avoid infinite loop
+                    let size = expr.as_ref().size().max(left.as_ref().size());
                     if res < 0 {
-                        let new_const = Value::make_const(res.wrapping_neg(), size as u32);
-                        return AddExpr(expr.clone(), Rc::new(new_const), size).simplify();
+                        let new_c = Rc::new(Value::make_const(res.wrapping_neg(), size as u32));
+                        let rebuilt =
+                            Rc::new(Value::Add(AddExpr(Rc::clone(expr), new_c, size)));
+                        return Value::simplify_shared(&rebuilt);
                     } else {
-                        let new_const = Value::make_const(res, size as u32);
-                        return SubExpr(expr.clone(), Rc::new(new_const), size).simplify();
+                        let new_c = Rc::new(Value::make_const(res, size as u32));
+                        let rebuilt =
+                            Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
+                        return Value::simplify_shared(&rebuilt);
                     }
                 }
             }
         }
 
-        // default: rebuild with simplified children; size is max of children
-        let s = std::cmp::max(left.size(), right.size());
-        Value::Add(AddExpr(Rc::new(left), Rc::new(right), s))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::Add(AddExpr(left, right, s)))
     }
 }
 
 impl Simplify for SubExpr {
     fn simplify(&self) -> Value {
-        let a_intern = &self.0;
-        let b_intern = &self.1;
+        let outer = Rc::new(Value::Sub(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        let a_s = a_intern.as_ref().simplify();
-        let b_s = b_intern.as_ref().simplify();
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let SubExpr(a_intern, b_intern, _) = inner;
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+        let left = Value::simplify_shared(a_intern);
+        let right = Value::simplify_shared(b_intern);
+
+        if matches!(left.as_ref(), Value::Top) || matches!(right.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // both const -> fold
-        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let left = left_vn.offset() as i64;
-            let right = right_vn.offset() as i64;
-            let res = left.wrapping_sub(right);
-            let size = Value::derive_size_from(&a_s).max(Value::derive_size_from(&b_s));
-            return Value::make_const(res, size as u32);
+        if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
+            let res = (lv.offset() as i64).wrapping_sub(rv.offset() as i64);
+            let size = Value::derive_size_from(left.as_ref())
+                .max(Value::derive_size_from(right.as_ref()));
+            return Rc::new(Value::make_const(res, size as u32));
         }
 
-        // DO NOT normalize for subtraction - it is not commutative!
-        // Using the simplified children directly preserves the order.
-        let left = a_s;
-        let right = b_s;
-
-        // expr - 0 -> expr
-        // expr - (- |a|) -> expr + a
-        match right.as_const().map(|vn| vn.offset() as i64) {
-            Some(0) => {
-                return left;
-            }
+        // expr - 0 -> expr; expr - (-|a|) -> expr + a
+        match right.as_ref().as_const().map(|vn| vn.offset() as i64) {
+            Some(0) => return left,
             Some(a) if a < 0 => {
-                let new_const =
-                    Value::make_const(a.wrapping_neg(), Value::derive_size_from(&left) as u32);
-                let size = left.size();
-                let add = AddExpr(Rc::new(left), Rc::new(new_const), size).simplify();
-                return add;
+                let size = left.as_ref().size();
+                let new_c = Rc::new(Value::make_const(a.wrapping_neg(), size as u32));
+                let rebuilt = Rc::new(Value::Add(AddExpr(Rc::clone(&left), new_c, size)));
+                return Value::simplify_shared(&rebuilt);
             }
             _ => {}
         }
 
         // x - x -> 0
         if left == right {
-            let size = Value::derive_size_from(&left);
-            return Value::make_const(0, size as u32);
+            let size = Value::derive_size_from(left.as_ref());
+            return Rc::new(Value::make_const(0, size as u32));
         }
 
         // ((expr + #a) - #b) -> (expr + #(a - b)) or (expr - #(b - a))
-        if let Value::Add(AddExpr(expr, a, _)) = &left {
+        if let Value::Add(AddExpr(expr, a, _)) = left.as_ref() {
             if let Some(a_vn) = a.as_ref().as_const() {
-                if let Some(b_vn) = right.as_const() {
-                    let a_val = a_vn.offset() as i64;
-                    let b_val = b_vn.offset() as i64;
-                    let res = a_val.wrapping_sub(b_val);
-                    let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
-
-                    // res = a - b (net constant); positive → Add, negative → Sub with -res
+                if let Some(b_vn) = right.as_ref().as_const() {
+                    let res = (a_vn.offset() as i64).wrapping_sub(b_vn.offset() as i64);
+                    let size = expr.as_ref().size().max(left.as_ref().size());
                     if res < 0 {
-                        let new_const = Value::make_const(res.wrapping_neg(), size as u32);
-                        return SubExpr(expr.clone(), Rc::new(new_const), size).simplify();
+                        let new_c = Rc::new(Value::make_const(res.wrapping_neg(), size as u32));
+                        let rebuilt =
+                            Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
+                        return Value::simplify_shared(&rebuilt);
                     } else {
-                        let new_const = Value::make_const(res, size as u32);
-                        return AddExpr(expr.clone(), Rc::new(new_const), size).simplify();
+                        let new_c = Rc::new(Value::make_const(res, size as u32));
+                        let rebuilt =
+                            Rc::new(Value::Add(AddExpr(Rc::clone(expr), new_c, size)));
+                        return Value::simplify_shared(&rebuilt);
                     }
                 }
             }
         }
 
         // ((expr - #a) - #b) -> (expr - #(a + b))
-        if let Value::Sub(SubExpr(expr, a, _)) = &left {
+        if let Value::Sub(SubExpr(expr, a, _)) = left.as_ref() {
             if let Some(a_vn) = a.as_ref().as_const() {
-                if let Some(b_vn) = right.as_const() {
-                    let a_val = a_vn.offset() as i64;
-                    let b_val = b_vn.offset() as i64;
-                    let res = a_val.wrapping_add(b_val);
-                    let size = std::cmp::max(expr.as_ref().size(), Value::derive_size_from(&left));
-                    let new_const = Value::make_const(res, size as u32);
-                    return SubExpr(expr.clone(), Rc::new(new_const), size).simplify();
+                if let Some(b_vn) = right.as_ref().as_const() {
+                    let res = (a_vn.offset() as i64).wrapping_add(b_vn.offset() as i64);
+                    let size = expr.as_ref().size().max(left.as_ref().size());
+                    let new_c = Rc::new(Value::make_const(res, size as u32));
+                    let rebuilt = Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
+                    return Value::simplify_shared(&rebuilt);
                 }
             }
         }
 
-        let s = std::cmp::max(left.size(), right.size());
-        Value::Sub(SubExpr(Rc::new(left), Rc::new(right), s))
+        if Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::Sub(SubExpr(left, right, s)))
     }
 }
 
 impl Simplify for MulExpr {
     fn simplify(&self) -> Value {
-        let a_intern = &self.0;
-        let b_intern = &self.1;
+        let outer = Rc::new(Value::Mul(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        let a_s = a_intern.as_ref().simplify();
-        let b_s = b_intern.as_ref().simplify();
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let MulExpr(a_intern, b_intern, _) = inner;
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // normalization: prefer constant on the right
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        // both const -> fold
-        if let (Some(a_vn), Some(b_vn)) = (left.as_const(), right.as_const()) {
-            let a_v = a_vn.offset() as i64;
-            let b_v = b_vn.offset() as i64;
-            let res = a_v.wrapping_mul(b_v);
-            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
-            return Value::make_const(res, size as u32);
+        if let (Some(av), Some(bv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
+            let res = (av.offset() as i64).wrapping_mul(bv.offset() as i64);
+            let size = Value::derive_size_from(left.as_ref())
+                .max(Value::derive_size_from(right.as_ref()));
+            return Rc::new(Value::make_const(res, size as u32));
         }
 
-        // expr * 1 -> expr
-        if right.as_const().map(|vn| vn.offset() as i64) == Some(1) {
+        if right.as_ref().as_const().map(|vn| vn.offset() as i64) == Some(1) {
             return left;
         }
 
-        // expr * 0 -> 0
-        if right.as_const().map(|vn| vn.offset() as i64) == Some(0) {
-            let size = Value::derive_size_from(&left);
-            return Value::make_const(0, size as u32);
+        if right.as_ref().as_const().map(|vn| vn.offset() as i64) == Some(0) {
+            let size = Value::derive_size_from(left.as_ref());
+            return Rc::new(Value::make_const(0, size as u32));
         }
 
-        let s = std::cmp::max(left.size(), right.size());
-        Value::Mul(MulExpr(Rc::new(left), Rc::new(right), s))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::Mul(MulExpr(left, right, s)))
     }
 }
 
 impl Simplify for Choice {
     fn simplify(&self) -> Value {
-        let a_intern = &self.0;
-        let b_intern = &self.1;
+        let outer = Rc::new(Value::Choice(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        // simplify children first
-        let a_s = a_intern.as_ref().simplify();
-        let b_s = b_intern.as_ref().simplify();
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let Choice(a_intern, b_intern, _) = inner;
 
-        // if either child is Top, the result is Top
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // normalize so that if one side is a Choice and the other is not, the Choice is on the right
-        // (canonical shape: non-Choice on left, Choice on right)
-        let (mut left, mut right) = Value::normalize_choice(a_s, b_s);
+        let (mut left, mut right, mut swapped) = Value::normalize_choice_rc(new_a, new_b);
 
-        // If both sides are non-Choice, enforce deterministic ordering by variant rank.
-        if !matches!(left, Value::Choice(_))
-            && !matches!(right, Value::Choice(_))
-            && Value::variant_rank(&left) > Value::variant_rank(&right)
+        if !matches!(left.as_ref(), Value::Choice(_))
+            && !matches!(right.as_ref(), Value::Choice(_))
+            && Value::variant_rank(left.as_ref()) > Value::variant_rank(right.as_ref())
         {
             std::mem::swap(&mut left, &mut right);
+            swapped = !swapped;
         }
 
-        // identical children => just return one
         if left == right {
             return left;
         }
 
         // Collapse nested duplicates: Choice(a, Choice(a, b)) -> Choice(a, b)
-        if let Value::Choice(Choice(inner_a, inner_b, _)) = &right {
-            if inner_a.as_ref() == &left {
-                let inner =
-                    Value::Choice(Choice(Rc::new(left), inner_b.clone(), right.size())).simplify();
-                return inner;
+        if let Value::Choice(Choice(inner_a, inner_b, _)) = right.as_ref() {
+            if inner_a.as_ref() == left.as_ref() {
+                let rebuilt = Rc::new(Value::Choice(Choice(
+                    Rc::clone(&left),
+                    Rc::clone(inner_b),
+                    right.as_ref().size(),
+                )));
+                return Value::simplify_shared(&rebuilt);
             }
-            if inner_b.as_ref() == &left {
-                let inner =
-                    Value::Choice(Choice(Rc::new(left), inner_a.clone(), right.size())).simplify();
-                return inner;
+            if inner_b.as_ref() == left.as_ref() {
+                let rebuilt = Rc::new(Value::Choice(Choice(
+                    Rc::clone(&left),
+                    Rc::clone(inner_a),
+                    right.as_ref().size(),
+                )));
+                return Value::simplify_shared(&rebuilt);
             }
         }
 
-        // Factor common child between two Choices:
-        // Choice(Choice(a,b), Choice(a,c)) -> Choice(a, Choice(b,c)) and symmetric variants.
+        // Factor common child between two Choices
         if let (Value::Choice(Choice(l1, l2, _)), Value::Choice(Choice(r1, r2, _))) =
-            (&left, &right)
+            (left.as_ref(), right.as_ref())
         {
-            // check all combinations for equal common child
+            let make_factored = |common: &Rc<Value>, x: &Rc<Value>, y: &Rc<Value>| {
+                let inner_s = x.as_ref().size().max(y.as_ref().size());
+                let inner = Rc::new(Value::Choice(Choice(Rc::clone(x), Rc::clone(y), inner_s)));
+                let inner_simplified = Value::simplify_shared(&inner);
+                let s = common.as_ref().size().max(inner_simplified.as_ref().size());
+                let top = Rc::new(Value::Choice(Choice(
+                    Rc::clone(common),
+                    inner_simplified,
+                    s,
+                )));
+                Value::simplify_shared(&top)
+            };
             if l1.as_ref() == r1.as_ref() {
-                let inner = Value::Choice(Choice(
-                    l2.clone(),
-                    r2.clone(),
-                    std::cmp::max(l2.as_ref().size(), r2.as_ref().size()),
-                ))
-                .simplify();
-                let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Choice(Choice(l1.clone(), Rc::new(inner), s)).simplify();
+                return make_factored(l1, l2, r2);
             }
             if l1.as_ref() == r2.as_ref() {
-                let inner = Value::Choice(Choice(
-                    l2.clone(),
-                    r1.clone(),
-                    std::cmp::max(l2.as_ref().size(), r1.as_ref().size()),
-                ))
-                .simplify();
-                let s = std::cmp::max(l1.as_ref().size(), inner.size());
-                return Value::Choice(Choice(l1.clone(), Rc::new(inner), s)).simplify();
+                return make_factored(l1, l2, r1);
             }
             if l2.as_ref() == r1.as_ref() {
-                let inner = Value::Choice(Choice(
-                    l1.clone(),
-                    r2.clone(),
-                    std::cmp::max(l1.as_ref().size(), r2.as_ref().size()),
-                ))
-                .simplify();
-                let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Choice(Choice(l2.clone(), Rc::new(inner), s)).simplify();
+                return make_factored(l2, l1, r2);
             }
             if l2.as_ref() == r2.as_ref() {
-                let inner = Value::Choice(Choice(
-                    l1.clone(),
-                    r1.clone(),
-                    std::cmp::max(l1.as_ref().size(), r1.as_ref().size()),
-                ))
-                .simplify();
-                let s = std::cmp::max(l2.as_ref().size(), inner.size());
-                return Value::Choice(Choice(l2.clone(), Rc::new(inner), s)).simplify();
+                return make_factored(l2, l1, r1);
             }
         }
 
-        // default: rebuild with simplified children
-        let s = std::cmp::max(left.size(), right.size());
-        Value::Choice(Choice(Rc::new(left), Rc::new(right), s))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::Choice(Choice(left, right, s)))
     }
 }
 
 impl Simplify for XorExpr {
     fn simplify(&self) -> Value {
-        let a_intern = &self.0;
-        let b_intern = &self.1;
+        let outer = Rc::new(Value::Xor(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        // simplify children first
-        let a_s = a_intern.as_ref().simplify();
-        let b_s = b_intern.as_ref().simplify();
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let XorExpr(a_intern, b_intern, _) = inner;
 
-        // if either child is Top, the result is Top
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // normalize: prefer constant on the right
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        // both const -> fold
-        if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
-            let left_val = left_vn.offset();
-            let right_val = right_vn.offset();
-            let res = (left_val ^ right_val) as i64;
-            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
-            return Value::make_const(res, size as u32);
+        if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
+            let res = (lv.offset() ^ rv.offset()) as i64;
+            let size = Value::derive_size_from(left.as_ref())
+                .max(Value::derive_size_from(right.as_ref()));
+            return Rc::new(Value::make_const(res, size as u32));
         }
 
-        // identical children => 0 (x XOR x = 0)
         if left == right {
-            let size = Value::derive_size_from(&left);
-            return Value::make_const(0, size as u32);
+            let size = Value::derive_size_from(left.as_ref());
+            return Rc::new(Value::make_const(0, size as u32));
         }
 
-        // expr XOR 0 -> expr
-        if right.as_const().map(|vn| vn.offset()) == Some(0) {
+        if right.as_ref().as_const().map(|vn| vn.offset()) == Some(0) {
             return left;
         }
 
-        // default: rebuild with simplified children
-        let s = std::cmp::max(left.size(), right.size());
-        Value::Xor(XorExpr(Rc::new(left), Rc::new(right), s))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::Xor(XorExpr(left, right, s)))
     }
 }
 
 impl Simplify for AndExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::And(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let AndExpr(a_intern, b_intern, _) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        // both const -> fold
-        if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
-            let res = (left_vn.offset() & right_vn.offset()) as i64;
-            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
-            return Value::make_const(res, size as u32);
+        if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
+            let res = (lv.offset() & rv.offset()) as i64;
+            let size = Value::derive_size_from(left.as_ref())
+                .max(Value::derive_size_from(right.as_ref()));
+            return Rc::new(Value::make_const(res, size as u32));
         }
 
-        // x & x -> x
         if left == right {
             return left;
         }
 
-        // x & 0 -> 0
-        if right.as_const().map(|vn| vn.offset()) == Some(0) {
-            let size = Value::derive_size_from(&left);
-            return Value::make_const(0, size as u32);
+        if right.as_ref().as_const().map(|vn| vn.offset()) == Some(0) {
+            let size = Value::derive_size_from(left.as_ref());
+            return Rc::new(Value::make_const(0, size as u32));
         }
 
-        // x & all-ones -> x
-        let all_ones = match left.size() {
+        let all_ones = match left.as_ref().size() {
             1 => Some(0xFF_u64),
             2 => Some(0xFFFF_u64),
             4 => Some(0xFFFF_FFFF_u64),
@@ -1483,46 +1521,55 @@ impl Simplify for AndExpr {
             _ => None,
         };
         if let Some(mask) = all_ones {
-            if right.as_const().map(|vn| vn.offset()) == Some(mask) {
+            if right.as_ref().as_const().map(|vn| vn.offset()) == Some(mask) {
                 return left;
             }
         }
 
-        let s = std::cmp::max(left.size(), right.size());
-        Value::And(AndExpr(Rc::new(left), Rc::new(right), s))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::And(AndExpr(left, right, s)))
     }
 }
 
 impl Simplify for OrExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::Or(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let OrExpr(a_intern, b_intern, _) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        // both const -> fold
-        if let (Some(left_vn), Some(right_vn)) = (left.as_const(), right.as_const()) {
-            let res = (left_vn.offset() | right_vn.offset()) as i64;
-            let size = Value::derive_size_from(&left).max(Value::derive_size_from(&right));
-            return Value::make_const(res, size as u32);
+        if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
+            let res = (lv.offset() | rv.offset()) as i64;
+            let size = Value::derive_size_from(left.as_ref())
+                .max(Value::derive_size_from(right.as_ref()));
+            return Rc::new(Value::make_const(res, size as u32));
         }
 
-        // x | x -> x
         if left == right {
             return left;
         }
 
-        // x | 0 -> x
-        if right.as_const().map(|vn| vn.offset()) == Some(0) {
+        if right.as_ref().as_const().map(|vn| vn.offset()) == Some(0) {
             return left;
         }
 
-        // x | all-ones -> all-ones
-        let all_ones = match left.size() {
+        let all_ones = match left.as_ref().size() {
             1 => Some(0xFF_u64),
             2 => Some(0xFFFF_u64),
             4 => Some(0xFFFF_FFFF_u64),
@@ -1530,259 +1577,329 @@ impl Simplify for OrExpr {
             _ => None,
         };
         if let Some(mask) = all_ones {
-            if right.as_const().map(|vn| vn.offset()) == Some(mask) {
-                let size = Value::derive_size_from(&left);
-                return Value::make_const(mask as i64, size as u32);
+            if right.as_ref().as_const().map(|vn| vn.offset()) == Some(mask) {
+                let size = Value::derive_size_from(left.as_ref());
+                return Rc::new(Value::make_const(mask as i64, size as u32));
             }
         }
 
-        let s = std::cmp::max(left.size(), right.size());
-        Value::Or(OrExpr(Rc::new(left), Rc::new(right), s))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = left.as_ref().size().max(right.as_ref().size());
+        Rc::new(Value::Or(OrExpr(left, right, s)))
     }
 }
 
 impl Simplify for BoolNegateExpr {
     fn simplify(&self) -> Value {
-        let inner = self.0.as_ref().simplify();
+        let outer = Rc::new(Value::BoolNegate(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(inner, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let BoolNegateExpr(child_intern) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+
+        if matches!(new_child.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        if let Some(value) = inner.as_boolean_const() {
-            return Value::bool_const(!value);
+        if let Some(value) = new_child.as_ref().as_boolean_const() {
+            return Rc::new(Value::bool_const(!value));
         }
 
-        if let Value::BoolNegate(BoolNegateExpr(inner2)) = &inner {
+        if let Value::BoolNegate(BoolNegateExpr(inner2)) = new_child.as_ref() {
             if inner2.as_ref().is_boolean_valued() {
-                return inner2.as_ref().clone();
+                return Rc::clone(inner2);
             }
         }
 
-        match &inner {
+        match new_child.as_ref() {
             Value::IntEqual(IntEqual(a, b)) => {
-                return Value::IntNotEqual(IntNotEqual(a.clone(), b.clone()));
+                return Rc::new(Value::IntNotEqual(IntNotEqual(Rc::clone(a), Rc::clone(b))));
             }
             Value::IntNotEqual(IntNotEqual(a, b)) => {
-                return Value::IntEqual(IntEqual(a.clone(), b.clone()));
+                return Rc::new(Value::IntEqual(IntEqual(Rc::clone(a), Rc::clone(b))));
             }
             Value::IntLess(IntLess(a, b)) => {
-                // !(a < b) == b <= a
-                return Value::IntLessEqual(IntLessEqual(b.clone(), a.clone()));
+                return Rc::new(Value::IntLessEqual(IntLessEqual(Rc::clone(b), Rc::clone(a))));
             }
             Value::IntLessEqual(IntLessEqual(a, b)) => {
-                // !(a <= b) == b < a
-                return Value::IntLess(IntLess(b.clone(), a.clone()));
+                return Rc::new(Value::IntLess(IntLess(Rc::clone(b), Rc::clone(a))));
             }
             Value::IntSLess(IntSLess(a, b)) => {
-                // !(a <s b) == b <=s a
-                return Value::IntSLessEqual(IntSLessEqual(b.clone(), a.clone()));
+                return Rc::new(Value::IntSLessEqual(IntSLessEqual(Rc::clone(b), Rc::clone(a))));
             }
             Value::IntSLessEqual(IntSLessEqual(a, b)) => {
-                // !(a <=s b) == b <s a
-                return Value::IntSLess(IntSLess(b.clone(), a.clone()));
+                return Rc::new(Value::IntSLess(IntSLess(Rc::clone(b), Rc::clone(a))));
             }
             _ => {}
         }
 
-        Value::BoolNegate(BoolNegateExpr(Rc::new(inner)))
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::BoolNegate(BoolNegateExpr(new_child)))
     }
 }
 
 impl Simplify for BoolAndExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::BoolAnd(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let BoolAndExpr(a_intern, b_intern) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        if let (Some(left_b), Some(right_b)) = (left.as_boolean_const(), right.as_boolean_const()) {
-            return Value::bool_const(left_b && right_b);
+        if let (Some(lb), Some(rb)) =
+            (left.as_ref().as_boolean_const(), right.as_ref().as_boolean_const())
+        {
+            return Rc::new(Value::bool_const(lb && rb));
         }
 
-        if left == right && left.is_boolean_valued() {
+        if left == right && left.as_ref().is_boolean_valued() {
             return left;
         }
 
-        if let Some(false) = right.as_boolean_const() {
-            return Value::bool_const(false);
+        if let Some(false) = right.as_ref().as_boolean_const() {
+            return Rc::new(Value::bool_const(false));
         }
 
-        if let Some(true) = right.as_boolean_const() {
-            if left.is_boolean_valued() {
+        if let Some(true) = right.as_ref().as_boolean_const() {
+            if left.as_ref().is_boolean_valued() {
                 return left;
             }
         }
 
-        Value::BoolAnd(BoolAndExpr(Rc::new(left), Rc::new(right)))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::BoolAnd(BoolAndExpr(left, right)))
     }
 }
 
 impl Simplify for BoolOrExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::BoolOr(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let BoolOrExpr(a_intern, b_intern) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        if let (Some(left_b), Some(right_b)) = (left.as_boolean_const(), right.as_boolean_const()) {
-            return Value::bool_const(left_b || right_b);
+        if let (Some(lb), Some(rb)) =
+            (left.as_ref().as_boolean_const(), right.as_ref().as_boolean_const())
+        {
+            return Rc::new(Value::bool_const(lb || rb));
         }
 
-        if left == right && left.is_boolean_valued() {
+        if left == right && left.as_ref().is_boolean_valued() {
             return left;
         }
 
-        if let Some(false) = right.as_boolean_const() {
-            if left.is_boolean_valued() {
+        if let Some(false) = right.as_ref().as_boolean_const() {
+            if left.as_ref().is_boolean_valued() {
                 return left;
             }
         }
 
-        if let Some(true) = right.as_boolean_const() {
-            return Value::bool_const(true);
+        if let Some(true) = right.as_ref().as_boolean_const() {
+            return Rc::new(Value::bool_const(true));
         }
 
-        Value::BoolOr(BoolOrExpr(Rc::new(left), Rc::new(right)))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::BoolOr(BoolOrExpr(left, right)))
     }
 }
 
 impl Simplify for BoolXorExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::BoolXor(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let BoolXorExpr(a_intern, b_intern) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        let (left, right) = Value::normalize_commutative(a_s, b_s);
+        let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        if let (Some(left_b), Some(right_b)) = (left.as_boolean_const(), right.as_boolean_const()) {
-            return Value::bool_const(left_b ^ right_b);
+        if let (Some(lb), Some(rb)) =
+            (left.as_ref().as_boolean_const(), right.as_ref().as_boolean_const())
+        {
+            return Rc::new(Value::bool_const(lb ^ rb));
         }
 
-        if left == right && left.is_boolean_valued() {
-            return Value::bool_const(false);
+        if left == right && left.as_ref().is_boolean_valued() {
+            return Rc::new(Value::bool_const(false));
         }
 
-        if let Some(false) = right.as_boolean_const() {
-            if left.is_boolean_valued() {
+        if let Some(false) = right.as_ref().as_boolean_const() {
+            if left.as_ref().is_boolean_valued() {
                 return left;
             }
         }
 
-        if let Some(true) = right.as_boolean_const() {
-            if left.is_boolean_valued() {
-                return Value::bool_negate(left).simplify();
+        if let Some(true) = right.as_ref().as_boolean_const() {
+            if left.as_ref().is_boolean_valued() {
+                let negated = Rc::new(Value::BoolNegate(BoolNegateExpr(Rc::clone(&left))));
+                return Value::simplify_shared(&negated);
             }
         }
 
-        Value::BoolXor(BoolXorExpr(Rc::new(left), Rc::new(right)))
+        if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::BoolXor(BoolXorExpr(left, right)))
     }
 }
 
 impl Simplify for IntLeftShiftExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntLeftShift(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntLeftShiftExpr(a_intern, b_intern, _) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // both const -> fold
-        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let left_val = left_vn.offset();
-            let shift_amt = right_vn.offset();
-            let size_bits = (left_vn.size() * 8) as u32;
-
-            // If shift amount is >= bit width, result is 0
-            if shift_amt >= size_bits as u64 {
-                let size = Value::derive_size_from(&a_s);
-                return Value::make_const(0, size as u32);
+        if let (Some(lv), Some(rv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            let shift_amt = rv.offset();
+            let size_bits = (lv.size() * 8) as u64;
+            if shift_amt >= size_bits {
+                let size = Value::derive_size_from(new_a.as_ref());
+                return Rc::new(Value::make_const(0, size as u32));
             }
-
-            let result = left_val.wrapping_shl(shift_amt as u32);
-            let masked = result & mask_for_size(left_vn.size());
-            let size = Value::derive_size_from(&a_s);
-            return Value::make_const(masked as i64, size as u32);
+            let result = lv.offset().wrapping_shl(shift_amt as u32);
+            let masked = result & mask_for_size(lv.size());
+            let size = Value::derive_size_from(new_a.as_ref());
+            return Rc::new(Value::make_const(masked as i64, size as u32));
         }
 
-        // expr << 0 -> expr
-        if b_s.as_const().map(|vn| vn.offset()) == Some(0) {
-            return a_s;
+        if new_b.as_ref().as_const().map(|vn| vn.offset()) == Some(0) {
+            return new_a;
         }
 
-        let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntLeftShift(IntLeftShiftExpr(Rc::new(a_s), Rc::new(b_s), s))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = new_a.as_ref().size().max(new_b.as_ref().size());
+        Rc::new(Value::IntLeftShift(IntLeftShiftExpr(new_a, new_b, s)))
     }
 }
 
 impl Simplify for IntRightShiftExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntRightShift(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntRightShiftExpr(a_intern, b_intern, _) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // both const -> fold (unsigned/logical right shift)
-        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let left_val = left_vn.offset();
-            let shift_amt = right_vn.offset();
-            let size_bits = (left_vn.size() * 8) as u32;
-
-            // If shift amount is >= bit width, result is 0
-            if shift_amt >= size_bits as u64 {
-                let size = Value::derive_size_from(&a_s);
-                return Value::make_const(0, size as u32);
+        if let (Some(lv), Some(rv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            let shift_amt = rv.offset();
+            let size_bits = (lv.size() * 8) as u64;
+            if shift_amt >= size_bits {
+                let size = Value::derive_size_from(new_a.as_ref());
+                return Rc::new(Value::make_const(0, size as u32));
             }
-
-            let result = left_val.wrapping_shr(shift_amt as u32);
-            let size = Value::derive_size_from(&a_s);
-            return Value::make_const(result as i64, size as u32);
+            let result = lv.offset().wrapping_shr(shift_amt as u32);
+            let size = Value::derive_size_from(new_a.as_ref());
+            return Rc::new(Value::make_const(result as i64, size as u32));
         }
 
-        // expr >> 0 -> expr
-        if b_s.as_const().map(|vn| vn.offset()) == Some(0) {
-            return a_s;
+        if new_b.as_ref().as_const().map(|vn| vn.offset()) == Some(0) {
+            return new_a;
         }
 
-        let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntRightShift(IntRightShiftExpr(Rc::new(a_s), Rc::new(b_s), s))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = new_a.as_ref().size().max(new_b.as_ref().size());
+        Rc::new(Value::IntRightShift(IntRightShiftExpr(new_a, new_b, s)))
     }
 }
 
 impl Simplify for IntSignedRightShiftExpr {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntSignedRightShift(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntSignedRightShiftExpr(a_intern, b_intern, _) = inner;
+
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // both const -> fold (signed/arithmetic right shift)
-        if let (Some(left_vn), Some(right_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let left_val = left_vn.offset();
-            let shift_amt = right_vn.offset();
-            let size_bits = (left_vn.size() * 8) as u32;
-
-            // Convert to signed value for arithmetic shift
+        if let (Some(lv), Some(rv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            let left_val = lv.offset();
+            let shift_amt = rv.offset();
+            let size_bits = (lv.size() * 8) as u32;
             let signed_val = if size_bits < 64 {
                 let sign_bit = 1u64 << (size_bits - 1);
                 if left_val & sign_bit != 0 {
-                    // Negative: sign-extend to i64
                     (left_val | (u64::MAX << size_bits)) as i64
                 } else {
                     left_val as i64
@@ -1790,37 +1907,44 @@ impl Simplify for IntSignedRightShiftExpr {
             } else {
                 left_val as i64
             };
-
-            // If shift amount is >= bit width, result is all sign bits (0 or -1)
             if shift_amt >= size_bits as u64 {
                 let result = if signed_val < 0 { -1i64 } else { 0i64 };
-                let size = Value::derive_size_from(&a_s);
-                return Value::make_const(result, size as u32);
+                let size = Value::derive_size_from(new_a.as_ref());
+                return Rc::new(Value::make_const(result, size as u32));
             }
-
             let result = signed_val.wrapping_shr(shift_amt as u32);
-            let masked = (result as u64) & mask_for_size(left_vn.size());
-            let size = Value::derive_size_from(&a_s);
-            return Value::make_const(masked as i64, size as u32);
+            let masked = (result as u64) & mask_for_size(lv.size());
+            let size = Value::derive_size_from(new_a.as_ref());
+            return Rc::new(Value::make_const(masked as i64, size as u32));
         }
 
-        // expr s>> 0 -> expr
-        if b_s.as_const().map(|vn| vn.offset()) == Some(0) {
-            return a_s;
+        if new_b.as_ref().as_const().map(|vn| vn.offset()) == Some(0) {
+            return new_a;
         }
 
-        let s = std::cmp::max(a_s.size(), b_s.size());
-        Value::IntSignedRightShift(IntSignedRightShiftExpr(Rc::new(a_s), Rc::new(b_s), s))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        let s = new_a.as_ref().size().max(new_b.as_ref().size());
+        Rc::new(Value::IntSignedRightShift(IntSignedRightShiftExpr(new_a, new_b, s)))
     }
 }
 
 impl Simplify for Load {
     fn simplify(&self) -> Value {
-        let a_intern = &self.0;
-        let a_s = a_intern.as_ref().simplify();
+        let outer = Rc::new(Value::Load(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        // keep the same size as recorded on this Load node
-        Value::Load(Load(Rc::new(a_s), self.1, self.2))
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let Load(child_intern, size, space) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::Load(Load(new_child, *size, *space)))
     }
 }
 
@@ -1835,54 +1959,67 @@ fn mask_for_size(size_bytes: usize) -> u64 {
 
 impl Simplify for ZeroExtend {
     fn simplify(&self) -> Value {
-        let ZeroExtend(inner_intern, output_size) = self;
-        let inner = inner_intern.as_ref().simplify();
+        let outer = Rc::new(Value::ZeroExtend(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(inner, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let ZeroExtend(child_intern, output_size) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+
+        if matches!(new_child.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // identity: extending to the same size is a no-op
-        if inner.size() == *output_size {
-            return inner;
+        if new_child.as_ref().size() == *output_size {
+            return new_child;
         }
 
-        // constant folding: mask to source size (unsigned), then store in output size
-        if let Some(vn) = inner.as_const() {
+        if let Some(vn) = new_child.as_ref().as_const() {
             let src_value = vn.offset() & mask_for_size(vn.size());
-            return Value::make_const(src_value as i64, *output_size as u32);
+            return Rc::new(Value::make_const(src_value as i64, *output_size as u32));
         }
 
-        // chain: zext(zext(x, s1), s2) where s2 >= s1 → zext(x, s2)
-        if let Value::ZeroExtend(ZeroExtend(inner2, s1)) = &inner {
+        if let Value::ZeroExtend(ZeroExtend(inner2, s1)) = new_child.as_ref() {
             if *output_size >= *s1 {
-                return ZeroExtend(inner2.clone(), *output_size).simplify();
+                let rebuilt =
+                    Rc::new(Value::ZeroExtend(ZeroExtend(Rc::clone(inner2), *output_size)));
+                return Value::simplify_shared(&rebuilt);
             }
         }
 
-        Value::ZeroExtend(ZeroExtend(Rc::new(inner), *output_size))
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::ZeroExtend(ZeroExtend(new_child, *output_size)))
     }
 }
 
 impl Simplify for SignExtend {
     fn simplify(&self) -> Value {
-        let SignExtend(inner_intern, output_size) = self;
-        let inner = inner_intern.as_ref().simplify();
+        let outer = Rc::new(Value::SignExtend(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(inner, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let SignExtend(child_intern, output_size) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+
+        if matches!(new_child.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // identity: extending to the same size is a no-op
-        if inner.size() == *output_size {
-            return inner;
+        if new_child.as_ref().size() == *output_size {
+            return new_child;
         }
 
-        // constant folding
-        if let Some(vn) = inner.as_const() {
+        if let Some(vn) = new_child.as_ref().as_const() {
             let src_size = vn.size();
             let raw = vn.offset();
-            // sign-extend from src_size bytes to u64
             let sign_extended = if src_size > 0 && src_size < 8 {
                 let sign_bit = 1u64 << (src_size * 8 - 1);
                 if raw & sign_bit != 0 {
@@ -1894,341 +2031,437 @@ impl Simplify for SignExtend {
                 raw
             };
             let masked = sign_extended & mask_for_size(*output_size);
-            return Value::make_const(masked as i64, *output_size as u32);
+            return Rc::new(Value::make_const(masked as i64, *output_size as u32));
         }
 
-        // chain: sext(sext(x, s1), s2) where s2 >= s1 → sext(x, s2)
-        if let Value::SignExtend(SignExtend(inner2, s1)) = &inner {
+        if let Value::SignExtend(SignExtend(inner2, s1)) = new_child.as_ref() {
             if *output_size >= *s1 {
-                return SignExtend(inner2.clone(), *output_size).simplify();
+                let rebuilt =
+                    Rc::new(Value::SignExtend(SignExtend(Rc::clone(inner2), *output_size)));
+                return Value::simplify_shared(&rebuilt);
             }
         }
 
-        Value::SignExtend(SignExtend(Rc::new(inner), *output_size))
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::SignExtend(SignExtend(new_child, *output_size)))
     }
 }
 
 impl Simplify for Extract {
     fn simplify(&self) -> Value {
-        let Extract(inner_intern, byte_offset, output_size) = self;
-        let inner = inner_intern.as_ref().simplify();
+        let outer = Rc::new(Value::Extract(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(inner, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let Extract(child_intern, byte_offset, output_size) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+
+        if matches!(new_child.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
 
-        // identity: extracting the full value at offset 0 is a no-op
-        if *byte_offset == 0 && inner.size() == *output_size {
-            return inner;
+        if *byte_offset == 0 && new_child.as_ref().size() == *output_size {
+            return new_child;
         }
 
         if *byte_offset == 0 {
-            if let Some(e) = inner.as_entry() {
-                // this is just a smaller version of the same varnode
+            if let Some(e) = new_child.as_ref().as_entry() {
                 let vn = *e.deref();
                 let vn = VarNode::new(vn.offset(), *output_size, vn.space_index());
-                return Value::entry(vn);
+                return Rc::new(Value::entry(vn));
             }
 
-            if let Some(e) = inner.as_offset() {
-                // this is just a smaller version of the same varnode
+            if let Some(e) = new_child.as_ref().as_offset() {
                 let new_size = VarNode::new_const(e.1.0.offset(), *output_size);
-                return Value::offset(e.0.0, new_size);
+                return Rc::new(Value::offset(e.0.0, new_size));
             }
 
-            if let Some(ZeroExtend(val, size)) = inner.as_zext() {
-                if *output_size == val.size() {
-                    // this exactly undoes the zero extension
-                    return val.as_ref().clone();
-                } else if *output_size < val.size() {
-                    // the output extraction size is less than the original size; this is just an extraction
-                    return Value::extract(val, 0, *output_size);
+            if let Some(ZeroExtend(val, size)) = new_child.as_ref().as_zext() {
+                if *output_size == val.as_ref().size() {
+                    return Rc::clone(val);
+                } else if *output_size < val.as_ref().size() {
+                    let rebuilt =
+                        Rc::new(Value::Extract(Extract(Rc::clone(val), 0, *output_size)));
+                    return Value::simplify_shared(&rebuilt);
                 } else if output_size <= size {
-                    // the output size is bigger than the original but less
-                    return Value::zero_extend(val, *output_size);
+                    let rebuilt =
+                        Rc::new(Value::ZeroExtend(ZeroExtend(Rc::clone(val), *output_size)));
+                    return Value::simplify_shared(&rebuilt);
                 }
             }
 
-            if let Some(AddExpr(left, right, _size)) = inner.as_add() {
-                let left = Value::extract(left, 0, *output_size).simplify();
-                let right = Value::extract(right, 0, *output_size).simplify();
-                return left + right;
+            if let Some(AddExpr(left, right, _)) = new_child.as_ref().as_add() {
+                let left_ex =
+                    Rc::new(Value::Extract(Extract(Rc::clone(left), 0, *output_size)));
+                let left_s = Value::simplify_shared(&left_ex);
+                let right_ex =
+                    Rc::new(Value::Extract(Extract(Rc::clone(right), 0, *output_size)));
+                let right_s = Value::simplify_shared(&right_ex);
+                let size = left_s.as_ref().size().max(right_s.as_ref().size());
+                let sum = Rc::new(Value::Add(AddExpr(left_s, right_s, size)));
+                return Value::simplify_shared(&sum);
             }
 
-            if let Some(SignExtend(val, size)) = inner.as_sext() {
-                // this is definitionally a no-op
-                if *output_size == val.size() {
-                    return val.as_ref().clone();
-                } else if *output_size < val.size() {
-                    return Value::extract(val, 0, *output_size);
+            if let Some(SignExtend(val, size)) = new_child.as_ref().as_sext() {
+                if *output_size == val.as_ref().size() {
+                    return Rc::clone(val);
+                } else if *output_size < val.as_ref().size() {
+                    let rebuilt =
+                        Rc::new(Value::Extract(Extract(Rc::clone(val), 0, *output_size)));
+                    return Value::simplify_shared(&rebuilt);
                 } else if output_size <= size {
-                    return Value::sign_extend(val, *output_size);
+                    let rebuilt =
+                        Rc::new(Value::SignExtend(SignExtend(Rc::clone(val), *output_size)));
+                    return Value::simplify_shared(&rebuilt);
                 }
             }
         }
 
-        // constant folding
-        if let Some(vn) = inner.as_const() {
+        if let Some(vn) = new_child.as_ref().as_const() {
             let shift_amt = byte_offset.saturating_mul(8) as u32;
             let shifted = vn.offset().checked_shr(shift_amt).unwrap_or(0);
             let masked = shifted & mask_for_size(*output_size);
-            return Value::make_const(masked as i64, *output_size as u32);
+            return Rc::new(Value::make_const(masked as i64, *output_size as u32));
         }
 
-        Value::Extract(Extract(Rc::new(inner), *byte_offset, *output_size))
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::Extract(Extract(new_child, *byte_offset, *output_size)))
     }
 }
 
 impl Simplify for IntEqual {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntEqual(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntEqual(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let result = (a_vn.offset() == b_vn.offset()) as i64;
-            return Value::make_const(result, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            return Rc::new(Value::make_const((av.offset() == bv.offset()) as i64, 1));
         }
-
-        if a_s == b_s {
-            return Value::make_const(1, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(1, 1));
         }
-
-        Value::IntEqual(IntEqual(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntEqual(IntEqual(new_a, new_b)))
     }
 }
 
 impl Simplify for IntLess {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntLess(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntLess(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let result = (a_vn.offset() < b_vn.offset()) as i64;
-            return Value::make_const(result, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            return Rc::new(Value::make_const((av.offset() < bv.offset()) as i64, 1));
         }
-
-        if a_s == b_s {
-            return Value::make_const(0, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(0, 1));
         }
-
-        Value::IntLess(IntLess(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntLess(IntLess(new_a, new_b)))
     }
 }
 
 impl Simplify for IntSLess {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntSLess(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntSLess(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let result = ((a_vn.offset() as i64) < (b_vn.offset() as i64)) as i64;
-            return Value::make_const(result, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            return Rc::new(Value::make_const(
+                ((av.offset() as i64) < (bv.offset() as i64)) as i64,
+                1,
+            ));
         }
-
-        if a_s == b_s {
-            return Value::make_const(0, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(0, 1));
         }
-
-        Value::IntSLess(IntSLess(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntSLess(IntSLess(new_a, new_b)))
     }
 }
 
 impl Simplify for PopCount {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
+        let outer = Rc::new(Value::PopCount(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let PopCount(child_intern) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+        if matches!(new_child.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let Some(vn) = a_s.as_const() {
-            let result = vn.offset().count_ones() as i64;
-            return Value::make_const(result, 1);
+        if let Some(vn) = new_child.as_ref().as_const() {
+            return Rc::new(Value::make_const(vn.offset().count_ones() as i64, 1));
         }
-
-        Value::PopCount(PopCount(Rc::new(a_s)))
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::PopCount(PopCount(new_child)))
     }
 }
 
 impl Simplify for IntNotEqual {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntNotEqual(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntNotEqual(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let result = (a_vn.offset() != b_vn.offset()) as i64;
-            return Value::make_const(result, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            return Rc::new(Value::make_const((av.offset() != bv.offset()) as i64, 1));
         }
-
-        if a_s == b_s {
-            return Value::make_const(0, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(0, 1));
         }
-
-        Value::IntNotEqual(IntNotEqual(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntNotEqual(IntNotEqual(new_a, new_b)))
     }
 }
 
 impl Simplify for IntLessEqual {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntLessEqual(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntLessEqual(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let result = (a_vn.offset() <= b_vn.offset()) as i64;
-            return Value::make_const(result, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            return Rc::new(Value::make_const((av.offset() <= bv.offset()) as i64, 1));
         }
-
-        if a_s == b_s {
-            return Value::make_const(1, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(1, 1));
         }
-
-        Value::IntLessEqual(IntLessEqual(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntLessEqual(IntLessEqual(new_a, new_b)))
     }
 }
 
 impl Simplify for IntSLessEqual {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntSLessEqual(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntSLessEqual(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let result = ((a_vn.offset() as i64) <= (b_vn.offset() as i64)) as i64;
-            return Value::make_const(result, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            return Rc::new(Value::make_const(
+                ((av.offset() as i64) <= (bv.offset() as i64)) as i64,
+                1,
+            ));
         }
-
-        if a_s == b_s {
-            return Value::make_const(1, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(1, 1));
         }
-
-        Value::IntSLessEqual(IntSLessEqual(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntSLessEqual(IntSLessEqual(new_a, new_b)))
     }
 }
 
 impl Simplify for IntCarry {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntCarry(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntCarry(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let bits = (a_vn.size() * 8) as u32;
-            let carry = (a_vn.offset() as u128 + b_vn.offset() as u128) >> bits;
-            return Value::make_const((carry != 0) as i64, 1);
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            let bits = (av.size() * 8) as u32;
+            let carry = (av.offset() as u128 + bv.offset() as u128) >> bits;
+            return Rc::new(Value::make_const((carry != 0) as i64, 1));
         }
-
-        Value::IntCarry(IntCarry(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntCarry(IntCarry(new_a, new_b)))
     }
 }
 
 impl Simplify for IntSCarry {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntSCarry(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntSCarry(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let n = a_vn.size() * 8;
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            let n = av.size() * 8;
             let mask = if n == 64 {
                 u64::MAX
             } else {
                 (1u64 << n).wrapping_sub(1)
             };
             let sign_mask = 1u64 << (n - 1);
-            let a_val = a_vn.offset() & mask;
-            let b_val = b_vn.offset() & mask;
+            let a_val = av.offset() & mask;
+            let b_val = bv.offset() & mask;
             let sum = a_val.wrapping_add(b_val) & mask;
             let overflow = ((a_val ^ sum) & (b_val ^ sum) & sign_mask) != 0;
-            return Value::make_const(overflow as i64, 1);
+            return Rc::new(Value::make_const(overflow as i64, 1));
         }
-
-        Value::IntSCarry(IntSCarry(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntSCarry(IntSCarry(new_a, new_b)))
     }
 }
 
 impl Simplify for IntSBorrow {
     fn simplify(&self) -> Value {
-        let a_s = self.0.as_ref().simplify();
-        let b_s = self.1.as_ref().simplify();
+        let outer = Rc::new(Value::IntSBorrow(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(a_s, Value::Top) || matches!(b_s, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let IntSBorrow(a_intern, b_intern) = inner;
+        let new_a = Value::simplify_shared(a_intern);
+        let new_b = Value::simplify_shared(b_intern);
+        if matches!(new_a.as_ref(), Value::Top) || matches!(new_b.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        if let (Some(a_vn), Some(b_vn)) = (a_s.as_const(), b_s.as_const()) {
-            let n = a_vn.size() * 8;
+        if let (Some(av), Some(bv)) = (new_a.as_ref().as_const(), new_b.as_ref().as_const()) {
+            let n = av.size() * 8;
             let mask = if n == 64 {
                 u64::MAX
             } else {
                 (1u64 << n).wrapping_sub(1)
             };
             let sign_mask = 1u64 << (n - 1);
-            let a_val = a_vn.offset() & mask;
-            let b_val = b_vn.offset() & mask;
+            let a_val = av.offset() & mask;
+            let b_val = bv.offset() & mask;
             let diff = a_val.wrapping_sub(b_val) & mask;
             let overflow = ((a_val ^ b_val) & (a_val ^ diff) & sign_mask) != 0;
-            return Value::make_const(overflow as i64, 1);
+            return Rc::new(Value::make_const(overflow as i64, 1));
         }
-
-        if a_s == b_s {
-            return Value::make_const(0, 1);
+        if new_a == new_b {
+            return Rc::new(Value::make_const(0, 1));
         }
-
-        Value::IntSBorrow(IntSBorrow(Rc::new(a_s), Rc::new(b_s)))
+        if Rc::ptr_eq(&new_a, a_intern) && Rc::ptr_eq(&new_b, b_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::IntSBorrow(IntSBorrow(new_a, new_b)))
     }
 }
 
 impl Simplify for Int2CompExpr {
     fn simplify(&self) -> Value {
-        let Int2CompExpr(inner_intern, output_size) = self;
-        let inner = inner_intern.as_ref().simplify();
+        let outer = Rc::new(Value::Int2Comp(self.clone()));
+        let r = Self::simplify_rc(&outer, self);
+        drop(outer);
+        Rc::try_unwrap(r).unwrap_or_else(|rc| (*rc).clone())
+    }
 
-        if matches!(inner, Value::Top) {
-            return Value::Top;
+    fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
+        let Int2CompExpr(child_intern, output_size) = inner;
+        let new_child = Value::simplify_shared(child_intern);
+        if matches!(new_child.as_ref(), Value::Top) {
+            return Rc::new(Value::Top);
         }
-
-        // constant folding: compute two's complement = -x
-        if let Some(vn) = inner.as_const() {
-            let value = vn.offset() as i64;
-            let negated = value.wrapping_neg();
-            return Value::make_const(negated, *output_size as u32);
+        if let Some(vn) = new_child.as_ref().as_const() {
+            let negated = (vn.offset() as i64).wrapping_neg();
+            return Rc::new(Value::make_const(negated, *output_size as u32));
         }
-
         // identity: int_2comp(int_2comp(x)) = x
-        if let Value::Int2Comp(Int2CompExpr(inner2, _)) = &inner {
-            return inner2.as_ref().clone();
+        if let Value::Int2Comp(Int2CompExpr(inner2, _)) = new_child.as_ref() {
+            return Rc::clone(inner2);
         }
-
-        Value::Int2Comp(Int2CompExpr(Rc::new(inner), *output_size))
+        if Rc::ptr_eq(&new_child, child_intern) {
+            return Rc::clone(outer);
+        }
+        Rc::new(Value::Int2Comp(Int2CompExpr(new_child, *output_size)))
     }
 }
 

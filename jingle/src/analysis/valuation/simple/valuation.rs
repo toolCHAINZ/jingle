@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
-use crate::{analysis::valuation::Load, display::JingleDisplay};
+use crate::display::JingleDisplay;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -293,7 +293,10 @@ impl ValuationSet {
         V: Into<Value>,
     {
         let loc = loc.into();
-        let val = value.into().simplify();
+        let val_rc = Rc::new(value.into());
+        let simplified = Value::simplify_shared(&val_rc);
+        drop(val_rc);
+        let val = Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone());
         match loc {
             Location::Direct(vn) => {
                 // Remove any existing entries whose range is entirely covered by this write.
@@ -313,7 +316,10 @@ impl ValuationSet {
                         let byte_offset = (vn.offset() - parent_vn.offset()) as usize;
                         let merged =
                             Value::insert_bytes(parent_val.clone(), val.clone(), byte_offset);
-                        (*parent_vn, merged.simplify())
+                        let merged_rc = Rc::new(merged);
+                        let simplified = Value::simplify_shared(&merged_rc);
+                        drop(merged_rc);
+                        (*parent_vn, Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone()))
                     })
                     .collect();
 
