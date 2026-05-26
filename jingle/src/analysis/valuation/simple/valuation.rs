@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
+use crate::analysis::valuation::simple::value::IntoRcValue;
 use crate::analysis::{valuation::Value, varnode_map::VarNodeMap};
 
 mod btreemap_as_vec {
@@ -36,7 +37,7 @@ mod btreemap_as_vec {
 /// ([pointer expression] -> value) produced by stores.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ValuationSet {
-    pub direct_writes: VarNodeMap<Value>,
+    pub direct_writes: VarNodeMap<Rc<Value>>,
     /// Keyed on the load expression representing the memory location (e.g. `Load(ptr, size)`),
     /// not the raw pointer. This matches the `Value::Load` representation used when the
     /// stored value is read back by a load operation.
@@ -46,7 +47,7 @@ pub struct ValuationSet {
     //  anything downstream needing to express something more general should just use its
     //  own type instead of making the function of this type ambiguous
     #[serde(with = "btreemap_as_vec")]
-    pub indirect_writes: BTreeMap<Value, Value>,
+    pub indirect_writes: BTreeMap<Value, Rc<Value>>,
 }
 
 impl Default for ValuationSet {
@@ -68,8 +69,8 @@ impl ValuationSet {
     /// This allows callers to build a `ValuationSet` with pre-populated contents
     /// instead of creating an empty one and inserting entries afterwards.
     pub fn with_contents(
-        direct_writes: VarNodeMap<Value>,
-        indirect_writes: BTreeMap<Value, Value>,
+        direct_writes: VarNodeMap<Rc<Value>>,
+        indirect_writes: BTreeMap<Value, Rc<Value>>,
     ) -> Self {
         Self {
             direct_writes,
@@ -83,10 +84,9 @@ impl ValuationSet {
     /// or `Location`) and returns a reference to the stored `Value` if present.
     pub fn get<B: Borrow<Location>>(&self, loc: B) -> Option<&Value> {
         match loc.borrow() {
-            Location::Direct(vn) => self.direct_writes.get(vn),
+            Location::Direct(vn) => self.direct_writes.get(vn).map(|rc| rc.as_ref()),
             Location::Indirect(ptr_intern) => {
-                // indirect_writes keyed by Value, lookup by reference to the Value
-                self.indirect_writes.get(ptr_intern)
+                self.indirect_writes.get(ptr_intern).map(|rc| rc.as_ref())
             }
         }
     }
@@ -290,13 +290,10 @@ impl ValuationSet {
     pub fn add<L, V>(&mut self, loc: L, value: V)
     where
         L: Into<Location>,
-        V: Into<Value>,
+        V: IntoRcValue,
     {
         let loc = loc.into();
-        let val_rc = Rc::new(value.into());
-        let simplified = Value::simplify_shared(&val_rc);
-        drop(val_rc);
-        let val = Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone());
+        let val = Value::simplify_shared(&value.into_rc());
         match loc {
             Location::Direct(vn) => {
                 // Remove any existing entries whose range is entirely covered by this write.
@@ -308,18 +305,15 @@ impl ValuationSet {
                 // When writing a sub-register, update any parent registers that cover it so
                 // they reflect the partial write. E.g., writing AL must splice the new byte
                 // into the stored RAX value. Collect first to avoid borrow conflicts.
-                let parents: Vec<(VarNode, Value)> = self
+                let parents: Vec<(VarNode, Rc<Value>)> = self
                     .direct_writes
                     .items()
                     .filter(|(existing, _)| existing.covers(&vn) && *existing != &vn)
                     .map(|(parent_vn, parent_val)| {
                         let byte_offset = (vn.offset() - parent_vn.offset()) as usize;
                         let merged =
-                            Value::insert_bytes(parent_val.clone(), val.clone(), byte_offset);
-                        let merged_rc = Rc::new(merged);
-                        let simplified = Value::simplify_shared(&merged_rc);
-                        drop(merged_rc);
-                        (*parent_vn, Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone()))
+                            Value::insert_bytes(parent_val, Rc::clone(&val), byte_offset);
+                        (*parent_vn, Value::simplify_shared(&Rc::new(merged)))
                     })
                     .collect();
 
@@ -371,8 +365,8 @@ impl JingleDisplay for Valuation {
 /// Yields tuples of `(Location, &Value)` for each entry,
 /// matching the API of `iter_mut()` and following standard library conventions.
 pub struct ValuationIter<'a> {
-    direct_iter: crate::analysis::varnode_map::Iter<'a, Value>,
-    indirect_iter: std::collections::btree_map::Iter<'a, Value, Value>,
+    direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
+    indirect_iter: std::collections::btree_map::Iter<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -393,7 +387,7 @@ impl<'a> Iterator for ValuationIter<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_iter.next() {
-                return Some((Location::Direct(*vn), val));
+                return Some((Location::Direct(*vn), val.as_ref()));
             }
             self.direct_done = true;
         }
@@ -401,7 +395,7 @@ impl<'a> Iterator for ValuationIter<'a> {
         // Then iterate through indirect entries
         if let Some((ptr, val)) = self.indirect_iter.next() {
             let location = Location::Indirect(ptr.clone());
-            return Some((location, val));
+            return Some((location, val.as_ref()));
         }
 
         None
@@ -421,8 +415,8 @@ impl<'a> IntoIterator for &'a ValuationSet {
 ///
 /// Yields mutable references to both the location and value of each entry.
 pub struct ValuationIterMut<'a> {
-    direct_iter: crate::analysis::varnode_map::IterMut<'a, Value>,
-    indirect_iter: std::collections::btree_map::IterMut<'a, Value, Value>,
+    direct_iter: crate::analysis::varnode_map::IterMut<'a, Rc<Value>>,
+    indirect_iter: std::collections::btree_map::IterMut<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -437,7 +431,7 @@ impl<'a> ValuationIterMut<'a> {
 }
 
 impl<'a> Iterator for ValuationIterMut<'a> {
-    type Item = (Location, &'a mut Value);
+    type Item = (Location, &'a mut Rc<Value>);
 
     fn next(&mut self) -> Option<Self::Item> {
         // First, iterate through all direct entries
@@ -462,8 +456,8 @@ impl<'a> Iterator for ValuationIterMut<'a> {
 ///
 /// This struct is created by the `keys` method on `ValuationSet`.
 pub struct Keys<'a> {
-    direct_iter: crate::analysis::varnode_map::Iter<'a, Value>,
-    indirect_iter: std::collections::btree_map::Iter<'a, Value, Value>,
+    direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
+    indirect_iter: std::collections::btree_map::Iter<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -502,8 +496,8 @@ impl<'a> Iterator for Keys<'a> {
 ///
 /// This struct is created by the `values` method on `ValuationSet`.
 pub struct Values<'a> {
-    direct_iter: crate::analysis::varnode_map::Iter<'a, Value>,
-    indirect_iter: std::collections::btree_map::Iter<'a, Value, Value>,
+    direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
+    indirect_iter: std::collections::btree_map::Iter<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -524,14 +518,14 @@ impl<'a> Iterator for Values<'a> {
         // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((_, val)) = self.direct_iter.next() {
-                return Some(val);
+                return Some(val.as_ref());
             }
             self.direct_done = true;
         }
 
         // Then iterate through indirect entries
         if let Some((_, val)) = self.indirect_iter.next() {
-            return Some(val);
+            return Some(val.as_ref());
         }
 
         None
@@ -542,8 +536,8 @@ impl<'a> Iterator for Values<'a> {
 ///
 /// This struct is created by the `values_mut` method on `ValuationSet`.
 pub struct ValuesMut<'a> {
-    direct_iter: crate::analysis::varnode_map::IterMut<'a, Value>,
-    indirect_iter: std::collections::btree_map::IterMut<'a, Value, Value>,
+    direct_iter: crate::analysis::varnode_map::IterMut<'a, Rc<Value>>,
+    indirect_iter: std::collections::btree_map::IterMut<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -558,7 +552,7 @@ impl<'a> ValuesMut<'a> {
 }
 
 impl<'a> Iterator for ValuesMut<'a> {
-    type Item = &'a mut Value;
+    type Item = &'a mut Rc<Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // First, iterate through all direct entries
@@ -581,8 +575,8 @@ impl<'a> Iterator for ValuesMut<'a> {
 /// An owning iterator that consumes a `ValuationSet` and yields `Valuation`
 /// items without borrowing the original `ValuationSet`.
 pub struct ValuationIntoIter {
-    direct_entries: std::vec::IntoIter<(VarNode, Value)>,
-    indirect_entries: std::vec::IntoIter<(Value, Value)>,
+    direct_entries: std::vec::IntoIter<(VarNode, Rc<Value>)>,
+    indirect_entries: std::vec::IntoIter<(Value, Rc<Value>)>,
     direct_done: bool,
 }
 
@@ -592,18 +586,20 @@ impl Iterator for ValuationIntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_entries.next() {
-                return Some(Valuation::new_direct(vn, val));
+                let owned = Rc::try_unwrap(val).unwrap_or_else(|rc| (*rc).clone());
+                return Some(Valuation::new_direct(vn, owned));
             }
             self.direct_done = true;
         }
-        self.indirect_entries
-            .next()
-            .map(|(ptr, val)| Valuation::new_indirect(ptr, val))
+        self.indirect_entries.next().map(|(ptr, val)| {
+            let owned = Rc::try_unwrap(val).unwrap_or_else(|rc| (*rc).clone());
+            Valuation::new_indirect(ptr, owned)
+        })
     }
 }
 
 impl<'a> IntoIterator for &'a mut ValuationSet {
-    type Item = (Location, &'a mut Value);
+    type Item = (Location, &'a mut Rc<Value>);
     type IntoIter = ValuationIterMut<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -670,7 +666,7 @@ impl Display for ValuationSet {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "{} = {}", vn, val)?;
+            write!(f, "{} = {}", vn, val.as_ref())?;
         }
 
         // Indirect writes ([ptr_expr] -> val)
@@ -679,7 +675,7 @@ impl Display for ValuationSet {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "[{}] = {}", ptr, val)?;
+            write!(f, "[{}] = {}", ptr, val.as_ref())?;
         }
 
         write!(f, "}}")?;
@@ -698,7 +694,7 @@ impl JingleDisplay for ValuationSet {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "{} = {}", vn.display(info), val.display(info))?;
+            write!(f, "{} = {}", vn.display(info), val.as_ref().display(info))?;
         }
 
         // Indirect writes ([ptr_expr] -> val)
@@ -707,7 +703,7 @@ impl JingleDisplay for ValuationSet {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "[{}] = {}", ptr.display(info), val.display(info))?;
+            write!(f, "[{}] = {}", ptr.display(info), val.as_ref().display(info))?;
         }
 
         write!(f, "}}")?;
@@ -724,7 +720,7 @@ mod tests {
     fn test_iter_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
 
         // iter() should yield (location, &value) tuples
         let mut count = 0;
@@ -740,17 +736,17 @@ mod tests {
     fn test_iter_mut_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
 
-        // iter_mut() should yield (location, &mut value) tuples
+        // iter_mut() should yield (location, &mut Rc<Value>) tuples
         for (loc, val) in valuation.iter_mut() {
             assert!(matches!(loc, Location::Direct(_)));
-            *val = Value::const_(100, 8);
+            *val = Rc::new(Value::const_(100, 8));
         }
 
         // Verify mutation worked
         assert_eq!(
-            valuation.direct_writes.get(vn),
+            valuation.get(Location::Direct(vn)),
             Some(&Value::const_(100, 8))
         );
     }
@@ -759,7 +755,7 @@ mod tests {
     fn test_into_iter_yields_entries() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
 
         // into_iter() should yield owned SingleValuation entries
         let mut count = 0;
@@ -778,7 +774,7 @@ mod tests {
         assert!(valuation.is_empty());
 
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
 
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
@@ -791,7 +787,7 @@ mod tests {
         ));
         valuation
             .indirect_writes
-            .insert(load_key, Value::const_(200, 8));
+            .insert(load_key, Rc::new(Value::const_(200, 8)));
 
         assert_eq!(valuation.len(), 2);
         assert!(!valuation.is_empty());
@@ -803,8 +799,8 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn1, Value::const_(42, 8));
-        valuation.direct_writes.insert(vn2, Value::const_(99, 8));
+        valuation.direct_writes.insert(vn1, Rc::new(Value::const_(42, 8)));
+        valuation.direct_writes.insert(vn2, Rc::new(Value::const_(99, 8)));
 
         let keys: Vec<_> = valuation.keys().collect();
         assert_eq!(keys.len(), 2);
@@ -819,8 +815,8 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn1, Value::const_(42, 8));
-        valuation.direct_writes.insert(vn2, Value::const_(99, 8));
+        valuation.direct_writes.insert(vn1, Rc::new(Value::const_(42, 8)));
+        valuation.direct_writes.insert(vn2, Rc::new(Value::const_(99, 8)));
 
         let values: Vec<_> = valuation.values().collect();
         assert_eq!(values.len(), 2);
@@ -833,16 +829,16 @@ mod tests {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
 
         // Mutate all values
         for val in valuation.values_mut() {
-            *val = Value::const_(1000, 8);
+            *val = Rc::new(Value::const_(1000, 8));
         }
 
         // Verify mutation worked
         assert_eq!(
-            valuation.direct_writes.get(vn),
+            valuation.get(Location::Direct(vn)),
             Some(&Value::const_(1000, 8))
         );
     }
@@ -851,7 +847,7 @@ mod tests {
     fn test_display() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Value::const_(42, 8));
+        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
 
         let display_str = format!("{}", valuation);
         assert!(display_str.starts_with("Valuation {"));
@@ -870,10 +866,10 @@ mod tests {
 
         // RAX low byte replaced: 0x11223344556677_88 → 0x11223344556677_49
         let rax_val = vs.direct_writes.get(rax).expect("RAX must be present");
-        assert_eq!(*rax_val, Value::const_(0x1122334455667749_u64 as i64, 8));
+        assert_eq!(**rax_val, Value::const_(0x1122334455667749_u64 as i64, 8));
 
         let al_val = vs.direct_writes.get(al).expect("AL must be present");
-        assert_eq!(*al_val, Value::const_(0x49, 1));
+        assert_eq!(**al_val, Value::const_(0x49, 1));
     }
 
     #[test]
@@ -891,7 +887,7 @@ mod tests {
             .direct_writes
             .get(parent)
             .expect("parent must be present");
-        assert_eq!(*parent_val, Value::const_(0xAABB49DD_u64 as i64, 4));
+        assert_eq!(**parent_val, Value::const_(0xAABB49DD_u64 as i64, 4));
     }
 
     #[test]
@@ -922,6 +918,6 @@ mod tests {
         vs.add(rax, Value::const_(0x1234, 8));
 
         assert_eq!(vs.direct_writes.len(), 1);
-        assert_eq!(vs.direct_writes.get(rax), Some(&Value::const_(0x1234, 8)));
+        assert_eq!(vs.get(Location::Direct(rax)), Some(&Value::const_(0x1234, 8)));
     }
 }

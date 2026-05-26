@@ -1,5 +1,5 @@
 use crate::{
-    analysis::{cpa::lattice::JoinSemiLattice, valuation::ValuationState},
+    analysis::cpa::lattice::JoinSemiLattice,
     display::JingleDisplay,
 };
 use jingle_sleigh::{SleighArchInfo, VarNode};
@@ -989,6 +989,40 @@ impl Value {
     }
 }
 
+/// Constructors that accept already-boxed `Rc<Value>` operands, avoiding an extra
+/// `Rc::new` allocation when the caller already holds a reference-counted value.
+impl Value {
+    pub fn mul_rc(left: Rc<Self>, right: Rc<Self>) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Mul(MulExpr(left, right, s))
+    }
+
+    pub fn add_rc(left: Rc<Self>, right: Rc<Self>) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Add(AddExpr(left, right, s))
+    }
+
+    pub fn sub_rc(left: Rc<Self>, right: Rc<Self>) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Sub(SubExpr(left, right, s))
+    }
+
+    pub fn xor_rc(left: Rc<Self>, right: Rc<Self>) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Xor(XorExpr(left, right, s))
+    }
+
+    pub fn or_rc(left: Rc<Self>, right: Rc<Self>) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        Value::Or(OrExpr(left, right, s))
+    }
+
+    pub fn and_rc(left: Rc<Self>, right: Rc<Self>) -> Self {
+        let s = std::cmp::max(left.size(), right.size());
+        Value::And(AndExpr(left, right, s))
+    }
+}
+
 impl Mul for Value {
     type Output = Value;
 
@@ -1042,6 +1076,7 @@ impl Sub for Value {
         Value::Sub(SubExpr(Rc::new(self), Rc::new(rhs), s))
     }
 }
+
 
 impl Value {
     #[cfg(test)]
@@ -2708,31 +2743,6 @@ impl std::fmt::LowerHex for Value {
             }
             Value::Bind(u) => write!(f, "bind({:x}, {})", u.id(), u.size()),
             Value::Top => write!(f, "⊤"),
-        }
-    }
-}
-
-impl Value {
-    /// Resolve a VarNode to an existing valuation in the state's direct writes,
-    /// to a Const if the VarNode is a constant, or to an Entry if unseen.
-    pub fn from_varnode_or_entry(state: &ValuationState, vn: &VarNode) -> Self {
-        if vn.is_const() {
-            // preserve the size of the incoming varnode
-            Value::const_from_varnode(*vn)
-        } else if let Some(v) = state.valuation.direct_writes.get(vn) {
-            v.clone()
-        } else if let Some((wider_vn, wider_val)) = state
-            .valuation
-            .direct_writes
-            .items()
-            .find(|(w, _)| w.covers(vn) && *w != vn)
-        {
-            // A wider register covers this varnode (e.g. RAX was written after EAX was evicted by
-            // the write). Emit an Extract so simplify() can reduce extract(zext(x, 8), 0, 4) → x.
-            let byte_offset = (vn.offset() - wider_vn.offset()) as usize;
-            Value::extract(wider_val.clone(), byte_offset, vn.size())
-        } else {
-            Value::Entry(Entry(*vn))
         }
     }
 }

@@ -80,15 +80,37 @@ impl ValuationState {
     }
 
     pub fn get_value(&self, varnode: &VarNode) -> Option<&Value> {
-        self.valuation.direct_writes.get(varnode)
+        self.valuation.direct_writes.get(varnode).map(|rc| rc.as_ref())
     }
 
-    pub fn written_locations(&self) -> &VarNodeMap<Value> {
+    pub fn written_locations(&self) -> &VarNodeMap<Rc<Value>> {
         &self.valuation.direct_writes
     }
 
     pub fn valuation(&self) -> &ValuationSet {
         &self.valuation
+    }
+
+    /// Resolve a `VarNode` to its stored value, a `Const` if it is a constant varnode,
+    /// or an `Entry` (symbolic unknown) if it has not been written yet.
+    pub fn read_vn(&self, vn: &VarNode) -> Rc<Value> {
+        if vn.is_const() {
+            Rc::new(Value::const_from_varnode(*vn))
+        } else if let Some(v) = self.valuation.direct_writes.get(vn) {
+            Rc::clone(v)
+        } else if let Some((wider_vn, wider_val)) = self
+            .valuation
+            .direct_writes
+            .items()
+            .find(|(w, _)| w.covers(vn) && *w != vn)
+        {
+            // A wider register covers this varnode (e.g. RAX covers EAX).
+            // Emit an Extract so simplify() can reduce extract(zext(x, 8), 0, 4) → x.
+            let byte_offset = (vn.offset() - wider_vn.offset()) as usize;
+            Rc::new(Value::extract(wider_val, byte_offset, vn.size()))
+        } else {
+            Rc::new(Value::entry(*vn))
+        }
     }
 
     /// Transfer function: build symbolic valuations for pcode operations.
@@ -101,11 +123,11 @@ impl ValuationState {
             // Store: record Load(ptr, size) -> value in indirect_writes
             PcodeOperation::Store { output, input } => {
                 let ptr = &output.pointer_location();
-                let val = Value::from_varnode_or_entry(self, input);
-                let pv = Value::from_varnode_or_entry(self, ptr);
+                let val = self.read_vn(input);
+                let pv = self.read_vn(ptr);
                 let data_size = input.size();
                 let loc = Value::Load(Load(
-                    Value::simplify_shared(&Rc::new(pv)),
+                    Value::simplify_shared(&pv),
                     data_size,
                     output.pointer_space_index() as u8,
                 ));
@@ -114,10 +136,10 @@ impl ValuationState {
 
             // Copy
             PcodeOperation::Copy { input, .. } => {
-                let result = if input.is_const() {
-                    Value::const_(input.offset() as i64, input.size())
+                let result: Rc<Value> = if input.is_const() {
+                    Rc::new(Value::const_(input.offset() as i64, input.size()))
                 } else {
-                    Value::from_varnode_or_entry(self, input)
+                    self.read_vn(input)
                 };
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, result);
@@ -125,114 +147,114 @@ impl ValuationState {
             }
 
             PcodeOperation::IntAdd { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a + b);
+                    new_state.valuation.add(output_vn, Value::add_rc(a, b));
                 }
             }
 
             PcodeOperation::IntSub { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a - b);
+                    new_state.valuation.add(output_vn, Value::sub_rc(a, b));
                 }
             }
 
             PcodeOperation::IntXor { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a ^ b);
+                    new_state.valuation.add(output_vn, Value::xor_rc(a, b));
                 }
             }
 
             PcodeOperation::IntMult { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a * b);
+                    new_state.valuation.add(output_vn, Value::mul_rc(a, b));
                 }
             }
 
             PcodeOperation::IntOr { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a | b);
+                    new_state.valuation.add(output_vn, Value::or_rc(a, b));
                 }
             }
 
             PcodeOperation::IntAnd { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a & b);
+                    new_state.valuation.add(output_vn, Value::and_rc(a, b));
                 }
             }
 
             PcodeOperation::BoolNegate { input, .. } => {
-                let a = Value::from_varnode_or_entry(self, input);
+                let a = self.read_vn(input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::bool_negate(a));
                 }
             }
 
             PcodeOperation::BoolAnd { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::bool_and(a, b));
                 }
             }
 
             PcodeOperation::BoolOr { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::bool_or(a, b));
                 }
             }
 
             PcodeOperation::BoolXor { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::bool_xor(a, b));
                 }
             }
 
             PcodeOperation::IntLeftShift { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
                     let shift_expr =
-                        Value::IntLeftShift(value::IntLeftShiftExpr(Rc::new(a), Rc::new(b), s));
+                        Value::IntLeftShift(value::IntLeftShiftExpr(a, b, s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
 
             PcodeOperation::IntRightShift { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
                     let shift_expr =
-                        Value::IntRightShift(value::IntRightShiftExpr(Rc::new(a), Rc::new(b), s));
+                        Value::IntRightShift(value::IntRightShiftExpr(a, b, s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
 
             PcodeOperation::IntSignedRightShift { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
                     let shift_expr = Value::IntSignedRightShift(value::IntSignedRightShiftExpr(
-                        Rc::new(a),
-                        Rc::new(b),
+                        a,
+                        b,
                         s,
                     ));
                     new_state.valuation.add(output_vn, shift_expr);
@@ -240,15 +262,15 @@ impl ValuationState {
             }
 
             PcodeOperation::IntNegate { input, .. } => {
-                let a = Value::const_(0, input.size());
-                let b = Value::from_varnode_or_entry(self, input);
+                let a = Rc::new(Value::const_(0, input.size()));
+                let b = self.read_vn(input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    new_state.valuation.add(output_vn, a - b);
+                    new_state.valuation.add(output_vn, Value::sub_rc(a, b));
                 }
             }
 
             PcodeOperation::Int2Comp { input, .. } => {
-                let a = Value::from_varnode_or_entry(self, input);
+                let a = self.read_vn(input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_2comp(a));
                 }
@@ -256,15 +278,15 @@ impl ValuationState {
 
             PcodeOperation::Load { input, .. } => {
                 let ptr = &input.pointer_location();
-                let pv = Value::from_varnode_or_entry(self, ptr);
+                let pv = self.read_vn(ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let load_expr = Value::Load(Load(
-                        Value::simplify_shared(&Rc::new(pv)),
+                        Value::simplify_shared(&pv),
                         output_vn.size(),
                         input.pointer_space_index() as u8,
                     ));
                     if let Some(v) = self.valuation.indirect_writes.get(&load_expr) {
-                        new_state.valuation.add(output_vn, v.clone());
+                        new_state.valuation.add(output_vn, Rc::clone(v));
                     } else {
                         new_state.valuation.add(output_vn, load_expr);
                     }
@@ -272,7 +294,7 @@ impl ValuationState {
             }
 
             PcodeOperation::IntZExt { input, .. } => {
-                let v = Value::from_varnode_or_entry(self, input);
+                let v = self.read_vn(input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let out_size = output_vn.size();
                     new_state
@@ -282,7 +304,7 @@ impl ValuationState {
             }
 
             PcodeOperation::IntSExt { input, .. } => {
-                let v = Value::from_varnode_or_entry(self, input);
+                let v = self.read_vn(input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let out_size = output_vn.size();
                     new_state
@@ -292,7 +314,7 @@ impl ValuationState {
             }
 
             PcodeOperation::SubPiece { input0, input1, .. } => {
-                let v = Value::from_varnode_or_entry(self, input0);
+                let v = self.read_vn(input0);
                 let byte_offset = input1.offset() as usize;
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let out_size = output_vn.size();
@@ -303,39 +325,39 @@ impl ValuationState {
             }
 
             PcodeOperation::IntEqual { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_equal(a, b));
                 }
             }
 
             PcodeOperation::IntSignedLess { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_sless(a, b));
                 }
             }
 
             PcodeOperation::IntLess { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_less(a, b));
                 }
             }
 
             PcodeOperation::PopCount { input, .. } => {
-                let a = Value::from_varnode_or_entry(self, input);
+                let a = self.read_vn(input);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::popcount(a));
                 }
             }
 
             PcodeOperation::IntNotEqual { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
@@ -344,8 +366,8 @@ impl ValuationState {
             }
 
             PcodeOperation::IntLessEqual { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
@@ -354,8 +376,8 @@ impl ValuationState {
             }
 
             PcodeOperation::IntSignedLessEqual { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state
                         .valuation
@@ -364,24 +386,24 @@ impl ValuationState {
             }
 
             PcodeOperation::IntCarry { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_carry(a, b));
                 }
             }
 
             PcodeOperation::IntSignedCarry { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_scarry(a, b));
                 }
             }
 
             PcodeOperation::IntSignedBorrow { input0, input1, .. } => {
-                let a = Value::from_varnode_or_entry(self, input0);
-                let b = Value::from_varnode_or_entry(self, input1);
+                let a = self.read_vn(input0);
+                let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     new_state.valuation.add(output_vn, Value::int_sborrow(a, b));
                 }
@@ -497,18 +519,16 @@ impl JoinSemiLattice for ValuationState {
         for (key, other_val) in other.valuation.direct_writes.items() {
             match self.valuation.direct_writes.get_mut(key) {
                 Some(my_val) => {
-                    if my_val == &Value::Top || other_val == &Value::Top {
-                        *my_val = Value::Top;
+                    if my_val.as_ref() == &Value::Top || other_val.as_ref() == &Value::Top {
+                        *my_val = Rc::new(Value::Top);
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined_rc = Rc::new(Value::choice(my_val.clone(), other_val.clone()));
-                                let simplified = Value::simplify_shared(&combined_rc);
-                                drop(combined_rc);
-                                *my_val = Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone());
+                                let combined = Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
+                                *my_val = Value::simplify_shared(&combined);
                             }
                             MergeBehavior::Top => {
-                                *my_val = Value::Top;
+                                *my_val = Rc::new(Value::Top);
                             }
                         }
                     }
@@ -516,8 +536,8 @@ impl JoinSemiLattice for ValuationState {
                 None => {
                     match self.merge_behavior {
                         MergeBehavior::Choice => {
-                            let entry = Value::from_varnode_or_entry(self, key);
-                            let choice = Value::choice(entry, other_val.clone());
+                            let entry = self.read_vn(key);
+                            let choice = Value::choice(entry, Rc::clone(other_val));
                             self.valuation.add(*key, choice);
                         }
                         MergeBehavior::Top => {
@@ -534,25 +554,23 @@ impl JoinSemiLattice for ValuationState {
         for (key, other_val) in &other.valuation.indirect_writes {
             match self.valuation.indirect_writes.get_mut(key) {
                 Some(my_val) => {
-                    if my_val == &Value::Top || other_val == &Value::Top {
-                        *my_val = Value::Top;
+                    if my_val.as_ref() == &Value::Top || other_val.as_ref() == &Value::Top {
+                        *my_val = Rc::new(Value::Top);
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined_rc = Rc::new(Value::choice(my_val.clone(), other_val.clone()));
-                                let simplified = Value::simplify_shared(&combined_rc);
-                                drop(combined_rc);
-                                *my_val = Rc::try_unwrap(simplified).unwrap_or_else(|rc| (*rc).clone());
+                                let combined = Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
+                                *my_val = Value::simplify_shared(&combined);
                             }
                             MergeBehavior::Top => {
-                                *my_val = Value::Top;
+                                *my_val = Rc::new(Value::Top);
                             }
                         }
                     }
                 }
                 None => match self.merge_behavior {
                     MergeBehavior::Choice => {
-                        let choice = Value::choice(key.clone(), other_val.clone());
+                        let choice = Value::choice(key.clone(), Rc::clone(other_val));
                         self.valuation.add(key.clone(), choice);
                     }
                     MergeBehavior::Top => {
@@ -790,7 +808,7 @@ mod tests {
         self_state.join(&other_state);
 
         assert_eq!(
-            self_state.valuation.indirect_writes.get(&load_key),
+            self_state.valuation.indirect_writes.get(&load_key).map(|rc| rc.as_ref()),
             Some(&Value::Top),
         );
     }
