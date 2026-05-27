@@ -827,7 +827,11 @@ mod tests {
         });
 
         let result = state.get_value(&out).expect("out must be set");
-        assert_ne!(*result, Value::entry(rax), "should not return bare Entry(RAX)");
+        assert_ne!(
+            *result,
+            Value::entry(rax),
+            "should not return bare Entry(RAX)"
+        );
         let expected = Value::insert_bytes(Value::entry(rax), ah_val, 1).simplify();
         assert_eq!(*result, expected);
     }
