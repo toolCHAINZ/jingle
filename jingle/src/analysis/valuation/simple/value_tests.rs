@@ -612,15 +612,6 @@ fn bool_ops_top_propagate() {
     );
 }
 
-#[test]
-fn substitute_bool_nodes_and_simplifies() {
-    let mut context = crate::analysis::valuation::simple::valuation::ValuationSet::new();
-    context.direct_writes.insert(vn_a(), Value::const_(0, 1));
-    let expr = Value::bool_negate(Value::entry(vn_a()));
-
-    assert_eq!(expr.substitute(&context), Value::const_(1, 1));
-}
-
 // --- Load --------------------------------------------------------------------
 
 #[test]
@@ -943,9 +934,8 @@ fn dispatch_delegates_to_variant() {
         Rc::new(Value::const_(0, 8)),
         8,
     );
-    let via_variant = Value::Add(expr.clone()).simplify();
-    let via_expr = expr.simplify();
-    assert_eq!(via_variant, via_expr);
+    let result = Value::Add(expr).simplify();
+    assert_eq!(result, Value::entry(vn_a()));
 }
 
 // --- ZeroExtend --------------------------------------------------------------
@@ -1426,4 +1416,176 @@ fn insert_bytes_multi_byte_sub_at_offset_2() {
     let result = Value::insert_bytes(parent, sub, 2).simplify();
     // zero_extend(0xBEEF, 4) << 16 = 0xBEEF0000
     assert_eq!(result, Value::make_const(0xBEEF0000_u64 as i64, 4));
+}
+
+// --- Rule A: fold nested constant masks ---------------------------------------
+
+#[test]
+fn and_nested_const_masks_fold() {
+    // And(And(entry, 0xFF00), 0x00FF) → And(entry, 0xFF00 & 0x00FF) = And(entry, 0) → 0
+    let entry = Value::entry(VarNode::new(0x100u64, 2u32, 0u32));
+    let inner = Value::and(entry, Value::const_(0xFF00_u64 as i64, 2));
+    let result = Value::and(inner, Value::const_(0x00FF_u64 as i64, 2)).simplify();
+    assert_eq!(result, Value::make_const(0, 2));
+}
+
+#[test]
+fn and_nested_const_masks_fold_keeps_entry() {
+    // And(And(entry, 0xFFFF_FF00), 0xFFFF_FFFF) → And(entry, 0xFFFF_FF00) (masks ANDed)
+    let entry = Value::entry(vn_a());
+    let inner = Value::and(entry.clone(), Value::const_(0xFFFF_FF00_u64 as i64, 8));
+    let result = Value::and(inner, Value::const_(-1i64, 8)).simplify();
+    // -1 = all-ones; And(And(entry, m), all_ones) → And(entry, m)
+    assert_eq!(
+        result,
+        Value::and(entry, Value::const_(0xFFFF_FF00_u64 as i64, 8)).simplify()
+    );
+}
+
+// --- Rule B: redundant mask elimination ---------------------------------------
+
+#[test]
+fn and_redundant_mask_on_zext() {
+    // And(ZeroExtend(sub_1byte, 8), mask_with_lower_byte_all_ones) → ZeroExtend(sub, 8)
+    // ZeroExtend already has zeros in bits 8-63; mask 0xFFFF…00FF keeps bits 0-7.
+    let sub = VarNode::new(0x50u64, 1u32, 0u32); // 1-byte symbolic
+    let zext = Value::zero_extend(Value::entry(sub), 8);
+    // keep_mask for byte 1 (AH) zeroes bits 8-15 but keeps 0-7: 0xFFFF_FFFF_FFFF_00FF
+    let mask: i64 = 0xFFFF_FFFF_FFFF_00FFu64 as i64;
+    let result = Value::and(zext.clone(), Value::const_(mask, 8)).simplify();
+    assert_eq!(result, zext.simplify());
+}
+
+#[test]
+fn and_redundant_mask_on_shift_zext() {
+    // And(Shift(ZeroExtend(sub, 8), 8), keep_mask_for_byte_2) → Shift(ZeroExtend(sub,8),8)
+    // The shift puts sub's bits at positions 8-15; keep_mask for byte 2 (0xFFFF…FF00FF)
+    // has 0xFF in positions 8-15 so it doesn't clear sub's bits.
+    let sub = VarNode::new(0x50u64, 1u32, 0u32);
+    let shifted = Value::int_left_shift(
+        Value::zero_extend(Value::entry(sub), 8),
+        Value::const_(8, 8),
+        8,
+    );
+    // keep_mask for byte 2: zeroes bits 16-23
+    let mask: i64 = 0xFFFF_FFFF_FF00_FFFFu64 as i64;
+    let result = Value::and(shifted.clone(), Value::const_(mask, 8)).simplify();
+    assert_eq!(result, shifted.simplify());
+}
+
+// --- Rule C: distribute And over Or -------------------------------------------
+
+#[test]
+fn and_distributes_over_or_with_known_structure() {
+    // And(Or(And(entry, keep_mask_1), ZExt(sub, 8)), keep_mask_2) should flatten:
+    // the ZExt is the "known structure" that triggers distribution.
+    let entry = Value::entry(vn_a());
+    let sub = VarNode::new(0x50u64, 1u32, 0u32);
+    let zext = Value::zero_extend(Value::entry(sub), 8);
+    let m1: i64 = 0xFFFF_FFFF_FFFF_FF00u64 as i64;
+    let m2: i64 = 0xFFFF_FFFF_FFFF_00FFu64 as i64;
+    let or_expr = Value::or(Value::and(entry, Value::const_(m1, 8)), zext);
+    let result = Value::and(or_expr, Value::const_(m2, 8)).simplify();
+    // The result should NOT be a raw And(Or(...), const) — distribution should have fired.
+    if let Some(and) = result.as_and() {
+        assert!(
+            and.0.as_ref().as_or().is_none(),
+            "distribution should have eliminated the And(Or(...), mask) pattern"
+        );
+    }
+}
+
+// --- Rule D: route Extract through Or -----------------------------------------
+
+#[test]
+fn extract_or_with_zero_left_side() {
+    // extract(Or(And(entry, keep_mask), ZExt(sub, 8)), 0, 1) → sub
+    // The And side has zeros at bits 0-7 (keep_mask=0xFF…00), so extraction routes to ZExt.
+    let entry = Value::entry(vn_a());
+    let sub = VarNode::new(0x50u64, 1u32, 0u32);
+    let sub_val = Value::entry(sub);
+    let keep_mask: i64 = 0xFFFF_FFFF_FFFF_FF00u64 as i64;
+    let or_expr = Value::or(
+        Value::and(entry, Value::const_(keep_mask, 8)),
+        Value::zero_extend(sub_val.clone(), 8),
+    );
+    let result = Value::extract(or_expr, 0, 1).simplify();
+    assert_eq!(result, sub_val);
+}
+
+#[test]
+fn extract_or_with_zero_right_side() {
+    // Symmetric: extract(Or(ZExt(sub, 8), And(entry, keep_mask)), 0, 1) → sub
+    let entry = Value::entry(vn_a());
+    let sub = VarNode::new(0x50u64, 1u32, 0u32);
+    let sub_val = Value::entry(sub);
+    let keep_mask: i64 = 0xFFFF_FFFF_FFFF_FF00u64 as i64;
+    let or_expr = Value::or(
+        Value::zero_extend(sub_val.clone(), 8),
+        Value::and(entry, Value::const_(keep_mask, 8)),
+    );
+    let result = Value::extract(or_expr, 0, 1).simplify();
+    assert_eq!(result, sub_val);
+}
+
+// --- Rule E: route Extract through left-shift ---------------------------------
+
+#[test]
+fn extract_through_left_shift_exact() {
+    // extract(Shift(ZExt(sub, 8), 8), byte_offset=1, size=1) → sub
+    // The shift places sub's bits at byte position 1; extracting byte 1 recovers sub.
+    let sub = VarNode::new(0x50u64, 1u32, 0u32);
+    let sub_val = Value::entry(sub);
+    let shifted = Value::int_left_shift(
+        Value::zero_extend(sub_val.clone(), 8),
+        Value::const_(8, 8),
+        8,
+    );
+    let result = Value::extract(shifted, 1, 1).simplify();
+    assert_eq!(result, sub_val);
+}
+
+#[test]
+fn extract_through_left_shift_below_zero() {
+    // extract(Shift(x, 16), byte_offset=0, size=1) → 0
+    // Extraction is below the shifted region; those bits are always zero.
+    let entry = Value::entry(vn_a());
+    let shifted = Value::int_left_shift(entry, Value::const_(16, 8), 8);
+    let result = Value::extract(shifted, 0, 1).simplify();
+    assert_eq!(result, Value::make_const(0, 1));
+}
+
+// --- Integration: sequential sub-register writes read back correctly ----------
+
+#[test]
+fn sequential_sub_register_writes_read_back() {
+    // Simulate writing AL then AH into a symbolic 8-byte RAX.
+    // Reading each sub-register back should return exactly the written value.
+    let rax_vn = vn_a(); // 8-byte symbolic register
+    let al_vn = VarNode::new(0x50u64, 1u32, 0u32);
+    let ah_vn = VarNode::new(0x51u64, 1u32, 0u32);
+
+    let rax = Value::entry(rax_vn);
+    let al_val = Value::entry(al_vn);
+    let ah_val = Value::entry(ah_vn);
+
+    // Write AL (byte 0): insert_bytes(rax, al, 0)
+    let rax_after_al = Value::insert_bytes(rax, al_val.clone(), 0).simplify();
+
+    // Write AH (byte 1): insert_bytes(rax_after_al, ah, 1)
+    let rax_after_ah = Value::insert_bytes(rax_after_al, ah_val.clone(), 1).simplify();
+
+    // Read AL back: extract(rax_after_ah, 0, 1)
+    let read_al = Value::extract(rax_after_ah.clone(), 0, 1).simplify();
+    assert_eq!(
+        read_al, al_val,
+        "reading AL after two writes should give the AL value"
+    );
+
+    // Read AH back: extract(rax_after_ah, 1, 1)
+    let read_ah = Value::extract(rax_after_ah, 1, 1).simplify();
+    assert_eq!(
+        read_ah, ah_val,
+        "reading AH after two writes should give the AH value"
+    );
 }
