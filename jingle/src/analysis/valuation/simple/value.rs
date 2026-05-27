@@ -1,7 +1,4 @@
-use crate::{
-    analysis::cpa::lattice::JoinSemiLattice,
-    display::JingleDisplay,
-};
+use crate::{analysis::cpa::lattice::JoinSemiLattice, display::JingleDisplay};
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -1077,7 +1074,6 @@ impl Sub for Value {
     }
 }
 
-
 impl Value {
     #[cfg(test)]
     pub fn simplify(&self) -> Value {
@@ -1091,11 +1087,9 @@ impl Value {
     /// avoiding heap allocations for unchanged subtrees.
     pub(crate) fn simplify_shared(rc: &Rc<Self>) -> Rc<Self> {
         match rc.as_ref() {
-            Value::Entry(_)
-            | Value::Const(_)
-            | Value::Top
-            | Value::Bind(_)
-            | Value::Offset(_) => Rc::clone(rc),
+            Value::Entry(_) | Value::Const(_) | Value::Top | Value::Bind(_) | Value::Offset(_) => {
+                Rc::clone(rc)
+            }
             Value::Add(expr) => AddExpr::simplify_rc(rc, expr),
             Value::Sub(expr) => SubExpr::simplify_rc(rc, expr),
             Value::Mul(expr) => MulExpr::simplify_rc(rc, expr),
@@ -1127,7 +1121,6 @@ impl Value {
             Value::IntSBorrow(expr) => IntSBorrow::simplify_rc(rc, expr),
         }
     }
-
 }
 
 impl Simplify for AddExpr {
@@ -1179,13 +1172,11 @@ impl Simplify for AddExpr {
                     let size = expr.as_ref().size().max(left.as_ref().size());
                     if res < 0 {
                         let new_c = Rc::new(Value::make_const(res.wrapping_neg(), size as u32));
-                        let rebuilt =
-                            Rc::new(Value::Add(AddExpr(Rc::clone(expr), new_c, size)));
+                        let rebuilt = Rc::new(Value::Add(AddExpr(Rc::clone(expr), new_c, size)));
                         return Value::simplify_shared(&rebuilt);
                     } else {
                         let new_c = Rc::new(Value::make_const(res, size as u32));
-                        let rebuilt =
-                            Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
+                        let rebuilt = Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
                         return Value::simplify_shared(&rebuilt);
                     }
                 }
@@ -1213,8 +1204,8 @@ impl Simplify for SubExpr {
 
         if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
             let res = (lv.offset() as i64).wrapping_sub(rv.offset() as i64);
-            let size = Value::derive_size_from(left.as_ref())
-                .max(Value::derive_size_from(right.as_ref()));
+            let size =
+                Value::derive_size_from(left.as_ref()).max(Value::derive_size_from(right.as_ref()));
             return Rc::new(Value::make_const(res, size as u32));
         }
 
@@ -1244,13 +1235,11 @@ impl Simplify for SubExpr {
                     let size = expr.as_ref().size().max(left.as_ref().size());
                     if res < 0 {
                         let new_c = Rc::new(Value::make_const(res.wrapping_neg(), size as u32));
-                        let rebuilt =
-                            Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
+                        let rebuilt = Rc::new(Value::Sub(SubExpr(Rc::clone(expr), new_c, size)));
                         return Value::simplify_shared(&rebuilt);
                     } else {
                         let new_c = Rc::new(Value::make_const(res, size as u32));
-                        let rebuilt =
-                            Rc::new(Value::Add(AddExpr(Rc::clone(expr), new_c, size)));
+                        let rebuilt = Rc::new(Value::Add(AddExpr(Rc::clone(expr), new_c, size)));
                         return Value::simplify_shared(&rebuilt);
                     }
                 }
@@ -1293,8 +1282,8 @@ impl Simplify for MulExpr {
 
         if let (Some(av), Some(bv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
             let res = (av.offset() as i64).wrapping_mul(bv.offset() as i64);
-            let size = Value::derive_size_from(left.as_ref())
-                .max(Value::derive_size_from(right.as_ref()));
+            let size =
+                Value::derive_size_from(left.as_ref()).max(Value::derive_size_from(right.as_ref()));
             return Rc::new(Value::make_const(res, size as u32));
         }
 
@@ -1413,8 +1402,8 @@ impl Simplify for XorExpr {
 
         if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
             let res = (lv.offset() ^ rv.offset()) as i64;
-            let size = Value::derive_size_from(left.as_ref())
-                .max(Value::derive_size_from(right.as_ref()));
+            let size =
+                Value::derive_size_from(left.as_ref()).max(Value::derive_size_from(right.as_ref()));
             return Rc::new(Value::make_const(res, size as u32));
         }
 
@@ -1450,8 +1439,8 @@ impl Simplify for AndExpr {
 
         if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
             let res = (lv.offset() & rv.offset()) as i64;
-            let size = Value::derive_size_from(left.as_ref())
-                .max(Value::derive_size_from(right.as_ref()));
+            let size =
+                Value::derive_size_from(left.as_ref()).max(Value::derive_size_from(right.as_ref()));
             return Rc::new(Value::make_const(res, size as u32));
         }
 
@@ -1509,22 +1498,13 @@ impl Simplify for AndExpr {
         // so we don't expand And(Or(entry_a, entry_b), mask) unnecessarily.
         if let Value::Or(OrExpr(or_l, or_r, _)) = left.as_ref() {
             if right.as_ref().as_const().is_some()
-                && (known_zero_bits(or_l.as_ref()) != 0
-                    || known_zero_bits(or_r.as_ref()) != 0)
+                && (known_zero_bits(or_l.as_ref()) != 0 || known_zero_bits(or_r.as_ref()) != 0)
             {
                 let sl = or_l.as_ref().size().max(right.as_ref().size());
-                let and_l = Rc::new(Value::And(AndExpr(
-                    Rc::clone(or_l),
-                    Rc::clone(&right),
-                    sl,
-                )));
+                let and_l = Rc::new(Value::And(AndExpr(Rc::clone(or_l), Rc::clone(&right), sl)));
                 let new_l = Value::simplify_shared(&and_l);
                 let sr = or_r.as_ref().size().max(right.as_ref().size());
-                let and_r = Rc::new(Value::And(AndExpr(
-                    Rc::clone(or_r),
-                    Rc::clone(&right),
-                    sr,
-                )));
+                let and_r = Rc::new(Value::And(AndExpr(Rc::clone(or_r), Rc::clone(&right), sr)));
                 let new_r = Value::simplify_shared(&and_r);
                 if new_l == new_r {
                     return new_l;
@@ -1559,8 +1539,8 @@ impl Simplify for OrExpr {
 
         if let (Some(lv), Some(rv)) = (left.as_ref().as_const(), right.as_ref().as_const()) {
             let res = (lv.offset() | rv.offset()) as i64;
-            let size = Value::derive_size_from(left.as_ref())
-                .max(Value::derive_size_from(right.as_ref()));
+            let size =
+                Value::derive_size_from(left.as_ref()).max(Value::derive_size_from(right.as_ref()));
             return Rc::new(Value::make_const(res, size as u32));
         }
 
@@ -1621,13 +1601,19 @@ impl Simplify for BoolNegateExpr {
                 return Rc::new(Value::IntEqual(IntEqual(Rc::clone(a), Rc::clone(b))));
             }
             Value::IntLess(IntLess(a, b)) => {
-                return Rc::new(Value::IntLessEqual(IntLessEqual(Rc::clone(b), Rc::clone(a))));
+                return Rc::new(Value::IntLessEqual(IntLessEqual(
+                    Rc::clone(b),
+                    Rc::clone(a),
+                )));
             }
             Value::IntLessEqual(IntLessEqual(a, b)) => {
                 return Rc::new(Value::IntLess(IntLess(Rc::clone(b), Rc::clone(a))));
             }
             Value::IntSLess(IntSLess(a, b)) => {
-                return Rc::new(Value::IntSLessEqual(IntSLessEqual(Rc::clone(b), Rc::clone(a))));
+                return Rc::new(Value::IntSLessEqual(IntSLessEqual(
+                    Rc::clone(b),
+                    Rc::clone(a),
+                )));
             }
             Value::IntSLessEqual(IntSLessEqual(a, b)) => {
                 return Rc::new(Value::IntSLess(IntSLess(Rc::clone(b), Rc::clone(a))));
@@ -1655,9 +1641,10 @@ impl Simplify for BoolAndExpr {
 
         let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        if let (Some(lb), Some(rb)) =
-            (left.as_ref().as_boolean_const(), right.as_ref().as_boolean_const())
-        {
+        if let (Some(lb), Some(rb)) = (
+            left.as_ref().as_boolean_const(),
+            right.as_ref().as_boolean_const(),
+        ) {
             return Rc::new(Value::bool_const(lb && rb));
         }
 
@@ -1695,9 +1682,10 @@ impl Simplify for BoolOrExpr {
 
         let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        if let (Some(lb), Some(rb)) =
-            (left.as_ref().as_boolean_const(), right.as_ref().as_boolean_const())
-        {
+        if let (Some(lb), Some(rb)) = (
+            left.as_ref().as_boolean_const(),
+            right.as_ref().as_boolean_const(),
+        ) {
             return Rc::new(Value::bool_const(lb || rb));
         }
 
@@ -1735,9 +1723,10 @@ impl Simplify for BoolXorExpr {
 
         let (left, right, swapped) = Value::normalize_commutative_rc(new_a, new_b);
 
-        if let (Some(lb), Some(rb)) =
-            (left.as_ref().as_boolean_const(), right.as_ref().as_boolean_const())
-        {
+        if let (Some(lb), Some(rb)) = (
+            left.as_ref().as_boolean_const(),
+            right.as_ref().as_boolean_const(),
+        ) {
             return Rc::new(Value::bool_const(lb ^ rb));
         }
 
@@ -1880,7 +1869,9 @@ impl Simplify for IntSignedRightShiftExpr {
             return Rc::clone(outer);
         }
         let s = new_a.as_ref().size().max(new_b.as_ref().size());
-        Rc::new(Value::IntSignedRightShift(IntSignedRightShiftExpr(new_a, new_b, s)))
+        Rc::new(Value::IntSignedRightShift(IntSignedRightShiftExpr(
+            new_a, new_b, s,
+        )))
     }
 }
 
@@ -1924,11 +1915,13 @@ fn known_zero_bits(val: &Value) -> u64 {
             }
         }
         Value::And(AndExpr(_, right, _)) => {
-            if let Some(c) = right.as_ref().as_const() { !c.offset() } else { 0 }
+            if let Some(c) = right.as_ref().as_const() {
+                !c.offset()
+            } else {
+                0
+            }
         }
-        Value::Or(OrExpr(l, r, _)) => {
-            known_zero_bits(l.as_ref()) & known_zero_bits(r.as_ref())
-        }
+        Value::Or(OrExpr(l, r, _)) => known_zero_bits(l.as_ref()) & known_zero_bits(r.as_ref()),
         _ => 0,
     }
 }
@@ -1953,8 +1946,10 @@ impl Simplify for ZeroExtend {
 
         if let Value::ZeroExtend(ZeroExtend(inner2, s1)) = new_child.as_ref() {
             if *output_size >= *s1 {
-                let rebuilt =
-                    Rc::new(Value::ZeroExtend(ZeroExtend(Rc::clone(inner2), *output_size)));
+                let rebuilt = Rc::new(Value::ZeroExtend(ZeroExtend(
+                    Rc::clone(inner2),
+                    *output_size,
+                )));
                 return Value::simplify_shared(&rebuilt);
             }
         }
@@ -1998,8 +1993,10 @@ impl Simplify for SignExtend {
 
         if let Value::SignExtend(SignExtend(inner2, s1)) = new_child.as_ref() {
             if *output_size >= *s1 {
-                let rebuilt =
-                    Rc::new(Value::SignExtend(SignExtend(Rc::clone(inner2), *output_size)));
+                let rebuilt = Rc::new(Value::SignExtend(SignExtend(
+                    Rc::clone(inner2),
+                    *output_size,
+                )));
                 return Value::simplify_shared(&rebuilt);
             }
         }
@@ -2040,8 +2037,7 @@ impl Simplify for Extract {
                 if *output_size == val.as_ref().size() {
                     return Rc::clone(val);
                 } else if *output_size < val.as_ref().size() {
-                    let rebuilt =
-                        Rc::new(Value::Extract(Extract(Rc::clone(val), 0, *output_size)));
+                    let rebuilt = Rc::new(Value::Extract(Extract(Rc::clone(val), 0, *output_size)));
                     return Value::simplify_shared(&rebuilt);
                 } else if output_size <= size {
                     let rebuilt =
@@ -2051,11 +2047,9 @@ impl Simplify for Extract {
             }
 
             if let Some(AddExpr(left, right, _)) = new_child.as_ref().as_add() {
-                let left_ex =
-                    Rc::new(Value::Extract(Extract(Rc::clone(left), 0, *output_size)));
+                let left_ex = Rc::new(Value::Extract(Extract(Rc::clone(left), 0, *output_size)));
                 let left_s = Value::simplify_shared(&left_ex);
-                let right_ex =
-                    Rc::new(Value::Extract(Extract(Rc::clone(right), 0, *output_size)));
+                let right_ex = Rc::new(Value::Extract(Extract(Rc::clone(right), 0, *output_size)));
                 let right_s = Value::simplify_shared(&right_ex);
                 let size = left_s.as_ref().size().max(right_s.as_ref().size());
                 let sum = Rc::new(Value::Add(AddExpr(left_s, right_s, size)));
@@ -2066,8 +2060,7 @@ impl Simplify for Extract {
                 if *output_size == val.as_ref().size() {
                     return Rc::clone(val);
                 } else if *output_size < val.as_ref().size() {
-                    let rebuilt =
-                        Rc::new(Value::Extract(Extract(Rc::clone(val), 0, *output_size)));
+                    let rebuilt = Rc::new(Value::Extract(Extract(Rc::clone(val), 0, *output_size)));
                     return Value::simplify_shared(&rebuilt);
                 } else if output_size <= size {
                     let rebuilt =
@@ -2080,9 +2073,7 @@ impl Simplify for Extract {
         // Rule E: extract(Shift(x, shift_const), off, size) when shift is byte-aligned.
         // Routes extraction through a left-shift, recovering the pre-shift value for reads
         // that fall exactly within the shifted region — e.g. reading AH after an insert_bytes.
-        if let Value::IntLeftShift(IntLeftShiftExpr(shift_inner, shift_n, _)) =
-            new_child.as_ref()
-        {
+        if let Value::IntLeftShift(IntLeftShiftExpr(shift_inner, shift_n, _)) = new_child.as_ref() {
             if let Some(shift_bits) = shift_n.as_ref().as_const().map(|c| c.offset()) {
                 if shift_bits % 8 == 0 {
                     let shift_bytes = (shift_bits / 8) as usize;
@@ -2140,7 +2131,11 @@ impl Simplify for Extract {
         if Rc::ptr_eq(&new_child, child_intern) {
             return Rc::clone(outer);
         }
-        Rc::new(Value::Extract(Extract(new_child, *byte_offset, *output_size)))
+        Rc::new(Value::Extract(Extract(
+            new_child,
+            *byte_offset,
+            *output_size,
+        )))
     }
 }
 

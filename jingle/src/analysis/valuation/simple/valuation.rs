@@ -311,8 +311,7 @@ impl ValuationSet {
                     .filter(|(existing, _)| existing.covers(&vn) && *existing != &vn)
                     .map(|(parent_vn, parent_val)| {
                         let byte_offset = (vn.offset() - parent_vn.offset()) as usize;
-                        let merged =
-                            Value::insert_bytes(parent_val, Rc::clone(&val), byte_offset);
+                        let merged = Value::insert_bytes(parent_val, Rc::clone(&val), byte_offset);
                         (*parent_vn, Value::simplify_shared(&Rc::new(merged)))
                     })
                     .collect();
@@ -703,7 +702,12 @@ impl JingleDisplay for ValuationSet {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "[{}] = {}", ptr.display(info), val.as_ref().display(info))?;
+            write!(
+                f,
+                "[{}] = {}",
+                ptr.display(info),
+                val.as_ref().display(info)
+            )?;
         }
 
         write!(f, "}}")?;
@@ -720,7 +724,9 @@ mod tests {
     fn test_iter_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn, Rc::new(Value::const_(42, 8)));
 
         // iter() should yield (location, &value) tuples
         let mut count = 0;
@@ -736,7 +742,9 @@ mod tests {
     fn test_iter_mut_yields_tuples() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn, Rc::new(Value::const_(42, 8)));
 
         // iter_mut() should yield (location, &mut Rc<Value>) tuples
         for (loc, val) in valuation.iter_mut() {
@@ -755,7 +763,9 @@ mod tests {
     fn test_into_iter_yields_entries() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn, Rc::new(Value::const_(42, 8)));
 
         // into_iter() should yield owned SingleValuation entries
         let mut count = 0;
@@ -774,7 +784,9 @@ mod tests {
         assert!(valuation.is_empty());
 
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn, Rc::new(Value::const_(42, 8)));
 
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
@@ -799,8 +811,12 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn1, Rc::new(Value::const_(42, 8)));
-        valuation.direct_writes.insert(vn2, Rc::new(Value::const_(99, 8)));
+        valuation
+            .direct_writes
+            .insert(vn1, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn2, Rc::new(Value::const_(99, 8)));
 
         let keys: Vec<_> = valuation.keys().collect();
         assert_eq!(keys.len(), 2);
@@ -815,8 +831,12 @@ mod tests {
         let vn1 = VarNode::new(0x1000, 8u32, 0u32);
         let vn2 = VarNode::new(0x2000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn1, Rc::new(Value::const_(42, 8)));
-        valuation.direct_writes.insert(vn2, Rc::new(Value::const_(99, 8)));
+        valuation
+            .direct_writes
+            .insert(vn1, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn2, Rc::new(Value::const_(99, 8)));
 
         let values: Vec<_> = valuation.values().collect();
         assert_eq!(values.len(), 2);
@@ -829,7 +849,9 @@ mod tests {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
 
-        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn, Rc::new(Value::const_(42, 8)));
 
         // Mutate all values
         for val in valuation.values_mut() {
@@ -847,14 +869,16 @@ mod tests {
     fn test_display() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation.direct_writes.insert(vn, Rc::new(Value::const_(42, 8)));
+        valuation
+            .direct_writes
+            .insert(vn, Rc::new(Value::const_(42, 8)));
 
         let display_str = format!("{}", valuation);
         assert!(display_str.starts_with("Valuation {"));
         assert!(display_str.contains("="));
         assert!(display_str.ends_with("}"));
     }
-    
+
     #[test]
     fn sub_register_write_updates_parent() {
         let rax = VarNode::new(0x0u64, 8u32, 0u32);
@@ -918,6 +942,9 @@ mod tests {
         vs.add(rax, Value::const_(0x1234, 8));
 
         assert_eq!(vs.direct_writes.len(), 1);
-        assert_eq!(vs.get(Location::Direct(rax)), Some(&Value::const_(0x1234, 8)));
+        assert_eq!(
+            vs.get(Location::Direct(rax)),
+            Some(&Value::const_(0x1234, 8))
+        );
     }
 }

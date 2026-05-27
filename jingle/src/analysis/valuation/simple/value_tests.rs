@@ -1577,9 +1577,15 @@ fn sequential_sub_register_writes_read_back() {
 
     // Read AL back: extract(rax_after_ah, 0, 1)
     let read_al = Value::extract(rax_after_ah.clone(), 0, 1).simplify();
-    assert_eq!(read_al, al_val, "reading AL after two writes should give the AL value");
+    assert_eq!(
+        read_al, al_val,
+        "reading AL after two writes should give the AL value"
+    );
 
     // Read AH back: extract(rax_after_ah, 1, 1)
     let read_ah = Value::extract(rax_after_ah, 1, 1).simplify();
-    assert_eq!(read_ah, ah_val, "reading AH after two writes should give the AH value");
+    assert_eq!(
+        read_ah, ah_val,
+        "reading AH after two writes should give the AH value"
+    );
 }

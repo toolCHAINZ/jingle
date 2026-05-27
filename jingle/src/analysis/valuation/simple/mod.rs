@@ -80,7 +80,10 @@ impl ValuationState {
     }
 
     pub fn get_value(&self, varnode: &VarNode) -> Option<&Value> {
-        self.valuation.direct_writes.get(varnode).map(|rc| rc.as_ref())
+        self.valuation
+            .direct_writes
+            .get(varnode)
+            .map(|rc| rc.as_ref())
     }
 
     pub fn written_locations(&self) -> &VarNodeMap<Rc<Value>> {
@@ -230,8 +233,7 @@ impl ValuationState {
                 let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
-                    let shift_expr =
-                        Value::IntLeftShift(value::IntLeftShiftExpr(a, b, s));
+                    let shift_expr = Value::IntLeftShift(value::IntLeftShiftExpr(a, b, s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
@@ -241,8 +243,7 @@ impl ValuationState {
                 let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
-                    let shift_expr =
-                        Value::IntRightShift(value::IntRightShiftExpr(a, b, s));
+                    let shift_expr = Value::IntRightShift(value::IntRightShiftExpr(a, b, s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
@@ -252,11 +253,8 @@ impl ValuationState {
                 let b = self.read_vn(input1);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let s = std::cmp::max(a.size(), b.size());
-                    let shift_expr = Value::IntSignedRightShift(value::IntSignedRightShiftExpr(
-                        a,
-                        b,
-                        s,
-                    ));
+                    let shift_expr =
+                        Value::IntSignedRightShift(value::IntSignedRightShiftExpr(a, b, s));
                     new_state.valuation.add(output_vn, shift_expr);
                 }
             }
@@ -524,7 +522,8 @@ impl JoinSemiLattice for ValuationState {
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined = Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
+                                let combined =
+                                    Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
                                 *my_val = Value::simplify_shared(&combined);
                             }
                             MergeBehavior::Top => {
@@ -559,7 +558,8 @@ impl JoinSemiLattice for ValuationState {
                     } else if my_val != other_val {
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined = Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
+                                let combined =
+                                    Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
                                 *my_val = Value::simplify_shared(&combined);
                             }
                             MergeBehavior::Top => {
@@ -808,7 +808,11 @@ mod tests {
         self_state.join(&other_state);
 
         assert_eq!(
-            self_state.valuation.indirect_writes.get(&load_key).map(|rc| rc.as_ref()),
+            self_state
+                .valuation
+                .indirect_writes
+                .get(&load_key)
+                .map(|rc| rc.as_ref()),
             Some(&Value::Top),
         );
     }
