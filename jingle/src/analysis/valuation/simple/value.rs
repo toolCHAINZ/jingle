@@ -1477,6 +1477,65 @@ impl Simplify for AndExpr {
             }
         }
 
+        // Rule A: And(And(x, c1), c2) → And(x, c1 & c2)
+        // Collapses the nested constant masks produced by successive insert_bytes calls.
+        if let Some(rv) = right.as_ref().as_const() {
+            if let Value::And(AndExpr(inner_x, inner_m, _)) = left.as_ref() {
+                if let Some(inner_mv) = inner_m.as_ref().as_const() {
+                    let folded = (rv.offset() & inner_mv.offset()) as i64;
+                    let sz = left.as_ref().size();
+                    let new_and = Rc::new(Value::And(AndExpr(
+                        Rc::clone(inner_x),
+                        Rc::new(Value::make_const(folded, sz as u32)),
+                        sz,
+                    )));
+                    return Value::simplify_shared(&new_and);
+                }
+            }
+        }
+
+        // Rule B: And(x, c_mask) → x when the mask clears only bits already zero in x.
+        // Handles And(ZeroExtend(sub, s), keep_mask) and And(Shift(ZExt(...), n), keep_mask)
+        // produced during insert_bytes + distribute (Rule C).
+        if let Some(mask_val) = right.as_ref().as_const() {
+            let non_zero = !known_zero_bits(left.as_ref());
+            if !mask_val.offset() & non_zero == 0 {
+                return left;
+            }
+        }
+
+        // Rule C: And(Or(x, y), c_mask) → Or(And(x, c_mask), And(y, c_mask))
+        // Only distributes when at least one Or child has known structure (known_zero_bits ≠ 0)
+        // so we don't expand And(Or(entry_a, entry_b), mask) unnecessarily.
+        if let Value::Or(OrExpr(or_l, or_r, _)) = left.as_ref() {
+            if right.as_ref().as_const().is_some()
+                && (known_zero_bits(or_l.as_ref()) != 0
+                    || known_zero_bits(or_r.as_ref()) != 0)
+            {
+                let sl = or_l.as_ref().size().max(right.as_ref().size());
+                let and_l = Rc::new(Value::And(AndExpr(
+                    Rc::clone(or_l),
+                    Rc::clone(&right),
+                    sl,
+                )));
+                let new_l = Value::simplify_shared(&and_l);
+                let sr = or_r.as_ref().size().max(right.as_ref().size());
+                let and_r = Rc::new(Value::And(AndExpr(
+                    Rc::clone(or_r),
+                    Rc::clone(&right),
+                    sr,
+                )));
+                let new_r = Value::simplify_shared(&and_r);
+                if new_l == new_r {
+                    return new_l;
+                }
+                let s = new_l.as_ref().size().max(new_r.as_ref().size());
+                // Children are already simplified; do not call simplify_shared on the Or
+                // to avoid redundant traversal.
+                return Rc::new(Value::Or(OrExpr(new_l, new_r, s)));
+            }
+        }
+
         if !swapped && Rc::ptr_eq(&left, a_intern) && Rc::ptr_eq(&right, b_intern) {
             return Rc::clone(outer);
         }
@@ -1845,6 +1904,35 @@ fn mask_for_size(size_bytes: usize) -> u64 {
     }
 }
 
+/// Return a bitmask where a 1-bit means "this bit is definitely zero in `val`".
+///
+/// Conservative: returns 0 for any expression whose zero-bits cannot be statically
+/// determined. Used by the And/Extract simplifiers to detect redundant masking and
+/// route bit-range extractions through Or nodes.
+fn known_zero_bits(val: &Value) -> u64 {
+    match val {
+        Value::Const(c) => !c.offset(),
+        Value::ZeroExtend(ZeroExtend(inner, _)) => !mask_for_size(inner.as_ref().size()),
+        Value::IntLeftShift(IntLeftShiftExpr(inner, shift, _)) => {
+            if let Some(c) = shift.as_ref().as_const() {
+                let s = c.offset().min(63) as u32;
+                let lower = if s == 0 { 0u64 } else { (1u64 << s) - 1 };
+                let inner_z = known_zero_bits(inner.as_ref());
+                lower | inner_z.checked_shl(s).unwrap_or(u64::MAX)
+            } else {
+                0
+            }
+        }
+        Value::And(AndExpr(_, right, _)) => {
+            if let Some(c) = right.as_ref().as_const() { !c.offset() } else { 0 }
+        }
+        Value::Or(OrExpr(l, r, _)) => {
+            known_zero_bits(l.as_ref()) & known_zero_bits(r.as_ref())
+        }
+        _ => 0,
+    }
+}
+
 impl Simplify for ZeroExtend {
     fn simplify_rc(outer: &Rc<Value>, inner: &Self) -> Rc<Value> {
         let ZeroExtend(child_intern, output_size) = inner;
@@ -1986,6 +2074,59 @@ impl Simplify for Extract {
                         Rc::new(Value::SignExtend(SignExtend(Rc::clone(val), *output_size)));
                     return Value::simplify_shared(&rebuilt);
                 }
+            }
+        }
+
+        // Rule E: extract(Shift(x, shift_const), off, size) when shift is byte-aligned.
+        // Routes extraction through a left-shift, recovering the pre-shift value for reads
+        // that fall exactly within the shifted region — e.g. reading AH after an insert_bytes.
+        if let Value::IntLeftShift(IntLeftShiftExpr(shift_inner, shift_n, _)) =
+            new_child.as_ref()
+        {
+            if let Some(shift_bits) = shift_n.as_ref().as_const().map(|c| c.offset()) {
+                if shift_bits % 8 == 0 {
+                    let shift_bytes = (shift_bits / 8) as usize;
+                    let inner_size = shift_inner.as_ref().size();
+                    if *byte_offset >= shift_bytes
+                        && byte_offset + output_size <= shift_bytes + inner_size
+                    {
+                        let new_off = byte_offset - shift_bytes;
+                        let ex = Rc::new(Value::Extract(Extract(
+                            Rc::clone(shift_inner),
+                            new_off,
+                            *output_size,
+                        )));
+                        return Value::simplify_shared(&ex);
+                    }
+                    if byte_offset + output_size <= shift_bytes {
+                        return Rc::new(Value::make_const(0, *output_size as u32));
+                    }
+                }
+            }
+        }
+
+        // Rule D: extract(Or(x, y), off, size) → extract from the side whose bits are
+        // non-zero in the extraction range. Uses known_zero_bits to detect that the other
+        // side contributes nothing — e.g. reading AL from Or(And(RAX, keep_mask), ZExt(al,8)).
+        if let Value::Or(OrExpr(or_l, or_r, _)) = new_child.as_ref() {
+            let extraction_mask = mask_for_size(*output_size)
+                .checked_shl((byte_offset * 8) as u32)
+                .unwrap_or(0);
+            if known_zero_bits(or_l.as_ref()) & extraction_mask == extraction_mask {
+                let ex = Rc::new(Value::Extract(Extract(
+                    Rc::clone(or_r),
+                    *byte_offset,
+                    *output_size,
+                )));
+                return Value::simplify_shared(&ex);
+            }
+            if known_zero_bits(or_r.as_ref()) & extraction_mask == extraction_mask {
+                let ex = Rc::new(Value::Extract(Extract(
+                    Rc::clone(or_l),
+                    *byte_offset,
+                    *output_size,
+                )));
+                return Value::simplify_shared(&ex);
             }
         }
 
