@@ -112,7 +112,27 @@ impl ValuationState {
             let byte_offset = (vn.offset() - wider_vn.offset()) as usize;
             Rc::new(Value::extract(wider_val, byte_offset, vn.size()))
         } else {
-            Rc::new(Value::entry(*vn))
+            // Assemble the wide register from any known sub-parts. This handles the case
+            // where e.g. AH (offset=1) was written but RAX was never explicitly written.
+            let sub_parts: Vec<(VarNode, Rc<Value>)> = self
+                .valuation
+                .direct_writes
+                .items()
+                .filter(|(w, _)| vn.covers(w) && *w != vn)
+                .map(|(w, v)| (*w, Rc::clone(v)))
+                .collect();
+
+            if sub_parts.is_empty() {
+                Rc::new(Value::entry(*vn))
+            } else {
+                let mut base: Rc<Value> = Rc::new(Value::entry(*vn));
+                for (sub_vn, sub_val) in sub_parts {
+                    let byte_offset = (sub_vn.offset() - vn.offset()) as usize;
+                    let merged = Value::insert_bytes(Rc::clone(&base), sub_val, byte_offset);
+                    base = Value::simplify_shared(&Rc::new(merged));
+                }
+                base
+            }
         }
     }
 
@@ -787,6 +807,29 @@ mod tests {
             Value::int_equal(Value::extract(Value::entry(src), 2, 2), Value::const_(0, 2))
                 .simplify();
         assert_eq!(*state.get_value(&out).expect("out should be set"), expected);
+    }
+
+    #[test]
+    fn transfer_read_wide_register_assembled_from_sub_register_at_nonzero_offset() {
+        // Simulates: or ah, 0x2 (writes AH at byte offset 1) followed by reading RAX.
+        // RAX is never explicitly written; the result must incorporate the AH write.
+        let mut state = ValuationState::new(test_arch());
+        let rax = reg(0x0, 8);
+        let ah = reg(0x1, 1); // byte 1 of RAX
+        let out = reg(0x200, 8);
+        let ah_val = Value::const_(0x42, 1);
+
+        state.valuation.add(ah, ah_val.clone());
+
+        state = state.transfer_impl(&PcodeOperation::Copy {
+            input: rax,
+            output: out,
+        });
+
+        let result = state.get_value(&out).expect("out must be set");
+        assert_ne!(*result, Value::entry(rax), "should not return bare Entry(RAX)");
+        let expected = Value::insert_bytes(Value::entry(rax), ah_val, 1).simplify();
+        assert_eq!(*result, expected);
     }
 
     #[test]
