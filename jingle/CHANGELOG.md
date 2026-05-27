@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.34](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.33...jingle-v0.6.34) - 2026-05-27
+
+### Added
+
+- optimize Value::simplify and add new rules ([#290](https://github.com/toolCHAINZ/jingle/pull/290))
+
 ## [0.6.33](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.32...jingle-v0.6.33) - 2026-05-26
 
 ### Fixed
