@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.35](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.34...jingle-v0.6.35) - 2026-05-27
+
+### Fixed
+
+- values now properly model sub-writes to uninitialized vns ([#292](https://github.com/toolCHAINZ/jingle/pull/292))
+
 ## [0.6.34](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.33...jingle-v0.6.34) - 2026-05-27
 
 ### Added
