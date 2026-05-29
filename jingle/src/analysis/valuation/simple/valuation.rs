@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
-use std::collections::BTreeMap;
 
 use crate::display::JingleDisplay;
+use im::OrdMap;
 use jingle_sleigh::{SleighArchInfo, VarNode};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -10,23 +10,24 @@ use std::rc::Rc;
 use crate::analysis::valuation::simple::value::IntoRcValue;
 use crate::analysis::{valuation::Value, varnode_map::VarNodeMap};
 
-mod btreemap_as_vec {
+// Serialize OrdMap as a Vec of (key, value) tuples for format stability.
+mod ordmap_as_vec {
+    use im::OrdMap;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::collections::BTreeMap;
 
-    pub fn serialize<K, V, S>(map: &BTreeMap<K, V>, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<K, V, S>(map: &OrdMap<K, V>, s: S) -> Result<S::Ok, S::Error>
     where
-        K: Serialize + Ord,
-        V: Serialize,
+        K: Serialize + Ord + Clone,
+        V: Serialize + Clone,
         S: Serializer,
     {
         map.iter().collect::<Vec<_>>().serialize(s)
     }
 
-    pub fn deserialize<'de, K, V, D>(d: D) -> Result<BTreeMap<K, V>, D::Error>
+    pub fn deserialize<'de, K, V, D>(d: D) -> Result<OrdMap<K, V>, D::Error>
     where
-        K: Deserialize<'de> + Ord,
-        V: Deserialize<'de>,
+        K: Deserialize<'de> + Ord + Clone,
+        V: Deserialize<'de> + Clone,
         D: Deserializer<'de>,
     {
         Ok(Vec::<(K, V)>::deserialize(d)?.into_iter().collect())
@@ -46,8 +47,8 @@ pub struct ValuationSet {
     // todo: this should be more structured and probably just explicitly hold Loads
     //  anything downstream needing to express something more general should just use its
     //  own type instead of making the function of this type ambiguous
-    #[serde(with = "btreemap_as_vec")]
-    pub indirect_writes: BTreeMap<Value, Rc<Value>>,
+    #[serde(with = "ordmap_as_vec")]
+    pub indirect_writes: OrdMap<Value, Rc<Value>>,
 }
 
 impl Default for ValuationSet {
@@ -60,7 +61,7 @@ impl ValuationSet {
     pub fn new() -> Self {
         Self {
             direct_writes: VarNodeMap::new(),
-            indirect_writes: BTreeMap::new(),
+            indirect_writes: OrdMap::new(),
         }
     }
 
@@ -70,7 +71,7 @@ impl ValuationSet {
     /// instead of creating an empty one and inserting entries afterwards.
     pub fn with_contents(
         direct_writes: VarNodeMap<Rc<Value>>,
-        indirect_writes: BTreeMap<Value, Rc<Value>>,
+        indirect_writes: OrdMap<Value, Rc<Value>>,
     ) -> Self {
         Self {
             direct_writes,
@@ -116,17 +117,8 @@ impl ValuationSet {
         Values::new(self)
     }
 
-    /// Returns a mutable iterator over all values in this valuation.
-    pub fn values_mut(&mut self) -> ValuesMut<'_> {
-        ValuesMut::new(self)
-    }
-
     pub fn iter(&self) -> ValuationIter<'_> {
         self.into_iter()
-    }
-
-    pub fn iter_mut(&mut self) -> ValuationIterMut<'_> {
-        ValuationIterMut::new(self)
     }
 
     pub fn remove_value_from(&mut self, loc: &Location) {
@@ -365,7 +357,7 @@ impl JingleDisplay for Valuation {
 /// matching the API of `iter_mut()` and following standard library conventions.
 pub struct ValuationIter<'a> {
     direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
-    indirect_iter: std::collections::btree_map::Iter<'a, Value, Rc<Value>>,
+    indirect_iter: im::ordmap::Iter<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -410,53 +402,12 @@ impl<'a> IntoIterator for &'a ValuationSet {
     }
 }
 
-/// A mutable iterator over the contents of a `ValuationSet`.
-///
-/// Yields mutable references to both the location and value of each entry.
-pub struct ValuationIterMut<'a> {
-    direct_iter: crate::analysis::varnode_map::IterMut<'a, Rc<Value>>,
-    indirect_iter: std::collections::btree_map::IterMut<'a, Value, Rc<Value>>,
-    direct_done: bool,
-}
-
-impl<'a> ValuationIterMut<'a> {
-    pub fn new(valuation: &'a mut ValuationSet) -> Self {
-        Self {
-            direct_iter: valuation.direct_writes.iter_mut(),
-            indirect_iter: valuation.indirect_writes.iter_mut(),
-            direct_done: false,
-        }
-    }
-}
-
-impl<'a> Iterator for ValuationIterMut<'a> {
-    type Item = (Location, &'a mut Rc<Value>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // First, iterate through all direct entries
-        if !self.direct_done {
-            if let Some((vn, val)) = self.direct_iter.next() {
-                return Some((Location::Direct(*vn), val));
-            }
-            self.direct_done = true;
-        }
-
-        // Then iterate through indirect entries
-        if let Some((ptr, val)) = self.indirect_iter.next() {
-            let location = Location::Indirect(ptr.clone());
-            return Some((location, val));
-        }
-
-        None
-    }
-}
-
 /// An iterator over the keys (locations) of a `ValuationSet`.
 ///
 /// This struct is created by the `keys` method on `ValuationSet`.
 pub struct Keys<'a> {
     direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
-    indirect_iter: std::collections::btree_map::Iter<'a, Value, Rc<Value>>,
+    indirect_iter: im::ordmap::Iter<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -496,7 +447,7 @@ impl<'a> Iterator for Keys<'a> {
 /// This struct is created by the `values` method on `ValuationSet`.
 pub struct Values<'a> {
     direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
-    indirect_iter: std::collections::btree_map::Iter<'a, Value, Rc<Value>>,
+    indirect_iter: im::ordmap::Iter<'a, Value, Rc<Value>>,
     direct_done: bool,
 }
 
@@ -531,46 +482,6 @@ impl<'a> Iterator for Values<'a> {
     }
 }
 
-/// A mutable iterator over the values of a `ValuationSet`.
-///
-/// This struct is created by the `values_mut` method on `ValuationSet`.
-pub struct ValuesMut<'a> {
-    direct_iter: crate::analysis::varnode_map::IterMut<'a, Rc<Value>>,
-    indirect_iter: std::collections::btree_map::IterMut<'a, Value, Rc<Value>>,
-    direct_done: bool,
-}
-
-impl<'a> ValuesMut<'a> {
-    pub fn new(valuation: &'a mut ValuationSet) -> Self {
-        Self {
-            direct_iter: valuation.direct_writes.iter_mut(),
-            indirect_iter: valuation.indirect_writes.iter_mut(),
-            direct_done: false,
-        }
-    }
-}
-
-impl<'a> Iterator for ValuesMut<'a> {
-    type Item = &'a mut Rc<Value>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // First, iterate through all direct entries
-        if !self.direct_done {
-            if let Some((_, val)) = self.direct_iter.next() {
-                return Some(val);
-            }
-            self.direct_done = true;
-        }
-
-        // Then iterate through indirect entries
-        if let Some((_, val)) = self.indirect_iter.next() {
-            return Some(val);
-        }
-
-        None
-    }
-}
-
 /// An owning iterator that consumes a `ValuationSet` and yields `Valuation`
 /// items without borrowing the original `ValuationSet`.
 pub struct ValuationIntoIter {
@@ -594,15 +505,6 @@ impl Iterator for ValuationIntoIter {
             let owned = Rc::try_unwrap(val).unwrap_or_else(|rc| (*rc).clone());
             Valuation::new_indirect(ptr, owned)
         })
-    }
-}
-
-impl<'a> IntoIterator for &'a mut ValuationSet {
-    type Item = (Location, &'a mut Rc<Value>);
-    type IntoIter = ValuationIterMut<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        ValuationIterMut::new(self)
     }
 }
 
@@ -739,27 +641,6 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_mut_yields_tuples() {
-        let mut valuation = ValuationSet::new();
-        let vn = VarNode::new(0x1000, 8u32, 0u32);
-        valuation
-            .direct_writes
-            .insert(vn, Rc::new(Value::const_(42, 8)));
-
-        // iter_mut() should yield (location, &mut Rc<Value>) tuples
-        for (loc, val) in valuation.iter_mut() {
-            assert!(matches!(loc, Location::Direct(_)));
-            *val = Rc::new(Value::const_(100, 8));
-        }
-
-        // Verify mutation worked
-        assert_eq!(
-            valuation.get(Location::Direct(vn)),
-            Some(&Value::const_(100, 8))
-        );
-    }
-
-    #[test]
     fn test_into_iter_yields_entries() {
         let mut valuation = ValuationSet::new();
         let vn = VarNode::new(0x1000, 8u32, 0u32);
@@ -842,27 +723,6 @@ mod tests {
         assert_eq!(values.len(), 2);
         assert!(values.contains(&&Value::const_(42, 8)));
         assert!(values.contains(&&Value::const_(99, 8)));
-    }
-
-    #[test]
-    fn test_values_mut_iterator() {
-        let mut valuation = ValuationSet::new();
-        let vn = VarNode::new(0x1000, 8u32, 0u32);
-
-        valuation
-            .direct_writes
-            .insert(vn, Rc::new(Value::const_(42, 8)));
-
-        // Mutate all values
-        for val in valuation.values_mut() {
-            *val = Rc::new(Value::const_(1000, 8));
-        }
-
-        // Verify mutation worked
-        assert_eq!(
-            valuation.get(Location::Direct(vn)),
-            Some(&Value::const_(1000, 8))
-        );
     }
 
     #[test]
