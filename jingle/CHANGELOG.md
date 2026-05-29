@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.36](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.35...jingle-v0.6.36) - 2026-05-29
+
+### Other
+
+- use im::OrdMap instead of std::BTreeMap for value maps ([#294](https://github.com/toolCHAINZ/jingle/pull/294))
+
 ## [0.6.35](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.34...jingle-v0.6.35) - 2026-05-27
 
 ### Fixed
