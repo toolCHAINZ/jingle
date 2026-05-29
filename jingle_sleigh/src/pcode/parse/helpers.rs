@@ -63,7 +63,7 @@ pub fn parse_varnode(
             _ => unreachable!(),
         }
     }
-    if let Some((loc, size)) = loc.and_then(|l| size.map(|s| (l, s))) {
+    if let Some((loc, size)) = loc.zip(size) {
         let space =
             info.get_space_by_name(&loc.0)
                 .ok_or(JingleSleighError::PcodeParseValidation(format!(
