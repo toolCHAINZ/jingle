@@ -89,7 +89,10 @@ impl ValuationSet {
             Location::Indirect(ptr_intern) => {
                 if let Value::Load(Load(ptr, size, space)) = ptr_intern {
                     let vn = VarNode::new(0, *size as u32, u32::from(*space));
-                    self.indirect_writes.get(ptr.as_ref())?.get(vn).map(|rc| rc.as_ref())
+                    self.indirect_writes
+                        .get(ptr.as_ref())?
+                        .get(vn)
+                        .map(|rc| rc.as_ref())
                 } else {
                     None
                 }
@@ -105,8 +108,7 @@ impl ValuationSet {
 
     /// Returns `true` if this valuation contains no entries.
     pub fn is_empty(&self) -> bool {
-        self.direct_writes.is_empty()
-            && self.indirect_writes.iter().all(|(_, m)| m.is_empty())
+        self.direct_writes.is_empty() && self.indirect_writes.iter().all(|(_, m)| m.is_empty())
     }
 
     /// Returns an iterator over all locations (keys) in this valuation.
@@ -333,16 +335,21 @@ impl ValuationSet {
                 if let Value::Load(Load(ptr, new_size, space)) = &ptr_intern {
                     let new_vn = VarNode::new(0, *new_size as u32, u32::from(*space));
                     if self.indirect_writes.get(ptr.as_ref()).is_none() {
-                        self.indirect_writes.insert(ptr.as_ref().clone(), VarNodeMap::new());
+                        self.indirect_writes
+                            .insert(ptr.as_ref().clone(), VarNodeMap::new());
                     }
-                    let inner = self.indirect_writes.get_mut(ptr.as_ref()).expect("just inserted");
+                    let inner = self
+                        .indirect_writes
+                        .get_mut(ptr.as_ref())
+                        .expect("just inserted");
                     inner.retain(|existing, _| !new_vn.covers(existing) || existing == &new_vn);
                     let parents: Vec<(VarNode, Rc<Value>)> = inner
                         .items()
                         .filter(|(existing, _)| existing.covers(&new_vn) && *existing != &new_vn)
                         .map(|(parent_vn, parent_val)| {
                             let inner_off = (new_vn.offset() - parent_vn.offset()) as usize;
-                            let merged = Value::insert_bytes(parent_val, Rc::clone(&val), inner_off);
+                            let merged =
+                                Value::insert_bytes(parent_val, Rc::clone(&val), inner_off);
                             (*parent_vn, Value::simplify_shared(&Rc::new(merged)))
                         })
                         .collect();
@@ -587,8 +594,11 @@ impl IntoIterator for ValuationSet {
                 inner_map
                     .into_iter()
                     .map(move |(vn, val)| {
-                        let load_key =
-                            Value::load(std::rc::Rc::clone(&base_rc), vn.size(), vn.space_index() as u8);
+                        let load_key = Value::load(
+                            std::rc::Rc::clone(&base_rc),
+                            vn.size(),
+                            vn.space_index() as u8,
+                        );
                         (load_key, val)
                     })
                     .collect::<Vec<_>>()
@@ -875,7 +885,10 @@ mod tests {
         let ptr = Value::entry(VarNode::new(0x1000u64, 8u32, 0u32));
         let mut vs = ValuationSet::new();
         vs.add(Value::load(ptr.clone(), 2, 1), Value::const_(0xABCD, 2));
-        vs.add(Value::load(ptr.clone(), 8, 1), Value::const_(0x1122334455667788_u64 as i64, 8));
+        vs.add(
+            Value::load(ptr.clone(), 8, 1),
+            Value::const_(0x1122334455667788_u64 as i64, 8),
+        );
 
         // The 8-byte write covers the 2-byte entry; only the 8-byte entry survives.
         let inner = vs.indirect_writes.get(&ptr).expect("ptr must be a key");

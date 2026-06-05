@@ -299,8 +299,11 @@ impl ValuationState {
                 let pv = self.read_vn(ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
                     let simplified_ptr = Value::simplify_shared(&pv);
-                    let access_vn =
-                        VarNode::new(0, output_vn.size() as u32, input.pointer_space_index() as u32);
+                    let access_vn = VarNode::new(
+                        0,
+                        output_vn.size() as u32,
+                        input.pointer_space_index() as u32,
+                    );
                     let space = input.pointer_space_index() as u8;
 
                     let resolved = self
@@ -318,8 +321,10 @@ impl ValuationState {
                                 .items()
                                 .find(|(w, _)| w.covers(&access_vn) && *w != &access_vn)
                             {
-                                let byte_offset = (access_vn.offset() - parent_vn.offset()) as usize;
-                                let extracted = Value::extract(parent_val, byte_offset, output_vn.size());
+                                let byte_offset =
+                                    (access_vn.offset() - parent_vn.offset()) as usize;
+                                let extracted =
+                                    Value::extract(parent_val, byte_offset, output_vn.size());
                                 return Some(Value::simplify_shared(&Rc::new(extracted)));
                             }
 
@@ -338,7 +343,8 @@ impl ValuationState {
                             let mut base = Value::simplify_shared(&Rc::new(base_load));
                             for (sub_vn, sub_val) in sub_parts {
                                 let byte_offset = (sub_vn.offset() - access_vn.offset()) as usize;
-                                let merged = Value::insert_bytes(Rc::clone(&base), sub_val, byte_offset);
+                                let merged =
+                                    Value::insert_bytes(Rc::clone(&base), sub_val, byte_offset);
                                 base = Value::simplify_shared(&Rc::new(merged));
                             }
                             Some(base)
@@ -555,7 +561,12 @@ impl PartialOrd for ValuationState {
         }
 
         // Also require indirect maps to be identical for comparability.
-        let self_count: usize = self.valuation.indirect_writes.iter().map(|(_, m)| m.len()).sum();
+        let self_count: usize = self
+            .valuation
+            .indirect_writes
+            .iter()
+            .map(|(_, m)| m.len())
+            .sum();
         let other_count: usize = other
             .valuation
             .indirect_writes
@@ -645,12 +656,10 @@ impl JoinSemiLattice for ValuationState {
                         }
                     }
                     None => {
-                        let load_key =
-                            Value::load(ptr.clone(), vn.size(), vn.space_index() as u8);
+                        let load_key = Value::load(ptr.clone(), vn.size(), vn.space_index() as u8);
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let choice =
-                                    Value::choice(load_key.clone(), Rc::clone(other_val));
+                                let choice = Value::choice(load_key.clone(), Rc::clone(other_val));
                                 self.valuation.add(load_key, choice);
                             }
                             MergeBehavior::Top => {
@@ -918,9 +927,7 @@ mod tests {
         assert_eq!(
             self_state
                 .valuation
-                .get(crate::analysis::valuation::simple::valuation::Location::Indirect(
-                    load_key
-                )),
+                .get(crate::analysis::valuation::simple::valuation::Location::Indirect(load_key)),
             Some(&Value::Top),
         );
     }
@@ -943,9 +950,9 @@ mod tests {
 
         let result = self_state
             .valuation
-            .get(crate::analysis::valuation::simple::valuation::Location::Indirect(
-                load_key.clone(),
-            ))
+            .get(
+                crate::analysis::valuation::simple::valuation::Location::Indirect(load_key.clone()),
+            )
             .expect("should have an entry after join");
         let choice = result.as_choice().expect("expected a Choice node");
         assert!(
