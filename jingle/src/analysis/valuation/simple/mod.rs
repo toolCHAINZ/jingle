@@ -301,19 +301,53 @@ impl ValuationState {
                     let simplified_ptr = Value::simplify_shared(&pv);
                     let access_vn =
                         VarNode::new(0, output_vn.size() as u32, input.pointer_space_index() as u32);
-                    let cached = self
+                    let space = input.pointer_space_index() as u8;
+
+                    let resolved = self
                         .valuation
                         .indirect_writes
                         .get(simplified_ptr.as_ref())
-                        .and_then(|inner| inner.get(access_vn).map(Rc::clone));
-                    if let Some(v) = cached {
+                        .and_then(|inner| {
+                            // 1. Exact size match.
+                            if let Some(v) = inner.get(access_vn) {
+                                return Some(Rc::clone(v));
+                            }
+
+                            // 2. A wider entry covers this access — extract the relevant bytes.
+                            if let Some((parent_vn, parent_val)) = inner
+                                .items()
+                                .find(|(w, _)| w.covers(&access_vn) && *w != &access_vn)
+                            {
+                                let byte_offset = (access_vn.offset() - parent_vn.offset()) as usize;
+                                let extracted = Value::extract(parent_val, byte_offset, output_vn.size());
+                                return Some(Value::simplify_shared(&Rc::new(extracted)));
+                            }
+
+                            // 3. Assemble from sub-parts that fall within the requested range,
+                            //    spliced into a fresh symbolic load for the unknown bytes.
+                            let sub_parts: Vec<(VarNode, Rc<Value>)> = inner
+                                .items()
+                                .filter(|(w, _)| access_vn.covers(w) && *w != &access_vn)
+                                .map(|(w, v)| (*w, Rc::clone(v)))
+                                .collect();
+                            if sub_parts.is_empty() {
+                                return None;
+                            }
+                            let base_load =
+                                Value::load(Rc::clone(&simplified_ptr), output_vn.size(), space);
+                            let mut base = Value::simplify_shared(&Rc::new(base_load));
+                            for (sub_vn, sub_val) in sub_parts {
+                                let byte_offset = (sub_vn.offset() - access_vn.offset()) as usize;
+                                let merged = Value::insert_bytes(Rc::clone(&base), sub_val, byte_offset);
+                                base = Value::simplify_shared(&Rc::new(merged));
+                            }
+                            Some(base)
+                        });
+
+                    if let Some(v) = resolved {
                         new_state.valuation.add(output_vn, v);
                     } else {
-                        let load_expr = Value::load(
-                            simplified_ptr,
-                            output_vn.size(),
-                            input.pointer_space_index() as u8,
-                        );
+                        let load_expr = Value::load(simplified_ptr, output_vn.size(), space);
                         new_state.valuation.add(output_vn, load_expr);
                     }
                 }
