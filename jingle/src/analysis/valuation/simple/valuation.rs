@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
-use crate::analysis::valuation::simple::value::IntoRcValue;
+use crate::analysis::valuation::simple::value::{IntoRcValue, Load};
 use crate::analysis::{valuation::Value, varnode_map::VarNodeMap};
 
 // Serialize OrdMap as a Vec of (key, value) tuples for format stability.
@@ -48,7 +48,7 @@ pub struct ValuationSet {
     //  anything downstream needing to express something more general should just use its
     //  own type instead of making the function of this type ambiguous
     #[serde(with = "ordmap_as_vec")]
-    pub indirect_writes: OrdMap<Value, Rc<Value>>,
+    pub indirect_writes: OrdMap<Value, VarNodeMap<Rc<Value>>>,
 }
 
 impl Default for ValuationSet {
@@ -71,7 +71,7 @@ impl ValuationSet {
     /// instead of creating an empty one and inserting entries afterwards.
     pub fn with_contents(
         direct_writes: VarNodeMap<Rc<Value>>,
-        indirect_writes: OrdMap<Value, Rc<Value>>,
+        indirect_writes: OrdMap<Value, VarNodeMap<Rc<Value>>>,
     ) -> Self {
         Self {
             direct_writes,
@@ -87,19 +87,26 @@ impl ValuationSet {
         match loc.borrow() {
             Location::Direct(vn) => self.direct_writes.get(vn).map(|rc| rc.as_ref()),
             Location::Indirect(ptr_intern) => {
-                self.indirect_writes.get(ptr_intern).map(|rc| rc.as_ref())
+                if let Value::Load(Load(ptr, size, space)) = ptr_intern {
+                    let vn = VarNode::new(0, *size as u32, u32::from(*space));
+                    self.indirect_writes.get(ptr.as_ref())?.get(vn).map(|rc| rc.as_ref())
+                } else {
+                    None
+                }
             }
         }
     }
 
     /// Returns the number of entries (both direct and indirect) in this valuation.
     pub fn len(&self) -> usize {
-        self.direct_writes.len() + self.indirect_writes.len()
+        let indirect: usize = self.indirect_writes.iter().map(|(_, m)| m.len()).sum();
+        self.direct_writes.len() + indirect
     }
 
     /// Returns `true` if this valuation contains no entries.
     pub fn is_empty(&self) -> bool {
-        self.direct_writes.is_empty() && self.indirect_writes.is_empty()
+        self.direct_writes.is_empty()
+            && self.indirect_writes.iter().all(|(_, m)| m.is_empty())
     }
 
     /// Returns an iterator over all locations (keys) in this valuation.
@@ -127,7 +134,15 @@ impl ValuationSet {
                 self.direct_writes.remove(vn);
             }
             Location::Indirect(ptr_intern) => {
-                self.indirect_writes.remove(ptr_intern);
+                if let Value::Load(Load(ptr, size, space)) = ptr_intern {
+                    let vn = VarNode::new(0, *size as u32, u32::from(*space));
+                    if let Some(inner) = self.indirect_writes.get_mut(ptr.as_ref()) {
+                        inner.remove(vn);
+                        if inner.is_empty() {
+                            self.indirect_writes.remove(ptr.as_ref());
+                        }
+                    }
+                }
             }
         };
     }
@@ -315,7 +330,28 @@ impl ValuationSet {
                 self.direct_writes.insert(vn, val);
             }
             Location::Indirect(ptr_intern) => {
-                self.indirect_writes.insert(ptr_intern, val);
+                if let Value::Load(Load(ptr, new_size, space)) = &ptr_intern {
+                    let new_vn = VarNode::new(0, *new_size as u32, u32::from(*space));
+                    if self.indirect_writes.get(ptr.as_ref()).is_none() {
+                        self.indirect_writes.insert(ptr.as_ref().clone(), VarNodeMap::new());
+                    }
+                    let inner = self.indirect_writes.get_mut(ptr.as_ref()).expect("just inserted");
+                    inner.retain(|existing, _| !new_vn.covers(existing) || existing == &new_vn);
+                    let parents: Vec<(VarNode, Rc<Value>)> = inner
+                        .items()
+                        .filter(|(existing, _)| existing.covers(&new_vn) && *existing != &new_vn)
+                        .map(|(parent_vn, parent_val)| {
+                            let inner_off = (new_vn.offset() - parent_vn.offset()) as usize;
+                            let merged = Value::insert_bytes(parent_val, Rc::clone(&val), inner_off);
+                            (*parent_vn, Value::simplify_shared(&Rc::new(merged)))
+                        })
+                        .collect();
+                    for (parent_vn, merged_val) in parents {
+                        inner.insert(parent_vn, merged_val);
+                    }
+                    inner.insert(new_vn, val);
+                }
+                // Non-Load indirect: no-op.
             }
         }
     }
@@ -357,7 +393,9 @@ impl JingleDisplay for Valuation {
 /// matching the API of `iter_mut()` and following standard library conventions.
 pub struct ValuationIter<'a> {
     direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
-    indirect_iter: im::ordmap::Iter<'a, Value, Rc<Value>>,
+    indirect_outer: im::ordmap::Iter<'a, Value, VarNodeMap<Rc<Value>>>,
+    indirect_base: Option<&'a Value>,
+    indirect_inner: Option<crate::analysis::varnode_map::Iter<'a, Rc<Value>>>,
     direct_done: bool,
 }
 
@@ -365,7 +403,9 @@ impl<'a> ValuationIter<'a> {
     pub fn new(valuation: &'a ValuationSet) -> Self {
         Self {
             direct_iter: valuation.direct_writes.iter(),
-            indirect_iter: valuation.indirect_writes.iter(),
+            indirect_outer: valuation.indirect_writes.iter(),
+            indirect_base: None,
+            indirect_inner: None,
             direct_done: false,
         }
     }
@@ -375,21 +415,28 @@ impl<'a> Iterator for ValuationIter<'a> {
     type Item = (Location, &'a Value);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, val)) = self.direct_iter.next() {
                 return Some((Location::Direct(*vn), val.as_ref()));
             }
             self.direct_done = true;
         }
-
-        // Then iterate through indirect entries
-        if let Some((ptr, val)) = self.indirect_iter.next() {
-            let location = Location::Indirect(ptr.clone());
-            return Some((location, val.as_ref()));
+        loop {
+            if let Some(ref mut inner) = self.indirect_inner {
+                if let Some((vn, val)) = inner.next() {
+                    let base = self.indirect_base.expect("base set with inner");
+                    let load = Value::load(base.clone(), vn.size(), vn.space_index() as u8);
+                    return Some((Location::Indirect(load), val.as_ref()));
+                }
+            }
+            match self.indirect_outer.next() {
+                Some((ptr, inner_map)) => {
+                    self.indirect_base = Some(ptr);
+                    self.indirect_inner = Some(inner_map.items());
+                }
+                None => return None,
+            }
         }
-
-        None
     }
 }
 
@@ -407,7 +454,9 @@ impl<'a> IntoIterator for &'a ValuationSet {
 /// This struct is created by the `keys` method on `ValuationSet`.
 pub struct Keys<'a> {
     direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
-    indirect_iter: im::ordmap::Iter<'a, Value, Rc<Value>>,
+    indirect_outer: im::ordmap::Iter<'a, Value, VarNodeMap<Rc<Value>>>,
+    indirect_base: Option<&'a Value>,
+    indirect_inner: Option<crate::analysis::varnode_map::Iter<'a, Rc<Value>>>,
     direct_done: bool,
 }
 
@@ -415,7 +464,9 @@ impl<'a> Keys<'a> {
     pub fn new(valuation: &'a ValuationSet) -> Self {
         Self {
             direct_iter: valuation.direct_writes.iter(),
-            indirect_iter: valuation.indirect_writes.iter(),
+            indirect_outer: valuation.indirect_writes.iter(),
+            indirect_base: None,
+            indirect_inner: None,
             direct_done: false,
         }
     }
@@ -425,20 +476,28 @@ impl<'a> Iterator for Keys<'a> {
     type Item = Location;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((vn, _)) = self.direct_iter.next() {
                 return Some(Location::Direct(*vn));
             }
             self.direct_done = true;
         }
-
-        // Then iterate through indirect entries
-        if let Some((ptr, _)) = self.indirect_iter.next() {
-            return Some(Location::Indirect(ptr.clone()));
+        loop {
+            if let Some(ref mut inner) = self.indirect_inner {
+                if let Some((vn, _)) = inner.next() {
+                    let base = self.indirect_base.expect("base set with inner");
+                    let load = Value::load(base.clone(), vn.size(), vn.space_index() as u8);
+                    return Some(Location::Indirect(load));
+                }
+            }
+            match self.indirect_outer.next() {
+                Some((ptr, inner_map)) => {
+                    self.indirect_base = Some(ptr);
+                    self.indirect_inner = Some(inner_map.items());
+                }
+                None => return None,
+            }
         }
-
-        None
     }
 }
 
@@ -447,7 +506,8 @@ impl<'a> Iterator for Keys<'a> {
 /// This struct is created by the `values` method on `ValuationSet`.
 pub struct Values<'a> {
     direct_iter: crate::analysis::varnode_map::Iter<'a, Rc<Value>>,
-    indirect_iter: im::ordmap::Iter<'a, Value, Rc<Value>>,
+    indirect_outer: im::ordmap::Iter<'a, Value, VarNodeMap<Rc<Value>>>,
+    indirect_inner: Option<crate::analysis::varnode_map::Iter<'a, Rc<Value>>>,
     direct_done: bool,
 }
 
@@ -455,7 +515,8 @@ impl<'a> Values<'a> {
     pub fn new(valuation: &'a ValuationSet) -> Self {
         Self {
             direct_iter: valuation.direct_writes.iter(),
-            indirect_iter: valuation.indirect_writes.iter(),
+            indirect_outer: valuation.indirect_writes.iter(),
+            indirect_inner: None,
             direct_done: false,
         }
     }
@@ -465,20 +526,25 @@ impl<'a> Iterator for Values<'a> {
     type Item = &'a Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // First, iterate through all direct entries
         if !self.direct_done {
             if let Some((_, val)) = self.direct_iter.next() {
                 return Some(val.as_ref());
             }
             self.direct_done = true;
         }
-
-        // Then iterate through indirect entries
-        if let Some((_, val)) = self.indirect_iter.next() {
-            return Some(val.as_ref());
+        loop {
+            if let Some(ref mut inner) = self.indirect_inner {
+                if let Some((_, val)) = inner.next() {
+                    return Some(val.as_ref());
+                }
+            }
+            match self.indirect_outer.next() {
+                Some((_, inner_map)) => {
+                    self.indirect_inner = Some(inner_map.items());
+                }
+                None => return None,
+            }
         }
-
-        None
     }
 }
 
@@ -501,9 +567,9 @@ impl Iterator for ValuationIntoIter {
             }
             self.direct_done = true;
         }
-        self.indirect_entries.next().map(|(ptr, val)| {
+        self.indirect_entries.next().map(|(load_key, val)| {
             let owned = Rc::try_unwrap(val).unwrap_or_else(|rc| (*rc).clone());
-            Valuation::new_indirect(ptr, owned)
+            Valuation::new_indirect(load_key, owned)
         })
     }
 }
@@ -513,17 +579,28 @@ impl IntoIterator for ValuationSet {
     type IntoIter = ValuationIntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
+        let indirect_entries: Vec<(Value, Rc<Value>)> = self
+            .indirect_writes
+            .into_iter()
+            .flat_map(|(base, inner_map)| {
+                let base_rc = std::rc::Rc::new(base);
+                inner_map
+                    .into_iter()
+                    .map(move |(vn, val)| {
+                        let load_key =
+                            Value::load(std::rc::Rc::clone(&base_rc), vn.size(), vn.space_index() as u8);
+                        (load_key, val)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
         ValuationIntoIter {
             direct_entries: self
                 .direct_writes
                 .into_iter()
                 .collect::<Vec<_>>()
                 .into_iter(),
-            indirect_entries: self
-                .indirect_writes
-                .into_iter()
-                .collect::<Vec<_>>()
-                .into_iter(),
+            indirect_entries: indirect_entries.into_iter(),
             direct_done: false,
         }
     }
@@ -571,12 +648,15 @@ impl Display for ValuationSet {
         }
 
         // Indirect writes ([ptr_expr] -> val)
-        for (ptr, val) in &self.indirect_writes {
-            if !first {
-                write!(f, ", ")?;
+        for (ptr, inner_map) in &self.indirect_writes {
+            for (vn, val) in inner_map.items() {
+                if !first {
+                    write!(f, ", ")?;
+                }
+                first = false;
+                let load_key = Value::load(ptr.clone(), vn.size(), vn.space_index() as u8);
+                write!(f, "[{}] = {}", load_key, val.as_ref())?;
             }
-            first = false;
-            write!(f, "[{}] = {}", ptr, val.as_ref())?;
         }
 
         write!(f, "}}")?;
@@ -599,17 +679,20 @@ impl JingleDisplay for ValuationSet {
         }
 
         // Indirect writes ([ptr_expr] -> val)
-        for (ptr, val) in &self.indirect_writes {
-            if !first {
-                write!(f, ", ")?;
+        for (ptr, inner_map) in &self.indirect_writes {
+            for (vn, val) in inner_map.items() {
+                if !first {
+                    write!(f, ", ")?;
+                }
+                first = false;
+                let load_key = Value::load(ptr.clone(), vn.size(), vn.space_index() as u8);
+                write!(
+                    f,
+                    "[{}] = {}",
+                    load_key.display(info),
+                    val.as_ref().display(info)
+                )?;
             }
-            first = false;
-            write!(
-                f,
-                "[{}] = {}",
-                ptr.display(info),
-                val.as_ref().display(info)
-            )?;
         }
 
         write!(f, "}}")?;
@@ -672,15 +755,9 @@ mod tests {
         assert_eq!(valuation.len(), 1);
         assert!(!valuation.is_empty());
 
-        // Add an indirect write (key must be a Load expression)
-        let load_key = Value::Load(crate::analysis::valuation::simple::value::Load(
-            Rc::new(Value::const_(100, 8)),
-            8,
-            1,
-        ));
-        valuation
-            .indirect_writes
-            .insert(load_key, Rc::new(Value::const_(200, 8)));
+        // Add an indirect write via add() so the two-level structure is populated correctly.
+        let load_key = Value::load(Value::const_(100, 8), 8, 1);
+        valuation.add(load_key, Value::const_(200, 8));
 
         assert_eq!(valuation.len(), 2);
         assert!(!valuation.is_empty());
@@ -791,6 +868,60 @@ mod tests {
             rax_val
         );
         assert_eq!(rax_val.size(), 8);
+    }
+
+    #[test]
+    fn indirect_larger_write_removes_smaller() {
+        let ptr = Value::entry(VarNode::new(0x1000u64, 8u32, 0u32));
+        let mut vs = ValuationSet::new();
+        vs.add(Value::load(ptr.clone(), 2, 1), Value::const_(0xABCD, 2));
+        vs.add(Value::load(ptr.clone(), 8, 1), Value::const_(0x1122334455667788_u64 as i64, 8));
+
+        // The 8-byte write covers the 2-byte entry; only the 8-byte entry survives.
+        let inner = vs.indirect_writes.get(&ptr).expect("ptr must be a key");
+        assert_eq!(inner.len(), 1, "only one entry should remain");
+        let vn8 = jingle_sleigh::VarNode::new(0u64, 8u32, 1u32);
+        assert!(inner.contains(vn8), "the 8-byte entry must survive");
+    }
+
+    #[test]
+    fn indirect_smaller_write_splices_parent() {
+        let ptr = Value::entry(VarNode::new(0x1000u64, 8u32, 0u32));
+        let mut vs = ValuationSet::new();
+        vs.add(
+            Value::load(ptr.clone(), 8, 1),
+            Value::const_(0x1122334455667788_u64 as i64, 8),
+        );
+        vs.add(Value::load(ptr.clone(), 2, 1), Value::const_(0x4949, 2));
+
+        // The 2-byte write splices into the 8-byte parent at offset 0.
+        let inner = vs.indirect_writes.get(&ptr).expect("ptr must be a key");
+        let vn8 = jingle_sleigh::VarNode::new(0u64, 8u32, 1u32);
+        let vn2 = jingle_sleigh::VarNode::new(0u64, 2u32, 1u32);
+        assert!(inner.contains(vn8), "8-byte entry must survive");
+        assert!(inner.contains(vn2), "2-byte entry must survive");
+
+        let expected = Value::insert_bytes(
+            Value::const_(0x1122334455667788_u64 as i64, 8),
+            Value::const_(0x4949, 2),
+            0,
+        )
+        .simplify();
+        let actual = inner.get(vn8).expect("8-byte entry present");
+        assert_eq!(**actual, expected);
+    }
+
+    #[test]
+    fn indirect_same_size_overwrites() {
+        let ptr = Value::entry(VarNode::new(0x1000u64, 8u32, 0u32));
+        let mut vs = ValuationSet::new();
+        vs.add(Value::load(ptr.clone(), 4, 1), Value::const_(0xDEAD, 4));
+        vs.add(Value::load(ptr.clone(), 4, 1), Value::const_(0x1234, 4));
+
+        let inner = vs.indirect_writes.get(&ptr).expect("ptr must be a key");
+        assert_eq!(inner.len(), 1);
+        let vn4 = jingle_sleigh::VarNode::new(0u64, 4u32, 1u32);
+        assert_eq!(**inner.get(vn4).unwrap(), Value::const_(0x1234, 4));
     }
 
     #[test]

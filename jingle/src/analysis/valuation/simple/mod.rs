@@ -298,14 +298,22 @@ impl ValuationState {
                 let ptr = &input.pointer_location();
                 let pv = self.read_vn(ptr);
                 if let Some(GeneralizedVarNode::Direct(output_vn)) = op.output() {
-                    let load_expr = Value::Load(Load(
-                        Value::simplify_shared(&pv),
-                        output_vn.size(),
-                        input.pointer_space_index() as u8,
-                    ));
-                    if let Some(v) = self.valuation.indirect_writes.get(&load_expr) {
-                        new_state.valuation.add(output_vn, Rc::clone(v));
+                    let simplified_ptr = Value::simplify_shared(&pv);
+                    let access_vn =
+                        VarNode::new(0, output_vn.size() as u32, input.pointer_space_index() as u32);
+                    let cached = self
+                        .valuation
+                        .indirect_writes
+                        .get(simplified_ptr.as_ref())
+                        .and_then(|inner| inner.get(access_vn).map(Rc::clone));
+                    if let Some(v) = cached {
+                        new_state.valuation.add(output_vn, v);
                     } else {
+                        let load_expr = Value::load(
+                            simplified_ptr,
+                            output_vn.size(),
+                            input.pointer_space_index() as u8,
+                        );
                         new_state.valuation.add(output_vn, load_expr);
                     }
                 }
@@ -513,17 +521,23 @@ impl PartialOrd for ValuationState {
         }
 
         // Also require indirect maps to be identical for comparability.
-        if self.valuation.indirect_writes.len() != other.valuation.indirect_writes.len() {
+        let self_count: usize = self.valuation.indirect_writes.iter().map(|(_, m)| m.len()).sum();
+        let other_count: usize = other
+            .valuation
+            .indirect_writes
+            .iter()
+            .map(|(_, m)| m.len())
+            .sum();
+        if self_count != other_count {
             return None;
         }
-        for (k, v) in &self.valuation.indirect_writes {
-            match other.valuation.indirect_writes.get(k) {
-                Some(ov) => {
-                    if v != ov {
-                        return None;
-                    }
+        for (ptr, other_inner) in &other.valuation.indirect_writes {
+            let my_inner = self.valuation.indirect_writes.get(ptr)?;
+            for (vn, other_val) in other_inner.items() {
+                match my_inner.get(*vn) {
+                    Some(my_val) if my_val == other_val => {}
+                    _ => return None,
                 }
-                None => return None,
             }
         }
 
@@ -569,35 +583,48 @@ impl JoinSemiLattice for ValuationState {
             }
         }
 
-        // Merge indirect writes (pointer -> value)
-        for (key, other_val) in &other.valuation.indirect_writes {
-            match self.valuation.indirect_writes.get_mut(key) {
-                Some(my_val) => {
-                    if my_val.as_ref() == &Value::Top || other_val.as_ref() == &Value::Top {
-                        *my_val = Rc::new(Value::Top);
-                    } else if my_val != other_val {
+        // Merge indirect writes (ptr -> VarNodeMap)
+        for (ptr, other_inner) in &other.valuation.indirect_writes {
+            for (vn, other_val) in other_inner.items() {
+                let my_val_opt = self
+                    .valuation
+                    .indirect_writes
+                    .get_mut(ptr)
+                    .and_then(|m| m.get_mut(*vn));
+                match my_val_opt {
+                    Some(my_val) => {
+                        if my_val.as_ref() == &Value::Top || other_val.as_ref() == &Value::Top {
+                            *my_val = Rc::new(Value::Top);
+                        } else if my_val != other_val {
+                            match self.merge_behavior {
+                                MergeBehavior::Choice => {
+                                    let combined = Rc::new(Value::choice(
+                                        Rc::clone(my_val),
+                                        Rc::clone(other_val),
+                                    ));
+                                    *my_val = Value::simplify_shared(&combined);
+                                }
+                                MergeBehavior::Top => {
+                                    *my_val = Rc::new(Value::Top);
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        let load_key =
+                            Value::load(ptr.clone(), vn.size(), vn.space_index() as u8);
                         match self.merge_behavior {
                             MergeBehavior::Choice => {
-                                let combined =
-                                    Rc::new(Value::choice(Rc::clone(my_val), Rc::clone(other_val)));
-                                *my_val = Value::simplify_shared(&combined);
+                                let choice =
+                                    Value::choice(load_key.clone(), Rc::clone(other_val));
+                                self.valuation.add(load_key, choice);
                             }
                             MergeBehavior::Top => {
-                                *my_val = Rc::new(Value::Top);
+                                self.valuation.add(load_key, Value::Top);
                             }
                         }
                     }
                 }
-                None => match self.merge_behavior {
-                    MergeBehavior::Choice => {
-                        let choice = Value::choice(key.clone(), Rc::clone(other_val));
-                        self.valuation.add(key.clone(), choice);
-                    }
-                    MergeBehavior::Top => {
-                        // One branch writes, the other doesn't — result is unknown.
-                        self.valuation.add(key.clone(), Value::Top);
-                    }
-                },
             }
         }
     }
@@ -857,9 +884,9 @@ mod tests {
         assert_eq!(
             self_state
                 .valuation
-                .indirect_writes
-                .get(&load_key)
-                .map(|rc| rc.as_ref()),
+                .get(crate::analysis::valuation::simple::valuation::Location::Indirect(
+                    load_key
+                )),
             Some(&Value::Top),
         );
     }
@@ -882,8 +909,9 @@ mod tests {
 
         let result = self_state
             .valuation
-            .indirect_writes
-            .get(&load_key)
+            .get(crate::analysis::valuation::simple::valuation::Location::Indirect(
+                load_key.clone(),
+            ))
             .expect("should have an entry after join");
         let choice = result.as_choice().expect("expected a Choice node");
         assert!(
