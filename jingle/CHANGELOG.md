@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.37](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.36...jingle-v0.6.37) - 2026-06-06
+
+### Added
+
+- detect aliasing of accesses with shared base pointers  ([#296](https://github.com/toolCHAINZ/jingle/pull/296))
+
 ## [0.6.36](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.35...jingle-v0.6.36) - 2026-05-29
 
 ### Other
