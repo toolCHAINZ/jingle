@@ -857,8 +857,21 @@ impl Value {
         let sub_size = sub_rc.size();
         let sub_bits = sub_size * 8;
 
-        // Safe: sub strictly smaller than parent, so sub_bits < parent_size * 8 ≤ 64.
-        let clear_mask_bits: u64 = ((1u64 << sub_bits) - 1) << (byte_offset * 8);
+        // Masks are computed in u128 and then truncated to the u64 that backs `Const`,
+        // since `parent_size` can exceed 8 bytes (e.g. inserting into a vector register)
+        // and a plain `1u64 << sub_bits` / `<< byte_offset * 8` would overflow-panic.
+        let sub_bits_mask: u128 = if sub_bits >= 128 {
+            u128::MAX
+        } else {
+            (1u128 << sub_bits) - 1
+        };
+        let shift_amount = byte_offset * 8;
+        let clear_mask_128: u128 = if shift_amount >= 128 {
+            0
+        } else {
+            sub_bits_mask << shift_amount
+        };
+        let clear_mask_bits: u64 = clear_mask_128 as u64;
         let keep_mask_bits: u64 = !clear_mask_bits;
         let mask_val = Value::const_(keep_mask_bits as i64, parent_size);
 

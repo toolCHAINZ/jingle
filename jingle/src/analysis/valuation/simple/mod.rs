@@ -550,13 +550,11 @@ impl PartialOrd for ValuationState {
         }
 
         for (key, val) in self.valuation.direct_writes.items() {
-            match other.valuation.direct_writes.get(key) {
-                Some(other_val) => {
-                    if val != other_val {
-                        return None;
-                    }
+            {
+                let other_val = other.valuation.direct_writes.get(key)?;
+                if val != other_val {
+                    return None;
                 }
-                None => return None,
             }
         }
 

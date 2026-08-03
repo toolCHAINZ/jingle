@@ -73,7 +73,7 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             }
             Some(bv1.bvshl(&bv2))
         }
-        PcodeOperation::IntCarry { output: _, .. } => {
+        PcodeOperation::IntCarry { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let carry_bool = in0.bvadd_no_overflow(in1, false);
@@ -81,14 +81,14 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             // output is typically 1 byte; mirror memory semantics and return 8-bit BV
             Some(out_bv)
         }
-        PcodeOperation::IntSignedCarry { output: _, .. } => {
+        PcodeOperation::IntSignedCarry { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let carry_bool = in0.bvadd_no_overflow(in1, true);
             let out_bv = carry_bool.ite(&BV::from_i64(0, 8), &BV::from_i64(1, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntSignedBorrow { output: _, .. } => {
+        PcodeOperation::IntSignedBorrow { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let borrow_bool = in0.bvsub_no_underflow(in1, true);
@@ -100,28 +100,28 @@ pub fn apply_to_bvs<I: Iterator<Item = BV>>(op: &PcodeOperation, args: I) -> Opt
             let flipped = in0.bvneg().bvadd(BV::from_u64(1, in0.get_size()));
             Some(flipped)
         }
-        PcodeOperation::IntSignedLess { output: _, .. } => {
+        PcodeOperation::IntSignedLess { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvslt(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntSignedLessEqual { output: _, .. } => {
+        PcodeOperation::IntSignedLessEqual { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvsle(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntLess { output: _, .. } => {
+        PcodeOperation::IntLess { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvult(in1);
             let out_bv = out_bool.ite(&BV::from_i64(1, 8), &BV::from_i64(0, 8));
             Some(out_bv)
         }
-        PcodeOperation::IntLessEqual { output: _, .. } => {
+        PcodeOperation::IntLessEqual { .. } => {
             let in0 = arg(0)?;
             let in1 = arg(1)?;
             let out_bool = in0.bvule(in1);
