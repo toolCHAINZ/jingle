@@ -44,7 +44,7 @@ impl BMCModeledSpace {
         Self {
             endianness: space_info.endianness,
             data: Array::new_const(
-                format!("{}_{}", name.as_ref(), &space_info.name),
+                format!("{}_{}", name.as_ref(), space_info.name),
                 &domain,
                 &range,
             ),
@@ -64,7 +64,7 @@ impl BMCModeledSpace {
         Self {
             endianness: space_info.endianness,
             data: Array::fresh_const(
-                &format!("{}_{:x}_{:x}", &space_info.name, addr.machine, addr.pcode),
+                &format!("{}_{:x}_{:x}", space_info.name, addr.machine, addr.pcode),
                 &domain,
                 &range,
             ),
