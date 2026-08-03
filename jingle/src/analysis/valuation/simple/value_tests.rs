@@ -1418,6 +1418,17 @@ fn insert_bytes_multi_byte_sub_at_offset_2() {
     assert_eq!(result, Value::make_const(0xBEEF0000_u64 as i64, 4));
 }
 
+#[test]
+fn insert_bytes_8_byte_sub_into_wider_than_8_byte_parent_does_not_panic() {
+    // Regression test: inserting a full 8-byte (64-bit) value into a parent wider
+    // than 8 bytes (e.g. writing the low qword of a 16-byte vector register) used
+    // to panic with a shift overflow (`1u64 << 64`).
+    let parent = Value::entry(VarNode::new(0x400u64, 16u32, 0u32));
+    let sub = Value::const_(0x1122334455667788_u64 as i64, 8);
+    let result = Value::insert_bytes(parent, sub, 0).simplify();
+    assert_eq!(result.size(), 16);
+}
+
 // --- Rule A: fold nested constant masks ---------------------------------------
 
 #[test]
