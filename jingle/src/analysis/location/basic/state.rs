@@ -39,6 +39,11 @@ pub enum CallBehavior {
 pub struct BasicLocationState {
     inner: PcodeAddressLattice,
     call_behavior: CallBehavior,
+    /// Set by `strengthen_from_valuation` when an indirect branch resolves to a
+    /// symbolic (non-constant) value. The inner address remains `Indirect(ivn)`
+    /// for lattice ordering purposes; this field carries the resolved expression
+    /// for consumers that want it (e.g. CFG model IDs).
+    computed: Option<Value>,
 }
 
 impl BasicLocationState {
@@ -46,6 +51,7 @@ impl BasicLocationState {
         Self {
             inner: addr,
             call_behavior,
+            computed: None,
         }
     }
 
@@ -53,6 +59,7 @@ impl BasicLocationState {
         Self {
             inner: PcodeAddressLattice::Const(addr),
             call_behavior,
+            computed: None,
         }
     }
 
@@ -60,6 +67,7 @@ impl BasicLocationState {
         Self {
             inner: PcodeAddressLattice::Top,
             call_behavior,
+            computed: None,
         }
     }
 
@@ -80,6 +88,7 @@ impl IntoState<BasicLocationAnalysis> for ConcretePcodeAddress {
         BasicLocationState {
             call_behavior: c.call_behavior,
             inner: PcodeAddressLattice::Const(self),
+            computed: None,
         }
     }
 }
@@ -116,16 +125,24 @@ impl LowerHex for BasicLocationState {
 impl PartialOrd for BasicLocationState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.call_behavior != other.call_behavior {
-            None
-        } else {
-            self.inner.partial_cmp(&other.inner)
+            return None;
+        }
+        match self.inner.partial_cmp(&other.inner) {
+            Some(Ordering::Equal) if self.computed != other.computed => None,
+            other => other,
         }
     }
 }
 
 impl JoinSemiLattice for BasicLocationState {
     fn join(&mut self, other: &Self) {
-        self.inner.join(&other.inner);
+        if self.computed != other.computed {
+            // Differing computed values can't be reconciled; collapse to Top.
+            self.inner = PcodeAddressLattice::Top;
+            self.computed = None;
+        } else {
+            self.inner.join(&other.inner);
+        }
     }
 }
 
@@ -230,8 +247,11 @@ impl BasicLocationState {
                 if let Some(addr) = value.as_const_value() {
                     self.inner =
                         PcodeAddressLattice::Const(ConcretePcodeAddress::from(addr as u64));
+                    self.computed = None;
                 } else {
-                    self.inner = PcodeAddressLattice::Computed(value.clone());
+                    // Leave inner as Indirect(ivn) for lattice ordering; store the
+                    // resolved symbolic expression separately.
+                    self.computed = Some(value.clone());
                 }
             }
             // No info → leave as Indirect (two paths with no valuation are genuinely equal)
@@ -245,18 +265,18 @@ impl CfgState for BasicLocationState {
     fn new_const(&self, i: &jingle_sleigh::SleighArchInfo) -> Self::Model {
         match &self.inner {
             PcodeAddressLattice::Const(addr) => MachineState::fresh_for_address(i, *addr),
-            PcodeAddressLattice::Indirect(_)
-            | PcodeAddressLattice::Computed(_)
-            | PcodeAddressLattice::Top => MachineState::fresh(i),
+            PcodeAddressLattice::Indirect(_) | PcodeAddressLattice::Top => MachineState::fresh(i),
         }
     }
 
     fn model_id(&self) -> String {
+        if self.computed.is_some() {
+            return "State_Computed_".to_string();
+        }
         match &self.inner {
             PcodeAddressLattice::Const(a) => a.model_id(),
             PcodeAddressLattice::Top => "State_Top_".to_string(),
             PcodeAddressLattice::Indirect(_) => "State_Indirect_".to_string(),
-            PcodeAddressLattice::Computed(_) => "State_Computed_".to_string(),
         }
     }
 }
