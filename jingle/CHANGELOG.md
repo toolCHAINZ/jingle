@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.38](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.37...jingle-v0.6.38) - 2026-08-03
+
+### Fixed
+
+- panic on big shifts ([#298](https://github.com/toolCHAINZ/jingle/pull/298))
+
+### Other
+
+- divorce PcodeAddressLattice from Value ([#299](https://github.com/toolCHAINZ/jingle/pull/299))
+
 ## [0.6.37](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.36...jingle-v0.6.37) - 2026-06-06
 
 ### Added
