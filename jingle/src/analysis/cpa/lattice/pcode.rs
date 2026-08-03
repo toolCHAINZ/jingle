@@ -2,7 +2,6 @@ use crate::analysis::cpa::lattice::JoinSemiLattice;
 use crate::analysis::cpa::state::{
     AbstractState, LocationState, MergeOutcome, PcodeLocation, Successor,
 };
-use crate::analysis::valuation::Value;
 use crate::display::JingleDisplay;
 use crate::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::{IndirectVarNode, PcodeOperation};
@@ -17,13 +16,11 @@ use std::iter::{empty, once};
 /// Variants:
 /// - `Const(addr)` — a concrete pcode address (like `FlatLattice::Value`)
 /// - `Indirect(ivn)` — raw output of the transfer function for indirect branches
-/// - `Computed(sv)` — resolved by valuation strengthening
 /// - `Top` — unknown / multiple locations
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum PcodeAddressLattice {
     Const(ConcretePcodeAddress),
     Indirect(IndirectVarNode),
-    Computed(Value),
     Top,
 }
 
@@ -36,7 +33,6 @@ impl JingleDisplay for PcodeAddressLattice {
         match self {
             PcodeAddressLattice::Const(addr) => write!(f, "{:x}", addr),
             PcodeAddressLattice::Indirect(ivn) => ivn.fmt_jingle(f, info),
-            PcodeAddressLattice::Computed(sv) => sv.fmt_jingle(f, info),
             PcodeAddressLattice::Top => write!(f, "Top"),
         }
     }
@@ -53,10 +49,6 @@ impl Debug for PcodeAddressLattice {
                 .debug_tuple("PcodeAddressLattice::Indirect")
                 .field(&format_args!("{:?}", ivn))
                 .finish(),
-            PcodeAddressLattice::Computed(c) => f
-                .debug_tuple("PcodeAddressLattice::Computed")
-                .field(&format_args!("{:?}", c))
-                .finish(),
             PcodeAddressLattice::Top => write!(f, "PcodeAddressLattice::Top"),
         }
     }
@@ -70,9 +62,6 @@ impl LowerHex for PcodeAddressLattice {
             PcodeAddressLattice::Const(a) => write!(f, "PcodeAddressLattice::Const({:x})", a),
             PcodeAddressLattice::Indirect(ivn) => {
                 write!(f, "PcodeAddressLattice::Indirect({:x})", ivn)
-            }
-            PcodeAddressLattice::Computed(sv) => {
-                write!(f, "PcodeAddressLattice::Computed({:x})", sv)
             }
             PcodeAddressLattice::Top => write!(f, "PcodeAddressLattice::Top"),
         }
@@ -120,13 +109,6 @@ impl PartialOrd for PcodeAddressLattice {
                     None
                 }
             }
-            (Self::Computed(x), Self::Computed(y)) => {
-                if x == y {
-                    Some(Ordering::Equal)
-                } else {
-                    None
-                }
-            }
             // Different kinds are incomparable
             _ => None,
         }
@@ -144,11 +126,6 @@ impl JoinSemiLattice for PcodeAddressLattice {
                 }
             }
             (Self::Indirect(x), Self::Indirect(y)) => {
-                if x != y {
-                    *self = Self::Top;
-                }
-            }
-            (Self::Computed(x), Self::Computed(y)) => {
                 if x != y {
                     *self = Self::Top;
                 }
@@ -183,9 +160,7 @@ impl AbstractState for PcodeAddressLattice {
 
         match self {
             PcodeAddressLattice::Const(a) => a.transfer(op).into_iter().map(Self::Const).into(),
-            PcodeAddressLattice::Indirect(_)
-            | PcodeAddressLattice::Computed(_)
-            | PcodeAddressLattice::Top => empty().into(),
+            PcodeAddressLattice::Indirect(_) | PcodeAddressLattice::Top => empty().into(),
         }
     }
 }
@@ -203,9 +178,7 @@ impl LocationState for PcodeAddressLattice {
     ) -> Vec<(crate::analysis::pcode_store::PcodeOpRef<'op>, Self)> {
         let Some(op) = (match self {
             PcodeAddressLattice::Const(a) => store.get_pcode_op_at(a),
-            PcodeAddressLattice::Indirect(_)
-            | PcodeAddressLattice::Computed(_)
-            | PcodeAddressLattice::Top => None,
+            PcodeAddressLattice::Indirect(_) | PcodeAddressLattice::Top => None,
         }) else {
             return vec![];
         };
@@ -223,7 +196,6 @@ impl Display for PcodeAddressLattice {
                 write!(f, "{:x}", concrete_pcode_address)
             }
             PcodeAddressLattice::Indirect(ivn) => write!(f, "{}", ivn),
-            PcodeAddressLattice::Computed(sv) => write!(f, "{}", sv),
             PcodeAddressLattice::Top => write!(f, "Top"),
         }
     }
