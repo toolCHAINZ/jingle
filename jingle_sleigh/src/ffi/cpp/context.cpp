@@ -34,6 +34,23 @@ void ContextFFI::set_initial_context(rust::Str name, uint32_t val) {
   sleigh.setContextDefault(name.operator std::string(), val);
 }
 
+void ContextFFI::allow_context_set(bool val) const {
+  sleigh.allowContextSet(val);
+}
+
+void ContextFFI::register_context(rust::Str name, int32_t sbit, int32_t ebit) {
+  sleigh.registerContext(name.operator std::string(), sbit, ebit);
+}
+
+rust::String ContextFFI::get_exact_register_name(int32_t space_idx, uint64_t off, uint32_t size) const {
+  ghidra::AddrSpace *space = sleigh.getSpace(space_idx);
+  return rust::String(sleigh.getExactRegisterName(space, off, size));
+}
+
+bool ContextFFI::is_initialized() const {
+  return sleigh.isInitialized();
+}
+
 std::shared_ptr<AddrSpaceHandle>
 ContextFFI::getSpaceByIndex(ghidra::int4 idx) const {
   return std::make_shared<AddrSpaceHandle>(sleigh.getSpace(idx));

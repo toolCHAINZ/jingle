@@ -461,6 +461,37 @@ impl SleighContext {
             .map_err(|_| ImageLoadError)
     }
 
+    /// Toggle whether subsequent `setContext()` calls made during disassembly are honored.
+    pub fn allow_context_set(&self, val: bool) {
+        self.ctx.lock().unwrap().allow_context_set(val);
+    }
+
+    /// Register a new context-variable field, in addition to those declared in the `.sla` file.
+    pub fn register_context(&self, name: &str, sbit: i32, ebit: i32) {
+        self.ctx
+            .lock()
+            .unwrap()
+            .pin_mut()
+            .register_context(name, sbit, ebit);
+    }
+
+    /// Look up the register name that exactly matches the given [`VarNode`], requiring an exact
+    /// offset and size match rather than the best-effort match used by
+    /// [`SleighArchInfo::register_name`](crate::space::SleighArchInfo::register_name).
+    pub fn get_exact_register_name(&self, vn: &VarNode) -> Option<String> {
+        let name = self.ctx.lock().unwrap().get_exact_register_name(
+            vn.space_index() as i32,
+            vn.offset(),
+            vn.size() as u32,
+        );
+        if name.is_empty() { None } else { Some(name) }
+    }
+
+    /// Returns `true` if this context has finished parsing its `.sla` definitions.
+    pub fn is_initialized(&self) -> bool {
+        self.ctx.lock().unwrap().is_initialized()
+    }
+
     pub fn spaces(&self) -> Vec<SharedPtr<AddrSpaceHandle>> {
         let ctx = self.ctx.lock().unwrap();
         let mut spaces = Vec::with_capacity(ctx.getNumSpaces() as usize);
@@ -551,6 +582,49 @@ mod test {
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
     use crate::{OpCode, VarNode};
+
+    #[test]
+    fn allow_context_set_toggles_without_panic() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        sleigh.allow_context_set(false);
+        sleigh.allow_context_set(true);
+    }
+
+    #[test]
+    fn is_initialized_after_build() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        assert!(sleigh.is_initialized());
+    }
+
+    #[test]
+    fn register_context_new_field() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        sleigh.register_context("jingle_test_field", 0, 0);
+    }
+
+    #[test]
+    fn get_exact_register_name_matches() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        let (vn, name) = sleigh.arch_info().registers().next().unwrap();
+        assert_eq!(sleigh.get_exact_register_name(&vn), Some(name));
+    }
+
+    #[test]
+    fn get_exact_register_name_no_match() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        let bogus = VarNode::new(0xdead_beefu64, 3u32, 4u32);
+        assert_eq!(sleigh.get_exact_register_name(&bogus), None);
+    }
 
     #[test]
     fn get_regs() {

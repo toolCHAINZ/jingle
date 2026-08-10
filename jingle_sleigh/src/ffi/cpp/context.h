@@ -22,6 +22,14 @@ public:
 
     void set_initial_context(rust::Str name, uint32_t val);
 
+    void allow_context_set(bool val) const;
+
+    void register_context(rust::Str name, int32_t sbit, int32_t ebit);
+
+    rust::String get_exact_register_name(int32_t space_idx, uint64_t off, uint32_t size) const;
+
+    bool is_initialized() const;
+
     void setImage(ImageFFI const&img);
 
     InstructionFFI get_one_instruction(uint64_t offset) const;
