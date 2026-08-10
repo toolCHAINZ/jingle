@@ -35,6 +35,20 @@ pub(crate) mod bridge {
             value: u32,
         ) -> Result<()>;
 
+        pub(crate) fn allow_context_set(&self, val: bool);
+
+        pub(crate) fn register_context(
+            self: Pin<&mut ContextFFI>,
+            name: &str,
+            sbit: i32,
+            ebit: i32,
+        );
+
+        pub(crate) fn get_exact_register_name(&self, space_idx: i32, off: u64, size: u32)
+        -> String;
+
+        pub(crate) fn is_initialized(&self) -> bool;
+
         pub(crate) fn get_one_instruction(&self, offset: u64) -> Result<InstructionFFI>;
 
         pub(crate) fn getSpaceByIndex(&self, idx: i32) -> SharedPtr<AddrSpaceHandle>;
