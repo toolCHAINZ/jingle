@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.13](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.12...jingle_sleigh-v0.5.13) - 2026-08-10
+
+### Added
+
+- add several easy apis ([#301](https://github.com/toolCHAINZ/jingle/pull/301))
+
 ## [0.5.12](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.11...jingle_sleigh-v0.5.12) - 2026-05-29
 
 ### Other
