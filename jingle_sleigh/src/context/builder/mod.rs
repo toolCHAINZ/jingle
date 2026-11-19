@@ -572,11 +572,11 @@ mod tests {
         let mut found = false;
         for id in builder.get_language_ids() {
             // Try building the context; some builds may fail for some languages, ignore those.
-            if let Ok(ctx) = builder.build(id) {
-                if ctx.arch_info().stack_pointer().is_some() {
-                    found = true;
-                    break;
-                }
+            if let Ok(ctx) = builder.build(id)
+                && ctx.arch_info().stack_pointer().is_some()
+            {
+                found = true;
+                break;
             }
         }
         assert!(
@@ -591,11 +591,11 @@ mod tests {
             SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let mut found = false;
         for id in builder.get_language_ids() {
-            if let Ok(ctx) = builder.build(id) {
-                if ctx.arch_info().program_counter().is_some() {
-                    found = true;
-                    break;
-                }
+            if let Ok(ctx) = builder.build(id)
+                && ctx.arch_info().program_counter().is_some()
+            {
+                found = true;
+                break;
             }
         }
         assert!(
