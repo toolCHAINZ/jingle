@@ -239,22 +239,22 @@ impl LocationState for BasicLocationState {
 impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &ValuationState) {
         if let PcodeAddressLattice::Indirect(ivn) = &self.inner
-            && let Some(value) = v.get_value(ivn.pointer_location()) {
-                if matches!(value, Value::Top) {
-                    // Top carries no useful info; Indirect(ivn) is more informative.
-                    return;
-                }
-                if let Some(addr) = value.as_const_value() {
-                    self.inner =
-                        PcodeAddressLattice::Const(ConcretePcodeAddress::from(addr as u64));
-                    self.computed = None;
-                } else {
-                    // Leave inner as Indirect(ivn) for lattice ordering; store the
-                    // resolved symbolic expression separately.
-                    self.computed = Some(value.clone());
-                }
+            && let Some(value) = v.get_value(ivn.pointer_location())
+        {
+            if matches!(value, Value::Top) {
+                // Top carries no useful info; Indirect(ivn) is more informative.
+                return;
             }
-            // No info → leave as Indirect (two paths with no valuation are genuinely equal)
+            if let Some(addr) = value.as_const_value() {
+                self.inner = PcodeAddressLattice::Const(ConcretePcodeAddress::from(addr as u64));
+                self.computed = None;
+            } else {
+                // Leave inner as Indirect(ivn) for lattice ordering; store the
+                // resolved symbolic expression separately.
+                self.computed = Some(value.clone());
+            }
+        }
+        // No info → leave as Indirect (two paths with no valuation are genuinely equal)
     }
 }
 

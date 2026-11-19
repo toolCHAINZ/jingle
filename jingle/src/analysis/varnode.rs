@@ -158,9 +158,10 @@ impl VarNodeSet {
     pub fn intersects(&self, other: &Self) -> bool {
         for (space, map) in &self.space_map {
             if let Some(other_map) = other.space_map.get(space)
-                && map.intersects(other_map) {
-                    return true;
-                }
+                && map.intersects(other_map)
+            {
+                return true;
+            }
         }
         false
     }
