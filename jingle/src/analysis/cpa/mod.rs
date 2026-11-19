@@ -65,7 +65,7 @@ where
     ) -> <<Self as ConfigurableProgramAnalysis>::Reducer<'op> as residue::Residue<'op, Self::State>>::Output
     where
         Self::State: 'op,
-    {
+{
         let initial = initial.borrow();
         // Construct the reducer specialized for the `'op` lifetime.
         let mut reducer = <Self::Reducer<'op> as residue::Residue<'op, Self::State>>::new();

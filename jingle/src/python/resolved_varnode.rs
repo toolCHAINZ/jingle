@@ -10,7 +10,7 @@ pub enum PythonResolvedVarNodeInner {
     Indirect(ResolvedIndirectVarNode, SleighArchInfo),
 }
 #[derive(Clone)]
-#[pyclass(unsendable, str, name = "ResolvedVarNode")]
+#[pyclass(unsendable, str, from_py_object, name = "ResolvedVarNode")]
 pub struct PythonResolvedVarNode {
     pub inner: ResolvedVarnode,
     info: SleighArchInfo,
