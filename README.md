@@ -13,7 +13,7 @@ Program Analysis algorithm over pcode allowing for quickly implementing flexible
 
 **ALPHA SOFTWARE:  this software is suitable for research usage but is not yet ready to be used in production.**
 
-This repository contains a [Cargo Workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for three
+This repository contains a [Cargo Workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) for two
 related crates:
 
 * [`jingle_sleigh`](./jingle_sleigh): a Rust FFI in front of [Ghidra](https://github.com/NationalSecurityAgency/ghidra)'
@@ -22,10 +22,6 @@ related crates:
   found [here](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/Decompiler/src/decompile/cpp).
   This crate contains a private internal low-level API to `SLEIGH` and exposes an idiomatic high-level API to consumers.
 * [`jingle`](./jingle): defines SMT modeling of p-code states and operations using [z3.rs](https://github.com/prove-rs/z3.rs) as well as a small program analysis framework. `jingle` implements [Configurable Program Analysis](https://doi.org/10.1007/978-3-319-10575-8_16), allowing for flexible custom program analysis, as well as pre-built analyses for building SMT models of unwound p-code programs.
-* [`jingle_python`](./jingle_python): a set of [pyo3](https://pyo3.rs) bindings for `jingle`. These bindings expose a 
-  simple interface to both SLEIGH and our logical modeling of `p-code` in SMT. SMT formulae are exposed wrapped in
-  their "native" python z3 classes, allowing easy integration with other tools. These bindings are _especially_ raw and
-  subject to change and do not yet expose any of the program analysis APIs.
 
 ## Usage
 

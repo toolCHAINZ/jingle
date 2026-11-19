@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      # --all-features covers the pyo3 feature, which only needs to type-check here.
+      - run: cargo clippy --workspace --all-targets --all-features
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install z3
+        if: runner.os == 'macOS'
+        run: brew install z3
+      - name: Install Ghidra via Homebrew
+        run: |
+          brew_bin="$(command -v brew || echo /home/linuxbrew/.linuxbrew/bin/brew)"
+          eval "$("$brew_bin" shellenv)"
+          brew install ghidra
+          echo "GHIDRA_INSTALL_DIR=$(brew --prefix ghidra)/libexec" >> "$GITHUB_ENV"
+        env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+      # Not --all-features: the pyo3 feature makes test binaries link against libpython.
+      - run: cargo test --workspace --features jingle/bin
+
+  msrv:
+    name: MSRV (1.88)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@1.88
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --features jingle/bin
+
+  windows:
+    name: build (windows-msvc)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CXXFLAGS: /EHsc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Homebrew (and so Ghidra) isn't available here; just make sure SLEIGH builds under MSVC.
+      - run: cargo build -p jingle_sleigh --all-targets
+
+  # Single required status check for branch protection.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [lint, test, msrv, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
