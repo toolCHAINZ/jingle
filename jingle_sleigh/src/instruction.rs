@@ -124,26 +124,26 @@ impl Instruction {
         let maybe_proto = cc_info
             .default_calling_convention()
             .or_else(|| cc_info.call_conventions().first());
-        if let Some(proto) = maybe_proto {
-            if !proto.killed_by_call.is_empty() {
-                let arch = ctx.arch_info();
-                for op in self.ops.iter_mut() {
-                    match op {
-                        PcodeOperation::Call { call_info, .. }
-                        | PcodeOperation::CallOther { call_info, .. } => {
-                            if let Some(ci) = call_info.as_mut() {
-                                // Only populate killed_regs if it's currently empty (do not overwrite overrides)
-                                if ci.killed_regs.is_empty() {
-                                    for regname in &proto.killed_by_call {
-                                        if let Some(vn) = arch.register(regname.as_str()) {
-                                            ci.killed_regs.push(*vn);
-                                        }
+        if let Some(proto) = maybe_proto
+            && !proto.killed_by_call.is_empty()
+        {
+            let arch = ctx.arch_info();
+            for op in self.ops.iter_mut() {
+                match op {
+                    PcodeOperation::Call { call_info, .. }
+                    | PcodeOperation::CallOther { call_info, .. } => {
+                        if let Some(ci) = call_info.as_mut() {
+                            // Only populate killed_regs if it's currently empty (do not overwrite overrides)
+                            if ci.killed_regs.is_empty() {
+                                for regname in &proto.killed_by_call {
+                                    if let Some(vn) = arch.register(regname.as_str()) {
+                                        ci.killed_regs.push(*vn);
                                     }
                                 }
                             }
                         }
-                        _ => {}
                     }
+                    _ => {}
                 }
             }
         }
@@ -156,10 +156,10 @@ impl Instruction {
                 match op {
                     PcodeOperation::Call { call_info, .. }
                     | PcodeOperation::CallOther { call_info, .. } => {
-                        if let Some(ci) = call_info.as_mut() {
-                            if ci.return_address.is_none() {
-                                ci.return_address = Some(ra.clone());
-                            }
+                        if let Some(ci) = call_info.as_mut()
+                            && ci.return_address.is_none()
+                        {
+                            ci.return_address = Some(ra.clone());
                         }
                     }
                     _ => {}
@@ -231,15 +231,13 @@ mod tests {
     use super::*;
     use crate::context::SleighContextBuilder;
     use crate::tests::SLEIGH_ARCH;
-    use std::path::Path;
 
     // Ensure default extrapop from calling convention is applied to CALL ops that lack per-site overrides
     #[test]
     fn test_default_extrapop_applied_to_call() {
         // Build a real SleighContext (tests in this crate use a local Ghidra checkout)
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(SLEIGH_ARCH).unwrap();
 
         // Create a Call instruction with no per-site CallInfo
@@ -282,8 +280,7 @@ mod tests {
     fn test_per_site_extrapop_override_preserved() {
         // Build a real SleighContext
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let mut ctx = builder.build(SLEIGH_ARCH).unwrap();
 
         // Insert per-address CallInfo override for address 0x1000
@@ -339,8 +336,7 @@ mod tests {
     #[test]
     fn test_killed_regs_populated_from_prototype() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(SLEIGH_ARCH).unwrap();
 
         // Find a prototype to use (prefer default, fallback to first)

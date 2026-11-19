@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn test_adjust_vma() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: [u8; 5] = [0x55, 1, 2, 3, 4];
         let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     pub fn relative_addresses() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         // JMP $+5
         let img: [u8; 2] = [0xeb, 0x05];
@@ -269,7 +269,7 @@ mod tests {
         use std::thread;
 
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         // Create a small program with multiple instructions
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn test_get_sections() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: Vec<u8> = vec![0x55, 0x48, 0x89, 0xe5];
         let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn test_get_sections_with_base_address() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: Vec<u8> = vec![0x55, 0x48, 0x89, 0xe5];
         let mut loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -357,7 +357,7 @@ mod tests {
     #[test]
     fn test_set_image() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         // Start with first image
@@ -376,7 +376,7 @@ mod tests {
     #[test]
     fn test_read_bytes_non_code_space() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: Vec<u8> = vec![0x55, 0x48, 0x89, 0xe5];
         let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn test_debug_impl() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: Vec<u8> = vec![0x55];
         let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn test_instruction_at_out_of_bounds() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: Vec<u8> = vec![0x55];
         let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn test_read_empty_iterator() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let img: Vec<u8> = vec![0x55];
         let loaded = sleigh.initialize_with_image(img.as_slice()).unwrap();
@@ -429,7 +429,7 @@ mod tests {
     #[test]
     fn test_base_address_persistence_across_set_image() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         let img1: Vec<u8> = vec![0x55];

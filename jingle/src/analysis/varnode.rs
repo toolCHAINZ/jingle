@@ -157,10 +157,10 @@ impl VarNodeSet {
     /// in `other`. Intersections are only considered within the same space index.
     pub fn intersects(&self, other: &Self) -> bool {
         for (space, map) in &self.space_map {
-            if let Some(other_map) = other.space_map.get(space) {
-                if map.intersects(other_map) {
-                    return true;
-                }
+            if let Some(other_map) = other.space_map.get(space)
+                && map.intersects(other_map)
+            {
+                return true;
             }
         }
         false

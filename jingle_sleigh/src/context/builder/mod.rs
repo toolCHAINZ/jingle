@@ -40,10 +40,10 @@ impl SleighContextBuilder {
         // If the pspec declares a program counter register, map it to a varnode
         // (if that register exists in the Sleigh context) and store it in the
         // SleighContext arch info.
-        if let Some(pc) = pspec.programcounter {
-            if let Some(vn_ref) = context.arch_info().register(&pc.register) {
-                context.set_program_counter_varnode(*vn_ref);
-            }
+        if let Some(pc) = pspec.programcounter
+            && let Some(vn_ref) = context.arch_info().register(&pc.register)
+        {
+            context.set_program_counter_varnode(*vn_ref);
         }
 
         // Apply initial context sets (same as before)
@@ -225,141 +225,138 @@ impl SleighContextBuilder {
 
         for comp in &lang.compiler {
             let cspec_path = path.join(&comp.spec);
-            if cspec_path.exists() {
-                if let Ok(mut file) = std::fs::File::open(&cspec_path) {
-                    // Attempt to parse the cspec. If it fails for any reason, continue scanning others.
-                    // Read the opened file into a string and parse via from_str so we avoid
-                    // requiring the file to implement any extra traits for from_reader.
-                    let mut _cspec_contents = String::new();
-                    {
-                        use std::io::Read;
-                        let _ = file.read_to_string(&mut _cspec_contents);
-                    }
-                    if let Ok(cspec) = serde_xml_rs::from_str::<CSpecRootFull>(&_cspec_contents) {
-                        // Record compiler spec descriptor. Mark is_default true if this cspec contains a <default_proto>.
-                        let is_default = cspec.prototype.as_ref().is_some_and(|_| false);
-                        compiler_specs_acc.push(crate::context::CompilerSpecInfo {
-                            path: cspec_path.clone(),
-                            name: Some(comp.name.clone()),
-                            is_default,
-                        });
+            if cspec_path.exists()
+                && let Ok(mut file) = std::fs::File::open(&cspec_path)
+            {
+                // Attempt to parse the cspec. If it fails for any reason, continue scanning others.
+                // Read the opened file into a string and parse via from_str so we avoid
+                // requiring the file to implement any extra traits for from_reader.
+                let mut _cspec_contents = String::new();
+                {
+                    use std::io::Read;
+                    let _ = file.read_to_string(&mut _cspec_contents);
+                }
+                if let Ok(cspec) = serde_xml_rs::from_str::<CSpecRootFull>(&_cspec_contents) {
+                    // Record compiler spec descriptor. Mark is_default true if this cspec contains a <default_proto>.
+                    let is_default = cspec.prototype.as_ref().is_some_and(|_| false);
+                    compiler_specs_acc.push(crate::context::CompilerSpecInfo {
+                        path: cspec_path.clone(),
+                        name: Some(comp.name.clone()),
+                        is_default,
+                    });
 
-                        // Parse prototypes (both top-level and those nested under default_proto)
-                        if let Some(protos) = cspec.prototype {
-                            for p in protos {
-                                // parse numeric attributes
-                                let extrapop = p.extrapop.and_then(|s| s.parse::<i32>().ok());
-                                let stackshift = p.stackshift.and_then(|s| s.parse::<i32>().ok());
-                                let proto_name = p.name.unwrap_or_else(|| "__unnamed".to_string());
+                    // Parse prototypes (both top-level and those nested under default_proto)
+                    if let Some(protos) = cspec.prototype {
+                        for p in protos {
+                            // parse numeric attributes
+                            let extrapop = p.extrapop.and_then(|s| s.parse::<i32>().ok());
+                            let stackshift = p.stackshift.and_then(|s| s.parse::<i32>().ok());
+                            let proto_name = p.name.unwrap_or_else(|| "__unnamed".to_string());
 
-                                // Helper closure to convert CSpecInputOutput → Vec<PentryInfo>
-                                let parse_pentries =
-                                    |io: CSpecInputOutput| -> Vec<crate::context::PentryInfo> {
-                                        let Some(entries) = io.pentry else {
-                                            return Vec::new();
-                                        };
-                                        let mut out = Vec::with_capacity(entries.len());
-                                        for pe in entries {
-                                            let minsize =
-                                                pe.minsize.and_then(|s| s.parse::<u32>().ok());
-                                            let maxsize =
-                                                pe.maxsize.and_then(|s| s.parse::<u32>().ok());
-                                            let align =
-                                                pe.align.and_then(|s| s.parse::<u32>().ok());
-                                            let storage = pe.storage.or(pe.metatype);
-                                            let mut regs: Vec<String> = Vec::new();
-                                            if let Some(rvec) = pe.register {
-                                                for r in rvec {
-                                                    regs.push(r.name);
-                                                }
-                                            }
-                                            let mut addr_space: Option<String> = None;
-                                            let mut addr_offset: Option<u64> = None;
-                                            if let Some(addrs) = pe.addr {
-                                                if let Some(a) = addrs.first() {
-                                                    addr_space = a.space.clone();
-                                                    if let Some(offstr) = &a.offset {
-                                                        if let Ok(off) = offstr.parse::<u64>() {
-                                                            addr_offset = Some(off);
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            out.push(crate::context::PentryInfo {
-                                                minsize,
-                                                maxsize,
-                                                align,
-                                                storage,
-                                                registers: regs,
-                                                addr_space,
-                                                addr_offset,
-                                            });
-                                        }
-                                        out
+                            // Helper closure to convert CSpecInputOutput → Vec<PentryInfo>
+                            let parse_pentries =
+                                |io: CSpecInputOutput| -> Vec<crate::context::PentryInfo> {
+                                    let Some(entries) = io.pentry else {
+                                        return Vec::new();
                                     };
-
-                                // parse input pentries
-                                let pentries = p.input.map(parse_pentries).unwrap_or_default();
-                                // parse output pentries
-                                let output_pentries =
-                                    p.output.map(parse_pentries).unwrap_or_default();
-
-                                // parse killedbycall
-                                let mut killed: Vec<String> = Vec::new();
-                                if let Some(k) = p.killedbycall {
-                                    if let Some(kregs) = k.register {
-                                        for r in kregs {
-                                            killed.push(r.name);
+                                    let mut out = Vec::with_capacity(entries.len());
+                                    for pe in entries {
+                                        let minsize =
+                                            pe.minsize.and_then(|s| s.parse::<u32>().ok());
+                                        let maxsize =
+                                            pe.maxsize.and_then(|s| s.parse::<u32>().ok());
+                                        let align = pe.align.and_then(|s| s.parse::<u32>().ok());
+                                        let storage = pe.storage.or(pe.metatype);
+                                        let mut regs: Vec<String> = Vec::new();
+                                        if let Some(rvec) = pe.register {
+                                            for r in rvec {
+                                                regs.push(r.name);
+                                            }
                                         }
-                                    }
-                                }
-
-                                // parse unaffected
-                                let mut unaffected: Vec<String> = Vec::new();
-                                if let Some(u) = p.unaffected {
-                                    if let Some(uregs) = u.register {
-                                        for r in uregs {
-                                            unaffected.push(r.name);
+                                        let mut addr_space: Option<String> = None;
+                                        let mut addr_offset: Option<u64> = None;
+                                        if let Some(addrs) = pe.addr
+                                            && let Some(a) = addrs.first()
+                                        {
+                                            addr_space = a.space.clone();
+                                            if let Some(offstr) = &a.offset
+                                                && let Ok(off) = offstr.parse::<u64>()
+                                            {
+                                                addr_offset = Some(off);
+                                            }
                                         }
+                                        out.push(crate::context::PentryInfo {
+                                            minsize,
+                                            maxsize,
+                                            align,
+                                            storage,
+                                            registers: regs,
+                                            addr_space,
+                                            addr_offset,
+                                        });
                                     }
-                                }
-
-                                let proto = crate::context::PrototypeInfo {
-                                    name: proto_name.clone(),
-                                    extrapop,
-                                    stackshift,
-                                    pentries,
-                                    output_pentries,
-                                    killed_by_call: killed,
-                                    unaffected,
-                                    return_address: p.returnaddress.and_then(|ra| {
-                                        resolve_return_address(ra, context.arch_info())
-                                    }),
+                                    out
                                 };
 
-                                // set default prototype if none yet
-                                if default_proto_acc.is_none() {
-                                    default_proto_acc = Some(proto.clone());
+                            // parse input pentries
+                            let pentries = p.input.map(parse_pentries).unwrap_or_default();
+                            // parse output pentries
+                            let output_pentries = p.output.map(parse_pentries).unwrap_or_default();
+
+                            // parse killedbycall
+                            let mut killed: Vec<String> = Vec::new();
+                            if let Some(k) = p.killedbycall
+                                && let Some(kregs) = k.register
+                            {
+                                for r in kregs {
+                                    killed.push(r.name);
                                 }
-                                call_convs_acc.push(proto);
                             }
-                        }
 
-                        // If cspec declares a stackpointer, seed arch_info accordingly
-                        if let Some(sp) = cspec.stackpointer {
-                            if let Some(vn_ref) = context.arch_info().register(&sp.register) {
-                                context.set_stack_pointer_varnode(*vn_ref);
-                                // Do not break here: continue collecting cspecs and prototypes
+                            // parse unaffected
+                            let mut unaffected: Vec<String> = Vec::new();
+                            if let Some(u) = p.unaffected
+                                && let Some(uregs) = u.register
+                            {
+                                for r in uregs {
+                                    unaffected.push(r.name);
+                                }
                             }
-                        }
 
-                        // Capture the top-level <returnaddress> (first one wins across cspecs).
-                        if global_return_address_acc.is_none() {
-                            if let Some(ra) = cspec.returnaddress {
-                                global_return_address_acc =
-                                    resolve_return_address(ra, context.arch_info());
+                            let proto = crate::context::PrototypeInfo {
+                                name: proto_name.clone(),
+                                extrapop,
+                                stackshift,
+                                pentries,
+                                output_pentries,
+                                killed_by_call: killed,
+                                unaffected,
+                                return_address: p
+                                    .returnaddress
+                                    .and_then(|ra| resolve_return_address(ra, context.arch_info())),
+                            };
+
+                            // set default prototype if none yet
+                            if default_proto_acc.is_none() {
+                                default_proto_acc = Some(proto.clone());
                             }
+                            call_convs_acc.push(proto);
                         }
+                    }
+
+                    // If cspec declares a stackpointer, seed arch_info accordingly
+                    if let Some(sp) = cspec.stackpointer
+                        && let Some(vn_ref) = context.arch_info().register(&sp.register)
+                    {
+                        context.set_stack_pointer_varnode(*vn_ref);
+                        // Do not break here: continue collecting cspecs and prototypes
+                    }
+
+                    // Capture the top-level <returnaddress> (first one wins across cspecs).
+                    if global_return_address_acc.is_none()
+                        && let Some(ra) = cspec.returnaddress
+                    {
+                        global_return_address_acc = resolve_return_address(ra, context.arch_info());
                     }
                 }
             }
@@ -367,12 +364,11 @@ impl SleighContextBuilder {
 
         // Fallback: if no stackpointer found in cspecs, allow a fallback from the
         // language definition's optional attributes (if present).
-        if context.arch_info().stack_pointer().is_none() {
-            if let Some(sp_name) = &lang.stackpointer {
-                if let Some(vn_ref) = context.arch_info().register(sp_name) {
-                    context.set_stack_pointer_varnode(*vn_ref);
-                }
-            }
+        if context.arch_info().stack_pointer().is_none()
+            && let Some(sp_name) = &lang.stackpointer
+            && let Some(vn_ref) = context.arch_info().register(sp_name)
+        {
+            context.set_stack_pointer_varnode(*vn_ref);
         }
 
         // If we've discovered compiler specs or prototypes, combine them into a
@@ -418,6 +414,30 @@ impl SleighContextBuilder {
     }
 
     #[instrument]
+    /// Locates a Ghidra installation on this machine.
+    ///
+    /// Checks the `GHIDRA_INSTALL_DIR` environment variable first (the variable Ghidra's own
+    /// tooling uses), then the fixed install locations used by common package managers
+    /// (Homebrew, Arch, Debian/Kali). Returns the first candidate that looks like a Ghidra
+    /// installation, i.e. one containing a `Ghidra/Processors` directory.
+    pub fn find_ghidra_installation() -> Option<PathBuf> {
+        const KNOWN_LOCATIONS: &[&str] = &[
+            // Homebrew (Apple Silicon, Intel macOS, Linux)
+            "/opt/homebrew/opt/ghidra/libexec",
+            "/usr/local/opt/ghidra/libexec",
+            "/home/linuxbrew/.linuxbrew/opt/ghidra/libexec",
+            // Arch Linux
+            "/opt/ghidra",
+            // Debian / Kali
+            "/usr/share/ghidra",
+        ];
+        std::env::var_os("GHIDRA_INSTALL_DIR")
+            .map(PathBuf::from)
+            .into_iter()
+            .chain(KNOWN_LOCATIONS.iter().map(PathBuf::from))
+            .find(|p| is_ghidra_installation(p))
+    }
+
     pub fn load_ghidra_installation<T: AsRef<Path> + Debug>(
         path: T,
     ) -> Result<Self, JingleSleighError> {
@@ -434,13 +454,17 @@ impl SleighContextBuilder {
     }
 }
 
+fn is_ghidra_installation(path: &Path) -> bool {
+    path.join("Ghidra").join("Processors").is_dir()
+}
+
 fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
     let mut ldefs = vec![];
     for entry in (fs::read_dir(path).map_err(|_| LanguageSpecRead)?).flatten() {
-        if let Some(e) = entry.path().extension() {
-            if e == "ldefs" {
-                ldefs.push(entry.path().clone());
-            }
+        if let Some(e) = entry.path().extension()
+            && e == "ldefs"
+        {
+            ldefs.push(entry.path().clone());
         }
     }
     if ldefs.is_empty() {
@@ -503,8 +527,7 @@ mod tests {
         // Build a context for the canonical x86_64 language and validate
         // that prototypes, pentries, killedbycall and unaffected lists are parsed.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(SLEIGH_ARCH).unwrap();
 
         // Ensure we parsed at least one calling convention prototype
@@ -545,16 +568,15 @@ mod tests {
     #[test]
     fn test_stackpointer_detection() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let mut found = false;
         for id in builder.get_language_ids() {
             // Try building the context; some builds may fail for some languages, ignore those.
-            if let Ok(ctx) = builder.build(id) {
-                if ctx.arch_info().stack_pointer().is_some() {
-                    found = true;
-                    break;
-                }
+            if let Ok(ctx) = builder.build(id)
+                && ctx.arch_info().stack_pointer().is_some()
+            {
+                found = true;
+                break;
             }
         }
         assert!(
@@ -566,15 +588,14 @@ mod tests {
     #[test]
     fn test_programcounter_detection() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let mut found = false;
         for id in builder.get_language_ids() {
-            if let Ok(ctx) = builder.build(id) {
-                if ctx.arch_info().program_counter().is_some() {
-                    found = true;
-                    break;
-                }
+            if let Ok(ctx) = builder.build(id)
+                && ctx.arch_info().program_counter().is_some()
+            {
+                found = true;
+                break;
             }
         }
         assert!(
@@ -587,8 +608,7 @@ mod tests {
     fn test_arg_varnodes_fastcall_x86() {
         // x86win.cspec __fastcall: ECX (arg0), EDX (arg1), then stack at offset 4.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
@@ -619,8 +639,7 @@ mod tests {
     fn test_arg_varnodes_cdecl_x86() {
         // x86 __cdecl passes all args on the stack; arg_varnodes now returns Stack entries.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
@@ -638,8 +657,7 @@ mod tests {
     #[test]
     fn test_arg_varnodes_zero_count() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let vns = ctx
             .calling_convention_info()
@@ -651,8 +669,7 @@ mod tests {
     #[test]
     fn test_arg_varnodes_unknown_convention_errors() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let result =
             ctx.calling_convention_info()
@@ -663,8 +680,7 @@ mod tests {
     #[test]
     fn test_return_varnodes_x86() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
@@ -678,8 +694,7 @@ mod tests {
     fn test_x64_stack() {
         // Explicit test against the canonical x86_64 language used elsewhere in the tests.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
 
         // For x86_64 we expect a stack pointer and program counter to be detected.
@@ -702,8 +717,7 @@ mod tests {
     #[test]
     fn test_return_address_x86_64_stack_based() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
         let cc = ctx.calling_convention_info();
 
@@ -726,8 +740,7 @@ mod tests {
     #[test]
     fn test_return_address_riscv64_register_based() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         // Build for the 64-bit RISC-V language; skip if not present in this installation.
         let ctx = match builder.build("RISCV:LE:64:RV64IC") {
             Ok(c) => c,
@@ -755,8 +768,7 @@ mod tests {
     #[test]
     fn test_return_address_location_method_x86_64() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();

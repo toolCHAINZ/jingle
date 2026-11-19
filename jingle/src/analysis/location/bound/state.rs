@@ -74,20 +74,20 @@ impl BoundedBranchState {
 
     /// Check whether either configured bound has been reached.
     fn is_at_bound(&self) -> bool {
-        if let Some(max_i) = self.max_instructions {
-            if self.instruction_count >= max_i {
-                return true;
-            }
+        if let Some(max_i) = self.max_instructions
+            && self.instruction_count >= max_i
+        {
+            return true;
         }
-        if let Some(max_b) = self.max_branches {
-            if self.branch_count >= max_b {
-                return true;
-            }
+        if let Some(max_b) = self.max_branches
+            && self.branch_count >= max_b
+        {
+            return true;
         }
-        if let Some(max_ops) = self.max_ops {
-            if self.ops >= max_ops {
-                return true;
-            }
+        if let Some(max_ops) = self.max_ops
+            && self.ops >= max_ops
+        {
+            return true;
         }
         false
     }

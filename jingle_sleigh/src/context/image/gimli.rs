@@ -6,8 +6,8 @@ use crate::context::image::{
 use crate::context::loaded::LoadedSleighContext;
 use crate::{JingleSleighError, VarNode};
 use object::{
-    Architecture, BinaryFormat, Endianness, File, Object, ObjectSection, Section, SectionFlags,
-    SectionKind, elf,
+    Architecture, BinaryFormat, Endianness, Export, ExportTarget, File, Object, ObjectSection,
+    Section, SectionFlags, SectionKind, elf,
 };
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -39,14 +39,14 @@ impl TryFrom<Section<'_, '_>> for OwnedSection {
 
     fn try_from(value: Section) -> Result<Self, Self::Error> {
         let perms = match value.flags() {
-            SectionFlags::Elf { sh_flags } => {
-                if sh_flags & u64::from(elf::SHF_ALLOC) == 0 {
+            SectionFlags::Elf { sh_flags, .. } => {
+                if !sh_flags.contains(elf::SHF_ALLOC) {
                     return Err(JingleSleighError::ImageLoadError);
                 }
                 Perms {
                     read: true,
-                    write: sh_flags & u64::from(elf::SHF_WRITE) != 0,
-                    exec: sh_flags & u64::from(elf::SHF_EXECINSTR) != 0,
+                    write: sh_flags.contains(elf::SHF_WRITE),
+                    exec: sh_flags.contains(elf::SHF_EXECINSTR),
                 }
             }
             _ => map_sec_kind(&value.kind()),
@@ -91,10 +91,14 @@ impl OwnedFile {
 
         let mut exports = HashMap::new();
         if let Ok(e) = file.exports() {
-            for x in e {
-                let location = x.address();
-                let x = x.name().to_vec();
-                if let Ok(name) = String::from_utf8(x) {
+            for x in e.flatten() {
+                let Some(location) = export_address(&x) else {
+                    continue;
+                };
+                let Some(name) = x.name().into_name() else {
+                    continue;
+                };
+                if let Ok(name) = String::from_utf8(name.to_vec()) {
                     exports.insert(name, SymbolInfo { location });
                 }
             }
@@ -167,22 +171,21 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
         if let Some(x) = self.sections().find(|s| {
             output_start_addr >= s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize
-        }) {
-            if let Ok(data) = x.data() {
-                let input_start_addr = x.address() as usize;
-                let input_end_addr = input_start_addr.saturating_add(data.len());
-                let start_addr = max(input_start_addr, output_start_addr);
-                let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
-                if end_addr > start_addr {
-                    let i_s = start_addr - x.address() as usize;
-                    let i_e = end_addr - x.address() as usize;
-                    let o_s = start_addr - vn.offset() as usize;
-                    let o_e = end_addr - vn.offset() as usize;
-                    let out_slice = &mut output[o_s..o_e];
-                    let in_slice = &data[i_s..i_e];
-                    out_slice.copy_from_slice(in_slice);
-                    written += end_addr - start_addr;
-                }
+        }) && let Ok(data) = x.data()
+        {
+            let input_start_addr = x.address() as usize;
+            let input_end_addr = input_start_addr.saturating_add(data.len());
+            let start_addr = max(input_start_addr, output_start_addr);
+            let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
+            if end_addr > start_addr {
+                let i_s = start_addr - x.address() as usize;
+                let i_e = end_addr - x.address() as usize;
+                let o_s = start_addr - vn.offset() as usize;
+                let o_e = end_addr - vn.offset() as usize;
+                let out_slice = &mut output[o_s..o_e];
+                let in_slice = &data[i_s..i_e];
+                out_slice.copy_from_slice(in_slice);
+                written += end_addr - start_addr;
             }
         }
         written
@@ -201,14 +204,14 @@ impl<'a> ImageSections for File<'a, &'a [u8]> {
     fn image_sections(&self) -> ImageSectionIterator<'_> {
         ImageSectionIterator::new(self.sections().filter_map(|s| {
             let perms = match s.flags() {
-                SectionFlags::Elf { sh_flags } => {
-                    if sh_flags & u64::from(elf::SHF_ALLOC) == 0 {
+                SectionFlags::Elf { sh_flags, .. } => {
+                    if !sh_flags.contains(elf::SHF_ALLOC) {
                         return None;
                     }
                     Perms {
                         read: true,
-                        write: sh_flags & u64::from(elf::SHF_WRITE) != 0,
-                        exec: sh_flags & u64::from(elf::SHF_EXECINSTR) != 0,
+                        write: sh_flags.contains(elf::SHF_WRITE),
+                        exec: sh_flags.contains(elf::SHF_EXECINSTR),
                     }
                 }
                 _ => map_sec_kind(&s.kind()),
@@ -228,9 +231,19 @@ impl<'a> SymbolResolver for File<'a, &'a [u8]> {
     fn resolve(&self, t: &str) -> Option<SymbolInfo> {
         let exp = self.exports().ok()?;
         let needle = t.as_bytes();
-        exp.iter().find(|e| e.name() == needle).map(|f| SymbolInfo {
-            location: f.address(),
-        })
+        exp.flatten()
+            .filter(|e| e.name().name() == Some(needle))
+            .find_map(|e| export_address(&e))
+            .map(|location| SymbolInfo { location })
+    }
+}
+
+/// Extracts the address of an export, if it refers to a location in the image.
+fn export_address(export: &Export) -> Option<u64> {
+    match export.target() {
+        ExportTarget::Address { address } => Some(address),
+        ExportTarget::Resolver { resolver, .. } => Some(resolver),
+        _ => None,
     }
 }
 

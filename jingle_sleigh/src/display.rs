@@ -129,7 +129,7 @@ mod tests {
     fn make_sleigh() -> crate::context::SleighContext {
         // Mirrors other tests in the repo which expect a local Ghidra checkout at this path.
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         ctx_builder.build("x86:LE:64:default").unwrap()
     }
 

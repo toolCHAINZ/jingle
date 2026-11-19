@@ -12,7 +12,7 @@ mod tests {
     fn test_callother_decode() {
         let bytes: Vec<u8> = vec![0xf0, 0x0f, 0xb1, 0x95, 0xac, 0x15, 0x00, 0x00];
         let builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
 
         let sleigh = builder.build("x86:LE:64:default").unwrap();
         let sleigh = sleigh.initialize_with_image(bytes.as_slice()).unwrap();
@@ -22,7 +22,7 @@ mod tests {
     fn test_callother_decode2() {
         let bytes: Vec<u8> = vec![0xf0, 0x0f, 0xb1, 0x95, 0xac, 0x15, 0x00, 0x00];
         let builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
 
         let sleigh = builder.build("x86:LE:64:default").unwrap();
         let sleigh = sleigh.initialize_with_image(bytes.as_slice()).unwrap();
@@ -34,7 +34,7 @@ mod tests {
         let mov_eax_0: [u8; 4] = [0x0f, 0x05, 0x0f, 0x05];
         let nops: [u8; 9] = [0x90, 0x90, 0x90, 0x90, 0x0f, 0x05, 0x0f, 0x05, 0x0f];
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let mut sleigh = sleigh.initialize_with_image(mov_eax_0.as_slice()).unwrap();
         let instr1 = sleigh.instruction_at(0);

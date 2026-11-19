@@ -22,7 +22,13 @@ This will install `jingle` in your path. Note that
 `jingle` requires that a Ghidra installation be present.
 
 When you provide it as the first argument to the `jingle` CLI, it
-will save that path for future usage.
+will save that path for future usage. If no path has been configured, `jingle` looks for
+Ghidra in the following order:
+
+1. The `GHIDRA_INSTALL_DIR` environment variable
+2. Homebrew (`/opt/homebrew/opt/ghidra/libexec`, `/usr/local/opt/ghidra/libexec`,
+   `/home/linuxbrew/.linuxbrew/opt/ghidra/libexec`)
+3. Distribution packages (`/opt/ghidra` on Arch, `/usr/share/ghidra` on Debian/Kali)
 
 Once it has been configured, you can simple run it as follows:
 

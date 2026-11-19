@@ -7,6 +7,7 @@ use jingle::analysis::cpa::state::{LocationState, PcodeLocation};
 use jingle::analysis::location::{CallBehavior, UnwindingAnalysis};
 use jingle::analysis::{Analysis, location::BasicLocationAnalysis};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
 use std::{env, fs};
@@ -34,7 +35,12 @@ fn main() {
     let bin_path = env::home_dir()
         .unwrap()
         .join("Documents/test_funcs/build/example");
-    let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
+    let loaded = load_with_gimli(
+        bin_path,
+        SleighContextBuilder::find_ghidra_installation()
+            .expect("Could not find Ghidra; set GHIDRA_INSTALL_DIR"),
+    )
+    .unwrap();
 
     tracing::info!("Binary loaded successfully");
 

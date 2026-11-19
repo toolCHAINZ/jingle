@@ -7,6 +7,7 @@ use jingle::analysis::cpa::residue::Residue;
 use jingle::analysis::cpa::state::{LocationState, PcodeLocation};
 use jingle::analysis::location::{BasicLocationAnalysis, CallBehavior};
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
+use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use petgraph::dot::Dot;
 use std::env;
@@ -22,7 +23,12 @@ fn main() {
     let bin_path = env::home_dir()
         .unwrap()
         .join("Documents/test_funcs/build/example");
-    let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
+    let loaded = load_with_gimli(
+        bin_path,
+        SleighContextBuilder::find_ghidra_installation()
+            .expect("Could not find Ghidra; set GHIDRA_INSTALL_DIR"),
+    )
+    .unwrap();
 
     let mut direct = BasicLocationAnalysis::new(CallBehavior::Branch);
     // Run the analysis. For a `ResidueWrapper` with `CfgReducer`, `run` returns

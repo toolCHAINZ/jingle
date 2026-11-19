@@ -3,12 +3,11 @@ name = "jingle"
 version = "0.6.38"
 edition = "2024"
 description = "SMT Modeling for Ghidra's PCODE"
-homepage = "https://github.com/toolCHAINZ/jingle"
 repository = "https://github.com/toolCHAINZ/jingle"
 readme = "README.md"
 license = "MIT"
 authors = ["toolCHAINZ"]
-rust-version = "1.85.0"
+rust-version = "1.88"
 categories = ["mathematics"]
 keywords = ["ghidra", "sleigh", "pcode", "smt"]
 exclude = [
@@ -23,19 +22,19 @@ required-features = ["bin"]
 
 [dependencies]
 jingle_sleigh = { path = "../jingle_sleigh", version = "0.5" }
-z3 = { version = "0.20.0" }
-z3-sys = { version = "0.11.0", optional = true }
-thiserror = "2.0"
-serde = { version = "1.0", features = ["derive", "rc"] }
-tracing = "0.1"
-clap = { version = "4.5", optional = true, features = ["derive"] }
-confy = { version = "1.0.0", optional = true }
-hex = { version = "0.4", optional = true }
-anyhow = { version = "1.0", optional = true }
-pyo3 = { version = "0.27.2", optional = true, default-features = false, features = ["macros"] }
-petgraph = "0.8.2"
-inventory = "0.3.21"
-itertools = "0.14.0"
+z3 = { version = "0.23.0" }
+z3-sys = { version = "0.14.2", optional = true }
+thiserror = "2.0.21"
+serde = { version = "1.0.229", features = ["derive", "rc"] }
+tracing = "0.1.44"
+clap = { version = "4.6.8", optional = true, features = ["derive"] }
+confy = { version = "2.0.0", optional = true }
+hex = { version = "0.4.3", optional = true }
+anyhow = { version = "1.0.104", optional = true }
+pyo3 = { version = "0.30.1", optional = true, default-features = false, features = ["macros"] }
+petgraph = "0.8.3"
+inventory = "0.3.25"
+itertools = "0.15.0"
 im = "15.1"
 
 [features]
@@ -45,7 +44,7 @@ gimli = ["jingle_sleigh/gimli"]
 pyo3 = ["dep:pyo3", "jingle_sleigh/pyo3", "dep:z3-sys"]
 
 [dev-dependencies]
-tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing-subscriber = { version = "0.3.23", features = ["fmt", "env-filter"] }
 
 [[example]]
 name = "location"

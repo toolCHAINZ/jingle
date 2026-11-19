@@ -13,6 +13,7 @@ use jingle::analysis::valuation::{MergeBehavior, ValuationAnalysis, ValuationSta
 use jingle::display::JingleDisplay;
 use jingle::modeling::machine::cpu::concrete::ConcretePcodeAddress;
 use jingle_sleigh::VarNode;
+use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::image::gimli::load_with_gimli;
 use std::collections::HashMap;
 use std::env;
@@ -40,7 +41,12 @@ fn main() {
     let bin_path = env::home_dir()
         .unwrap()
         .join("Documents/test_funcs/build/example");
-    let loaded = load_with_gimli(bin_path, "/Applications/ghidra").unwrap();
+    let loaded = load_with_gimli(
+        bin_path,
+        SleighContextBuilder::find_ghidra_installation()
+            .expect("Could not find Ghidra; set GHIDRA_INSTALL_DIR"),
+    )
+    .unwrap();
 
     tracing::info!("Binary loaded successfully");
 

@@ -429,12 +429,12 @@ impl<'a> Iterator for ValuationIter<'a> {
             self.direct_done = true;
         }
         loop {
-            if let Some(ref mut inner) = self.indirect_inner {
-                if let Some((vn, val)) = inner.next() {
-                    let base = self.indirect_base.expect("base set with inner");
-                    let load = Value::load(base.clone(), vn.size(), vn.space_index() as u8);
-                    return Some((Location::Indirect(load), val.as_ref()));
-                }
+            if let Some(ref mut inner) = self.indirect_inner
+                && let Some((vn, val)) = inner.next()
+            {
+                let base = self.indirect_base.expect("base set with inner");
+                let load = Value::load(base.clone(), vn.size(), vn.space_index() as u8);
+                return Some((Location::Indirect(load), val.as_ref()));
             }
             match self.indirect_outer.next() {
                 Some((ptr, inner_map)) => {
@@ -490,12 +490,12 @@ impl<'a> Iterator for Keys<'a> {
             self.direct_done = true;
         }
         loop {
-            if let Some(ref mut inner) = self.indirect_inner {
-                if let Some((vn, _)) = inner.next() {
-                    let base = self.indirect_base.expect("base set with inner");
-                    let load = Value::load(base.clone(), vn.size(), vn.space_index() as u8);
-                    return Some(Location::Indirect(load));
-                }
+            if let Some(ref mut inner) = self.indirect_inner
+                && let Some((vn, _)) = inner.next()
+            {
+                let base = self.indirect_base.expect("base set with inner");
+                let load = Value::load(base.clone(), vn.size(), vn.space_index() as u8);
+                return Some(Location::Indirect(load));
             }
             match self.indirect_outer.next() {
                 Some((ptr, inner_map)) => {
@@ -540,10 +540,10 @@ impl<'a> Iterator for Values<'a> {
             self.direct_done = true;
         }
         loop {
-            if let Some(ref mut inner) = self.indirect_inner {
-                if let Some((_, val)) = inner.next() {
-                    return Some(val.as_ref());
-                }
+            if let Some(ref mut inner) = self.indirect_inner
+                && let Some((_, val)) = inner.next()
+            {
+                return Some(val.as_ref());
             }
             match self.indirect_outer.next() {
                 Some((_, inner_map)) => {
