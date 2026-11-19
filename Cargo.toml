@@ -11,7 +11,3 @@ default-members = [
     "jingle_sleigh"
 ]
 
-exclude = [
-    "jingle_python"
-]
-
