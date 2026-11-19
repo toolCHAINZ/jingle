@@ -250,9 +250,10 @@ impl CallingConventionInfo {
     ) -> Option<ReturnAddressLocation> {
         // Per-prototype override takes priority.
         if let Ok(proto) = self.find_convention(convention)
-            && proto.return_address.is_some() {
-                return proto.return_address.clone();
-            }
+            && proto.return_address.is_some()
+        {
+            return proto.return_address.clone();
+        }
         // Fall back to the compiler-spec-level declaration.
         // The global entry is already resolved to a ParameterLocation (register varnode
         // resolved at parse time), so no arch lookup is needed here.
@@ -534,10 +535,11 @@ impl SleighContext {
     /// Convenience accessor for default stack change derived from the default calling convention.
     pub fn default_stack_change(&self) -> Option<i32> {
         if let Some(proto) = self.calling_convention_info.default_calling_convention()
-            && let Some(extrapop) = proto.extrapop {
-                let stackshift = proto.stackshift.unwrap_or(0);
-                return Some(extrapop - stackshift);
-            }
+            && let Some(extrapop) = proto.extrapop
+        {
+            let stackshift = proto.stackshift.unwrap_or(0);
+            return Some(extrapop - stackshift);
+        }
         None
     }
 

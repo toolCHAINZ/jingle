@@ -171,23 +171,23 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
         if let Some(x) = self.sections().find(|s| {
             output_start_addr >= s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize
-        })
-            && let Ok(data) = x.data() {
-                let input_start_addr = x.address() as usize;
-                let input_end_addr = input_start_addr.saturating_add(data.len());
-                let start_addr = max(input_start_addr, output_start_addr);
-                let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
-                if end_addr > start_addr {
-                    let i_s = start_addr - x.address() as usize;
-                    let i_e = end_addr - x.address() as usize;
-                    let o_s = start_addr - vn.offset() as usize;
-                    let o_e = end_addr - vn.offset() as usize;
-                    let out_slice = &mut output[o_s..o_e];
-                    let in_slice = &data[i_s..i_e];
-                    out_slice.copy_from_slice(in_slice);
-                    written += end_addr - start_addr;
-                }
+        }) && let Ok(data) = x.data()
+        {
+            let input_start_addr = x.address() as usize;
+            let input_end_addr = input_start_addr.saturating_add(data.len());
+            let start_addr = max(input_start_addr, output_start_addr);
+            let end_addr = max(min(input_end_addr, output_end_addr), start_addr);
+            if end_addr > start_addr {
+                let i_s = start_addr - x.address() as usize;
+                let i_e = end_addr - x.address() as usize;
+                let o_s = start_addr - vn.offset() as usize;
+                let o_e = end_addr - vn.offset() as usize;
+                let out_slice = &mut output[o_s..o_e];
+                let in_slice = &data[i_s..i_e];
+                out_slice.copy_from_slice(in_slice);
+                written += end_addr - start_addr;
             }
+        }
         written
     }
 

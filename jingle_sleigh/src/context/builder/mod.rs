@@ -41,9 +41,10 @@ impl SleighContextBuilder {
         // (if that register exists in the Sleigh context) and store it in the
         // SleighContext arch info.
         if let Some(pc) = pspec.programcounter
-            && let Some(vn_ref) = context.arch_info().register(&pc.register) {
-                context.set_program_counter_varnode(*vn_ref);
-            }
+            && let Some(vn_ref) = context.arch_info().register(&pc.register)
+        {
+            context.set_program_counter_varnode(*vn_ref);
+        }
 
         // Apply initial context sets (same as before)
         if let Some(ctx_sets) = pspec.context_data.and_then(|d| d.context_set) {
@@ -225,145 +226,150 @@ impl SleighContextBuilder {
         for comp in &lang.compiler {
             let cspec_path = path.join(&comp.spec);
             if cspec_path.exists()
-                && let Ok(mut file) = std::fs::File::open(&cspec_path) {
-                    // Attempt to parse the cspec. If it fails for any reason, continue scanning others.
-                    // Read the opened file into a string and parse via from_str so we avoid
-                    // requiring the file to implement any extra traits for from_reader.
-                    let mut _cspec_contents = String::new();
-                    {
-                        use std::io::Read;
-                        let _ = file.read_to_string(&mut _cspec_contents);
-                    }
-                    if let Ok(cspec) = serde_xml_rs::from_str::<CSpecRootFull>(&_cspec_contents) {
-                        // Record compiler spec descriptor. Mark is_default true if this cspec contains a <default_proto>.
-                        let is_default = cspec.prototype.as_ref().is_some_and(|_| false);
-                        compiler_specs_acc.push(crate::context::CompilerSpecInfo {
-                            path: cspec_path.clone(),
-                            name: Some(comp.name.clone()),
-                            is_default,
-                        });
+                && let Ok(mut file) = std::fs::File::open(&cspec_path)
+            {
+                // Attempt to parse the cspec. If it fails for any reason, continue scanning others.
+                // Read the opened file into a string and parse via from_str so we avoid
+                // requiring the file to implement any extra traits for from_reader.
+                let mut _cspec_contents = String::new();
+                {
+                    use std::io::Read;
+                    let _ = file.read_to_string(&mut _cspec_contents);
+                }
+                if let Ok(cspec) = serde_xml_rs::from_str::<CSpecRootFull>(&_cspec_contents) {
+                    // Record compiler spec descriptor. Mark is_default true if this cspec contains a <default_proto>.
+                    let is_default = cspec.prototype.as_ref().is_some_and(|_| false);
+                    compiler_specs_acc.push(crate::context::CompilerSpecInfo {
+                        path: cspec_path.clone(),
+                        name: Some(comp.name.clone()),
+                        is_default,
+                    });
 
-                        // Parse prototypes (both top-level and those nested under default_proto)
-                        if let Some(protos) = cspec.prototype {
-                            for p in protos {
-                                // parse numeric attributes
-                                let extrapop = p.extrapop.and_then(|s| s.parse::<i32>().ok());
-                                let stackshift = p.stackshift.and_then(|s| s.parse::<i32>().ok());
-                                let proto_name = p.name.unwrap_or_else(|| "__unnamed".to_string());
+                    // Parse prototypes (both top-level and those nested under default_proto)
+                    if let Some(protos) = cspec.prototype {
+                        for p in protos {
+                            // parse numeric attributes
+                            let extrapop = p.extrapop.and_then(|s| s.parse::<i32>().ok());
+                            let stackshift = p.stackshift.and_then(|s| s.parse::<i32>().ok());
+                            let proto_name = p.name.unwrap_or_else(|| "__unnamed".to_string());
 
-                                // Helper closure to convert CSpecInputOutput → Vec<PentryInfo>
-                                let parse_pentries =
-                                    |io: CSpecInputOutput| -> Vec<crate::context::PentryInfo> {
-                                        let Some(entries) = io.pentry else {
-                                            return Vec::new();
-                                        };
-                                        let mut out = Vec::with_capacity(entries.len());
-                                        for pe in entries {
-                                            let minsize =
-                                                pe.minsize.and_then(|s| s.parse::<u32>().ok());
-                                            let maxsize =
-                                                pe.maxsize.and_then(|s| s.parse::<u32>().ok());
-                                            let align =
-                                                pe.align.and_then(|s| s.parse::<u32>().ok());
-                                            let storage = pe.storage.or(pe.metatype);
-                                            let mut regs: Vec<String> = Vec::new();
-                                            if let Some(rvec) = pe.register {
-                                                for r in rvec {
-                                                    regs.push(r.name);
-                                                }
-                                            }
-                                            let mut addr_space: Option<String> = None;
-                                            let mut addr_offset: Option<u64> = None;
-                                            if let Some(addrs) = pe.addr
-                                                && let Some(a) = addrs.first() {
-                                                    addr_space = a.space.clone();
-                                                    if let Some(offstr) = &a.offset
-                                                        && let Ok(off) = offstr.parse::<u64>() {
-                                                            addr_offset = Some(off);
-                                                        }
-                                                }
-                                            out.push(crate::context::PentryInfo {
-                                                minsize,
-                                                maxsize,
-                                                align,
-                                                storage,
-                                                registers: regs,
-                                                addr_space,
-                                                addr_offset,
-                                            });
-                                        }
-                                        out
+                            // Helper closure to convert CSpecInputOutput → Vec<PentryInfo>
+                            let parse_pentries =
+                                |io: CSpecInputOutput| -> Vec<crate::context::PentryInfo> {
+                                    let Some(entries) = io.pentry else {
+                                        return Vec::new();
                                     };
-
-                                // parse input pentries
-                                let pentries = p.input.map(parse_pentries).unwrap_or_default();
-                                // parse output pentries
-                                let output_pentries =
-                                    p.output.map(parse_pentries).unwrap_or_default();
-
-                                // parse killedbycall
-                                let mut killed: Vec<String> = Vec::new();
-                                if let Some(k) = p.killedbycall
-                                    && let Some(kregs) = k.register {
-                                        for r in kregs {
-                                            killed.push(r.name);
+                                    let mut out = Vec::with_capacity(entries.len());
+                                    for pe in entries {
+                                        let minsize =
+                                            pe.minsize.and_then(|s| s.parse::<u32>().ok());
+                                        let maxsize =
+                                            pe.maxsize.and_then(|s| s.parse::<u32>().ok());
+                                        let align = pe.align.and_then(|s| s.parse::<u32>().ok());
+                                        let storage = pe.storage.or(pe.metatype);
+                                        let mut regs: Vec<String> = Vec::new();
+                                        if let Some(rvec) = pe.register {
+                                            for r in rvec {
+                                                regs.push(r.name);
+                                            }
                                         }
-                                    }
-
-                                // parse unaffected
-                                let mut unaffected: Vec<String> = Vec::new();
-                                if let Some(u) = p.unaffected
-                                    && let Some(uregs) = u.register {
-                                        for r in uregs {
-                                            unaffected.push(r.name);
+                                        let mut addr_space: Option<String> = None;
+                                        let mut addr_offset: Option<u64> = None;
+                                        if let Some(addrs) = pe.addr
+                                            && let Some(a) = addrs.first()
+                                        {
+                                            addr_space = a.space.clone();
+                                            if let Some(offstr) = &a.offset
+                                                && let Ok(off) = offstr.parse::<u64>()
+                                            {
+                                                addr_offset = Some(off);
+                                            }
                                         }
+                                        out.push(crate::context::PentryInfo {
+                                            minsize,
+                                            maxsize,
+                                            align,
+                                            storage,
+                                            registers: regs,
+                                            addr_space,
+                                            addr_offset,
+                                        });
                                     }
-
-                                let proto = crate::context::PrototypeInfo {
-                                    name: proto_name.clone(),
-                                    extrapop,
-                                    stackshift,
-                                    pentries,
-                                    output_pentries,
-                                    killed_by_call: killed,
-                                    unaffected,
-                                    return_address: p.returnaddress.and_then(|ra| {
-                                        resolve_return_address(ra, context.arch_info())
-                                    }),
+                                    out
                                 };
 
-                                // set default prototype if none yet
-                                if default_proto_acc.is_none() {
-                                    default_proto_acc = Some(proto.clone());
+                            // parse input pentries
+                            let pentries = p.input.map(parse_pentries).unwrap_or_default();
+                            // parse output pentries
+                            let output_pentries = p.output.map(parse_pentries).unwrap_or_default();
+
+                            // parse killedbycall
+                            let mut killed: Vec<String> = Vec::new();
+                            if let Some(k) = p.killedbycall
+                                && let Some(kregs) = k.register
+                            {
+                                for r in kregs {
+                                    killed.push(r.name);
                                 }
-                                call_convs_acc.push(proto);
                             }
+
+                            // parse unaffected
+                            let mut unaffected: Vec<String> = Vec::new();
+                            if let Some(u) = p.unaffected
+                                && let Some(uregs) = u.register
+                            {
+                                for r in uregs {
+                                    unaffected.push(r.name);
+                                }
+                            }
+
+                            let proto = crate::context::PrototypeInfo {
+                                name: proto_name.clone(),
+                                extrapop,
+                                stackshift,
+                                pentries,
+                                output_pentries,
+                                killed_by_call: killed,
+                                unaffected,
+                                return_address: p
+                                    .returnaddress
+                                    .and_then(|ra| resolve_return_address(ra, context.arch_info())),
+                            };
+
+                            // set default prototype if none yet
+                            if default_proto_acc.is_none() {
+                                default_proto_acc = Some(proto.clone());
+                            }
+                            call_convs_acc.push(proto);
                         }
+                    }
 
-                        // If cspec declares a stackpointer, seed arch_info accordingly
-                        if let Some(sp) = cspec.stackpointer
-                            && let Some(vn_ref) = context.arch_info().register(&sp.register) {
-                                context.set_stack_pointer_varnode(*vn_ref);
-                                // Do not break here: continue collecting cspecs and prototypes
-                            }
+                    // If cspec declares a stackpointer, seed arch_info accordingly
+                    if let Some(sp) = cspec.stackpointer
+                        && let Some(vn_ref) = context.arch_info().register(&sp.register)
+                    {
+                        context.set_stack_pointer_varnode(*vn_ref);
+                        // Do not break here: continue collecting cspecs and prototypes
+                    }
 
-                        // Capture the top-level <returnaddress> (first one wins across cspecs).
-                        if global_return_address_acc.is_none()
-                            && let Some(ra) = cspec.returnaddress {
-                                global_return_address_acc =
-                                    resolve_return_address(ra, context.arch_info());
-                            }
+                    // Capture the top-level <returnaddress> (first one wins across cspecs).
+                    if global_return_address_acc.is_none()
+                        && let Some(ra) = cspec.returnaddress
+                    {
+                        global_return_address_acc = resolve_return_address(ra, context.arch_info());
                     }
                 }
+            }
         }
 
         // Fallback: if no stackpointer found in cspecs, allow a fallback from the
         // language definition's optional attributes (if present).
         if context.arch_info().stack_pointer().is_none()
             && let Some(sp_name) = &lang.stackpointer
-                && let Some(vn_ref) = context.arch_info().register(sp_name) {
-                    context.set_stack_pointer_varnode(*vn_ref);
-                }
+            && let Some(vn_ref) = context.arch_info().register(sp_name)
+        {
+            context.set_stack_pointer_varnode(*vn_ref);
+        }
 
         // If we've discovered compiler specs or prototypes, combine them into a
         // ref-counted `CallingConventionInfo` and attach it to the context.
@@ -456,9 +462,10 @@ fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
     let mut ldefs = vec![];
     for entry in (fs::read_dir(path).map_err(|_| LanguageSpecRead)?).flatten() {
         if let Some(e) = entry.path().extension()
-            && e == "ldefs" {
-                ldefs.push(entry.path().clone());
-            }
+            && e == "ldefs"
+        {
+            ldefs.push(entry.path().clone());
+        }
     }
     if ldefs.is_empty() {
         return Err(LanguageSpecRead);
