@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.39](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.38...jingle-v0.6.39) - 2026-11-19
+
+### Other
+
+- Chore/msrv 1.88 deps ([#303](https://github.com/toolCHAINZ/jingle/pull/303))
+
 ## [0.6.38](https://github.com/toolCHAINZ/jingle/compare/jingle-v0.6.37...jingle-v0.6.38) - 2026-08-03
 
 ### Fixed

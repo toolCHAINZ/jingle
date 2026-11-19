@@ -1,6 +1,6 @@
 [package]
 name = "jingle_sleigh"
-version = "0.5.13"
+version = "0.6.0"
 edition = "2024"
 description = "An FFI layer for Ghidra's SLEIGH"
 repository = "https://github.com/toolCHAINZ/jingle"
