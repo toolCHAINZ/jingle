@@ -5,45 +5,43 @@ use jingle::display::JingleDisplay;
 use jingle::modeling::{ModeledBlock, ModelingContext, State};
 use jingle_sleigh::context::SleighContextBuilder;
 use jingle_sleigh::context::loaded::LoadedSleighContext;
-use jingle_sleigh::{Disassembly, Instruction, JingleSleighError, PcodeOperation, VarNode};
+use jingle_sleigh::{Disassembly, Instruction, PcodeOperation, VarNode};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use z3::Solver;
 use z3::ast::Ast;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct JingleConfig {
-    pub ghidra_path: PathBuf,
+    /// Ghidra installation explicitly configured by the user. When unset, the installation
+    /// is located via `GHIDRA_INSTALL_DIR` or well-known package manager locations.
+    pub ghidra_path: Option<PathBuf>,
 }
 
 impl JingleConfig {
-    pub fn sleigh_builder(&self) -> Result<SleighContextBuilder, JingleSleighError> {
-        SleighContextBuilder::load_ghidra_installation(&self.ghidra_path)
+    pub fn ghidra_path(&self) -> anyhow::Result<PathBuf> {
+        self.ghidra_path
+            .clone()
+            .or_else(SleighContextBuilder::find_ghidra_installation)
+            .context(
+                "Could not find a Ghidra installation. \n\
+                 Set GHIDRA_INSTALL_DIR or pass the installation path as the first argument.",
+            )
     }
-}
 
-impl Default for JingleConfig {
-    fn default() -> Self {
-        if cfg!(target_os = "windows") {
-            let path = PathBuf::from(r"C:\Program Files\ghidra");
-            Self { ghidra_path: path }
-        } else if cfg!(target_os = "macos") {
-            let path = PathBuf::from(r"/Applications/ghidra");
-            Self { ghidra_path: path }
-        } else {
-            let path = PathBuf::from(r"/opt/ghidra");
-            Self { ghidra_path: path }
-        }
+    pub fn sleigh_builder(&self) -> anyhow::Result<SleighContextBuilder> {
+        let path = self.ghidra_path()?;
+        SleighContextBuilder::load_ghidra_installation(&path).context(format!(
+            "Unable to load Ghidra installation at {}",
+            path.display()
+        ))
     }
 }
 
 impl From<&JingleParams> for JingleConfig {
     fn from(value: &JingleParams) -> Self {
-        let path = value.ghidra_path.clone();
         Self {
-            ghidra_path: path
-                .map(PathBuf::from)
-                .unwrap_or(JingleConfig::default().ghidra_path),
+            ghidra_path: value.ghidra_path.clone().map(PathBuf::from),
         }
     }
 }
@@ -91,10 +89,7 @@ fn main() -> anyhow::Result<()> {
             architecture,
             hex_bytes,
         } => model(&config, architecture, hex_bytes),
-        Commands::Architectures => {
-            list_architectures(&config);
-            Ok(())
-        }
+        Commands::Architectures => list_architectures(&config),
     }
 }
 
@@ -108,11 +103,12 @@ fn update_config(params: &JingleParams) {
     }
 }
 
-fn list_architectures(config: &JingleConfig) {
-    let sleigh = config.sleigh_builder().unwrap();
+fn list_architectures(config: &JingleConfig) -> anyhow::Result<()> {
+    let sleigh = config.sleigh_builder()?;
     for language_id in sleigh.get_language_ids() {
         println!("{language_id}")
     }
+    Ok(())
 }
 
 fn get_instructions(
@@ -120,11 +116,7 @@ fn get_instructions(
     architecture: String,
     hex_bytes: String,
 ) -> anyhow::Result<(LoadedSleighContext<'_>, Vec<Instruction>)> {
-    let sleigh_build = config.sleigh_builder().context(format!(
-        "Unable to parse selected architecture. \n\
-    This may indicate that your configured Ghidra path is incorrect: {}",
-        config.ghidra_path.display()
-    ))?;
+    let sleigh_build = config.sleigh_builder()?;
     let img = decode(hex_bytes)?;
     let max_len = img.len();
     let mut offset = 0;

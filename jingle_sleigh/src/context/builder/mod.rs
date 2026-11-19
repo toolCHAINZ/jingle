@@ -418,6 +418,30 @@ impl SleighContextBuilder {
     }
 
     #[instrument]
+    /// Locates a Ghidra installation on this machine.
+    ///
+    /// Checks the `GHIDRA_INSTALL_DIR` environment variable first (the variable Ghidra's own
+    /// tooling uses), then the fixed install locations used by common package managers
+    /// (Homebrew, Arch, Debian/Kali). Returns the first candidate that looks like a Ghidra
+    /// installation, i.e. one containing a `Ghidra/Processors` directory.
+    pub fn find_ghidra_installation() -> Option<PathBuf> {
+        const KNOWN_LOCATIONS: &[&str] = &[
+            // Homebrew (Apple Silicon, Intel macOS, Linux)
+            "/opt/homebrew/opt/ghidra/libexec",
+            "/usr/local/opt/ghidra/libexec",
+            "/home/linuxbrew/.linuxbrew/opt/ghidra/libexec",
+            // Arch Linux
+            "/opt/ghidra",
+            // Debian / Kali
+            "/usr/share/ghidra",
+        ];
+        std::env::var_os("GHIDRA_INSTALL_DIR")
+            .map(PathBuf::from)
+            .into_iter()
+            .chain(KNOWN_LOCATIONS.iter().map(PathBuf::from))
+            .find(|p| is_ghidra_installation(p))
+    }
+
     pub fn load_ghidra_installation<T: AsRef<Path> + Debug>(
         path: T,
     ) -> Result<Self, JingleSleighError> {
@@ -432,6 +456,10 @@ impl SleighContextBuilder {
         }
         Ok(SleighContextBuilder { defs })
     }
+}
+
+fn is_ghidra_installation(path: &Path) -> bool {
+    path.join("Ghidra").join("Processors").is_dir()
 }
 
 fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
@@ -503,8 +531,7 @@ mod tests {
         // Build a context for the canonical x86_64 language and validate
         // that prototypes, pentries, killedbycall and unaffected lists are parsed.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(SLEIGH_ARCH).unwrap();
 
         // Ensure we parsed at least one calling convention prototype
@@ -545,8 +572,7 @@ mod tests {
     #[test]
     fn test_stackpointer_detection() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let mut found = false;
         for id in builder.get_language_ids() {
             // Try building the context; some builds may fail for some languages, ignore those.
@@ -566,8 +592,7 @@ mod tests {
     #[test]
     fn test_programcounter_detection() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let mut found = false;
         for id in builder.get_language_ids() {
             if let Ok(ctx) = builder.build(id) {
@@ -587,8 +612,7 @@ mod tests {
     fn test_arg_varnodes_fastcall_x86() {
         // x86win.cspec __fastcall: ECX (arg0), EDX (arg1), then stack at offset 4.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
@@ -619,8 +643,7 @@ mod tests {
     fn test_arg_varnodes_cdecl_x86() {
         // x86 __cdecl passes all args on the stack; arg_varnodes now returns Stack entries.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
@@ -638,8 +661,7 @@ mod tests {
     #[test]
     fn test_arg_varnodes_zero_count() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let vns = ctx
             .calling_convention_info()
@@ -651,8 +673,7 @@ mod tests {
     #[test]
     fn test_arg_varnodes_unknown_convention_errors() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let result =
             ctx.calling_convention_info()
@@ -663,8 +684,7 @@ mod tests {
     #[test]
     fn test_return_varnodes_x86() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build("x86:LE:32:default").unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();
@@ -678,8 +698,7 @@ mod tests {
     fn test_x64_stack() {
         // Explicit test against the canonical x86_64 language used elsewhere in the tests.
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
 
         // For x86_64 we expect a stack pointer and program counter to be detected.
@@ -702,8 +721,7 @@ mod tests {
     #[test]
     fn test_return_address_x86_64_stack_based() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
         let cc = ctx.calling_convention_info();
 
@@ -726,8 +744,7 @@ mod tests {
     #[test]
     fn test_return_address_riscv64_register_based() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         // Build for the 64-bit RISC-V language; skip if not present in this installation.
         let ctx = match builder.build("RISCV:LE:64:RV64IC") {
             Ok(c) => c,
@@ -755,8 +772,7 @@ mod tests {
     #[test]
     fn test_return_address_location_method_x86_64() {
         let builder =
-            SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
-                .unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let ctx = builder.build(crate::tests::SLEIGH_ARCH).unwrap();
         let cc = ctx.calling_convention_info();
         let arch = ctx.arch_info();

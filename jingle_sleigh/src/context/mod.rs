@@ -586,7 +586,7 @@ mod test {
     #[test]
     fn allow_context_set_toggles_without_panic() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         sleigh.allow_context_set(false);
         sleigh.allow_context_set(true);
@@ -595,7 +595,7 @@ mod test {
     #[test]
     fn is_initialized_after_build() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         assert!(sleigh.is_initialized());
     }
@@ -603,7 +603,7 @@ mod test {
     #[test]
     fn register_context_new_field() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         sleigh.register_context("jingle_test_field", 0, 0);
     }
@@ -611,7 +611,7 @@ mod test {
     #[test]
     fn get_exact_register_name_matches() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let (vn, name) = sleigh.arch_info().registers().next().unwrap();
         assert_eq!(sleigh.get_exact_register_name(&vn), Some(name));
@@ -620,7 +620,7 @@ mod test {
     #[test]
     fn get_exact_register_name_no_match() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let bogus = VarNode::new(0xdead_beefu64, 3u32, 4u32);
         assert_eq!(sleigh.get_exact_register_name(&bogus), None);
@@ -629,7 +629,7 @@ mod test {
     #[test]
     fn get_regs() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let regs: Vec<_> = sleigh.arch_info().registers().collect();
         assert!(!regs.is_empty());
@@ -638,7 +638,7 @@ mod test {
     #[test]
     fn get_register_name() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         for (vn, name) in sleigh.arch_info().registers() {
             let addr = sleigh.as_ref().register(name);
@@ -649,7 +649,7 @@ mod test {
     #[test]
     fn get_invalid_register_name() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         assert_eq!(sleigh.arch_info().register("fake"), None);
     }
@@ -657,7 +657,7 @@ mod test {
     #[test]
     fn get_valid_register() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
@@ -671,7 +671,7 @@ mod test {
     #[test]
     fn get_invalid_register() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         assert_eq!(
@@ -685,7 +685,7 @@ mod test {
     #[test]
     fn get_user_ops() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         // Access the userops vector stored in the arch info. This is a placeholder
@@ -698,7 +698,7 @@ mod test {
     #[test]
     fn load_slice() {
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
         // an x86 push

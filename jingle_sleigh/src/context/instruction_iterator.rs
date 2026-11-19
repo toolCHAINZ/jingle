@@ -65,7 +65,7 @@ mod test {
     fn get_one() {
         let mov_eax_0: [u8; 6] = [0xb8, 0x00, 0x00, 0x00, 0x00, 0xc3];
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let sleigh = sleigh.initialize_with_image(mov_eax_0.as_slice()).unwrap();
         let instr = sleigh.read(0, 1).last().unwrap();
@@ -78,7 +78,7 @@ mod test {
     fn stop_at_branch() {
         let mov_eax_0: Vec<u8> = vec![0x90, 0x90, 0x90, 0x90];
         let ctx_builder =
-            SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
         let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
         let sleigh = sleigh.initialize_with_image(mov_eax_0).unwrap();
         let instr: Vec<Instruction> = sleigh.read(0, 5).collect();

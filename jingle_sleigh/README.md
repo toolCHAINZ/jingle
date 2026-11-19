@@ -19,18 +19,20 @@ requirements for `jingle` and figured "what's one more?"
 
 This library provides only the rust binding around `sleigh`, you will need to provide your own architecture definition
 for sleigh to parse. The easiest way to do this is to install ghidra, open a file of the given architecture, and then
-point `jingle_sleigh` towards that ghidra installation. More enterprising users can run the sleigh compiler themselves.
+point `jingle_sleigh` towards that ghidra installation. `SleighContextBuilder::find_ghidra_installation()` will locate one
+via `GHIDRA_INSTALL_DIR` or common package manager install locations (Homebrew, Arch, Debian/Kali). More enterprising users can run the sleigh compiler themselves.
 
 I would have preferred to allow compiling slaspecs in this library, but there are some difficulties linking in those parts
 of sleigh because much of the logic for parsing architectures exists in a file that also has a `main` and of course no linker
 likes dealing with multiple `main`s.
 
-But anyway, here's an example of usage yanked from the tests:
+But anyway, here's an example of usage yanked from the tests, which read the Ghidra installation from the
+`GHIDRA_INSTALL_DIR` environment variable (the same one Ghidra's own tooling uses):
 
 ```rust
 fn load_slice() {
-    let ctx_builder =
-        SleighContextBuilder::load_ghidra_installation("/Applications/ghidra").unwrap();
+    let ghidra_path = std::env::var("GHIDRA_INSTALL_DIR").unwrap();
+    let ctx_builder = SleighContextBuilder::load_ghidra_installation(ghidra_path).unwrap();
     let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
 
     // an x86 push

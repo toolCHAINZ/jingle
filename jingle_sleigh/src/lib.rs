@@ -21,5 +21,15 @@ pub use varnode::{GeneralizedVarNode, IndirectVarNode, VarNode, create_varnode};
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     pub(crate) const SLEIGH_ARCH: &str = "x86:LE:64:default";
+
+    /// Location of the Ghidra installation used by tests, read from `GHIDRA_INSTALL_DIR`
+    /// (the same variable Ghidra's own tooling, e.g. PyGhidra, uses).
+    pub(crate) fn ghidra_path() -> PathBuf {
+        std::env::var_os("GHIDRA_INSTALL_DIR")
+            .map(PathBuf::from)
+            .expect("GHIDRA_INSTALL_DIR must be set to a Ghidra installation to run these tests")
+    }
 }

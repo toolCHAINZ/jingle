@@ -156,13 +156,12 @@ struct GhidraParameter {
 mod tests {
     use super::*;
     use crate::context::SleighContextBuilder;
-    use std::path::Path;
 
     const X86_32: &str = "x86:LE:32:default";
     const X86_64: &str = "x86:LE:64:default";
 
     fn build_ctx(arch: &str) -> SleighContext {
-        SleighContextBuilder::load_ghidra_installation(Path::new("/Applications/ghidra"))
+        SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path())
             .unwrap()
             .build(arch)
             .unwrap()
