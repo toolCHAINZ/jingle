@@ -90,14 +90,13 @@ impl SymbolicPcodeAddress {
     }
 
     pub fn as_concrete(&self) -> Option<ConcretePcodeAddress> {
-        if let Some(machine) = self.machine.simplify().as_u64() {
-            if let Some(pcode) = self.pcode.simplify().as_u64() {
+        if let Some(machine) = self.machine.simplify().as_u64()
+            && let Some(pcode) = self.pcode.simplify().as_u64() {
                 return Some(ConcretePcodeAddress {
                     machine,
                     pcode: pcode as PcodeOffset,
                 });
             }
-        }
         None
     }
 }

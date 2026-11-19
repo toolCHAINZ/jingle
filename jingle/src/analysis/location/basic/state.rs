@@ -238,8 +238,8 @@ impl LocationState for BasicLocationState {
 
 impl BasicLocationState {
     pub fn strengthen_from_valuation(&mut self, v: &ValuationState) {
-        if let PcodeAddressLattice::Indirect(ivn) = &self.inner {
-            if let Some(value) = v.get_value(ivn.pointer_location()) {
+        if let PcodeAddressLattice::Indirect(ivn) = &self.inner
+            && let Some(value) = v.get_value(ivn.pointer_location()) {
                 if matches!(value, Value::Top) {
                     // Top carries no useful info; Indirect(ivn) is more informative.
                     return;
@@ -255,7 +255,6 @@ impl BasicLocationState {
                 }
             }
             // No info → leave as Indirect (two paths with no valuation are genuinely equal)
-        }
     }
 }
 

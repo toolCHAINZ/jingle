@@ -423,11 +423,10 @@ impl<N: CfgNode, D: Clone> PcodeCfg<N, D> {
             let n = self.graph.node_weight(old_idx).unwrap().clone();
             let new_idx = new_graph.add_node(n.clone());
             new_indices.insert(n.clone(), new_idx);
-            if let Some(loc) = n.concrete_location() {
-                if let Some(op) = self.ops.get(&loc) {
+            if let Some(loc) = n.concrete_location()
+                && let Some(op) = self.ops.get(&loc) {
                     new_ops.insert(loc, op.clone());
                 }
-            }
         }
 
         // Add edges where both endpoints are included
@@ -552,11 +551,10 @@ where
                 } else {
                     Vec::new()
                 };
-                if !tgt_ops.is_empty() {
-                    if let Some(src_loc) = src_n.concrete_location() {
+                if !tgt_ops.is_empty()
+                    && let Some(src_loc) = src_n.concrete_location() {
                         ops.entry(src_loc).or_default().extend(tgt_ops);
                     }
-                }
                 // Redirect outgoing edges of target to source
                 let tgt_out_edges: Vec<_> = graph
                     .edges_directed(target, Direction::Outgoing)
@@ -598,11 +596,10 @@ where
             let n = graph.node_weight(*node).unwrap().clone();
             let idx = new_graph.add_node(n.clone());
             new_indices.insert(n.clone(), idx);
-            if let Some(loc) = n.concrete_location() {
-                if let Some(op) = ops.get(&loc) {
+            if let Some(loc) = n.concrete_location()
+                && let Some(op) = ops.get(&loc) {
                     new_ops.insert(loc, op.clone());
                 }
-            }
         }
         // Add edges between connected nodes
         for edge in graph.edge_indices() {
