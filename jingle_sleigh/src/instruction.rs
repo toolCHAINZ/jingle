@@ -13,7 +13,9 @@ pub struct Instruction {
     /// The PCODE semantics of this instruction
     /// todo: this should someday be a graph instead of a vec
     pub ops: Vec<PcodeOperation>,
-    /// The number of bytes taken up by the encoding of this assembly instruction
+    /// The number of bytes this instruction covers, including any delay slot instruction(s)
+    /// whose p-code has been folded into [`ops`](Self::ops). `address + length` is the
+    /// fallthrough address.
     pub length: usize,
     /// The address this instruction was read from
     pub address: u64,

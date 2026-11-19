@@ -23,7 +23,9 @@ use image::SleighImage;
 #[cfg(feature = "pyo3")]
 use pyo3::pyclass;
 use std::fmt::{Debug, Formatter};
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -368,22 +370,73 @@ impl CallingConventionInfo {
     }
 }
 
+/// The FFI context handle, plus a record of which caller's context commits the handle's
+/// context database currently holds.
+///
+/// Sleigh's context database is mutable state shared by every decode made through the handle:
+/// decoding an instruction that uses `globalset` writes context for other addresses, which then
+/// changes how those addresses decode. To keep results independent of decode history, every
+/// top-level decode first restores the database to its defaults (see
+/// `LoadedSleighContext::instruction_at`), and instruction iterators, which do want to see the
+/// context committed by the instructions they have already read, use [`ContextState::owner`] to
+/// detect when another caller has decoded in between so they can rebuild their own context.
+pub(crate) struct ContextState {
+    pub(crate) ffi: UniquePtr<ContextFFI>,
+    /// The iterator token (see [`ContextState::new_token`]) whose decodes produced the current
+    /// context database, or [`ContextState::NO_OWNER`].
+    pub(crate) owner: u64,
+}
+
+// SAFETY: the C++ context owns all of its state; sleigh's only process-global mutable state (the
+// XML parser and attribute/element id tables) is touched only during construction, which
+// `CTX_BUILD_MUTEX` serializes. The image the context reads bytes through is required to be
+// `Send + Sync`. Not `Sync`: shared access goes through the `Mutex` in `SleighContext`.
+unsafe impl Send for ContextState {}
+
+impl ContextState {
+    pub(crate) const NO_OWNER: u64 = 0;
+
+    fn new(ffi: UniquePtr<ContextFFI>) -> Self {
+        Self {
+            ffi,
+            owner: Self::NO_OWNER,
+        }
+    }
+
+    /// Returns a token, unique within the process, identifying one instruction iterator.
+    pub(crate) fn new_token() -> u64 {
+        static NEXT_TOKEN: AtomicU64 = AtomicU64::new(1);
+        NEXT_TOKEN.fetch_add(1, Ordering::Relaxed)
+    }
+}
+
+impl Deref for ContextState {
+    type Target = UniquePtr<ContextFFI>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ffi
+    }
+}
+
+impl DerefMut for ContextState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ffi
+    }
+}
+
 /// A sleigh context contains the parsed sleigh state as well as
 /// modeling metadata for analysis consumers.
 pub struct SleighContext {
     /// The FFI context handle wrapped in a Mutex for thread-safety.
     /// The underlying Sleigh C++ library is not thread-safe, so all access
     /// to ctx must be synchronized.
-    pub(crate) ctx: Mutex<UniquePtr<ContextFFI>>,
+    pub(crate) ctx: Mutex<ContextState>,
     language_id: String,
     arch_info: SleighArchInfo,
     pub(crate) metadata: ModelingMetadata,
     /// Ref-counted container that holds compiler-spec and calling-convention info
     pub(crate) calling_convention_info: CallingConventionInfo,
 }
-
-unsafe impl Send for SleighContext {}
-unsafe impl Sync for SleighContext {}
 
 impl Debug for SleighContext {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -437,7 +490,7 @@ impl SleighContext {
                 };
 
                 Ok(Self {
-                    ctx: Mutex::new(ctx),
+                    ctx: Mutex::new(ContextState::new(ctx)),
                     arch_info,
                     language_id: language_def.id.clone(),
                     metadata: Default::default(),
@@ -461,9 +514,9 @@ impl SleighContext {
             .map_err(|_| ImageLoadError)
     }
 
-    /// Toggle whether subsequent `setContext()` calls made during disassembly are honored.
+    /// Toggle whether context changes committed during disassembly (`globalset`) are honored.
     pub fn allow_context_set(&self, val: bool) {
-        self.ctx.lock().unwrap().allow_context_set(val);
+        self.ctx.lock().unwrap().pin_mut().allow_context_set(val);
     }
 
     /// Register a new context-variable field, in addition to those declared in the `.sla` file.
@@ -550,7 +603,7 @@ impl SleighContext {
         parse_program(s, &self.arch_info)
     }
 
-    pub fn initialize_with_image<'b, T: SleighImage + 'b>(
+    pub fn initialize_with_image<'b, T: SleighImage + Send + Sync + 'b>(
         self,
         img: T,
     ) -> Result<LoadedSleighContext<'b>, JingleSleighError> {

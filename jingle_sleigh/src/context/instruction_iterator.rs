@@ -1,4 +1,5 @@
 use crate::Instruction;
+use crate::context::ContextState;
 use crate::context::loaded::LoadedSleighContext;
 
 pub struct SleighContextInstructionIterator<'a> {
@@ -7,6 +8,11 @@ pub struct SleighContextInstructionIterator<'a> {
     offset: u64,
     terminate_branch: bool,
     already_hit_branch: bool,
+    /// Identifies this iteration as the owner of the context database's current state.
+    token: u64,
+    /// Offsets decoded so far. If another caller decodes through the context between two calls
+    /// to `next`, these are re-decoded to restore the context this iteration has committed.
+    history: Vec<u64>,
 }
 
 impl<'a> SleighContextInstructionIterator<'a> {
@@ -22,6 +28,8 @@ impl<'a> SleighContextInstructionIterator<'a> {
             offset,
             terminate_branch,
             already_hit_branch: false,
+            token: ContextState::new_token(),
+            history: Vec::new(),
         }
     }
 }
@@ -36,17 +44,21 @@ impl Iterator for SleighContextInstructionIterator<'_> {
         if self.terminate_branch && self.already_hit_branch {
             return None;
         }
-        let mut instr = self
-            .sleigh
-            .ctx
-            .lock()
-            .unwrap()
-            .get_one_instruction(self.offset)
-            .ok()
-            .and_then(|a| Instruction::try_from(a).ok())?;
-        // Pass the full SleighContext so Instruction::postprocess can consult
-        // calling-convention defaults and other context-wide metadata.
-        instr.postprocess(self.sleigh);
+        let raw = {
+            let mut state = self.sleigh.ctx.lock().unwrap();
+            if state.owner != self.token {
+                // First call, or someone else has decoded since our last call: start from default
+                // context and replay our own decodes to recommit their context changes.
+                state.pin_mut().reset_context(false).ok()?;
+                for &offset in &self.history {
+                    state.get_one_instruction(offset).ok()?;
+                }
+                state.owner = self.token;
+            }
+            state.get_one_instruction(self.offset).ok()?
+        };
+        self.history.push(self.offset);
+        let instr = self.sleigh.finish_instruction(raw)?;
         self.already_hit_branch = instr.terminates_basic_block();
         self.offset += instr.length as u64;
         self.remaining -= 1;
