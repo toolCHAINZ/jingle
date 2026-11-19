@@ -40,11 +40,10 @@ impl SleighContextBuilder {
         // If the pspec declares a program counter register, map it to a varnode
         // (if that register exists in the Sleigh context) and store it in the
         // SleighContext arch info.
-        if let Some(pc) = pspec.programcounter {
-            if let Some(vn_ref) = context.arch_info().register(&pc.register) {
+        if let Some(pc) = pspec.programcounter
+            && let Some(vn_ref) = context.arch_info().register(&pc.register) {
                 context.set_program_counter_varnode(*vn_ref);
             }
-        }
 
         // Apply initial context sets (same as before)
         if let Some(ctx_sets) = pspec.context_data.and_then(|d| d.context_set) {
@@ -225,8 +224,8 @@ impl SleighContextBuilder {
 
         for comp in &lang.compiler {
             let cspec_path = path.join(&comp.spec);
-            if cspec_path.exists() {
-                if let Ok(mut file) = std::fs::File::open(&cspec_path) {
+            if cspec_path.exists()
+                && let Ok(mut file) = std::fs::File::open(&cspec_path) {
                     // Attempt to parse the cspec. If it fails for any reason, continue scanning others.
                     // Read the opened file into a string and parse via from_str so we avoid
                     // requiring the file to implement any extra traits for from_reader.
@@ -275,16 +274,14 @@ impl SleighContextBuilder {
                                             }
                                             let mut addr_space: Option<String> = None;
                                             let mut addr_offset: Option<u64> = None;
-                                            if let Some(addrs) = pe.addr {
-                                                if let Some(a) = addrs.first() {
+                                            if let Some(addrs) = pe.addr
+                                                && let Some(a) = addrs.first() {
                                                     addr_space = a.space.clone();
-                                                    if let Some(offstr) = &a.offset {
-                                                        if let Ok(off) = offstr.parse::<u64>() {
+                                                    if let Some(offstr) = &a.offset
+                                                        && let Ok(off) = offstr.parse::<u64>() {
                                                             addr_offset = Some(off);
                                                         }
-                                                    }
                                                 }
-                                            }
                                             out.push(crate::context::PentryInfo {
                                                 minsize,
                                                 maxsize,
@@ -306,23 +303,21 @@ impl SleighContextBuilder {
 
                                 // parse killedbycall
                                 let mut killed: Vec<String> = Vec::new();
-                                if let Some(k) = p.killedbycall {
-                                    if let Some(kregs) = k.register {
+                                if let Some(k) = p.killedbycall
+                                    && let Some(kregs) = k.register {
                                         for r in kregs {
                                             killed.push(r.name);
                                         }
                                     }
-                                }
 
                                 // parse unaffected
                                 let mut unaffected: Vec<String> = Vec::new();
-                                if let Some(u) = p.unaffected {
-                                    if let Some(uregs) = u.register {
+                                if let Some(u) = p.unaffected
+                                    && let Some(uregs) = u.register {
                                         for r in uregs {
                                             unaffected.push(r.name);
                                         }
                                     }
-                                }
 
                                 let proto = crate::context::PrototypeInfo {
                                     name: proto_name.clone(),
@@ -346,34 +341,29 @@ impl SleighContextBuilder {
                         }
 
                         // If cspec declares a stackpointer, seed arch_info accordingly
-                        if let Some(sp) = cspec.stackpointer {
-                            if let Some(vn_ref) = context.arch_info().register(&sp.register) {
+                        if let Some(sp) = cspec.stackpointer
+                            && let Some(vn_ref) = context.arch_info().register(&sp.register) {
                                 context.set_stack_pointer_varnode(*vn_ref);
                                 // Do not break here: continue collecting cspecs and prototypes
                             }
-                        }
 
                         // Capture the top-level <returnaddress> (first one wins across cspecs).
-                        if global_return_address_acc.is_none() {
-                            if let Some(ra) = cspec.returnaddress {
+                        if global_return_address_acc.is_none()
+                            && let Some(ra) = cspec.returnaddress {
                                 global_return_address_acc =
                                     resolve_return_address(ra, context.arch_info());
                             }
-                        }
                     }
                 }
-            }
         }
 
         // Fallback: if no stackpointer found in cspecs, allow a fallback from the
         // language definition's optional attributes (if present).
-        if context.arch_info().stack_pointer().is_none() {
-            if let Some(sp_name) = &lang.stackpointer {
-                if let Some(vn_ref) = context.arch_info().register(sp_name) {
+        if context.arch_info().stack_pointer().is_none()
+            && let Some(sp_name) = &lang.stackpointer
+                && let Some(vn_ref) = context.arch_info().register(sp_name) {
                     context.set_stack_pointer_varnode(*vn_ref);
                 }
-            }
-        }
 
         // If we've discovered compiler specs or prototypes, combine them into a
         // ref-counted `CallingConventionInfo` and attach it to the context.
@@ -465,11 +455,10 @@ fn is_ghidra_installation(path: &Path) -> bool {
 fn find_ldef(path: &Path) -> Result<Vec<PathBuf>, JingleSleighError> {
     let mut ldefs = vec![];
     for entry in (fs::read_dir(path).map_err(|_| LanguageSpecRead)?).flatten() {
-        if let Some(e) = entry.path().extension() {
-            if e == "ldefs" {
+        if let Some(e) = entry.path().extension()
+            && e == "ldefs" {
                 ldefs.push(entry.path().clone());
             }
-        }
     }
     if ldefs.is_empty() {
         return Err(LanguageSpecRead);

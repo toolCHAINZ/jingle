@@ -171,8 +171,8 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
         if let Some(x) = self.sections().find(|s| {
             output_start_addr >= s.address() as usize
                 && output_start_addr < (s.address() + s.size()) as usize
-        }) {
-            if let Ok(data) = x.data() {
+        })
+            && let Ok(data) = x.data() {
                 let input_start_addr = x.address() as usize;
                 let input_end_addr = input_start_addr.saturating_add(data.len());
                 let start_addr = max(input_start_addr, output_start_addr);
@@ -188,7 +188,6 @@ impl<'a> SleighImageCore for File<'a, &'a [u8]> {
                     written += end_addr - start_addr;
                 }
             }
-        }
         written
     }
 

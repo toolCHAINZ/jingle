@@ -124,8 +124,8 @@ impl Instruction {
         let maybe_proto = cc_info
             .default_calling_convention()
             .or_else(|| cc_info.call_conventions().first());
-        if let Some(proto) = maybe_proto {
-            if !proto.killed_by_call.is_empty() {
+        if let Some(proto) = maybe_proto
+            && !proto.killed_by_call.is_empty() {
                 let arch = ctx.arch_info();
                 for op in self.ops.iter_mut() {
                     match op {
@@ -146,7 +146,6 @@ impl Instruction {
                     }
                 }
             }
-        }
 
         // Third pass: propagate default_return_address to CallInfo entries that lack one.
         // Per-site overrides (set via func_info / callother_info) are preserved because we
@@ -156,11 +155,10 @@ impl Instruction {
                 match op {
                     PcodeOperation::Call { call_info, .. }
                     | PcodeOperation::CallOther { call_info, .. } => {
-                        if let Some(ci) = call_info.as_mut() {
-                            if ci.return_address.is_none() {
+                        if let Some(ci) = call_info.as_mut()
+                            && ci.return_address.is_none() {
                                 ci.return_address = Some(ra.clone());
                             }
-                        }
                     }
                     _ => {}
                 }
