@@ -13,7 +13,9 @@
 #include <utility>
 
 ContextFFI::ContextFFI(rust::Str slaPath)
-    : sleigh(new DummyLoadImage(), &c_db) {
+    : image(std::make_unique<DummyLoadImage>()),
+      c_db(std::make_unique<ghidra::ContextInternal>()),
+      sleigh(image.get(), c_db.get()) {
   ghidra::AttributeId::initialize();
   ghidra::ElementId::initialize();
 
@@ -28,18 +30,73 @@ ContextFFI::ContextFFI(rust::Str slaPath)
   ghidra::Element *root = doc->getRoot();
   documentStorage.registerTag(root);
   sleigh.initialize(documentStorage);
+  pristine_blob = c_db->getContext(ghidra::Address(ghidra::Address::m_maximal));
+}
+
+void ContextFFI::rebuild() {
+  // Sleigh only holds raw pointers to the context database, so swap in the new one before
+  // the old one is destroyed.
+  auto fresh = std::make_unique<ghidra::ContextInternal>();
+  sleigh.reset(image.get(), fresh.get());
+  c_db = std::move(fresh);
+  // Sleigh is already initialized, so this just re-registers the .sla context fields with the
+  // new database and builds fresh context/disassembly caches.
+  ghidra::DocumentStorage documentStorage;
+  sleigh.initialize(documentStorage);
+  // Register every variable before setting any default: registering can grow (and reset) the
+  // default context blob.
+  for (const auto &var : extra_context_vars) {
+    sleigh.registerContext(std::get<0>(var), std::get<1>(var), std::get<2>(var));
+  }
+  for (const auto &def : context_defaults) {
+    sleigh.setContextDefault(def.first, def.second);
+  }
+  sleigh.allowContextSet(allow_set);
+  pristine_blob = c_db->getContext(ghidra::Address(ghidra::Address::m_maximal));
+}
+
+bool ContextFFI::context_dirty() const {
+  // Every context commit splits the database's partition map. With no split points, every
+  // address (including the maximal one) maps to the default blob; with any split point, the
+  // maximal address maps to the blob of the last split instead.
+  return c_db->getContext(ghidra::Address(ghidra::Address::m_maximal)) != pristine_blob;
+}
+
+void ContextFFI::reset_context(bool force) {
+  if (force || context_dirty()) {
+    rebuild();
+  }
 }
 
 void ContextFFI::set_initial_context(rust::Str name, uint32_t val) {
-  sleigh.setContextDefault(name.operator std::string(), val);
+  std::string n(name);
+  // Throws for an unknown variable; do this before recording it so a bad name can't poison
+  // every later rebuild.
+  sleigh.setContextDefault(n, val);
+  bool replaced = false;
+  for (auto &def : context_defaults) {
+    if (def.first == n) {
+      def.second = val;
+      replaced = true;
+    }
+  }
+  if (!replaced) {
+    context_defaults.emplace_back(n, val);
+  }
+  // Rebuild rather than set in place: cached parses may depend on the old default.
+  rebuild();
 }
 
-void ContextFFI::allow_context_set(bool val) const {
+void ContextFFI::allow_context_set(bool val) {
+  allow_set = val;
   sleigh.allowContextSet(val);
 }
 
 void ContextFFI::register_context(rust::Str name, int32_t sbit, int32_t ebit) {
-  sleigh.registerContext(name.operator std::string(), sbit, ebit);
+  extra_context_vars.emplace_back(std::string(name), sbit, ebit);
+  // Sleigh refuses to register variables once the database holds context changes, so
+  // register against a fresh database.
+  rebuild();
 }
 
 rust::String ContextFFI::get_exact_register_name(int32_t space_idx, uint64_t off, uint32_t size) const {
@@ -98,9 +155,10 @@ rust::Vec<rust::String> ContextFFI::getUserOps() const {
 }
 
 void ContextFFI::setImage(ImageFFI const &img) {
-  sleigh.reset(new RustLoadImage(img), &c_db);
-  ghidra::DocumentStorage documentStorage = ghidra::DocumentStorage();
-  sleigh.initialize(documentStorage);
+  image = std::make_unique<RustLoadImage>(img);
+  // A new image starts from default context: context committed while decoding the previous
+  // image describes that image's addresses, not this one's.
+  rebuild();
 }
 
 InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {
@@ -108,8 +166,9 @@ InstructionFFI ContextFFI::get_one_instruction(uint64_t offset) const {
   JingleAssemblyEmitter assembly;
   ghidra::Address a = ghidra::Address(sleigh.getDefaultCodeSpace(), offset);
   sleigh.printAssembly(assembly, a);
-  sleigh.oneInstruction(pcode, a);
-  size_t length = sleigh.instructionLength(a);
+  // oneInstruction's return value covers the instruction plus any delay slot(s) whose p-code it
+  // has folded in; instructionLength() would cover only the instruction's own encoding.
+  size_t length = sleigh.oneInstruction(pcode, a);
   InstructionFFI i;
   Disassembly d;
   i.ops = std::move(pcode.ops);

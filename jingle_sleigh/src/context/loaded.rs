@@ -3,8 +3,9 @@ use crate::context::image::{
     ImageSection, ImageSectionIterator, ImageSections, SleighArchImage, SleighImage,
 };
 use crate::context::instruction_iterator::SleighContextInstructionIterator;
-use crate::context::{SleighContext, SleighContextBuilder};
+use crate::context::{ContextState, SleighContext, SleighContextBuilder};
 use crate::ffi::context_ffi::ImageFFI;
+use crate::ffi::instruction::bridge::InstructionFFI;
 use crate::{Instruction, JingleSleighError, SleighArchInfo, VarNode};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
@@ -20,9 +21,6 @@ pub struct LoadedSleighContext<'a> {
     /// A handle to the image source being queried by the [SleighContext].
     img: Pin<Box<ImageFFI<'a>>>,
 }
-
-unsafe impl<'a> Send for LoadedSleighContext<'a> {}
-unsafe impl<'a> Sync for LoadedSleighContext<'a> {}
 
 impl Debug for LoadedSleighContext<'_> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -48,7 +46,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// Consumes a [SleighContext] and an image provider, initializes
     /// sleigh with the image provider, and combines them into a single
     /// [LoadedSleigh*Context] guard value.
-    pub(crate) fn new<T: SleighImage + Sized + 'a>(
+    pub(crate) fn new<T: SleighImage + Send + Sync + Sized + 'a>(
         sleigh_context: SleighContext,
         img: T,
     ) -> Result<Self, JingleSleighError> {
@@ -71,19 +69,22 @@ impl<'a> LoadedSleighContext<'a> {
     }
     /// Query `sleigh` for the instruction associated with the given offset in the default code
     /// space.
+    ///
+    /// The instruction is decoded against the language's default context (plus any defaults set
+    /// from the processor spec), regardless of what was decoded before: context changes committed
+    /// by earlier decodes (e.g. an ARM `blx` switching its target to Thumb mode) are not applied.
+    /// Use [`read`](Self::read) to decode a run of instructions that honors the context each one
+    /// commits for the next.
+    ///
     /// todo: consider using a varnode instead of a raw offset.
     pub fn instruction_at(&self, offset: u64) -> Option<Instruction> {
-        let mut instr = self
-            .ctx
-            .lock()
-            .unwrap()
-            .get_one_instruction(offset)
-            .ok()
-            .and_then(|a| Instruction::try_from(a).ok())?;
-        // Pass the full SleighContext so postprocess can consult calling-convention defaults
-        // (e.g., extrapop) and apply them to CALL / CALLOTHER operations when no per-site
-        // override is present in the ModelingMetadata.
-        instr.postprocess(&self.sleigh);
+        let raw = {
+            let mut state = self.ctx.lock().unwrap();
+            state.pin_mut().reset_context(false).ok()?;
+            state.owner = ContextState::NO_OWNER;
+            state.get_one_instruction(offset).ok()?
+        };
+        let instr = self.finish_instruction(raw)?;
         let vn = VarNode::new(
             offset,
             instr.length as u32,
@@ -96,8 +97,25 @@ impl<'a> LoadedSleighContext<'a> {
         }
     }
 
+    /// Convert a raw decoded instruction and apply jingle's post-processing to it.
+    pub(crate) fn finish_instruction(&self, raw: InstructionFFI) -> Option<Instruction> {
+        let mut instr = Instruction::try_from(raw).ok()?;
+        // Pass the full SleighContext so postprocess can consult calling-convention defaults
+        // (e.g., extrapop) and apply them to CALL / CALLOTHER operations when no per-site
+        // override is present in the ModelingMetadata.
+        instr.postprocess(&self.sleigh);
+        Some(instr)
+    }
+
     /// Read an iterator of at most `max_instrs` [`Instruction`]s from `offset` in the default code
     /// space.
+    ///
+    /// The first instruction is decoded against default context, like
+    /// [`instruction_at`](Self::instruction_at); each later one sees the context committed by the
+    /// instructions before it in this iteration (e.g. ARM IT blocks), and nothing else. This holds
+    /// even if other calls on this context (from this or other threads) are interleaved with the
+    /// iteration.
+    ///
     /// todo: consider using a varnode instead of a raw offset
     pub fn read(&self, offset: u64, max_instrs: usize) -> SleighContextInstructionIterator<'_> {
         SleighContextInstructionIterator::new(self, offset, max_instrs, false)
@@ -116,7 +134,7 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     /// Read an iterator of at most `max_instrs` [`Instruction`]s from `offset` in the default code
-    /// space, terminating if a branch is encountered.
+    /// space, terminating if a branch is encountered. Context is handled as in [`read`](Self::read).
     /// todo: consider using a varnode instead of a raw offset
     pub fn read_until_branch(
         &self,
@@ -130,7 +148,7 @@ impl<'a> LoadedSleighContext<'a> {
     /// is _much_ faster than generating a new context.
     ///
     /// This API retains the current base address of the image.
-    pub fn set_image<T: SleighImage + Sized + 'a>(
+    pub fn set_image<T: SleighImage + Send + Sync + Sized + 'a>(
         &mut self,
         img: T,
     ) -> Result<(), JingleSleighError> {
@@ -161,9 +179,16 @@ impl<'a> LoadedSleighContext<'a> {
     }
 
     /// Rebase the loaded image to `offset`
-    /// Rebase the loaded image to `offset`
     pub fn set_base_address(&mut self, offset: u64) {
         self.img.as_mut().get_mut().set_base_address(offset);
+        // Sleigh caches parses by address; after a rebase an address may hold different bytes.
+        self.sleigh
+            .ctx
+            .get_mut()
+            .unwrap()
+            .pin_mut()
+            .reset_context(true)
+            .expect("resetting the sleigh context should not fail");
     }
 
     /// Get the current base address
@@ -180,7 +205,7 @@ impl<'a> LoadedSleighContext<'a> {
         )
     }
 
-    pub fn load<I: SleighArchImage + 'a, P: AsRef<str>>(
+    pub fn load<I: SleighArchImage + Send + Sync + 'a, P: AsRef<str>>(
         img: I,
         ghidra_path: P,
     ) -> Result<Self, JingleSleighError> {
@@ -208,7 +233,7 @@ impl<'a> ImageSections for LoadedSleighContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::PcodeOperation::Branch;
+    use crate::PcodeOperation::{Branch, Fallthrough};
     use crate::VarNode;
     use crate::context::SleighContextBuilder;
 
@@ -323,6 +348,127 @@ mod tests {
                 assert_eq!(result, i);
             }
         });
+    }
+
+    /// `b 0x14 ; addiu v0,v0,1 ; nop`: the branch's p-code includes its delay slot, so it must
+    /// cover the delay slot's bytes too, and the delay slot must not be read again as its own
+    /// instruction.
+    #[test]
+    fn delay_slot_folded_into_branch() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
+        let sleigh = ctx_builder.build("MIPS:BE:32:default").unwrap();
+        let img: Vec<u8> = vec![
+            0x10, 0x00, 0x00, 0x04, 0x24, 0x42, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let loaded = sleigh.initialize_with_image(img).unwrap();
+
+        let branch = loaded.instruction_at(0).unwrap();
+        assert_eq!(branch.length, 8);
+        assert_eq!(branch.next_addr(), 8);
+        assert_eq!(
+            branch.ops.last(),
+            Some(&Fallthrough {
+                input: VarNode::new(8u64, 1u32, loaded.arch_info().default_code_space_index())
+            })
+        );
+
+        let instrs: Vec<_> = loaded.read(0, 3).collect();
+        let addrs: Vec<_> = instrs.iter().map(|i| i.address).collect();
+        assert_eq!(addrs, vec![0, 8]);
+    }
+
+    /// ARM: `blx #8 ; nop ; mov r0, r1`. Decoding the `blx` commits Thumb mode for its target.
+    const ARM_BLX_IMG: [u8; 12] = [
+        0x00, 0x00, 0x00, 0xfa, 0x00, 0x00, 0xa0, 0xe1, 0x01, 0x00, 0xa0, 0xe1,
+    ];
+    const ARM_ARCH: &str = "ARM:LE:32:v8";
+
+    fn arm_context() -> crate::context::SleighContext {
+        SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path())
+            .unwrap()
+            .build(ARM_ARCH)
+            .unwrap()
+    }
+
+    #[test]
+    fn context_commits_do_not_leak_into_random_access() {
+        let fresh = arm_context()
+            .initialize_with_image(ARM_BLX_IMG.as_slice())
+            .unwrap()
+            .instruction_at(8)
+            .unwrap();
+        assert_eq!(fresh.length, 4, "default context should decode ARM");
+
+        let loaded = arm_context()
+            .initialize_with_image(ARM_BLX_IMG.as_slice())
+            .unwrap();
+        loaded.instruction_at(0).unwrap();
+        assert_eq!(loaded.instruction_at(8).unwrap(), fresh);
+    }
+
+    #[test]
+    fn iterator_honors_its_own_context_commits() {
+        let loaded = arm_context()
+            .initialize_with_image(ARM_BLX_IMG.as_slice())
+            .unwrap();
+        let instrs: Vec<_> = loaded.read(0, 3).collect();
+        assert_eq!(instrs.len(), 3);
+        assert_eq!(instrs[2].address, 8);
+        assert_eq!(instrs[2].length, 2, "blx's target should decode as Thumb");
+    }
+
+    #[test]
+    fn iterator_survives_interleaved_decodes() {
+        let loaded = arm_context()
+            .initialize_with_image(ARM_BLX_IMG.as_slice())
+            .unwrap();
+        let expected: Vec<_> = loaded.read(0, 3).collect();
+
+        let mut iter = loaded.read(0, 3);
+        let mut got = vec![iter.next().unwrap(), iter.next().unwrap()];
+        // Resets the shared context database (and decodes 8 as ARM) mid-iteration.
+        assert_eq!(loaded.instruction_at(8).unwrap().length, 4);
+        got.extend(iter);
+        assert_eq!(got, expected);
+    }
+
+    #[test]
+    fn register_context_after_context_commits() {
+        let loaded = arm_context()
+            .initialize_with_image(ARM_BLX_IMG.as_slice())
+            .unwrap();
+        assert_eq!(loaded.read(0, 3).count(), 3);
+        // Sleigh refuses to register variables into a database that holds context changes.
+        loaded.register_context("jingle_test_field", 0, 0);
+        assert_eq!(
+            loaded.instruction_at(0).unwrap().disassembly.mnemonic,
+            "blx"
+        );
+    }
+
+    #[test]
+    fn rebase_invalidates_parse_cache() {
+        let ctx_builder =
+            SleighContextBuilder::load_ghidra_installation(crate::tests::ghidra_path()).unwrap();
+        let sleigh = ctx_builder.build(SLEIGH_ARCH).unwrap();
+        let img: Vec<u8> = vec![0x55, 0x90];
+        let mut loaded = sleigh.initialize_with_image(img).unwrap();
+        assert_eq!(
+            loaded.instruction_at(1).unwrap().disassembly.mnemonic,
+            "NOP"
+        );
+        loaded.set_base_address(1);
+        assert_eq!(
+            loaded.instruction_at(1).unwrap().disassembly.mnemonic,
+            "PUSH"
+        );
+    }
+
+    #[test]
+    fn loaded_context_is_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<super::LoadedSleighContext<'static>>();
     }
 
     #[test]

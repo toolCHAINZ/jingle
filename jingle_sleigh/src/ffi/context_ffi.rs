@@ -35,7 +35,9 @@ pub(crate) mod bridge {
             value: u32,
         ) -> Result<()>;
 
-        pub(crate) fn allow_context_set(&self, val: bool);
+        pub(crate) fn allow_context_set(self: Pin<&mut ContextFFI>, val: bool);
+
+        pub(crate) fn reset_context(self: Pin<&mut ContextFFI>, force: bool) -> Result<()>;
 
         pub(crate) fn register_context(
             self: Pin<&mut ContextFFI>,
@@ -73,8 +75,9 @@ pub(crate) mod bridge {
 }
 
 pub(crate) struct ImageFFI<'a> {
-    /// A thing that has bytes at addresses
-    pub(crate) provider: Box<dyn SleighImage + 'a>,
+    /// A thing that has bytes at addresses. `Send + Sync` because sleigh calls into it (under the
+    /// context lock) while Rust-side readers may call into it concurrently without that lock.
+    pub(crate) provider: Box<dyn SleighImage + Send + Sync + 'a>,
     /// The current virtual base address for the image loaded by this context.
     pub(crate) base_offset: u64,
     /// The space that this image is attached to. For now, always the
@@ -83,7 +86,7 @@ pub(crate) struct ImageFFI<'a> {
 }
 
 impl<'a> ImageFFI<'a> {
-    pub(crate) fn new<T: SleighImage + 'a>(provider: T, idx: u32) -> Self {
+    pub(crate) fn new<T: SleighImage + Send + Sync + 'a>(provider: T, idx: u32) -> Self {
         Self {
             provider: Box::new(provider),
             base_offset: 0,
