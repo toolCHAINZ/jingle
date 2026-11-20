@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.13...jingle_sleigh-v0.6.0) - 2026-11-19
+
+### Fixed
+
+- *(jingle_sleigh)* [**breaking**] delay slots, sleigh context state, and image thread safety ([#304](https://github.com/toolCHAINZ/jingle/pull/304))
+
+### Other
+
+- Chore/msrv 1.88 deps ([#303](https://github.com/toolCHAINZ/jingle/pull/303))
+
 ## [0.5.13](https://github.com/toolCHAINZ/jingle/compare/jingle_sleigh-v0.5.12...jingle_sleigh-v0.5.13) - 2026-08-10
 
 ### Added
